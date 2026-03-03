@@ -1,8 +1,0 @@
-{
-  "features": [
-    {
-      "name": "Greeter",
-      "startup": "Aster.Host.Features.GreeterStartup, Aster.Host"
-    }
-  ]
-}
