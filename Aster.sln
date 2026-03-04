@@ -22,7 +22,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aster.Web", "src\apps\Aster
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{8256ABFE-852A-443F-8E70-149D2340D03A}"
 	ProjectSection(SolutionItems) = preProject
-		docs\Roadmap.md = docs\Roadmap.md
+		docs\coding-conventions.md = docs\coding-conventions.md
+		docs\roadmap.md = docs\roadmap.md
 	EndProjectSection
 EndProject
 Global
