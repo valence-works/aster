@@ -16,7 +16,7 @@ The goal is to deliver a working In-Memory implementation that allows developers
 - Q: Active vs Published semantics? → A: **Configurable Multi-Active** (activation accepts `allowMultipleActive` flag).
 - Q: Typed Aspect save behavior? → A: **State Replace** (POCO is source of truth; replaces dictionary content).
 - Q: Concurrency handling during activation? → A: **Optimistic Resource Lock** (check Resource ETag/Version; fail on concurrent modification).
-- Q: Resource.Id generation strategy? → A: **IIdentityGenerator service** — engine calls `IIdentityGenerator.NewId()` when `CreateResourceRequest.Id` is null; caller may supply their own ID via the optional `Id` field on `CreateResourceRequest`.
+- Q: Resource.Id generation strategy? → A: **IIdentityGenerator service** — engine calls `IIdentityGenerator.NewId()` when `CreateResourceRequest.ResourceId` is null; caller may supply their own logical ID via the optional `ResourceId` field on `CreateResourceRequest`.
 - Q: IsSingleton enforcement? → A: **Enforce at CreateAsync** — if `ResourceDefinition.IsSingleton == true` and any instance already exists for that `DefinitionId`, `CreateAsync` must throw `SingletonViolationException`.
 - Q: Resource model consolidation? → A: **Merged** — `Resource` replaces both the old identity-only `Resource` and `ResourceVersion` models. `ResourceId` = logical persistent identifier; `Id` = version-specific unique identifier. Same universal pattern applied to `ResourceDefinition` (`DefinitionId` + `Id`), `AspectDefinition` (`AspectDefinitionId` + `Id`), `FacetDefinition` (`FacetDefinitionId` + `Id`).
 - Q: Typed POCOs for Facets? → A: **Yes** — `GetFacet<T>` / `SetFacet<T>` extension methods on `AspectInstance` mirror the aspect-level `GetAspect<T>` / `SetAspect<T>` pattern (see §3.4).
@@ -109,7 +109,7 @@ The goal is to deliver a working In-Memory implementation that allows developers
 
 ### 3.3. In-Memory Engine
 *   Provide a service for Create, Save (Draft), and Get operations.
-*   **Identity Generation**: Resource IDs are assigned via `IIdentityGenerator`. The default implementation uses `Guid.NewGuid().ToString()`. If `CreateResourceRequest.Id` is supplied and non-empty, the engine MUST use that value and throw `DuplicateResourceIdException` if it already exists.
+*   **Identity Generation**: Resource IDs are assigned via `IIdentityGenerator`. The default implementation uses `Guid.NewGuid().ToString()`. If `CreateResourceRequest.ResourceId` is supplied and non-empty, the engine MUST use that value and throw `DuplicateResourceIdException` if it already exists.
 *   **Singleton Enforcement**: Before creating a new instance, `CreateAsync` MUST check `ResourceDefinition.IsSingleton`. If `true` and at least one instance for that `DefinitionId` already exists, throw `SingletonViolationException`.
 *   Implement **Channel-Based Activation**:
     *   Support activating a specific version in a named channel (e.g., "Published").

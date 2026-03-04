@@ -4,7 +4,7 @@ public interface IResourceDefinitionStore
 {
     /// <summary>Returns the latest version of the definition, or null if not registered.</summary>
     ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, CancellationToken cancellationToken = default);
-    /// <summary>Returns a specific (Id, Version) pair, or null if not found.</summary>
+    /// <summary>Returns a specific (<c>DefinitionId</c>, <c>Version</c>) snapshot, or null if not found.</summary>
     ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, CancellationToken cancellationToken = default);
     /// <summary>
     /// Always appends a new immutable version. Auto-increments ResourceDefinition.Version.
@@ -26,7 +26,11 @@ public interface IResourceManager
     ValueTask<IEnumerable<Resource>> GetVersionsAsync(string resourceId, CancellationToken cancellationToken = default);
     ValueTask<Resource?> GetLatestVersionAsync(string resourceId, CancellationToken cancellationToken = default);
 
-    // Activation
+    /// <summary>
+    /// Activates the given version in the specified channel.
+    /// Optimistic concurrency token = the current latest Resource.Version at time of call.
+    /// Throws ConcurrencyException if the store's latest version has changed since the caller last read.
+    /// </summary>
     ValueTask ActivateAsync(string resourceId, int version, string channel, bool allowMultipleActive = false, CancellationToken cancellationToken = default);
     ValueTask DeactivateAsync(string resourceId, int version, string channel, CancellationToken cancellationToken = default);
     ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(string resourceId, string channel, CancellationToken cancellationToken = default);
@@ -42,10 +46,10 @@ public interface IIdentityGenerator
 public class CreateResourceRequest
 {
     /// <summary>
-    /// Optional caller-supplied resource ID. When null or empty the engine delegates to IIdentityGenerator.
+    /// Optional caller-supplied logical resource ID (ResourceId). When null or empty the engine delegates to IIdentityGenerator.
     /// If supplied and already in use, CreateAsync throws DuplicateResourceIdException.
     /// </summary>
-    public string? Id { get; set; }
+    public string? ResourceId { get; set; }
     public Dictionary<string, object> InitialAspects { get; set; } = new();
 }
 

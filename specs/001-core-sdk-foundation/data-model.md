@@ -20,6 +20,8 @@ Metadata about a type of resource.
 
 > **Definition versions are immutable.** `RegisterDefinitionAsync` appends a new version; existing versions are never mutated.
 
+> **Embedding rule (Phase 1)**: `AspectDefinition` and `FacetDefinition` records are **embedded snapshots** within a `ResourceDefinition` version. They are not stored independently; each `ResourceDefinition` version carries its own frozen copies. The `AspectDefinitionId` / `FacetDefinitionId` + `Version` fields exist for traceability and future independent-store upgrade, but no `IAspectDefinitionStore` is required in Phase 1.
+
 ### AspectDefinition
 
 Defines a reusable piece of data structure.

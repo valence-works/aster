@@ -63,9 +63,9 @@ var v2 = await manager.UpdateAsync(resourceId, new UpdateResourceRequest {
 
 ```csharp
 // Publish Version 2
-await manager.ActivateAsync(id, 2, "Published");
+await manager.ActivateAsync(resourceId, 2, "Published");
 
 // Verify active version
-var active = await manager.GetActiveVersionsAsync(id, "Published");
+var active = await manager.GetActiveVersionsAsync(resourceId, "Published");
 // active.Single().Version should be 2
 ```
