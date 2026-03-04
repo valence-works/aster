@@ -1,6 +1,6 @@
 # Feature Specification: Persistence & Querying Essentials (Phase 2)
 
-**Feature Branch**: `001-roadmap-next-phase`  
+**Feature Branch**: `002-roadmap-next-phase`  
 **Created**: 2026-03-04  
 **Status**: Draft  
 **Input**: User description: "Proceed with the next phase of the roadmap"
