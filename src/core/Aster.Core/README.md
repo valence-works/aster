@@ -30,11 +30,12 @@ Or add a project reference:
 builder.Services.AddAsterCore();
 ```
 
-`AddAsterCore()` registers all eight singleton services:
+`AddAsterCore()` registers all seven singleton services:
 
 | Service | Interface |
 |---|---|
 | `InMemoryResourceDefinitionStore` | `IResourceDefinitionStore` |
+| `InMemoryResourceStore` | *(backing store — no public interface)* |
 | `InMemoryResourceManager` | `IResourceManager`, `IResourceWriteStore` |
 | `InMemoryQueryService` | `IResourceQueryService` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
@@ -47,13 +48,13 @@ builder.Services.AddAsterCore();
 
 ```csharp
 var builder = new ResourceDefinitionBuilder();
-builder.WithDefinitionId("Product")
+var definition = builder.WithDefinitionId("Product")
        .WithAspect<TitleAspect>()
        .WithAspect<PriceAspect>()
        .Build();
 
 var definitionStore = serviceProvider.GetRequiredService<IResourceDefinitionStore>();
-await definitionStore.RegisterDefinitionAsync(builder.Result);
+await definitionStore.RegisterDefinitionAsync(definition);
 ```
 
 ---
