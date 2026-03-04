@@ -24,6 +24,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{8256ABFE-8
 	ProjectSection(SolutionItems) = preProject
 		docs\coding-conventions.md = docs\coding-conventions.md
 		docs\roadmap.md = docs\roadmap.md
+		docs\architecture-review.md = docs\architecture-review.md
 	EndProjectSection
 EndProject
 Global
