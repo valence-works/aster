@@ -154,13 +154,12 @@ Aster exists to make **horizontal capabilities** reusable and attachable, withou
 
 ## 3) Roadmap Overview
 
-- **Phase 1 — Core SDK & In-Memory Engine**
-- **Phase 2 — Persistence Abstractions + First Backend**
-- **Phase 3 — Query & Indexing Model (DB-agnostic)**
-- **Phase 4 — Typed Aspects + Schema/Index contribution model**
-- **Phase 5 — Portability & Integration Hooks (Core) + Optional Recipe Modules**
-- **Phase 6 — Multi-tenancy + Advanced Versioning + Policies**
-- **Phase 7 — Operational Hardening (migrations, concurrency, perf)**
+- **Phase 1 — Core SDK & In-Memory Engine (Foundation)**
+- **Phase 2 — Persistence & Querying (Essentials)**
+- **Phase 3 — Advanced Indexing & Typed Querying**
+- **Phase 4 — Portability & Integration Hooks (Core) + Optional Recipe Modules**
+- **Phase 5 — Multi-tenancy + Advanced Versioning + Policies**
+- **Phase 6 — Operational Hardening (migrations, concurrency, perf)**
 
 Each phase below is structured as Spec Kit-friendly epics.
 
@@ -177,6 +176,7 @@ Each phase below is structured as Spec Kit-friendly epics.
     - `FacetAttachment` (facet definition attached/overridden in an aspect attachment)
 - Named aspect support:
     - `AspectAttachmentId`, `Name`
+    > **Architectural Note:** Named aspects significantly increase query complexity. While supported in the domain model, their use in querying might be restricted in early phases.
 - Metadata model: `ResourceType`, `DisplayName`, `Description`, settings
 - State model primitives:
     - activation record(s) per version
@@ -227,15 +227,58 @@ Each phase below is structured as Spec Kit-friendly epics.
 - Deterministic behavior for activate/deactivate flows
 - Basic filtering works without aspect querying
 
+## Epic 1.4 — Workbench Application (Sample & Playground)
+**Deliverables**
+- A sample application (`Aster.Workbench.Web`) that consumes the core SDK:
+    - demonstrates defining resource definitions and aspects in code
+    - demonstrates creating, saving, and activating resources
+- Acts as a "living documentation" for developer usage.
+
+**DoD**
+- Developers can clone and run the workbench to see Aster working in-memory.
+- Code patterns in the workbench align with recommended usage.
+
+## Epic 1.5 — Typed Aspects Foundation (Moved from Phase 4)
+**Rationale**
+Moving typed aspects to Phase 1 ensures the "developer experience" is validated early. We don't want to build a "stringly-typed" engine and then bolt on types later.
+
+**Deliverables**
+- Typed aspect mapping attributes/fluent API:
+    - Bind `TAspect` (POCO) ↔ `AspectDefinitionId`
+    - Bind property ↔ facet name
+- Serialization/Binder:
+    - `AspectInstance` (dictionary) ↔ `TAspect` (object) serialization
+- Validation hooks per typed aspect
+
+**DoD**
+- Developers can define an aspect as a C# class
+- Saving a resource respects the typed structure
+- Round-trip (Save -> Load -> Activate) works with POCOs
+
+## Epic 1.6 — Query Model Contracts
+**Rationale**
+Defining the query contract early prevents the persistence layer (Phase 2) from painting itself into a corner.
+
+**Deliverables**
+- `ResourceQuery` object model (the "AST" for queries)
+    - Filters: Metadata, Aspect Subscription, Facet Value
+    - Operators: Eq, Contains, Range, etc.
+- `IResourceQueryService` interface definition
+- **NO implementation** required yet (in-memory implementation can be naive LINQ)
+
+**DoD**
+- `ResourceQuery` classes exist and are expressive enough for the core use cases.
+- In-memory store supports basic `ResourceQuery` execution via LINQ.
+
 ---
 
-# Phase 2 — Persistence Abstractions + First Backend
+# Phase 2 — Persistence & Querying (Essentials)
 
 ## Epic 2.1 — Persistence Abstractions (Write Model)
 **Deliverables**
 - Storage interfaces:
-    - `IResourceWriteRepository`
-    - `IResourceReadRepository` (basic)
+    - `IResourceWriteStore`
+    - `IResourceReadStore` (basic)
     - `IUnitOfWork` (optional)
 - Serialization strategy:
     - a resource version as a “document” referencing a specific **Resource Definition Version**
@@ -260,6 +303,16 @@ Pick one backend to prove the design. Recommended for speed:
 - Resources + definitions persisted across restarts
 - Activate/deactivate and version retrieval works
 - Concurrency strategy defined (at least optimistic)
+
+## Epic 2.3 — Query Surface Implementation
+**Deliverables**
+- Implementation of `IResourceQueryService` for the chosen backend (Epic 2.2)
+- Translation from `ResourceQuery` AST to provider-specific usage (SQL/JSON filters)
+- Paging/sorting support
+
+**DoD**
+- Can filter resources by metadata and simplistic aspect values
+- Basic operators (`Equals`, `Contains`, `Range`) work against the persistence layer.
 
 ## Epic 2.4 — Provider migrations / provisioning (per provider module)
 Aster should treat database setup as a **provider responsibility**.
@@ -352,53 +405,23 @@ Providers (or a small optional package like `Aster.Hosting.Migrations`) may ship
 
 ---
 
-# Phase 3 — Query & Indexing Model (DB-agnostic)
+# Phase 3 — Advanced Indexing & Typed Querying
 
-This is the core “hard problem”: query across arbitrary aspects without forcing cross-module DbContext coupling.
+This phase extends the basic query model with provider capability negotiation, advanced text handling, and typed access patterns.
 
-## Epic 3.1 — Query Surface Area and DSL
+## Epic 3.1 — Advanced Indexing Logic & Capabilities
+**Goal**
+Allow providers to expose specific capabilities (like full-text search vs. substring) and handle advanced indexing scenarios.
+
 **Deliverables**
-- `ResourceQuery` object model:
-    - filters on metadata
-    - filters on aspect presence (including named attachments)
-    - filters on facet values (equals, contains, range, etc.)
-    - filters on activation channel(s): e.g. “active in channel Published”
-- Query execution interface:
-    - `IResourceQueryService`
-- Paging/sorting model
+- `IQueryCapabilities` service
+- Index Field Model (portable types like `NormalizedText`, `Keyword`, `DateTime`)
+- Query Planner (validates queries against capabilities)
+- Portable normalization logic (for text/numbers)
 
 **DoD**
-- Query model is backend-agnostic (no LINQ leakage required)
-- Supports composition by modules (modules can add filters without knowing storage)
-
-### Typed query expression subset (Spec boundary)
-To support “query by public properties of typed aspects” without leaking `IQueryable`, Aster will accept expression trees and compile them into the backend-agnostic query model.
-
-**Supported expression forms (MVP)**
-- Logical composition:
-    - `&&`, `||`, unary `!`
-- Comparison:
-    - `==`, `!=`, `>`, `>=`, `<`, `<=`
-- Null checks:
-    - `x.Prop == null`, `x.Prop != null`
-- Constants and captured variables:
-    - where captured variables are treated as parameters (not inlined string-concatenation)
-- String operations:
-    - `string.Contains(value)`
-    - `string.StartsWith(value)`
-    - `string.EndsWith(value)`
-- Collection operations (limited):
-    - `array.Contains(x.Prop)` (maps to `IN`)
-    - `x.Prop.Contains(value)` where `Prop` is an array/list facet (maps to “array contains element”)
-
-**Explicitly not supported (MVP)**
-- Arbitrary method calls
-- Client-side computed expressions (e.g., `x.A + x.B == 5`)
-- Nested property graphs unless mapped explicitly
-- Regex
-
-**Error behavior**
-- Unsupported expressions must throw a deterministic exception (e.g., `UnsupportedQueryExpressionException`) before hitting the provider.
+- Provider can reject unsupported queries gracefully.
+- Text normalization ensures consistent behavior across backends.
 
 ### Index field model (Spec boundary)
 Aster’s query/indexing system needs a small, explicit model of index field types so providers can implement consistently.
@@ -628,34 +651,7 @@ Text behavior is split between `Text` (provider-defined) and `NormalizedText` (p
 - Query planner and index mapping use the same normalization routine definition.
 - Providers that can't implement the normalization must expose a capability limitation.
 
----
-
-# Phase 4 — Typed Aspects + Schema/Index Contributions
-
-## Epic 4.1 — Typed Aspects (C# classes)
-**Deliverables**
-- Typed aspect mapping (attribute-based and/or fluent registry):
-    - bind `TAspect` ↔ `AspectDefinitionId`
-    - bind properties ↔ facet names
-    - define index semantics per property
-- Binder to/from document payload
-- Validation hooks per aspect
-
-**DoD**
-- Typed aspects roundtrip through persistence
-- Definition ties typed aspect to aspect definition identity
-- Safe versioning behavior (aspect payload is versioned by default)
-
-**Additional requirements (mapping → index)**
-- Typed mapping must allow specifying index semantics per property:
-    - `Keyword` vs `Text` vs `Range`
-    - normalization options for `NormalizedText`
-    - array containment behavior
-- Mapping must be able to specify that an indexed field is:
-    - attachment-scoped (default)
-    - definition-scoped (rare; mostly for metadata)
-
-## Epic 4.2 — Querying Typed Aspects (without leaking IQueryable)
+## Epic 3.2 — Querying Typed Aspects (Was Epic 4.2)
 **Deliverables**
 - Mapping from typed properties to index fields
 - Strongly-typed query helpers:
@@ -670,7 +666,7 @@ Text behavior is split between `Text` (provider-defined) and `NormalizedText` (p
 - Module can query resources by typed properties in a backend-agnostic way
 - Index definitions derived from typed mapping where possible
 
-## Epic 4.3 — Versioned schemas & upgrade pathway
+## Epic 3.3 — Versioned schemas & upgrade pathway (Was Epic 4.3)
 Resource Definitions (including aspect and facet attachments) should be versioned to support evolution.
 
 **Deliverables**
@@ -700,11 +696,11 @@ Recommended stance:
 
 ---
 
-# Phase 5 — Portability & Integration Hooks (Core) + Optional Recipe Modules
+# Phase 4 — Portability & Integration Hooks (Core) + Optional Recipe Modules
 
 Aster needs *some* portability story (export/import), but a full “recipes” framework may be better as an **optional module** so Aster core stays focused.
 
-## Epic 5.1 — Portability primitives (Aster core)
+## Epic 4.1 — Portability primitives (Aster core)
 **Goal**
 Define the minimal contracts needed for portable export/import of definitions/resources, without imposing an execution model.
 
@@ -725,7 +721,7 @@ Define the minimal contracts needed for portable export/import of definitions/re
 - Host can export/import without depending on a recipe execution framework.
 - Clear merge/overwrite behaviors are documented.
 
-## Epic 5.2 — Optional: Recipes framework (separate package)
+## Epic 4.2 — Optional: Recipes framework (separate package)
 **Candidate package**
 - `Aster.Recipes` (optional add-on) OR separate product if it grows large.
 
@@ -742,7 +738,7 @@ Define the minimal contracts needed for portable export/import of definitions/re
 - Aster core does **not** depend on this package.
 - Hosts that want Orchard-style recipes can add it.
 
-## Epic 5.3 — Host Hooks (UI + Behaviors) (Aster core)
+## Epic 4.3 — Host Hooks (UI + Behaviors) (Aster core)
 **Deliverables**
 - Events/pipeline:
     - `OnSaving`, `OnSaved`, `OnActivating`, `OnActivated`, `OnDeactivating`, `OnDeactivated`
@@ -753,9 +749,9 @@ Define the minimal contracts needed for portable export/import of definitions/re
 
 ---
 
-# Phase 6 — Multi-tenancy + Advanced Versioning + Policies
+# Phase 5 — Multi-tenancy + Advanced Versioning + Policies
 
-## Epic 6.1 — Tenant-aware definition scoping
+## Epic 5.1 — Tenant-aware definition scoping
 **Deliverables**
 - Tenant-scoped definitions
 - Optional shared definitions (advanced)
@@ -764,7 +760,7 @@ Define the minimal contracts needed for portable export/import of definitions/re
 **DoD**
 - Multiple tenants can define different resource types safely
 
-## Epic 6.2 — Policies
+## Epic 5.2 — Policies
 **Deliverables**
 - Retention/archival policies
 - Soft delete policy aspect
@@ -775,20 +771,20 @@ Define the minimal contracts needed for portable export/import of definitions/re
 
 ---
 
-# Phase 7 — Operational Hardening
+# Phase 6 — Operational Hardening
 
-## Epic 7.1 — Concurrency & conflicts
+## Epic 6.1 — Concurrency & conflicts
 **Deliverables**
 - Optimistic concurrency checks
 - Conflict error model + optional merge strategy hooks
 
-## Epic 7.2 — Perf & testing harness
+## Epic 6.2 — Perf & testing harness
 **Deliverables**
 - Benchmark harness
 - Large data test suite (index rebuild, query latency)
 - Migration test suite
 
-## Epic 7.3 — Migration hardening & compatibility
+## Epic 6.3 — Migration hardening & compatibility
 **Deliverables**
 - Migration test suite per provider:
     - upgrade path tests across multiple versions

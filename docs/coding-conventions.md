@@ -61,6 +61,15 @@ This document defines the coding standards and conventions for the Aster project
 -   When a folder exceeds ~15 files, split into subfolders (e.g., `Definitions/Models/`, `Definitions/Builders/`).
 -   Extension methods go in `Extensions/` subdirectory with `{Feature}ServiceCollectionExtensions.cs` naming.
 
+### Target Frameworks
+
+-   **SDK Requirement**: Development environment must use **.NET 10.0 SDK** (or newer).
+-   **Library Targets**: All core libraries (packages) must multitarget active LTS/STS versions:
+    -   `net8.0` (LTS)
+    -   `net9.0` (STS)
+    -   `net10.0` (LTS)
+-   **App/Test Targets**: Executable projects (Tests, Workbench, CLI tools) must target **`net10.0` only**. Do not multitarget applications.
+
 ---
 
 ## Code Organization
@@ -360,4 +369,3 @@ foreach (var item in items)
 -   **Nullable reference types**: Enabled project-wide. Annotate nullability explicitly.
 -   **`sealed`**: Seal all classes unless inheritance is an intentional design point.
 -   **`readonly`**: Mark fields `readonly` when they are assigned only in the constructor.
-
