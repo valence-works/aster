@@ -58,8 +58,9 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
             ? identityGenerator.NewId()
             : request.ResourceId;
 
-        // Duplicate ID check
-        if (store.Versions.ContainsKey(resourceId))
+        // Atomic duplicate ID check — TryAdd is atomic so only one creator can win
+        var versionList = new List<Resource>();
+        if (!store.Versions.TryAdd(resourceId, versionList))
             throw new DuplicateResourceIdException(resourceId);
 
         // Singleton enforcement

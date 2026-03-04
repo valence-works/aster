@@ -14,7 +14,7 @@ namespace Aster.Core.InMemory;
 /// Supported comparators: <see cref="ComparisonOperator.Equals"/> and <see cref="ComparisonOperator.Contains"/>.
 /// <see cref="ComparisonOperator.Range"/> throws <see cref="NotSupportedException"/> (spec §6, Phase 1 scope).
 /// </remarks>
-public sealed class InMemoryQueryService : IResourceQueryService
+public sealed partial class InMemoryQueryService : IResourceQueryService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -75,7 +75,9 @@ public sealed class InMemoryQueryService : IResourceQueryService
         if (query.Take.HasValue)
             result = result.Take(query.Take.Value);
 
-        return ValueTask.FromResult(result.ToList().AsEnumerable());
+        var materialized = result.ToList();
+        LogQueryExecuted(query.DefinitionId ?? "(all)", materialized.Count);
+        return ValueTask.FromResult(materialized.AsEnumerable());
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -141,10 +143,15 @@ public sealed class InMemoryQueryService : IResourceQueryService
 
     private static string? ResolveFacetValue(object aspectRaw, string facetDefinitionId)
     {
+        if (string.IsNullOrEmpty(facetDefinitionId))
+            return null;
+
         // Case 1: aspect is a Dictionary<string, object> (e.g. stored directly)
         if (aspectRaw is IDictionary<string, object> dict)
         {
-            return dict.TryGetValue(facetDefinitionId, out var val) ? val?.ToString() : null;
+            if (dict.TryGetValue(facetDefinitionId, out var val))
+                return FormatValueInvariant(val);
+            return null;
         }
 
         // Case 2: aspect is a JSON string → parse it
@@ -210,4 +217,19 @@ public sealed class InMemoryQueryService : IResourceQueryService
         ComparisonOperator.Range    => throw new NotSupportedException("Range comparator is not supported by the Phase 1 in-memory evaluator (spec §6)."),
         _                           => throw new NotSupportedException($"Unknown comparator: {op}")
     };
+
+    private static string? FormatValueInvariant(object? value) => value switch
+    {
+        null => null,
+        IFormattable f => f.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        _ => value.ToString()
+    };
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Structured log methods (source generated)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    [LoggerMessage(EventId = 2000, Level = LogLevel.Debug,
+        Message = "Query executed for definition '{DefinitionId}', returned {Count} result(s).")]
+    private partial void LogQueryExecuted(string definitionId, int count);
 }

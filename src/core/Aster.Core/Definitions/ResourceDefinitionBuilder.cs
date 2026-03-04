@@ -114,7 +114,7 @@ public sealed class ResourceDefinitionBuilder
             FacetDefinitionId = facetDefinitionId,
             Id = Guid.NewGuid().ToString(),
             Version = 1,
-            Type = facetDefinitionId,
+            Type = facetDefinitionId.ToLowerInvariant(),
             IsRequired = false,
         };
 

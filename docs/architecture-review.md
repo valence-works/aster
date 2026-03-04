@@ -2,7 +2,7 @@
 
 **Date:** March 4, 2026
 **Reviewer:** GitHub Copilot (Software Architect)
-**Reference Document:** `docs/roadmap.md`
+**Reference Document:** `docs/Roadmap.md`
 
 ## Executive Summary
 

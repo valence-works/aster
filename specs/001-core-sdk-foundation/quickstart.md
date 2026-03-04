@@ -18,12 +18,11 @@ dotnet add package Aster.Core
 
 ```csharp
 var builder = new ResourceDefinitionBuilder();
-builder.WithDefinitionId("Product")
+var definition = builder.WithDefinitionId("Product")
        .WithAspect<TitleAspect>()
        .WithAspect<PriceAspect>()
        .Build();
 
-var definition = builder.Result;
 await services.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(definition);
 ```
 
