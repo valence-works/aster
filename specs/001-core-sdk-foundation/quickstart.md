@@ -18,13 +18,13 @@ dotnet add package Aster.Core
 
 ```csharp
 var builder = new ResourceDefinitionBuilder();
-builder.WithId("Product")
+builder.WithDefinitionId("Product")
        .WithAspect<TitleAspect>()
        .WithAspect<PriceAspect>()
        .Build();
 
 var definition = builder.Result;
-await services.GetRequiredService<IResourceDefinitionStore>().RegisterAsync(definition);
+await services.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(definition);
 ```
 
 ### 2. Create a Resource
@@ -32,30 +32,31 @@ await services.GetRequiredService<IResourceDefinitionStore>().RegisterAsync(defi
 ```csharp
 var manager = services.GetRequiredService<IResourceManager>();
 
-var version = await manager.CreateAsync("Product", new CreateResourceRequest {
+// resource is a Resource (version snapshot); ResourceId is the logical persistent ID
+var resource = await manager.CreateAsync("Product", new CreateResourceRequest {
     InitialAspects = new() {
         { "Title", new TitleAspect("Super Gadget") },
         { "Price", new PriceAspect(99.99m, "USD") }
     }
 });
 
-var id = version.ResourceId;
+var resourceId = resource.ResourceId; // logical ID, shared across all versions
 ```
 
 ### 3. Update & Version
 
 ```csharp
 // Get latest version for optimistic lock
-var latest = await manager.GetLatestVersionAsync(id);
+var latest = await manager.GetLatestVersionAsync(resourceId);
 
-// Update title
-var newVersion = await manager.UpdateAsync(id, new UpdateResourceRequest {
+// Update title — produces a new Resource (V2) with the same ResourceId
+var v2 = await manager.UpdateAsync(resourceId, new UpdateResourceRequest {
     BaseVersion = latest.Version,
     AspectUpdates = new() {
         { "Title", new TitleAspect("Super Gadget Pro") }
     }
 });
-// Result: Version 2 created. version 1 remains unchanged.
+// Result: Resource V2 created (new Id, Version=2, same ResourceId). V1 remains unchanged.
 ```
 
 ### 4. Activate

@@ -32,19 +32,20 @@
 
 **⚠️ CRITICAL**: Complete before any Phase 3+ work.
 
-- [ ] T005 Create `ResourceDefinition` record in `src/core/Aster.Core/Models/Definitions/ResourceDefinition.cs` (Id, Version, AspectDefinitions, IsSingleton)
-- [ ] T005a [P] Create `FacetDefinition` record in `src/core/Aster.Core/Models/Definitions/FacetDefinition.cs` (Id, Type, IsRequired) — typed sub-field within an Aspect (spec §3.1)
-- [ ] T006 [P] Create `AspectDefinition` record in `src/core/Aster.Core/Models/Definitions/AspectDefinition.cs` (Id, RequiresName, Schema, FacetDefinitions)
-- [ ] T007 Create `Resource` record in `src/core/Aster.Core/Models/Instances/Resource.cs` (Id, DefinitionId, Created, Owner)
-- [ ] T007a [P] Create `AspectInstance` record in `src/core/Aster.Core/Models/Instances/AspectInstance.cs` (AspectDefinitionId, Name, Facets) — spec §3.1; unnamed key = `AspectDefinition.Id`, named key = `"{Id}:{Name}"` composite
-- [ ] T007b [P] Create `FacetValue` record in `src/core/Aster.Core/Models/Instances/FacetValue.cs` (FacetId, Value) — spec §3.1; used in Query AST FacetValue filter expressions
-- [ ] T008 Create `ResourceVersion` record in `src/core/Aster.Core/Models/Instances/ResourceVersion.cs` (ResourceId, Version, Created, Aspects, Hash) — immutable
+- [ ] T005 Create `ResourceDefinition` record in `src/core/Aster.Core/Models/Definitions/ResourceDefinition.cs` (DefinitionId, Id, Version, AspectDefinitions, IsSingleton) — universal versioning pattern: `DefinitionId` = logical, `Id` = version-specific
+- [ ] T005a [P] Create `FacetDefinition` record in `src/core/Aster.Core/Models/Definitions/FacetDefinition.cs` (FacetDefinitionId, Id, Version, Type, IsRequired) — logical id = `FacetDefinitionId`
+- [ ] T006 [P] Create `AspectDefinition` record in `src/core/Aster.Core/Models/Definitions/AspectDefinition.cs` (AspectDefinitionId, Id, Version, RequiresName, Schema, FacetDefinitions) — logical id = `AspectDefinitionId`
+- [ ] T007 Create merged `Resource` record in `src/core/Aster.Core/Models/Instances/Resource.cs` (ResourceId, Id, DefinitionId, DefinitionVersion?, Version, Created, Owner?, Aspects, Hash?) — replaces both former `Resource` identity and `ResourceVersion` snapshot; `ResourceId` = logical, `Id` = version-specific; immutable
+- [ ] T007a [P] Create `AspectInstance` record in `src/core/Aster.Core/Models/Instances/AspectInstance.cs` (AspectDefinitionId, Name, Facets) — spec §3.1; unnamed key = `AspectDefinitionId`, named key = `"{AspectDefinitionId}:{Name}"` composite
+- [ ] T007b [P] Create `FacetValue` record in `src/core/Aster.Core/Models/Instances/FacetValue.cs` (FacetDefinitionId, Value) — spec §3.1; used in Query AST FacetValue filter expressions
+- [ ] T008 Define `ITypedFacetBinder` interface (bind a POCO to a `FacetDefinitionId` key; serialize/deserialize single facet value) in `src/core/Aster.Core/Abstractions/ITypedFacetBinder.cs` — mirrors `ITypedAspectBinder` at the facet level (spec §3.4 Typed Facets)
 - [ ] T009 [P] Create `ActivationState` record in `src/core/Aster.Core/Models/Instances/ActivationState.cs` (ResourceId, Channel, ActiveVersions, LastUpdated)
 - [ ] T010 Create request/DTO types `CreateResourceRequest` and `UpdateResourceRequest` (with `BaseVersion` for optimistic locking) in `src/core/Aster.Core/Abstractions/Requests.cs`
-- [ ] T011 Define custom exceptions: `VersionNotFoundException`, `ConcurrencyException`, `DuplicateAspectAttachmentException` in `src/core/Aster.Core/Exceptions/AsterExceptions.cs`
-- [ ] T012 Transcribe `IResourceDefinitionStore` contract from `contracts/Abstractions.cs` into `src/core/Aster.Core/Abstractions/IResourceDefinitionStore.cs`
+- [ ] T011 Define custom exceptions: `VersionNotFoundException`, `ConcurrencyException`, `DuplicateAspectAttachmentException`, `DuplicateResourceIdException`, `SingletonViolationException` in `src/core/Aster.Core/Exceptions/AsterExceptions.cs`
+- [ ] T012 Transcribe `IResourceDefinitionStore` contract (including `GetDefinitionVersionAsync`) from `contracts/Abstractions.cs` into `src/core/Aster.Core/Abstractions/IResourceDefinitionStore.cs`
+- [ ] T012a [P] Define `IIdentityGenerator` contract in `src/core/Aster.Core/Abstractions/IIdentityGenerator.cs` and implement `GuidIdentityGenerator` (default, `Guid.NewGuid().ToString()`) in `src/core/Aster.Core/Services/GuidIdentityGenerator.cs`
 - [ ] T013 [P] Transcribe `IResourceManager` contract (including activation methods and `GetLatestVersionAsync`) from `contracts/Abstractions.cs` into `src/core/Aster.Core/Abstractions/IResourceManager.cs`
-- [ ] T013a Define `IResourceWriteStore` contract (CreateResourceAsync, WriteVersionAsync, UpdateActivationAsync) in `src/core/Aster.Core/Abstractions/IResourceWriteStore.cs` — required by Constitution Principle V (Provider Agnostic)
+- [ ] T013a Define `IResourceWriteStore` contract (`SaveVersionAsync`, `UpdateActivationAsync`) in `src/core/Aster.Core/Abstractions/IResourceWriteStore.cs` — required by Constitution Principle V (Provider Agnostic); `Resource` IS a version so no separate `WriteVersionAsync` needed
 
 **Checkpoint**: Solution compiles with all shared types and contracts defined. User stories can now proceed in parallel.
 
@@ -59,10 +60,10 @@
 **Independent Test**: Instantiate `ResourceDefinitionBuilder`, build a definition with duplicate aspects, confirm `DuplicateAspectAttachmentException` is thrown; build a valid definition and register it via `InMemoryResourceDefinitionStore`, then read it back.
 
 - [ ] T014 [US1] Create `ResourceDefinitionBuilder` with fluent `.WithId()`, `.WithAspect<T>()`, `.WithNamedAspect<T>(name)`, and `.Build()` methods in `src/core/Aster.Core/Definitions/ResourceDefinitionBuilder.cs`
-- [ ] T015 [US1] Add uniqueness validation (duplicate unnamed/named attachment check, throws `DuplicateAspectAttachmentException`) inside `ResourceDefinitionBuilder.Build()` in `src/core/Aster.Core/Definitions/ResourceDefinitionBuilder.cs` — key scheme: unnamed = `AspectDefinition.Id`; named = `"{Id}:{Name}"` composite (see data-model.md)
-- [ ] T016 [US1] Implement `InMemoryResourceDefinitionStore` (`IResourceDefinitionStore`) using `ConcurrentDictionary<string, ResourceDefinition>` in `src/core/Aster.Core/InMemory/InMemoryResourceDefinitionStore.cs`
+- [ ] T015 [US1] Add uniqueness validation (duplicate unnamed/named attachment check, throws `DuplicateAspectAttachmentException`) inside `ResourceDefinitionBuilder.Build()` in `src/core/Aster.Core/Definitions/ResourceDefinitionBuilder.cs` — key scheme: unnamed = `AspectDefinition.AspectDefinitionId`; named = `"{AspectDefinitionId}:{Name}"` composite (see data-model.md)
+- [ ] T016 [US1] Implement `InMemoryResourceDefinitionStore` (`IResourceDefinitionStore`) using `ConcurrentDictionary<string, List<ResourceDefinition>>` (key = `Id`, list = ordered versions) in `src/core/Aster.Core/InMemory/InMemoryResourceDefinitionStore.cs`; `RegisterDefinitionAsync` appends and auto-increments `Version`; `GetDefinitionAsync` returns last entry; `ListDefinitionsAsync` returns latest per `Id`
 - [ ] T017 [P] [US1] Write unit tests for `ResourceDefinitionBuilder` (valid definition, duplicate aspect, named aspect) in `test/Aster.Tests/Definitions/ResourceDefinitionBuilderTests.cs`
-- [ ] T018 [P] [US1] Write unit tests for `InMemoryResourceDefinitionStore` (register, get, list) in `test/Aster.Tests/InMemory/InMemoryResourceDefinitionStoreTests.cs`
+- [ ] T018 [P] [US1] Write unit tests for `InMemoryResourceDefinitionStore` (register first version, register second version auto-increments, get latest, get specific version, list returns latest per Id) in `test/Aster.Tests/InMemory/InMemoryResourceDefinitionStoreTests.cs`
 
 **Checkpoint**: User Story 1 fully implemented and tested independently.
 
@@ -76,12 +77,12 @@
 
 **Independent Test**: Create a resource via `InMemoryResourceManager`, update it twice (verifying version numbers increment), attempt to activate a non-existent version (expect `VersionNotFoundException`), simulate concurrent update (expect `ConcurrencyException`).
 
-- [ ] T019 Implement `InMemoryResourceStore` (private storage) using `ConcurrentDictionary<string, Resource>`, `ConcurrentDictionary<string, List<ResourceVersion>>`, and nested `ConcurrentDictionary` for channel activations in `src/core/Aster.Core/InMemory/InMemoryResourceStore.cs`
-- [ ] T020 Implement `IResourceManager` as `InMemoryResourceManager` with `CreateAsync` (produces V1) and `UpdateAsync` (increments version, enforces `BaseVersion` ETag via `ConcurrencyException`) in `src/core/Aster.Core/InMemory/InMemoryResourceManager.cs`
+- [ ] T019 Implement `InMemoryResourceStore` (private storage) using `ConcurrentDictionary<string, List<Resource>>` (key = `ResourceId`; list = ordered version history) and `ConcurrentDictionary<string, ConcurrentDictionary<string, HashSet<int>>>` for channel activations (key = `ResourceId` → channel → active version numbers) in `src/core/Aster.Core/InMemory/InMemoryResourceStore.cs` — no separate Resource identity collection; `ResourceId` from first `Resource.ResourceId`
+- [ ] T020 Implement `IResourceManager` as `InMemoryResourceManager` with `CreateAsync` (produces V1; resolves ID via `IIdentityGenerator` when `CreateResourceRequest.Id` is null; throws `DuplicateResourceIdException` if caller-supplied ID already exists; throws `SingletonViolationException` if `IsSingleton` and instance exists) and `UpdateAsync` (increments version, enforces `BaseVersion` ETag via `ConcurrencyException`) in `src/core/Aster.Core/InMemory/InMemoryResourceManager.cs`
 - [ ] T021 [US2] Add `GetVersionAsync`, `GetVersionsAsync`, and `GetLatestVersionAsync` to `InMemoryResourceManager` in `src/core/Aster.Core/InMemory/InMemoryResourceManager.cs`
 - [ ] T022 [US2] Implement `ActivateAsync` with `allowMultipleActive` flag (single-active deactivates others, multi-active appends) and `DeactivateAsync` in `InMemoryResourceManager` in `src/core/Aster.Core/InMemory/InMemoryResourceManager.cs`
 - [ ] T023 [US2] Implement `GetActiveVersionsAsync` in `InMemoryResourceManager` in `src/core/Aster.Core/InMemory/InMemoryResourceManager.cs`
-- [ ] T024 [P] [US2] Write unit tests for create/update/versioning (version increment, immutability, optimistic lock) in `test/Aster.Tests/InMemory/InMemoryResourceManagerTests.cs`
+- [ ] T024 [P] [US2] Write unit tests for create/update/versioning (version increment, immutability, optimistic lock, singleton enforcement, duplicate ID) in `test/Aster.Tests/InMemory/InMemoryResourceManagerTests.cs`
 - [ ] T025 [P] [US2] Write unit tests for activation (single-active, multi-active, `VersionNotFoundException`, `ConcurrencyException`, deactivation) in `test/Aster.Tests/InMemory/InMemoryActivationTests.cs`
 
 **Checkpoint**: User Story 2 fully implemented and tested independently. Full create → version → activate flow works.
@@ -96,11 +97,13 @@
 
 **Independent Test**: Define a `TitleAspect` POCO, create a resource with a typed aspect, retrieve and deserialize the POCO, mutate and save back, confirm the serialized dictionary in `ResourceVersion.Aspects` reflects the new values (State Replace confirmed).
 
-- [ ] T026 [US3] Define `ITypedAspectBinder` interface (bind POCO to aspect key, serialize/deserialize) in `src/core/Aster.Core/Abstractions/ITypedAspectBinder.cs`
-- [ ] T027 [US3] Implement `SystemTextJsonAspectBinder` using `System.Text.Json` with State Replace logic in `src/core/Aster.Core/Services/SystemTextJsonAspectBinder.cs`
-- [ ] T028 [P] [US3] Add `GetAspect<T>` and `SetAspect<T>` extension methods on `ResourceVersion` in `src/core/Aster.Core/Extensions/ResourceVersionExtensions.cs`
-- [ ] T029 [P] [US3] Add `WithTypedAspect<T>()` registration method to `ResourceDefinitionBuilder` in `src/core/Aster.Core/Definitions/ResourceDefinitionBuilder.cs`
-- [ ] T030 [US3] Write unit tests for POCO round-trip (string, int, bool, decimal, date), State Replace semantics, and unknown-field handling in `test/Aster.Tests/Services/SystemTextJsonAspectBinderTests.cs`
+- [ ] T026 [US3] Define `ITypedAspectBinder` interface (bind POCO to aspect key, serialize/deserialize full aspect) in `src/core/Aster.Core/Abstractions/ITypedAspectBinder.cs`
+- [ ] T026a [P] [US3] Implement `ITypedFacetBinder` (defined in T008) as `SystemTextJsonFacetBinder` using `System.Text.Json`; State Replace semantics for single facet value in `src/core/Aster.Core/Services/SystemTextJsonFacetBinder.cs`
+- [ ] T027 [US3] Implement `SystemTextJsonAspectBinder` (`ITypedAspectBinder`) using `System.Text.Json` with State Replace logic in `src/core/Aster.Core/Services/SystemTextJsonAspectBinder.cs`
+- [ ] T028 [P] [US3] Add `GetAspect<T>` and `SetAspect<T>` extension methods on `Resource` in `src/core/Aster.Core/Extensions/ResourceExtensions.cs`
+- [ ] T028a [P] [US3] Add `GetFacet<T>` and `SetFacet<T>` extension methods on `AspectInstance` in `src/core/Aster.Core/Extensions/AspectInstanceExtensions.cs` (spec §3.4 Typed Facets)
+- [ ] T029 [P] [US3] Add `WithTypedAspect<T>()` and `WithTypedFacet<T>()` registration methods to `ResourceDefinitionBuilder` in `src/core/Aster.Core/Definitions/ResourceDefinitionBuilder.cs`
+- [ ] T030 [US3] Write unit tests for aspect POCO round-trip (string, int, bool, decimal, date), State Replace semantics, unknown-field handling, AND facet-level POCO round-trip in `test/Aster.Tests/Services/SystemTextJsonAspectBinderTests.cs`
 
 **Checkpoint**: User Story 3 fully implemented. Typed Aspects work end-to-end without breaking US1/US2.
 
@@ -132,11 +135,11 @@
 **Independent Test**: Run `Aster.Web`, navigate to `/definitions` (or equivalent), confirm seeded definitions are visible; navigate to resource list, confirm seeded instances appear.
 
 - [ ] T035 [US5] Register `Aster.Core` services in `src/apps/Aster.Web/Program.cs` via a DI extension method
-- [ ] T036 [US5] Create `AsterCoreServiceCollectionExtensions.AddAsterCore()` in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs` that registers `InMemoryResourceDefinitionStore`, `InMemoryResourceManager`, `InMemoryQueryService`, and `SystemTextJsonAspectBinder`
+- [ ] T036 [US5] Create `AsterCoreServiceCollectionExtensions.AddAsterCore()` in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs` that registers `InMemoryResourceDefinitionStore`, `InMemoryResourceManager`, `InMemoryQueryService`, `SystemTextJsonAspectBinder`, `SystemTextJsonFacetBinder`, and `GuidIdentityGenerator` as `IIdentityGenerator`
 - [ ] T037 [US5] Add a seed/demo data initializer (IHostedService) that registers a "Product" definition and a few sample resources on startup in `src/apps/Aster.Web/SeedDataInitializer.cs`
 - [ ] T038 [P] [US5] Add a read-only `/api/definitions` endpoint (returns all registered definitions) in `src/apps/Aster.Web/Endpoints/DefinitionsEndpoints.cs`
 - [ ] T039 [P] [US5] Add a read-only `/api/resources/{definitionId}` endpoint (returns all resource versions for a type) in `src/apps/Aster.Web/Endpoints/ResourcesEndpoints.cs`
-- [ ] T040 [US5] Add a minimal Razor/static HTML dashboard page to visualize definitions and instances in `src/apps/Aster.Web/Pages/Dashboard.cshtml` (or equivalent)
+- [ ] T040 [US5] Add a static `index.html` page with links to `/api/definitions` and `/api/resources/{definitionId}` (no Razor required) in `src/apps/Aster.Web/wwwroot/index.html`; confirm both endpoints return JSON in browser
 
 **Checkpoint**: User Story 5 complete. Workbench app runs end-to-end with seeded data visible in UI.
 

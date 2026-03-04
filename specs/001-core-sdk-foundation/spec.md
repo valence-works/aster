@@ -16,6 +16,13 @@ The goal is to deliver a working In-Memory implementation that allows developers
 - Q: Active vs Published semantics? → A: **Configurable Multi-Active** (activation accepts `allowMultipleActive` flag).
 - Q: Typed Aspect save behavior? → A: **State Replace** (POCO is source of truth; replaces dictionary content).
 - Q: Concurrency handling during activation? → A: **Optimistic Resource Lock** (check Resource ETag/Version; fail on concurrent modification).
+- Q: Resource.Id generation strategy? → A: **IIdentityGenerator service** — engine calls `IIdentityGenerator.NewId()` when `CreateResourceRequest.Id` is null; caller may supply their own ID via the optional `Id` field on `CreateResourceRequest`.
+- Q: IsSingleton enforcement? → A: **Enforce at CreateAsync** — if `ResourceDefinition.IsSingleton == true` and any instance already exists for that `DefinitionId`, `CreateAsync` must throw `SingletonViolationException`.
+- Q: Resource model consolidation? → A: **Merged** — `Resource` replaces both the old identity-only `Resource` and `ResourceVersion` models. `ResourceId` = logical persistent identifier; `Id` = version-specific unique identifier. Same universal pattern applied to `ResourceDefinition` (`DefinitionId` + `Id`), `AspectDefinition` (`AspectDefinitionId` + `Id`), `FacetDefinition` (`FacetDefinitionId` + `Id`).
+- Q: Typed POCOs for Facets? → A: **Yes** — `GetFacet<T>` / `SetFacet<T>` extension methods on `AspectInstance` mirror the aspect-level `GetAspect<T>` / `SetAspect<T>` pattern (see §3.4).
+- Q: Draft/Active status on ResourceVersion? → A: **Derived from ActivationState** — `ResourceVersion` carries no `Status` field; a version with no `ActivationState` entry is implicitly draft; presence in a channel's `ActiveVersions` makes it active.
+- Q: Definition update semantics? → A: **Definition Versioning** — `ResourceDefinition` versions are immutable; calling `RegisterDefinitionAsync` with an existing `Id` always creates a new `ResourceDefinition` version (incremented `Version` number). Existing definition versions and all resource instances shaped by them are unaffected.
+- Q: Workbench UI minimum fidelity? → A: **Raw JSON dump only** — Phase 1 Workbench renders serialized JSON at `/api/definitions` (list) and `/api/resources/{definitionId}` (versions). No HTML forms, no mutation UI.
 
 ## 2. User Scenarios
 
@@ -35,10 +42,10 @@ The goal is to deliver a working In-Memory implementation that allows developers
 **Actor**: Developer / System
 **Goal**: Create a product, update it, and publish it.
 
-1.  User creates a new `Product` resource (Version 1, Draft).
+1.  User creates a new `Product` resource (Version 1).
 2.  User sets the Title to "Super Gadget".
-3.  User saves the draft. System persists Version 1.
-4.  User updates the Title to "Super Gadget Pro" (Version 2, Draft).
+3.  User saves. System persists Version 1. Version 1 has no activation entry — implicitly draft.
+4.  User updates the Title to "Super Gadget Pro" (Version 2 created).
 5.  User activates Version 2 in the "Published" channel.
 6.  System marks Version 2 as Active in "Published". Version 1 remains inactive.
 
@@ -75,6 +82,11 @@ The goal is to deliver a working In-Memory implementation that allows developers
 *   **When**: Developer tries to activate Version 99.
 *   **Then**: System throws `VersionNotFoundException`.
 
+**Scenario**: Singleton Violation
+*   **Given**: A resource definition with `IsSingleton = true` and one existing instance.
+*   **When**: Developer calls `CreateAsync` for the same definition.
+*   **Then**: System throws `SingletonViolationException`.
+
 **Scenario**: Concurrent Modification (Optimistic Locking)
 *   **Given**: Version 1 of a resource.
 *   **When**: Two threads try to save a new Version 2 based on Version 1 simultaneously.
@@ -83,18 +95,22 @@ The goal is to deliver a working In-Memory implementation that allows developers
 ## 3. Functional Requirements
 
 ### 3.1. Domain Models
-*   **Definitions**: Must provide models for `ResourceDefinition`, `AspectDefinition`, and `FacetDefinition`.
-*   **Instances**: Must provide models for `Resource`, `ResourceVersion`, `AspectInstance`, and `FacetValue`.
+*   **Definitions**: Must provide models for `ResourceDefinition`, `AspectDefinition`, and `FacetDefinition`. All three follow the **universal versioning pattern**: each carries a logical persistent identifier (`DefinitionId` / `AspectDefinitionId` / `FacetDefinitionId`) plus a version-specific `Id` and `Version` number.
+*   **Instances**: Must provide models for `Resource`, `AspectInstance`, and `FacetValue`. `Resource` is itself a version snapshot: `ResourceId` is the logical persistent identifier shared across all versions; `Id` uniquely identifies the specific version. The former separate `ResourceVersion` model is merged into `Resource`.
 *   **Attachments**: Must support attaching Aspect Definitions to Resource Definitions, optionally with a `Name` discriminator.
-*   **Versioning**: Versions must be immutable. Every save of a modified draft creates a new `ResourceVersion`.
+*   **Versioning**: Versions must be immutable. Every save of a modified draft creates a new `Resource` entry (new `Id`, incremented `Version`, same `ResourceId`).
 
 ### 3.2. Definition Registry
 *   Provide a **Fluent API** to define resources and aspects in code.
 *   Validate uniqueness of Aspect Attachments (by ID and Name) within a Resource Definition.
-*   Support creating/updating definitions at runtime.
+*   **Definition Versioning**: `ResourceDefinition` entries are immutable. Calling `RegisterDefinitionAsync` with an existing `Id` always appends a new version (auto-incremented `Version` number); it never overwrites an existing version.
+*   Retrieval returns the **latest** definition version by default; a specific version can be retrieved by `(Id, Version)` pair.
+*   `ListDefinitionsAsync` returns the latest version of each distinct definition `Id`.
 
 ### 3.3. In-Memory Engine
 *   Provide a service for Create, Save (Draft), and Get operations.
+*   **Identity Generation**: Resource IDs are assigned via `IIdentityGenerator`. The default implementation uses `Guid.NewGuid().ToString()`. If `CreateResourceRequest.Id` is supplied and non-empty, the engine MUST use that value and throw `DuplicateResourceIdException` if it already exists.
+*   **Singleton Enforcement**: Before creating a new instance, `CreateAsync` MUST check `ResourceDefinition.IsSingleton`. If `true` and at least one instance for that `DefinitionId` already exists, throw `SingletonViolationException`.
 *   Implement **Channel-Based Activation**:
     *   Support activating a specific version in a named channel (e.g., "Published").
     *   **Configurable Multi-Active**: The activation operation must accept a flag (e.g., `allowMultipleActive`) to determine if existing active versions in that channel should be deactivated (Single-Active) or kept (Multi-Active).
@@ -109,6 +125,7 @@ The goal is to deliver a working In-Memory implementation that allows developers
 *   Provide a binding mechanism to convert between the internal storage format (dictionary-like) and the strong C# Type.
 *   **State Replace**: When saving a Typed Aspect POCO, the system must replace the entire dictionary state for that aspect instance, effectively treating the POCO as the exclusive source of truth.
 *   Ensure round-trip serialization works for standard primitives (string, int, bool, date, decimal).
+*   **Typed Facets**: Provide the same POCO binding mechanism at the individual Facet level. A developer can define a C# record for a `FacetDefinition` and use `GetFacet<T>` / `SetFacet<T>` on `AspectInstance` to read/write it as a POCO, with the same State Replace semantics.
 
 ### 3.5. Query Model Contracts
 *   Define a portable **Query AST** (Abstract Syntax Tree) including:
@@ -121,7 +138,11 @@ The goal is to deliver a working In-Memory implementation that allows developers
 ### 3.6. Workbench Application
 *   A standalone Web Application acting as a test harness.
 *   Must host the Core SDK and In-Memory Engine.
-*   Provide a user interface to visualize Definitions and Resource Instances for verification.
+*   Expose two read-only JSON endpoints:
+    *   `GET /api/definitions` — returns all registered definitions (latest version per Id) as JSON.
+    *   `GET /api/resources/{definitionId}` — returns all resource versions for the given type as JSON.
+*   No HTML forms or mutation endpoints required for Phase 1.
+*   A minimal static index page linking to both endpoints is sufficient.
 
 ## 4. Technical Constraints
 
@@ -139,5 +160,5 @@ The goal is to deliver a working In-Memory implementation that allows developers
 ## 6. Assumptions
 
 *   In-Memory data is volatile and will be lost on application restart.
-*   Workbench UI is for developer/internal use only.
+*   Workbench UI is for developer/internal use only; Phase 1 fidelity is read-only JSON endpoints plus a static index page.
 *   Only "Safe" query operators (Equals, Contains) need to be supported in the initial In-Memory evaluator.
