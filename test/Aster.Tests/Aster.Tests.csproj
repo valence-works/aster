@@ -18,8 +18,4 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Core\Aster.Core\Aster.Core.csproj" />
-  </ItemGroup>
-
 </Project>
