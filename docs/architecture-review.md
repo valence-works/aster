@@ -86,3 +86,74 @@ The roadmap is robust and reflects deep domain experience. The primary recommend
 *   **Architecture:** A-
 *   **Execution Plan:** B (Rearrange phases to de-risk querying).
 
+---
+
+## 6. Thread-Safety Audit — `Aster.Core` In-Memory Implementations
+
+**Audit Date:** Phase 1 completion  
+**Scope:** `InMemoryResourceDefinitionStore`, `InMemoryResourceStore`, `InMemoryResourceManager`, `InMemoryQueryService`
+
+### 6.1. Primitive: `ConcurrentDictionary<K,V>`
+
+All top-level dictionaries use `ConcurrentDictionary<K,V>` (with `StringComparer.Ordinal` or default):
+
+| Structure | Dictionary | Key | Notes |
+|---|---|---|---|
+| `InMemoryResourceDefinitionStore.definitions` | `ConcurrentDict<string, List<ResourceDefinition>>` | `DefinitionId` | Bucket per definition |
+| `InMemoryResourceStore.Versions` | `ConcurrentDict<string, List<Resource>>` | `ResourceId` | Bucket per resource |
+| `InMemoryResourceStore.Activations` | `ConcurrentDict<string, ConcurrentDict<string, HashSet<int>>>` | `ResourceId` → `Channel` | Nested CD |
+
+`ConcurrentDictionary.GetOrAdd` is **atomic for bucket creation** — two concurrent threads cannot both insert the same key with different lists. The returned reference is stable and will be the canonical list used by all future operations.
+
+### 6.2. `List<T>` mutations — `lock(list)`
+
+`List<T>` is **not thread-safe**. Every mutation uses `lock(versions)` or `lock(definitions)`:
+
+```
+Definition registration:  lock(versions) { versions.Add(versionedDefinition); }
+Resource version save:    lock(versions) { versions.Add(resource); }
+Resource version read:    lock(versions) { return versions[^1]; }
+```
+
+**Assessment: Correct.** The lock is taken on the list object itself (a fine-grained lock per resource/definition), which is safe because the list reference is obtained from `GetOrAdd` and never replaced.
+
+**Read operations** that return snapshots (e.g. `[..versions]`) also hold the lock, preventing torn reads during concurrent appends.
+
+### 6.3. `HashSet<int>` mutations — `lock(channelActivations)`
+
+Activation sets are `HashSet<int>` stored inside the nested `ConcurrentDictionary`.  
+A `lock` is taken on the inner `ConcurrentDictionary<string, HashSet<int>>` (`channelActivations`) for all reads / writes of the `HashSet`:
+
+```csharp
+lock (channelActivations)
+{
+    newActiveVersions.Add(version);
+    channelActivations[channel] = newActiveVersions;     // replace-on-write
+}
+```
+
+**Assessment: Correct.** The outer `ConcurrentDictionary` provides bucket isolation per `ResourceId`; the inner lock protects cross-channel consistency within a single resource.
+
+### 6.4. Known Edge Cases
+
+| Scenario | Behaviour | Risk |
+|---|---|---|
+| **Concurrent definition registration** for the same `DefinitionId` | Both threads call `GetOrAdd` → same list reference returned; `lock` serialises the `Add` | **Safe** |
+| **Concurrent `CreateAsync`** with different `ResourceId`s | Independent buckets in `store.Versions` → no contention | **Safe** |
+| **Concurrent `CreateAsync`** with the **same caller-supplied `ResourceId`** | `ContainsKey` check + `GetOrAdd` is not atomic; two threads could both pass `ContainsKey == false` and both call `GetOrAdd`, but `GetOrAdd` is atomic so only one list is stored. The second `SaveVersionAsync` would push a duplicate V1 onto the same list under lock. | **Minor risk** — callers supplying explicit `ResourceId`s should guarantee uniqueness externally, or use the generated ID path. A future improvement: replace `ContainsKey + GetOrAdd` with an atomic `TryAdd` guard. |
+| **Singleton enforcement race** | `GetResourceIdsForDefinition` iterates `store.Versions.Keys` without a global lock; two concurrent `CreateAsync` calls for the same singleton definition could both see an empty list and both succeed. | **Acceptable for Phase 1** in-memory usage. A future improvement: use a `SemaphoreSlim` per `definitionId` for singleton enforcement. |
+| **`GetResourceIdsForDefinition` snapshot** | Iterates the snapshot of `store.Versions.Keys` at call time; concurrent insertions may not be observed. | **Acceptable for Phase 1.** This is a design property of `ConcurrentDictionary` enumeration. |
+| **`ListDefinitionsAsync` ordering** | Iterates `definitions.Values` without a global lock; the ordering of entries is non-deterministic under concurrent writes. | **Expected / documented.** Callers should not assume ordering. |
+
+### 6.5. `InMemoryQueryService` — read-only, no locks needed
+
+`QueryAsync` only reads `store.Versions` (immutable snapshots) using `ConcurrentDictionary` enumeration.  
+`Resource` is a `sealed record` whose properties are `init`-only — there is no mutation during query evaluation.  
+`ValidateFilterExpression` is a pure AST walk with no shared state.
+
+**Assessment: Inherently thread-safe for reads.**
+
+### 6.6. Summary
+
+The Phase 1 in-memory implementation is **safe for all normal concurrent usage patterns** (concurrent readers + sequential or low-concurrency writers per resource). The two known races (same-ID create, singleton enforcement) are acceptable trade-offs for an in-memory prototype and are documented above for future provider implementors to address with stricter guards.
+

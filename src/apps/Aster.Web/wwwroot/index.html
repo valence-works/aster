@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aster Workbench</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { color: #2c3e50; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; background: #f9f9f9; }
+        a { color: #3498db; font-weight: bold; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: #eef; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+        pre { background: #f0f0f0; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+        #output { display: none; }
+        button { background: #3498db; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-right: 0.5rem; }
+        button:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <h1>🌟 Aster Workbench</h1>
+    <p>A read-only view of the in-memory Aster Core SDK. Use the links below to inspect registered definitions and resource instances.</p>
+
+    <div class="card">
+        <h2>Resource Definitions</h2>
+        <p>Returns the latest version of each registered <code>ResourceDefinition</code>.</p>
+        <a href="/api/definitions" target="_blank">/api/definitions</a>
+        &nbsp;
+        <button onclick="fetchJson('/api/definitions')">Load</button>
+    </div>
+
+    <div class="card">
+        <h2>Resource Instances</h2>
+        <p>Returns all latest resource versions for a given definition. Replace <code>{definitionId}</code> with an actual definition ID (e.g., <code>Product</code>).</p>
+        <a href="/api/resources/Product" target="_blank">/api/resources/Product</a>
+        &nbsp;
+        <button onclick="fetchJson('/api/resources/Product')">Load Products</button>
+    </div>
+
+    <div id="output" class="card">
+        <h3>Response</h3>
+        <pre id="json-output"></pre>
+    </div>
+
+    <script>
+        async function fetchJson(url) {
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+                document.getElementById('output').style.display = 'block';
+                document.getElementById('json-output').textContent = JSON.stringify(json, null, 2);
+            } catch (err) {
+                document.getElementById('output').style.display = 'block';
+                document.getElementById('json-output').textContent = 'Error: ' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
