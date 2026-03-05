@@ -9,7 +9,7 @@
 
 ### Session 2026-03-04
 
-- Q: Which reference backend should Phase 2 implement first? → A: SQLite + JSON.
+- Q: Which reference backend should Phase 2 implement first? → A: Sqlite + JSON.
 - Q: How should concurrent updates be handled? → A: Optimistic concurrency conflict; client retries intentionally.
 - Q: What validation dataset size should performance targets use? → A: 100k resource versions.
 - Q: What activation policy should channels use? → A: Configurable per channel (single-active or multi-active).
@@ -73,7 +73,7 @@ As an operator, I need to search persisted resources by core metadata and simple
 - **FR-006**: The system MUST enforce optimistic concurrency for conflicting updates, return a typed conflict outcome, and require caller-initiated retry without automatic overwrite.
 - **FR-007**: The system MUST expose clear failure reasons when a query cannot be executed as requested.
 - **FR-008**: The system MUST maintain behavioral parity with Phase 1 core lifecycle semantics for create, draft save, activate, deactivate, and retrieval.
-- **FR-009**: Phase 2 MUST ship one production-grade reference provider based on SQLite with JSON document storage semantics.
+- **FR-009**: Phase 2 MUST ship one production-grade reference provider based on Sqlite with JSON document storage semantics.
 - **FR-010**: Activation channel policy (`SingleActive` | `MultiActive`) MUST be stored durably per `(ResourceId, Channel)` pair, survive restarts, and be enforced on every subsequent activation within that channel. An explicit `ChannelMode` MUST be supplied on the first activation of a channel; omitting it MUST return a typed validation error.
 - **FR-011**: Query sorting MUST include records with missing sort fields and order those missing values after all records with present sort values.
 - **FR-012**: The provider MUST emit structured log entries via `ILogger` for key lifecycle events (definition register, resource create/update, activation change), concurrency conflicts, and queries that exceed a configurable slow-query threshold.
@@ -105,7 +105,7 @@ As an operator, I need to search persisted resources by core metadata and simple
 ## Assumptions
 
 - The next roadmap phase requested by the user maps to Phase 2: Persistence & Querying Essentials.
-- The Phase 2 reference provider is SQLite + JSON, with extension points retained for additional providers later.
+- The Phase 2 reference provider is Sqlite + JSON, with extension points retained for additional providers later.
 - The provider ships a single fixed schema version; in-place schema upgrades and multi-version migration are explicitly out of scope for Phase 2. A breaking schema change requires a fresh database.
 - Query support in this phase focuses on baseline operational filters and does not include advanced capability negotiation.
 - Operational performance validation uses a fixed dataset of 100k resource versions.

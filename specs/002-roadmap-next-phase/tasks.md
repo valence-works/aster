@@ -14,7 +14,7 @@
 - [ ] T001 Add provider project file at src/providers/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
 - [ ] T002 Add provider project to solution in Aster.sln
 - [ ] T003 [P] Create provider folder structure and placeholder files under src/providers/Aster.Persistence.Sqlite/{Extensions,Infrastructure,Stores,Query,Serialization,Diagnostics}
-- [ ] T004 [P] Add SQLite package references in src/providers/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
+- [ ] T004 [P] Add Sqlite package references in src/providers/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
 
 ---
 
@@ -26,7 +26,7 @@
 
 - [ ] T005 Define provider options contract (including `SlowQueryThreshold`, default 500 ms) in src/providers/Aster.Persistence.Sqlite/Configuration/SqlitePersistenceOptions.cs
 - [ ] T005-a Implement structured logging helpers (lifecycle events, concurrency conflicts, slow-query detection) in src/providers/Aster.Persistence.Sqlite/Diagnostics/SqliteProviderLogger.cs
-- [ ] T006 [P] Implement SQLite connection factory in src/providers/Aster.Persistence.Sqlite/Infrastructure/SqliteConnectionFactory.cs
+- [ ] T006 [P] Implement Sqlite connection factory in src/providers/Aster.Persistence.Sqlite/Infrastructure/SqliteConnectionFactory.cs
 - [ ] T007 [P] Implement JSON serialization helper for persisted payloads in src/providers/Aster.Persistence.Sqlite/Serialization/SqliteJsonSerializer.cs
 - [ ] T008 Define shared persistence record mappings in src/providers/Aster.Persistence.Sqlite/Models/PersistenceRecords.cs
 - [ ] T008-a Add `ChannelMode` enum to src/core/Aster.Core/Models/Instances/ChannelMode.cs
@@ -34,8 +34,8 @@
 - [ ] T008-c Update `IResourceManager.ActivateAsync` signature: replace `bool allowMultipleActive` with `ChannelMode? mode` in src/core/Aster.Core/Abstractions/IResourceManager.cs and update InMemoryResourceManager accordingly
 - [ ] T009 Implement provider DI registration extensions in src/providers/Aster.Persistence.Sqlite/Extensions/ServiceCollectionExtensions.cs
 - [ ] T010 Wire provider selection/configuration in src/apps/Aster.Web/Program.cs
-- [ ] T011 Add SQLite connection settings in src/apps/Aster.Web/appsettings.json
-- [ ] T012 [P] Add development SQLite settings in src/apps/Aster.Web/appsettings.Development.json
+- [ ] T011 Add Sqlite connection settings in src/apps/Aster.Web/appsettings.json
+- [ ] T012 [P] Add development Sqlite settings in src/apps/Aster.Web/appsettings.Development.json
 - [ ] T013 Add baseline provider bootstrapping integration test scaffold in test/Aster.Tests/Integration/SqliteProviderBootstrapTests.cs
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
@@ -87,7 +87,7 @@
 - [ ] T029 [US2] Implement ResourceQuery AST to SQL translator in src/providers/Aster.Persistence.Sqlite/Query/SqliteQueryTranslator.cs
 - [ ] T030 [US2] Implement query command builder with parameterization and tie-break sorting in src/providers/Aster.Persistence.Sqlite/Query/SqliteQueryCommandBuilder.cs
 - [ ] T031 [US2] Implement missing-sort-value-last strategy in src/providers/Aster.Persistence.Sqlite/Query/SqliteSortSemantics.cs
-- [ ] T032 [US2] Implement SQLite-backed query service in src/providers/Aster.Persistence.Sqlite/Stores/SqliteResourceQueryService.cs
+- [ ] T032 [US2] Implement Sqlite-backed query service in src/providers/Aster.Persistence.Sqlite/Stores/SqliteResourceQueryService.cs
 - [ ] T033 [US2] Add query validation and unsupported-feature errors in src/providers/Aster.Persistence.Sqlite/Diagnostics/SqliteQueryValidation.cs
 
 **Checkpoint**: User Stories 1 and 2 both work independently.

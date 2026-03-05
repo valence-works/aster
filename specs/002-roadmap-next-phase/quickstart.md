@@ -1,7 +1,7 @@
 # Quickstart — Persistence & Querying Essentials (Phase 2)
 
 ## Goal
-Validate that the SQLite + JSON provider satisfies lifecycle durability and query behavior requirements from the Phase 2 spec.
+Validate that the Sqlite + JSON provider satisfies lifecycle durability and query behavior requirements from the Phase 2 spec.
 
 ## Prerequisites
 - .NET SDK compatible with solution targets (`net8.0`, `net9.0`, `net10.0`).
@@ -15,9 +15,9 @@ Validate that the SQLite + JSON provider satisfies lifecycle durability and quer
 Expected:
 - Existing Phase 1 tests pass.
 
-## 2) Enable SQLite Provider
+## 2) Enable Sqlite Provider
 1. Add provider project and wire DI registration in host/sample composition.
-2. Configure connection string for local SQLite file.
+2. Configure connection string for local Sqlite file.
 
 Expected:
 - Application starts with provider selected.

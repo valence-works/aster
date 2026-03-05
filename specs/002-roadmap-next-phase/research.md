@@ -1,7 +1,7 @@
 # Phase 0 Research — Persistence & Querying Essentials (Phase 2)
 
 ## Decision 1: Reference Backend
-- Decision: Use SQLite + JSON as the first production-grade persistence provider.
+- Decision: Use Sqlite + JSON as the first production-grade persistence provider.
 - Rationale: Matches clarified requirement, minimizes operational overhead, supports deterministic local/integration testing, and is fast to validate against 100k-version dataset.
 - Alternatives considered:
   - PostgreSQL + JSONB: stronger scale path but higher setup and CI complexity for first provider.
@@ -29,7 +29,7 @@
   - Global activation mode only: fails clarified requirement for per-channel configurability.
 
 ## Decision 5: Query Execution Boundary
-- Decision: Keep `ResourceQuery` as public AST contract and translate to parameterized SQLite SQL with a constrained operator whitelist (`Equals`, `Contains`, `Range`) for Phase 2.
+- Decision: Keep `ResourceQuery` as public AST contract and translate to parameterized Sqlite SQL with a constrained operator whitelist (`Equals`, `Contains`, `Range`) for Phase 2.
 - Rationale: Maintains provider-agnostic API and safe evaluation guarantees while enabling persisted filtering/sorting/paging.
 - Alternatives considered:
   - Expose raw SQL filters: violates portable query model and increases injection risk.

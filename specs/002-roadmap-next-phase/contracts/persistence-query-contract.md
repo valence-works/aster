@@ -1,7 +1,7 @@
 # Contract: Persistence & Querying Provider (Phase 2)
 
 ## Purpose
-Define the external behavior contract for the SQLite reference provider while preserving `Aster.Core` provider-agnostic abstractions.
+Define the external behavior contract for the Sqlite reference provider while preserving `Aster.Core` provider-agnostic abstractions.
 
 ## Scope
 - Persistence of `ResourceDefinitionRecord`, `ResourceRecord`, and `ActivationRecord` rows.
