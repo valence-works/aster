@@ -18,14 +18,15 @@ A C# SDK library `Aster.Core` (`src/core/Aster.Core/`) targeting `net8.0;net9.0;
 
 ### Universal Versioning Pattern
 
-Every model has two IDs:
+Every versioned model has two IDs:
 
 | Model | Logical ID (persistent) | Version-specific `Id` (GUID) |
 |---|---|---|
 | `ResourceDefinition` | `DefinitionId` | `Id` |
 | `AspectDefinition` | `AspectDefinitionId` | `Id` |
-| `FacetDefinition` | `FacetDefinitionId` | `Id` |
 | `Resource` | `ResourceId` | `Id` |
+
+> `FacetDefinition` is a simple field descriptor (analogous to a Field on a Part in Orchard Core). It carries only `FacetDefinitionId`, `Type`, and `IsRequired` — no independent `Id` or `Version`.
 
 ### `Resource` IS a version snapshot
 
@@ -33,7 +34,7 @@ There is no separate `ResourceVersion` type. A new version = a new `Resource` re
 
 ### `AspectDefinition` / `FacetDefinition` are embedded snapshots
 
-Embedded inside `ResourceDefinition` — not independently stored. No `IAspectDefinitionStore` needed in Phase 1.
+Embedded inside `ResourceDefinition` — not independently stored. No `IAspectDefinitionStore` needed in Phase 1. `FacetDefinition` is a simple field descriptor (no `Id` or `Version`); it inherits its version context from its parent `AspectDefinition`.
 
 ### Definition versioning
 

@@ -33,7 +33,7 @@
 **⚠️ CRITICAL**: Complete before any Phase 3+ work.
 
 - [x] T005 Create `ResourceDefinition` record in `src/core/Aster.Core/Models/Definitions/ResourceDefinition.cs` (DefinitionId, Id, Version, AspectDefinitions, IsSingleton) — universal versioning pattern: `DefinitionId` = logical, `Id` = version-specific
-- [x] T005a [P] Create `FacetDefinition` record in `src/core/Aster.Core/Models/Definitions/FacetDefinition.cs` (FacetDefinitionId, Id, Version, Type, IsRequired) — logical id = `FacetDefinitionId`
+- [x] T005a [P] Create `FacetDefinition` record in `src/core/Aster.Core/Models/Definitions/FacetDefinition.cs` (FacetDefinitionId, Type, IsRequired) — simple field descriptor within `AspectDefinition`; no independent `Id` or `Version`
 - [x] T006 [P] Create `AspectDefinition` record in `src/core/Aster.Core/Models/Definitions/AspectDefinition.cs` (AspectDefinitionId, Id, Version, RequiresName, Schema, FacetDefinitions) — logical id = `AspectDefinitionId`
 - [x] T007 Create merged `Resource` record in `src/core/Aster.Core/Models/Instances/Resource.cs` (ResourceId, Id, DefinitionId, DefinitionVersion?, Version, Created, Owner?, Aspects, Hash?) — replaces both former `Resource` identity and `ResourceVersion` snapshot; `ResourceId` = logical, `Id` = version-specific; immutable
 - [x] T007a [P] Create `AspectInstance` record in `src/core/Aster.Core/Models/Instances/AspectInstance.cs` (AspectDefinitionId, Name, Facets) — spec §3.1; unnamed key = `AspectDefinitionId`, named key = `"{AspectDefinitionId}:{Name}"` composite

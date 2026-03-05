@@ -20,7 +20,7 @@ Metadata about a type of resource.
 
 > **Definition versions are immutable.** `RegisterDefinitionAsync` appends a new version; existing versions are never mutated.
 
-> **Embedding rule (Phase 1)**: `AspectDefinition` and `FacetDefinition` records are **embedded snapshots** within a `ResourceDefinition` version. They are not stored independently; each `ResourceDefinition` version carries its own frozen copies. The `AspectDefinitionId` / `FacetDefinitionId` + `Version` fields exist for traceability and future independent-store upgrade, but no `IAspectDefinitionStore` is required in Phase 1.
+> **Embedding rule (Phase 1)**: `AspectDefinition` and `FacetDefinition` records are **embedded snapshots** within a `ResourceDefinition` version. They are not stored independently; each `ResourceDefinition` version carries its own frozen copies. The `AspectDefinitionId` + `Version` fields exist for traceability and future independent-store upgrade, but no `IAspectDefinitionStore` is required in Phase 1. `FacetDefinition` is a simple field descriptor (no independent versioning) — it inherits its version context from its parent `AspectDefinition`.
 
 ### AspectDefinition
 
@@ -37,13 +37,11 @@ Defines a reusable piece of data structure.
 
 ### FacetDefinition
 
-Defines a single typed sub-field within an Aspect (e.g., `Amount` inside `PriceAspect`).
+Defines a single typed sub-field ("field") within an Aspect (e.g., `Amount` inside `PriceAspect`). Analogous to a Field on a Part in Orchard Core.
 
 | Field | Type | Description |
 |---|---|---|
-| `FacetDefinitionId` | `string` | Logical persistent identifier (e.g., "Amount"). Shared across all facet definition versions. |
-| `Id` | `string` | Version-specific unique identifier (GUID). |
-| `Version` | `int` | Immutable version number. Composite key: `(FacetDefinitionId, Version)`. |
+| `FacetDefinitionId` | `string` | Logical identifier for this field within its parent aspect (e.g., "Amount"). Unique within the owning `AspectDefinition`. |
 | `Type` | `string` | Data type descriptor ("string", "int", "decimal", "bool", "datetime"). |
 | `IsRequired` | `bool` | Whether the field must be present on save. |
 

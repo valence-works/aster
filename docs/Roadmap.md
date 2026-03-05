@@ -69,7 +69,7 @@ These rules should be treated as **hard invariants** that persistence/query prov
 - `ResourceDefinitionVersionId` (Guid): immutable snapshot id.
 
 - `AspectDefinitionId` (Guid): identity of an aspect definition across its versions.
-- `FacetDefinitionId` (Guid): identity of a facet definition across its versions.
+- `FacetDefinitionId` (Guid): identity of a facet field within its parent aspect definition.
 
 - `ResourceId` (Guid): identity of the resource across its versions.
 - `ResourceVersionId` (Guid): identity of a specific resource version.

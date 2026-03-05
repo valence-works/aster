@@ -63,13 +63,13 @@ Example: attach `TagsAspect` twice — once as `"Categories"` and once as `"Badg
 
 ### Facet Definition
 
-A **typed field** declared inside an Aspect Definition. Examples:
+A **typed field** declared inside an Aspect Definition — analogous to a Field on a Part in Orchard Core. Examples:
 
 - `TitleAspect.Title : string`
 - `PriceAspect.Amount : decimal`
 - `PriceAspect.Currency : string`
 
-At the code level, facets are the properties of your C# POCO aspect types.
+At the code level, facets are the properties of your C# POCO aspect types. A `FacetDefinition` carries only a `FacetDefinitionId`, `Type`, and `IsRequired` flag — it has no independent `Id` or `Version` (it inherits its version context from its parent `AspectDefinition`).
 
 ### Facet Value
 
@@ -101,8 +101,9 @@ All three definition types follow the same pattern:
 |---|---|---|
 | `ResourceDefinition` | `DefinitionId` | `Id` |
 | `AspectDefinition` | `AspectDefinitionId` | `Id` |
-| `FacetDefinition` | `FacetDefinitionId` | `Id` |
 | `Resource` | `ResourceId` | `Id` |
+
+> `FacetDefinition` is a simple field descriptor (not a versioned entity). It carries only `FacetDefinitionId`, `Type`, and `IsRequired`.
 
 This consistency simplifies working across the model — the same identity rules apply everywhere.
 
