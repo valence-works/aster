@@ -15,6 +15,7 @@
 - [ ] T002 Add Aster.Persistence.Sqlite project reference to Aster.sln
 - [ ] T003 [P] Create directory structure under src/persistence/Aster.Persistence.Sqlite/{Extensions,Persistence,Schema,Internal}
 - [ ] T004 [P] Add `Microsoft.Data.Sqlite` and `Microsoft.Extensions.Logging.Abstractions` package references to src/persistence/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
+- [ ] T039 [P] Add `<ProjectReference>` to `Aster.Persistence.Sqlite` in test/Aster.Tests/Aster.Tests.csproj so Persistence/ test files can resolve provider types. (Depends on T001 completion.)
 
 ---
 
@@ -27,8 +28,8 @@
 - [ ] T005 Add `ChannelMode` enum (`SingleActive` | `MultiActive`) to src/core/Aster.Core/Models/Instances/ChannelMode.cs
 - [ ] T006 Add `Mode` property (`ChannelMode`, required) to `ActivationState` in src/core/Aster.Core/Models/Instances/ActivationState.cs
 - [ ] T007 Update `IResourceManager.ActivateAsync` signature replacing `bool allowMultipleActive` with `ChannelMode? mode` in src/core/Aster.Core/Abstractions/IResourceManager.cs
-- [ ] T008 Update `InMemoryResourceManager.ActivateAsync` to implement `ChannelMode` mode semantics and store mode on `ActivationState` in src/core/Aster.Core/InMemory/InMemoryResourceManager.cs
-- [ ] T009 Update existing in-memory activation tests for the new `ChannelMode` API in test/Aster.Tests/InMemory/InMemoryActivationTests.cs
+- [ ] T008 Update `InMemoryResourceManager.ActivateAsync` to implement `ChannelMode` mode semantics, store mode on `ActivationState`, and return `ValidationFailed` when no mode is supplied on first activation of a channel (no stored `ActivationRecord` exists) in src/core/Aster.Core/InMemory/InMemoryResourceManager.cs
+- [ ] T009 Update existing in-memory activation tests for the new `ChannelMode` API, including an assertion that omitting mode on a channel's first activation returns a typed `ValidationFailed` error in test/Aster.Tests/InMemory/InMemoryActivationTests.cs
 - [ ] T010 [P] Define `SqlitePersistenceOptions` with `SlowQueryThreshold` (default 500 ms) and connection configuration in src/persistence/Aster.Persistence.Sqlite/SqlitePersistenceOptions.cs
 - [ ] T011 [P] Implement `System.Text.Json` serializer configuration for persisted payloads (`PayloadJson`, `AspectsJson`, `ActiveVersionsJson`) in src/persistence/Aster.Persistence.Sqlite/Internal/JsonSerializerOptions.cs
 - [ ] T012 Implement `SchemaInitializer` to create `ResourceDefinitionRecord`, `ResourceRecord`, and `ActivationRecord` tables on first run in src/persistence/Aster.Persistence.Sqlite/Schema/SchemaInitializer.cs
@@ -161,8 +162,8 @@ Task: "T029 [P] [US2] Add 100k-version query performance integration test in tes
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1 and Phase 2 (T001–T016).
-2. Complete Phase 3 — US1 (T017–T025).
+1. Complete Phase 1 and Phase 2 (T001–T016, T039).
+2. Complete Phase 3 — US1 (T017–T025, T037, T038).
 3. Validate US1 independently via restart durability and concurrency tests.
 4. Demo or release MVP increment.
 

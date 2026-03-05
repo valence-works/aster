@@ -88,9 +88,14 @@ test/
     │   ├── SqliteDefinitionStoreTests.cs
     │   ├── SqliteResourceWriteStoreTests.cs
     │   ├── SqliteActivationTests.cs
-    │   ├── SqliteQueryServiceTests.cs
+    │   ├── SqliteConcurrencyTests.cs
+    │   ├── SqliteLifecycleTests.cs         # covers FR-008 baseline lifecycle
+    │   ├── SqliteLoggingTests.cs           # covers FR-012 ILogger verification
     │   ├── RestartDurabilityTests.cs       # covers SC-001 and SC-005
-    │   └── PerformanceTests.cs             # covers SC-002 (100k dataset)
+    │   ├── SqliteQueryOperatorTests.cs     # covers FR-004 operators
+    │   ├── SqliteQueryPagingSortingTests.cs# covers FR-005
+    │   ├── SqliteQueryNullSortTests.cs     # covers FR-011
+    │   └── PerformanceTests.cs             # covers SC-002 and SC-003 (100k dataset)
     └── Integration/
         └── QuickstartIntegrationTest.cs    # existing — update for ChannelMode
 
