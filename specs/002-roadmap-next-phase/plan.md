@@ -5,7 +5,7 @@
 
 ## Summary
 
-Implement Phase 2 by adding a SQLite + JSON reference persistence provider that preserves immutable resource version history, channel-based activation, and portable query execution semantics from Phase 1 contracts. The plan keeps core logic provider-agnostic by implementing persistence behind existing abstractions (`IResourceWriteStore`, `IResourceQueryService`, `IResourceDefinitionStore`), adds provider-owned infrastructure steps, and validates correctness/performance against a 100k-version dataset.
+Implement Phase 2 by adding a SQLite + JSON reference persistence provider that preserves immutable resource version history, channel-based activation, and portable query execution semantics from Phase 1 contracts. The plan keeps core logic provider-agnostic by implementing persistence behind existing abstractions (`IResourceWriteStore`, `IResourceQueryService`, `IResourceDefinitionStore`), and validates correctness/performance against a 100k-version dataset.
 
 ## Technical Context
 
@@ -29,7 +29,7 @@ Implement Phase 2 by adding a SQLite + JSON reference persistence provider that 
 - **II. Immutable Versioning**: PASS — append-only resource versions and optimistic locking are explicit requirements.
 - **III. Channel-Based Activation**: PASS — per-channel single/multi-active policy retained and persisted.
 - **IV. Typed & Queryable**: PASS — existing portable query AST remains the contract; no raw provider query leakage.
-- **V. Provider Agnostic**: PASS — implementation uses pluggable store interfaces and provider-owned infrastructure steps.
+- **V. Provider Agnostic**: PASS — implementation uses pluggable store interfaces.
 - **Coding Standards/Governance**: PASS — async + cancellation tokens and nullability remain required; no governance conflicts.
 
 ### Post-Design Gate
@@ -38,7 +38,7 @@ Implement Phase 2 by adding a SQLite + JSON reference persistence provider that 
 - **II. Immutable Versioning**: PASS — data model enforces `(ResourceId, Version)` append-only uniqueness and no in-place mutation.
 - **III. Channel-Based Activation**: PASS — activation state modeled separately with channel policy flags.
 - **IV. Typed & Queryable**: PASS — contract defines portable operator support and deterministic sort/null behavior.
-- **V. Provider Agnostic**: PASS — migration/provisioning contract is abstract; SQLite is reference backend only.
+- **V. Provider Agnostic**: PASS — contract defines portable operator support and deterministic sort/null behavior.
 
 ## Project Structure
 

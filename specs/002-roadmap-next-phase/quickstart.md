@@ -1,7 +1,7 @@
 # Quickstart — Persistence & Querying Essentials (Phase 2)
 
 ## Goal
-Validate that the SQLite + JSON provider satisfies lifecycle durability, query behavior, and infrastructure readiness requirements from the Phase 2 spec.
+Validate that the SQLite + JSON provider satisfies lifecycle durability and query behavior requirements from the Phase 2 spec.
 
 ## Prerequisites
 - .NET SDK compatible with solution targets (`net8.0`, `net9.0`, `net10.0`).
@@ -18,12 +18,9 @@ Expected:
 ## 2) Enable SQLite Provider
 1. Add provider project and wire DI registration in host/sample composition.
 2. Configure connection string for local SQLite file.
-3. Register infrastructure runner and choose startup mode:
-   - Auto-run on host startup, or
-   - Manual apply step before host start.
 
 Expected:
-- Application starts with provider selected and no unresolved infrastructure errors.
+- Application starts with provider selected.
 
 ## 3) Validate User Story 1 (Durable Resource Lifecycle)
 1. Register one or more resource definitions.
@@ -47,18 +44,7 @@ Expected:
 - Sorting is deterministic.
 - Records with missing sort values are included and appear last.
 
-## 5) Validate User Story 3 (Infrastructure Readiness)
-1. Start with empty database file and run infrastructure apply.
-2. Verify required tables/indexes/ledger rows exist.
-3. Re-run apply process.
-4. Simulate interrupted apply and retry.
-
-Expected:
-- First run initializes all required structures.
-- Re-run is idempotent with no duplicate/destructive effects.
-- Retry completes pending setup safely.
-
-## 6) Validate Non-Functional Criteria
+## 5) Validate Non-Functional Criteria
 1. Seed/prepare fixed dataset of 100k resource versions.
 2. Run standard persisted query suite and measure completion time.
 3. Run intentional concurrent update tests.
@@ -68,7 +54,7 @@ Expected:
 - Concurrency conflicts are raised for conflicting updates.
 - No corrupted version history is observed.
 
-## 7) Completion Checklist
-- FR-001 through FR-013 covered by tests or executable validation scenarios.
-- SC-001 through SC-005 evidence captured (test output and measurement notes).
+## 6) Completion Checklist
+- FR-001 through FR-011 covered by tests or executable validation scenarios.
+- SC-001 through SC-004 evidence captured (test output and measurement notes).
 - Provider remains behind core abstractions with no provider-specific API leakage.

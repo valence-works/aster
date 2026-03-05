@@ -42,14 +42,7 @@
   - Exclude missing-sort records: loses data unexpectedly.
   - Fail query when values missing: too strict for operational filtering.
 
-## Decision 7: Infrastructure Initialization Pattern
-- Decision: Implement provider-owned infrastructure steps with an applied-step ledger and optional host startup runner.
-- Rationale: Satisfies provider-agnostic constitution principle V and Phase 2 requirement for idempotent init/upgrade behavior.
-- Alternatives considered:
-  - Hard-wire migration engine into core: violates provider agnosticism.
-  - Startup auto-run only (no manual path): conflicts with host choice requirement.
-
-## Decision 8: Testing Strategy for Success Criteria
+## Decision 7: Testing Strategy for Success Criteria
 - Decision: Add persistence-focused unit/integration tests in `test/Aster.Tests/Persistence` plus restart-durability and query-correctness scenarios over a fixed 100k-version dataset.
 - Rationale: Directly maps to SC-001 through SC-005 and keeps confidence local to provider behavior.
 - Alternatives considered:

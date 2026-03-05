@@ -4,9 +4,8 @@
 Define the external behavior contract for the SQLite reference provider while preserving `Aster.Core` provider-agnostic abstractions.
 
 ## Scope
-- Persistence of definitions, resource versions, and activation state.
+- Persistence of `ResourceDefinitionRecord`, `ResourceRecord`, and `ActivationRecord` rows.
 - Query execution for the portable `ResourceQuery` model.
-- Infrastructure initialization/upgrade execution contract.
 
 ## Required Interface Surface
 
@@ -23,18 +22,19 @@ Behavioral guarantees:
 - `IResourceManager` lifecycle and retrieval operations remain source of truth for public behavior.
 
 Behavioral guarantees:
-- `CreateAsync` honors singleton and duplicate-ID constraints.
-- `UpdateAsync` requires matching `BaseVersion`.
-- `ActivateAsync` enforces per-channel mode (`SingleActive` or `MultiActive`).
+- `CreateAsync` honors singleton and duplicate-ID constraints (resolved via `ResourceDefinitionRecord.IsSingleton`).
+- `UpdateAsync` requires matching `BaseVersion` (optimistic lock).
+- `ActivateAsync` accepts an optional `ChannelMode`; if supplied it sets or updates the stored per-channel mode, if omitted the stored mode is used. `SingleActive` enforces at-most-one active version; `MultiActive` allows many.
 
 ### 3) Query Contract
 - `IResourceQueryService.QueryAsync(ResourceQuery, CancellationToken)`
 
 Behavioral guarantees:
 - Supported operators in Phase 2: `Equals`, `Contains`, `Range`.
-- Paging and sorting are deterministic.
-- Records missing sort field values remain in result set and sort last.
-- Query failures return clear typed errors (unsupported operator/field, unavailable infrastructure, invalid request shape).
+- Sorting is deterministic; a tie-break on (`ResourceId`, `Version`) is always appended.
+- Records missing sort field values remain in the result set and sort last.
+- Query failures return clear typed errors (unsupported operator/field, invalid request shape).
+- `ResourceQuery` is translated to parameterised SQL at execution time; no raw SQL is exposed through the abstraction.
 
 ### 4) Definition Registry Contract
 - `IResourceDefinitionStore` contracts remain immutable-version semantics.
@@ -43,25 +43,11 @@ Behavioral guarantees:
 - Registering a definition appends a new version.
 - Latest and point-in-time definition retrieval are supported.
 
-## Infrastructure Step Contract
-
-Provider implementation must expose an infrastructure runner with:
-- `ApplyAsync(targetVersion?)`
-- `GetPendingAsync()`
-- `GetAppliedAsync()`
-- Optional `VerifyAsync()` for readiness checks
-
-Behavioral guarantees:
-- Running on an empty database creates required structures.
-- Re-running on a current database is idempotent (no destructive duplicates).
-- Host can choose auto-run at startup or manual execution path.
-
 ## Error Contract
 
 The provider must map failures to typed categories:
 - `ConcurrencyConflict` (optimistic lock mismatch)
 - `VersionNotFound`
-- `InfrastructureUnavailable`
 - `UnsupportedQueryFeature`
 - `ValidationFailed`
 

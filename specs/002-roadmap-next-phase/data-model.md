@@ -1,94 +1,123 @@
 # Data Model — Persistence & Querying Essentials (Phase 2)
 
-## Entity: DefinitionSnapshot
-- Purpose: Immutable schema snapshot used when creating resource versions.
+> **Mapping convention**: Each persistence record is a 1-to-1 serialised form of its corresponding `Aster.Core` domain model. Field names are aligned with the domain model properties. No domain types are combined or split across records.
+
+---
+
+## Entity: ResourceDefinitionRecord
+
+Persists an immutable version of `Aster.Core.Models.Definitions.ResourceDefinition` (including its embedded `AspectDefinition` and `FacetDefinition` snapshots). Maps directly to what `IResourceDefinitionStore.RegisterDefinitionAsync` appends.
+
 - Fields:
-  - `DefinitionId` (string, required) — logical definition identity.
-  - `Version` (int, required, >= 1) — definition snapshot version.
-  - `VersionId` (string, required) — unique version-row identifier.
-  - `PayloadJson` (string, required) — serialized definition document.
-  - `CreatedUtc` (datetime, required).
+  - `DefinitionId` (string, required) — logical definition identity, shared across all versions. Maps to `ResourceDefinition.DefinitionId`.
+  - `Version` (int, required, >= 1) — monotonic version ordinal, auto-incremented by the store. Maps to `ResourceDefinition.Version`.
+  - `VersionId` (string, required) — unique snapshot identifier (GUID). Maps to `ResourceDefinition.Id`.
+  - `IsSingleton` (bool, required) — denormalised from payload to allow singleton enforcement without deserialising. Maps to `ResourceDefinition.IsSingleton`.
+  - `PayloadJson` (string, required) — full serialised `ResourceDefinition` document, including all embedded `AspectDefinition` and `FacetDefinition` snapshots. Drives runtime hydration.
+  - `CreatedUtc` (datetime, required) — recorded at write time.
 - Keys/Constraints:
   - Primary key: (`DefinitionId`, `Version`).
   - Unique: `VersionId`.
-- Relationships:
-  - Referenced by `ResourceVersionRecord.DefinitionId + DefinitionVersion`.
+- Notes:
+  - `AspectDefinition` and `FacetDefinition` are embedded within `PayloadJson`; they are not stored in separate tables (mirrors Phase 1 embedding rule).
+  - Rows are immutable after insert; no update path exists.
 
-## Entity: ResourceVersionRecord
-- Purpose: Immutable persisted version snapshot for a logical resource.
+---
+
+## Entity: ResourceRecord
+
+Persists an immutable version snapshot of `Aster.Core.Models.Instances.Resource`. Maps to what `IResourceWriteStore.SaveVersionAsync` appends.
+
 - Fields:
-  - `ResourceId` (string, required) — logical identity across versions.
-  - `Version` (int, required, >= 1) — monotonic version ordinal.
-  - `VersionId` (string, required) — unique snapshot identifier.
-  - `DefinitionId` (string, required).
-  - `DefinitionVersion` (int, optional but strongly recommended).
-  - `CreatedUtc` (datetime, required).
-  - `Owner` (string, optional).
-  - `AspectsJson` (string, required) — serialized aspect map.
-  - `Hash` (string, optional).
+  - `ResourceId` (string, required) — logical resource identity, shared across all versions. Maps to `Resource.ResourceId`.
+  - `Version` (int, required, >= 1) — monotonic version ordinal. Maps to `Resource.Version`.
+  - `VersionId` (string, required) — unique snapshot identifier (GUID). Maps to `Resource.Id`.
+  - `DefinitionId` (string, required) — logical definition the resource conforms to. Maps to `Resource.DefinitionId`.
+  - `DefinitionVersion` (int, optional) — definition version active at creation time, for traceability. Maps to `Resource.DefinitionVersion`.
+  - `AspectsJson` (string, required) — serialised `Resource.Aspects` map (keys are `AspectDefinitionId` or `"{AspectDefinitionId}:{Name}"` composites).
+  - `CreatedUtc` (datetime, required) — maps to `Resource.Created`.
+  - `Owner` (string, optional) — maps to `Resource.Owner`.
+  - `Hash` (string, optional) — maps to `Resource.Hash`.
 - Keys/Constraints:
   - Primary key: (`ResourceId`, `Version`).
   - Unique: `VersionId`.
-  - Foreign key: (`DefinitionId`, `DefinitionVersion`) -> `DefinitionSnapshot` when `DefinitionVersion` supplied.
-- Relationships:
-  - 1 logical `ResourceId` to many version rows.
-  - Activation resolved via `ActivationRecord` by `ResourceId` + channel.
+  - Soft referential: `DefinitionId` is expected to exist in `ResourceDefinitionRecord`; no hard FK enforced (definition may evolve independently).
+- Notes:
+  - Rows are immutable after insert; no update path exists.
+  - Status (draft vs active) is derived from `ActivationRecord`, not stored here.
+
+---
 
 ## Entity: ActivationRecord
-- Purpose: Tracks active versions in a channel and channel policy.
+
+Persists the mutable activation state for a `(ResourceId, Channel)` pair. Maps to `Aster.Core.Models.Instances.ActivationState` and is written by `IResourceWriteStore.UpdateActivationAsync`.
+
 - Fields:
-  - `ResourceId` (string, required).
-  - `Channel` (string, required, case-preserving, case-insensitive compare).
-  - `Mode` (enum, required): `SingleActive` | `MultiActive`.
-  - `ActiveVersionsJson` (string, required) — list of active version ordinals.
-  - `LastUpdatedUtc` (datetime, required).
+  - `ResourceId` (string, required) — maps to `ActivationState.ResourceId`.
+  - `Channel` (string, required, case-preserving, case-insensitive compare) — maps to `ActivationState.Channel`.
+  - `Mode` (enum, required): `SingleActive` | `MultiActive` — durable per-channel policy. Set on first activation of a channel; may be updated by a subsequent caller-supplied mode. Maps to `ActivationState.Mode` (Phase 2 addition to the domain model — see Domain Model Extensions below).
+  - `ActiveVersionsJson` (string, required) — serialised list of active `Resource.Version` ordinals. Maps to `ActivationState.ActiveVersions`.
+  - `LastUpdatedUtc` (datetime, required) — maps to `ActivationState.LastUpdated`.
 - Keys/Constraints:
   - Primary key: (`ResourceId`, `Channel`).
-  - Referential constraint: every active version must exist in `ResourceVersionRecord` for same `ResourceId`.
-  - Validation:
-    - `SingleActive` -> exactly 0 or 1 active version.
-    - `MultiActive` -> 0..N active versions, distinct values only.
+  - Referential constraint: every version ordinal in `ActiveVersionsJson` must exist as a `ResourceRecord` row for the same `ResourceId`.
+  - Validation (enforced by the manager, not the store):
+    - `SingleActive` → at most 1 version ordinal in `ActiveVersionsJson` after any activation call.
+    - `MultiActive` → 0..N distinct version ordinals.
+- Notes:
+  - Mode is persisted on the first `ActivateAsync` call for a channel. An explicit mode supplied on a subsequent call updates the stored mode.
+  - Once a mode is stored, calling `ActivateAsync` without a mode uses the stored mode.
+  - Row is upserted on each activation or deactivation change; it is not append-only.
 
-## Entity: InfrastructureStepRecord
-- Purpose: Idempotent ledger of provider infrastructure initialization/upgrade steps.
-- Fields:
-  - `StepId` (string, required) — globally unique step identity.
-  - `AppliedUtc` (datetime, required).
-  - `Checksum` (string, optional) — optional integrity marker.
-  - `Status` (enum, required): `Applied` | `Failed`.
-  - `Notes` (string, optional).
-- Keys/Constraints:
-  - Primary key: `StepId`.
-  - Idempotency: applied step cannot be re-applied with changed checksum without explicit operator action.
-
-## Entity: QueryRequest
-- Purpose: Persisted-query execution shape used by provider adapter.
-- Fields:
-  - `DefinitionId` (string, optional).
-  - `FilterTree` (object, optional) — AST from `ResourceQuery.Filter`.
-  - `Sort` (list, optional) — one or more field order descriptors.
-  - `Skip` (int, optional, >= 0).
-  - `Take` (int, optional, > 0).
-- Validation:
-  - Operators limited to Phase 2 supported set.
-  - Sort must always include deterministic tie-break (`ResourceId`, `Version`) when needed.
-  - Missing sort values are included and ordered last.
+---
 
 ## State Transitions
 
+### Definition Lifecycle
+1. `RegisterDefinition` → insert new `ResourceDefinitionRecord` row with `Version = max(existing) + 1`. Existing rows untouched.
+
 ### Resource Lifecycle
-1. `Create` -> append `Version=1` row in `ResourceVersionRecord`.
-2. `Update` -> optimistic check against latest version; append `Version=N+1`.
-3. `Activate(channel)` -> upsert `ActivationRecord` and apply mode rules.
-4. `Deactivate(channel)` -> remove version from `ActiveVersions`; retain history.
+1. `Create` → insert `ResourceRecord` with `Version = 1`. No prior row for this `ResourceId`.
+2. `Update` → optimistic check that `Version = max(existing)`; insert `ResourceRecord` with `Version = N + 1`.
+3. `Activate(channel, mode?)` → upsert `ActivationRecord`; store or update `Mode` if supplied, otherwise use stored mode; add version ordinal to `ActiveVersionsJson` subject to mode enforcement.
+4. `Deactivate(channel)` → update `ActivationRecord`; remove version ordinal from `ActiveVersionsJson`. History in `ResourceRecord` is unchanged.
 
-### Infrastructure Lifecycle
-1. `Uninitialized` -> apply ordered infra steps and write ledger entries.
-2. `PartiallyApplied` -> retry pending/failed step safely.
-3. `Current` -> no-op on subsequent apply when all required steps are recorded.
+---
 
-## Integrity Rules (Cross-Entity)
-- `ResourceVersionRecord` is append-only; historical rows are immutable.
-- `ActivationRecord.ActiveVersions` cannot reference non-existent versions.
-- Deleting historical rows is out of Phase 2 scope and disallowed by default.
-- Query results must map to latest version per resource unless query explicitly requests historical versions.
+## Integrity Rules
+
+- `ResourceDefinitionRecord` rows are append-only and immutable after insert.
+- `ResourceRecord` rows are append-only and immutable after insert.
+- `ActivationRecord.ActiveVersionsJson` may only reference version ordinals present in `ResourceRecord` for the same `ResourceId`.
+- Deletion of any historical row is out of Phase 2 scope and disallowed by default.
+
+---
+
+## Domain Model Extensions (Phase 2)
+
+The following `Aster.Core` types require extension to support durable per-channel policy. These are additive changes; Phase 1 behaviour is preserved.
+
+### `ActivationState` — add `Mode`
+
+| Field | Type | Description |
+|---|---|---|
+| `Mode` | `ChannelMode` enum | `SingleActive` \| `MultiActive`. Stored per channel. Defaults to `SingleActive` if omitted on first activation. |
+
+### `IResourceManager.ActivateAsync` — replace `allowMultipleActive` with `ChannelMode?`
+
+Current signature (Phase 1):
+```
+ActivateAsync(string resourceId, int version, string channel, bool allowMultipleActive = false, ...)
+```
+Phase 2 signature:
+```
+ActivateAsync(string resourceId, int version, string channel, ChannelMode? mode = null, ...)
+```
+- `mode = null` → use the stored mode for the channel (error if no record exists yet and mode is required).
+- `mode = ChannelMode.SingleActive` or `MultiActive` → set or update stored mode, then enforce.
+
+---
+
+## Query Shape
+
+`ResourceQuery` (from `Aster.Core.Models.Querying`) is not a stored entity. The provider translates it to parameterised SQL at execution time. Query contract details — supported operators, sort semantics, and paging rules — are specified in `contracts/persistence-query-contract.md`.
