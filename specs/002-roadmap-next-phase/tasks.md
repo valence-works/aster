@@ -9,34 +9,33 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Create provider project skeleton and wire solution-level prerequisites.
+**Purpose**: Create the `Aster.Sqlite` provider project skeleton and register it in the solution.
 
-- [ ] T001 Add provider project file at src/providers/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
-- [ ] T002 Add provider project to solution in Aster.sln
-- [ ] T003 [P] Create provider folder structure and placeholder files under src/providers/Aster.Persistence.Sqlite/{Extensions,Infrastructure,Stores,Query,Serialization,Diagnostics}
-- [ ] T004 [P] Add Sqlite package references in src/providers/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
+- [ ] T001 Create provider project file with multi-target `net8.0;net9.0;net10.0` and reference to Aster.Core at src/core/Aster.Sqlite/Aster.Sqlite.csproj
+- [ ] T002 Add Aster.Sqlite project reference to Aster.sln
+- [ ] T003 [P] Create directory structure under src/core/Aster.Sqlite/{Extensions,Persistence,Schema,Internal}
+- [ ] T004 [P] Add `Microsoft.Data.Sqlite` and `Microsoft.Extensions.Logging.Abstractions` package references to src/core/Aster.Sqlite/Aster.Sqlite.csproj
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Build core provider plumbing required before implementing any user story.
+**Purpose**: Add `ChannelMode` to `Aster.Core`, update `IResourceManager`, and build shared Sqlite provider infrastructure required before any user story can be implemented.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Define provider options contract (including `SlowQueryThreshold`, default 500 ms) in src/providers/Aster.Persistence.Sqlite/Configuration/SqlitePersistenceOptions.cs
-- [ ] T005-a Implement structured logging helpers (lifecycle events, concurrency conflicts, slow-query detection) in src/providers/Aster.Persistence.Sqlite/Diagnostics/SqliteProviderLogger.cs
-- [ ] T006 [P] Implement Sqlite connection factory in src/providers/Aster.Persistence.Sqlite/Infrastructure/SqliteConnectionFactory.cs
-- [ ] T007 [P] Implement JSON serialization helper for persisted payloads in src/providers/Aster.Persistence.Sqlite/Serialization/SqliteJsonSerializer.cs
-- [ ] T008 Define shared persistence record mappings in src/providers/Aster.Persistence.Sqlite/Models/PersistenceRecords.cs
-- [ ] T008-a Add `ChannelMode` enum to src/core/Aster.Core/Models/Instances/ChannelMode.cs
-- [ ] T008-b Add `Mode` property (`ChannelMode`) to `ActivationState` in src/core/Aster.Core/Models/Instances/ActivationState.cs
-- [ ] T008-c Update `IResourceManager.ActivateAsync` signature: replace `bool allowMultipleActive` with `ChannelMode? mode` in src/core/Aster.Core/Abstractions/IResourceManager.cs and update InMemoryResourceManager accordingly
-- [ ] T009 Implement provider DI registration extensions in src/providers/Aster.Persistence.Sqlite/Extensions/ServiceCollectionExtensions.cs
-- [ ] T010 Wire provider selection/configuration in src/apps/Aster.Web/Program.cs
-- [ ] T011 Add Sqlite connection settings in src/apps/Aster.Web/appsettings.json
-- [ ] T012 [P] Add development Sqlite settings in src/apps/Aster.Web/appsettings.Development.json
-- [ ] T013 Add baseline provider bootstrapping integration test scaffold in test/Aster.Tests/Integration/SqliteProviderBootstrapTests.cs
+- [ ] T005 Add `ChannelMode` enum (`SingleActive` | `MultiActive`) to src/core/Aster.Core/Models/Instances/ChannelMode.cs
+- [ ] T006 Add `Mode` property (`ChannelMode`, required) to `ActivationState` in src/core/Aster.Core/Models/Instances/ActivationState.cs
+- [ ] T007 Update `IResourceManager.ActivateAsync` signature replacing `bool allowMultipleActive` with `ChannelMode? mode` in src/core/Aster.Core/Abstractions/IResourceManager.cs
+- [ ] T008 Update `InMemoryResourceManager.ActivateAsync` to implement `ChannelMode` mode semantics and store mode on `ActivationState` in src/core/Aster.Core/InMemory/InMemoryResourceManager.cs
+- [ ] T009 Update existing in-memory activation tests for the new `ChannelMode` API in test/Aster.Tests/InMemory/InMemoryActivationTests.cs
+- [ ] T010 [P] Define `AsterSqliteOptions` with `SlowQueryThreshold` (default 500 ms) and connection configuration in src/core/Aster.Sqlite/AsterSqliteOptions.cs
+- [ ] T011 [P] Implement `System.Text.Json` serializer configuration for persisted payloads (`PayloadJson`, `AspectsJson`, `ActiveVersionsJson`) in src/core/Aster.Sqlite/Internal/JsonSerializerOptions.cs
+- [ ] T012 Implement `SchemaInitializer` to create `ResourceDefinitionRecord`, `ResourceRecord`, and `ActivationRecord` tables on first run in src/core/Aster.Sqlite/Schema/SchemaInitializer.cs
+- [ ] T013 Implement `AddAsterSqlite()` DI extension registering all Sqlite provider services and running schema initialization in src/core/Aster.Sqlite/Extensions/ServiceCollectionExtensions.cs
+- [ ] T014 Wire Sqlite provider in host composition root at src/apps/Aster.Web/Program.cs
+- [ ] T015 [P] Add Sqlite connection string configuration to src/apps/Aster.Web/appsettings.json
+- [ ] T016 [P] Add development Sqlite connection overrides to src/apps/Aster.Web/appsettings.Development.json
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
 
@@ -44,26 +43,24 @@
 
 ## Phase 3: User Story 1 - Durable Resource Lifecycle (Priority: P1) 🎯 MVP
 
-**Goal**: Persist definitions/resources/versions/activation across restarts while preserving append-only history and optimistic concurrency.
+**Goal**: Persist resource definitions, versions, and activation state across restarts while preserving append-only history, optimistic concurrency, and durable `ChannelMode` enforcement.
 
-**Independent Test**: Create and update resources, activate versions, restart host/store, and verify latest/historical/active retrieval is unchanged.
+**Independent Test**: Create definitions and multi-version resources, activate versions with explicit `ChannelMode`, restart the host, and verify all versions and channel activation state are unchanged and retrievable.
 
 ### Tests for User Story 1
 
-- [ ] T014 [P] [US1] Add append-only persistence tests in test/Aster.Tests/Persistence/SqliteResourceWriteStoreTests.cs
-- [ ] T015 [P] [US1] Add optimistic concurrency conflict tests in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs
-- [ ] T016 [P] [US1] Add activation mode tests (SingleActive vs MultiActive, mode persistence and enforcement) in test/Aster.Tests/Persistence/SqliteActivationModeTests.cs
-- [ ] T017 [P] [US1] Add restart durability integration test (versions, activation state, and stored ChannelMode — covers SC-001 and SC-005) in test/Aster.Tests/Integration/SqliteDurabilityIntegrationTests.cs
+- [ ] T017 [P] [US1] Add definition registration and round-trip retrieval tests (latest, specific version, list) in test/Aster.Tests/Persistence/SqliteDefinitionStoreTests.cs
+- [ ] T018 [P] [US1] Add resource append-only write, version retrieval, and IsSingleton enforcement tests in test/Aster.Tests/Persistence/SqliteResourceWriteStoreTests.cs
+- [ ] T019 [P] [US1] Add `ActivationRecord` persistence, durable `ChannelMode`, and mode-enforcement tests (`SingleActive` vs `MultiActive`) in test/Aster.Tests/Persistence/SqliteActivationTests.cs
+- [ ] T020 [P] [US1] Add concurrent save/activate conflict tests verifying unbroken version history and typed `ConcurrencyConflict` outcome in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs
+- [ ] T021 [P] [US1] Add restart durability integration test verifying all versions, activation state, and stored `ChannelMode` survive process restart (SC-001, SC-005) in test/Aster.Tests/Persistence/RestartDurabilityTests.cs
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Implement ResourceDefinitionRecord persistence store in src/providers/Aster.Persistence.Sqlite/Stores/SqliteResourceDefinitionStore.cs
-- [ ] T019 [US1] Implement resource version write persistence in src/providers/Aster.Persistence.Sqlite/Stores/SqliteResourceWriteStore.cs
-- [ ] T020 [US1] Implement ActivationRecord persistence (upsert/read activation state + durable ChannelMode per ResourceId + channel) in src/providers/Aster.Persistence.Sqlite/Stores/SqliteActivationStore.cs
-- [ ] T021 [US1] Implement transactional optimistic concurrency checks in src/providers/Aster.Persistence.Sqlite/Stores/SqliteResourceTransactionCoordinator.cs
-- [ ] T022 [US1] Implement typed error mapping for persistence conflicts/not-found in src/providers/Aster.Persistence.Sqlite/Diagnostics/SqliteErrorMapper.cs
-- [ ] T023 [US1] Add provider-backed resource manager integration wiring in src/providers/Aster.Persistence.Sqlite/Extensions/ServiceCollectionExtensions.cs
-- [ ] T024 [US1] Add host seed path for persisted lifecycle smoke data in src/apps/Aster.Web/SeedDataInitializer.cs
+- [ ] T022 [US1] Implement `SqliteResourceDefinitionStore` (`RegisterDefinitionAsync` append-only with auto-increment version, `GetDefinitionAsync`, `GetDefinitionVersionAsync`, `ListDefinitionsAsync`, structured logging) in src/core/Aster.Sqlite/Persistence/SqliteResourceDefinitionStore.cs
+- [ ] T023 [US1] Implement `SqliteResourceWriteStore` (`SaveVersionAsync` with append-only, `IsSingleton` guard, optimistic concurrency on `BaseVersion`; `UpdateActivationAsync` with durable `ChannelMode` upsert and mode enforcement; version/activation read operations; structured logging) in src/core/Aster.Sqlite/Persistence/SqliteResourceWriteStore.cs
+- [ ] T024 [US1] Update `QuickstartIntegrationTest` to use the Sqlite provider and the new `ChannelMode` parameter in test/Aster.Tests/Integration/QuickstartIntegrationTest.cs
+- [ ] T025 [US1] Update `SeedDataInitializer` to pass `ChannelMode.SingleActive` on all `ActivateAsync` calls in src/apps/Aster.Web/SeedDataInitializer.cs
 
 **Checkpoint**: User Story 1 is independently functional and testable (MVP).
 
@@ -71,38 +68,34 @@
 
 ## Phase 4: User Story 2 - Persistent Querying for Operational Use (Priority: P2)
 
-**Goal**: Execute persisted metadata/aspect queries with equals/contains/range plus deterministic paging/sorting and missing-value-last semantics.
+**Goal**: Translate `ResourceQuery` AST to parameterised Sqlite SQL supporting `Equals`/`Contains`/`Range` operators, deterministic paging and sorting, and missing-value-last sort semantics.
 
-**Independent Test**: Seed mixed records and verify query filtering, sorted pagination, and correctness targets against persisted data.
+**Independent Test**: Seed mixed resource records (including some missing the sort field) and verify filter correctness, stable sorted paging, and missing-sort-value-last ordering against persisted data.
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Add query operator behavior tests (equals/contains/range) in test/Aster.Tests/Persistence/SqliteQueryOperatorTests.cs
-- [ ] T026 [P] [US2] Add deterministic paging/sorting tests in test/Aster.Tests/Persistence/SqliteQueryPagingSortingTests.cs
-- [ ] T027 [P] [US2] Add missing-sort-value-last tests in test/Aster.Tests/Persistence/SqliteQueryNullSortTests.cs
-- [ ] T028 [P] [US2] Add 100k dataset query performance integration test in test/Aster.Tests/Integration/SqliteQueryPerformanceIntegrationTests.cs
+- [ ] T026 [P] [US2] Add query filter operator tests (`Equals`, `Contains`, `Range`) on resource metadata and aspect values in test/Aster.Tests/Persistence/SqliteQueryOperatorTests.cs
+- [ ] T027 [P] [US2] Add deterministic paging and sorting tests including tie-break on (`ResourceId`, `Version`) in test/Aster.Tests/Persistence/SqliteQueryPagingSortingTests.cs
+- [ ] T028 [P] [US2] Add missing-sort-value-last tests asserting records without the sort field appear after all records with the field present in test/Aster.Tests/Persistence/SqliteQueryNullSortTests.cs
+- [ ] T029 [P] [US2] Add 100k-version query performance integration test capturing SC-002 and SC-003 evidence in test/Aster.Tests/Persistence/PerformanceTests.cs
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Implement ResourceQuery AST to SQL translator in src/providers/Aster.Persistence.Sqlite/Query/SqliteQueryTranslator.cs
-- [ ] T030 [US2] Implement query command builder with parameterization and tie-break sorting in src/providers/Aster.Persistence.Sqlite/Query/SqliteQueryCommandBuilder.cs
-- [ ] T031 [US2] Implement missing-sort-value-last strategy in src/providers/Aster.Persistence.Sqlite/Query/SqliteSortSemantics.cs
-- [ ] T032 [US2] Implement Sqlite-backed query service in src/providers/Aster.Persistence.Sqlite/Stores/SqliteResourceQueryService.cs
-- [ ] T033 [US2] Add query validation and unsupported-feature errors in src/providers/Aster.Persistence.Sqlite/Diagnostics/SqliteQueryValidation.cs
+- [ ] T030 [US2] Implement `SqliteQueryTranslator` translating `ResourceQuery` AST (`Equals`, `Contains`, `Range`) to parameterised SQL with missing-sort-value-last `CASE` ordering in src/core/Aster.Sqlite/Internal/SqliteQueryTranslator.cs
+- [ ] T031 [US2] Implement `SqliteResourceQueryService.QueryAsync` with deterministic tie-break sort, paging, typed `UnsupportedQueryFeature` errors, and slow-query `ILogger` warnings in src/core/Aster.Sqlite/Persistence/SqliteResourceQueryService.cs
 
-**Checkpoint**: User Stories 1 and 2 both work independently.
+**Checkpoint**: User Stories 1 and 2 both independently functional.
 
 ---
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-**Purpose**: Cross-story completion, documentation, and final verification.
+**Purpose**: Fulfil the constitution architecture-review obligation, update documentation, and run final end-to-end validation.
 
-- [ ] T034 [P] Update provider usage and configuration docs in README.md
-- [ ] T035 [P] Add persistence architecture notes in docs/architecture-review.md
-- [ ] T036 Run full quickstart validation scenarios from specs/002-roadmap-next-phase/quickstart.md
-- [ ] T037 Run complete test suite and capture SC-001..SC-005 evidence in specs/002-roadmap-next-phase/quickstart.md
-- [ ] T038 Final code cleanup/refactor across src/providers/Aster.Persistence.Sqlite/**/*.cs
+- [ ] T032 [P] Author Phase 1 → Phase 2 architecture review document (constitution gate — required before merge) in docs/architecture-review-phase2.md
+- [ ] T033 [P] Update `Aster.Core` README and wiki Getting-Started guide documenting `ChannelMode` usage and migration from `bool allowMultipleActive` in src/core/Aster.Core/README.md
+- [ ] T034 Execute all quickstart validation scenarios from specs/002-roadmap-next-phase/quickstart.md and capture SC-001..SC-005 evidence
+- [ ] T035 Run complete test suite and confirm zero failures across all affected projects before merge
 
 ---
 
@@ -110,49 +103,51 @@
 
 ### Phase Dependencies
 
-- **Phase 1 (Setup)**: Starts immediately.
-- **Phase 2 (Foundational)**: Depends on Phase 1 completion and blocks all user stories.
-- **Phase 3 (US1)**: Depends on Phase 2 completion; delivers MVP.
-- **Phase 4 (US2)**: Depends on Phase 2 completion; can proceed after or alongside US1 if staffed.
-- **Phase 5 (Polish)**: Depends on completion of selected user stories.
+- **Phase 1 (Setup)**: Starts immediately; no prerequisites.
+- **Phase 2 (Foundational)**: Depends on Phase 1 completion; blocks all user story phases.
+- **Phase 3 (US1)**: Depends on Phase 2 completion; delivers the independent MVP increment.
+- **Phase 4 (US2)**: Depends on Phase 2 completion; independent of US1 (reuses shared plumbing only).
+- **Phase 5 (Polish)**: Depends on all chosen user story phases being complete.
 
 ### User Story Dependencies
 
 - **US1 (P1)**: No dependency on other user stories.
-- **US2 (P2)**: Independent of US1, but reuses foundational provider plumbing.
+- **US2 (P2)**: No dependency on US1; both can proceed in parallel after Phase 2.
 
 ### Within Each User Story
 
-- Tests first (expected to fail initially).
-- Data/store primitives before service wiring.
-- Service wiring before host integration.
-- Story checkpoint must pass before declaring story complete.
+- Tests first (expected to initially fail against unimplemented code).
+- Store/infrastructure implementation before service wiring.
+- Service wiring before host integration updates.
+- Story checkpoint must pass before declaring the story complete.
 
 ### Parallel Opportunities
 
 - Phase 1: T003, T004 can run in parallel.
-- Phase 2: T006, T007, T012 can run in parallel after T005.
-- US1: T014–T017 can run in parallel; T018 and T019 can run in parallel before integration tasks.
-- US2: T025–T028 can run in parallel; T029 and T031 can run in parallel before T030/T032.
+- Phase 2: T005–T009 (Aster.Core changes) can proceed before T010–T016 (Sqlite infra); T010+T011 can run in parallel; T015+T016 can run in parallel.
+- US1: T017–T021 (tests) can all run in parallel; T022+T023 can run in parallel before T024+T025.
+- US2: T026–T029 (tests) can all run in parallel; T030+T031 can run in parallel.
+- Phase 5: T032+T033 can run in parallel.
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```bash
-Task: "T014 [US1] Add append-only persistence tests in test/Aster.Tests/Persistence/SqliteResourceWriteStoreTests.cs"
-Task: "T015 [US1] Add optimistic concurrency conflict tests in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs"
-Task: "T016 [US1] Add activation mode tests in test/Aster.Tests/Persistence/SqliteActivationModeTests.cs"
-Task: "T017 [US1] Add restart durability integration test in test/Aster.Tests/Integration/SqliteDurabilityIntegrationTests.cs"
+Task: "T017 [P] [US1] Add definition registration and round-trip retrieval tests in test/Aster.Tests/Persistence/SqliteDefinitionStoreTests.cs"
+Task: "T018 [P] [US1] Add resource append-only write and version retrieval tests in test/Aster.Tests/Persistence/SqliteResourceWriteStoreTests.cs"
+Task: "T019 [P] [US1] Add ActivationRecord persistence and ChannelMode durability tests in test/Aster.Tests/Persistence/SqliteActivationTests.cs"
+Task: "T020 [P] [US1] Add concurrent save/activate conflict tests in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs"
+Task: "T021 [P] [US1] Add restart durability integration test (SC-001, SC-005) in test/Aster.Tests/Persistence/RestartDurabilityTests.cs"
 ```
 
 ## Parallel Example: User Story 2
 
 ```bash
-Task: "T025 [US2] Add query operator behavior tests in test/Aster.Tests/Persistence/SqliteQueryOperatorTests.cs"
-Task: "T026 [US2] Add deterministic paging/sorting tests in test/Aster.Tests/Persistence/SqliteQueryPagingSortingTests.cs"
-Task: "T027 [US2] Add missing-sort-value-last tests in test/Aster.Tests/Persistence/SqliteQueryNullSortTests.cs"
-Task: "T028 [US2] Add 100k dataset query performance integration test in test/Aster.Tests/Integration/SqliteQueryPerformanceIntegrationTests.cs"
+Task: "T026 [P] [US2] Add query filter operator tests in test/Aster.Tests/Persistence/SqliteQueryOperatorTests.cs"
+Task: "T027 [P] [US2] Add deterministic paging and sorting tests in test/Aster.Tests/Persistence/SqliteQueryPagingSortingTests.cs"
+Task: "T028 [P] [US2] Add missing-sort-value-last tests in test/Aster.Tests/Persistence/SqliteQueryNullSortTests.cs"
+Task: "T029 [P] [US2] Add 100k-version query performance integration test in test/Aster.Tests/Persistence/PerformanceTests.cs"
 ```
 
 ---
@@ -161,32 +156,31 @@ Task: "T028 [US2] Add 100k dataset query performance integration test in test/As
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1 and Phase 2.
-2. Complete Phase 3 (US1).
-3. Validate US1 independently via durability and concurrency tests.
-4. Demo/deploy MVP if ready.
+1. Complete Phase 1 and Phase 2 (T001–T016).
+2. Complete Phase 3 — US1 (T017–T025).
+3. Validate US1 independently via restart durability and concurrency tests.
+4. Demo or release MVP increment.
 
 ### Incremental Delivery
 
-1. Deliver US1 (durable lifecycle).
-2. Deliver US2 (persistent querying).
-3. Deliver US3 (infrastructure readiness).
-4. Run polish phase and full quickstart validation.
+1. Deliver US1 (durable lifecycle — Phase 3).
+2. Deliver US2 (persistent querying — Phase 4).
+3. Run Phase 5 polish and full quickstart validation.
 
 ### Parallel Team Strategy
 
-1. Team aligns on Setup + Foundational tasks.
-2. Then split by stories:
-   - Engineer A: US1
-   - Engineer B: US2
-   - Engineer C: US3
-3. Rejoin for Phase 6 polish and final verification.
+1. Team aligns on Phase 1 + Phase 2 (Setup + Foundational) tasks.
+2. Then split by user story:
+   - Engineer A: US1 (Phase 3)
+   - Engineer B: US2 (Phase 4)
+3. Rejoin for Phase 5 polish and final verification.
 
 ---
 
 ## Notes
 
 - All tasks use strict checklist format: `- [ ] T### [P?] [US?] Description with file path`.
-- `[US#]` labels appear only in user story phases.
-- Each user story includes explicit independent test criteria and implementation tasks.
-- Avoid cross-story coupling beyond foundational shared infrastructure.
+- `[P]` marks tasks parallelisable with other `[P]` tasks in the same phase.
+- `[US#]` labels appear in user story phases only; setup and foundational tasks carry no story label.
+- Each user story phase includes independent test criteria, test tasks, and implementation tasks.
+- Avoid cross-story coupling beyond shared foundational infrastructure.
