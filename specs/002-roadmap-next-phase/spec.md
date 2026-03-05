@@ -77,6 +77,8 @@ As an operator, I need to search persisted resources by core metadata and simple
 - **FR-010**: Activation channel policy (`SingleActive` | `MultiActive`) MUST be stored durably per `(ResourceId, Channel)` pair, survive restarts, and be enforced on every subsequent activation within that channel. An explicit `ChannelMode` MUST be supplied on the first activation of a channel; omitting it MUST return a typed validation error.
 - **FR-011**: Query sorting MUST include records with missing sort fields and order those missing values after all records with present sort values.
 - **FR-012**: The provider MUST emit structured log entries via `ILogger` for key lifecycle events (definition register, resource create/update, activation change), concurrency conflicts, and queries that exceed a configurable slow-query threshold.
+- **FR-013**: All persistence provider projects MUST follow the naming scheme `Aster.Persistence.[ProviderName]`, be placed under `src/persistence/`, expose a DI extension named `Add{ProviderName}Persistence()`, and use an options class named `{ProviderName}PersistenceOptions`. See `docs/adr/ADR-001-persistence-provider-naming-and-data-access.md`.
+- **FR-014**: The `Aster.Persistence.Sqlite` provider MUST use raw ADO.NET (`Microsoft.Data.Sqlite`) as its data access layer with no ORM or micro-ORM dependency. No ORM types, `IQueryable` expressions, or provider-specific query abstractions may cross the `Aster.Core` abstraction boundary. See `docs/adr/ADR-001-persistence-provider-naming-and-data-access.md`.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -109,3 +111,4 @@ As an operator, I need to search persisted resources by core metadata and simple
 - The provider ships a single fixed schema version; in-place schema upgrades and multi-version migration are explicitly out of scope for Phase 2. A breaking schema change requires a fresh database.
 - Query support in this phase focuses on baseline operational filters and does not include advanced capability negotiation.
 - Operational performance validation uses a fixed dataset of 100k resource versions.
+- Provider naming convention and data access strategy are governed by `docs/adr/ADR-001-persistence-provider-naming-and-data-access.md`.

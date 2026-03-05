@@ -9,12 +9,12 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Create the `Aster.Sqlite` provider project skeleton and register it in the solution.
+**Purpose**: Create the `Aster.Persistence.Sqlite` provider project skeleton and register it in the solution.
 
-- [ ] T001 Create provider project file with multi-target `net8.0;net9.0;net10.0` and reference to Aster.Core at src/core/Aster.Sqlite/Aster.Sqlite.csproj
-- [ ] T002 Add Aster.Sqlite project reference to Aster.sln
-- [ ] T003 [P] Create directory structure under src/core/Aster.Sqlite/{Extensions,Persistence,Schema,Internal}
-- [ ] T004 [P] Add `Microsoft.Data.Sqlite` and `Microsoft.Extensions.Logging.Abstractions` package references to src/core/Aster.Sqlite/Aster.Sqlite.csproj
+- [ ] T001 Create provider project file with multi-target `net8.0;net9.0;net10.0` and reference to Aster.Core at src/persistence/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
+- [ ] T002 Add Aster.Persistence.Sqlite project reference to Aster.sln
+- [ ] T003 [P] Create directory structure under src/persistence/Aster.Persistence.Sqlite/{Extensions,Persistence,Schema,Internal}
+- [ ] T004 [P] Add `Microsoft.Data.Sqlite` and `Microsoft.Extensions.Logging.Abstractions` package references to src/persistence/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj
 
 ---
 
@@ -29,10 +29,10 @@
 - [ ] T007 Update `IResourceManager.ActivateAsync` signature replacing `bool allowMultipleActive` with `ChannelMode? mode` in src/core/Aster.Core/Abstractions/IResourceManager.cs
 - [ ] T008 Update `InMemoryResourceManager.ActivateAsync` to implement `ChannelMode` mode semantics and store mode on `ActivationState` in src/core/Aster.Core/InMemory/InMemoryResourceManager.cs
 - [ ] T009 Update existing in-memory activation tests for the new `ChannelMode` API in test/Aster.Tests/InMemory/InMemoryActivationTests.cs
-- [ ] T010 [P] Define `AsterSqliteOptions` with `SlowQueryThreshold` (default 500 ms) and connection configuration in src/core/Aster.Sqlite/AsterSqliteOptions.cs
-- [ ] T011 [P] Implement `System.Text.Json` serializer configuration for persisted payloads (`PayloadJson`, `AspectsJson`, `ActiveVersionsJson`) in src/core/Aster.Sqlite/Internal/JsonSerializerOptions.cs
-- [ ] T012 Implement `SchemaInitializer` to create `ResourceDefinitionRecord`, `ResourceRecord`, and `ActivationRecord` tables on first run in src/core/Aster.Sqlite/Schema/SchemaInitializer.cs
-- [ ] T013 Implement `AddAsterSqlite()` DI extension registering all Sqlite provider services and running schema initialization in src/core/Aster.Sqlite/Extensions/ServiceCollectionExtensions.cs
+- [ ] T010 [P] Define `SqlitePersistenceOptions` with `SlowQueryThreshold` (default 500 ms) and connection configuration in src/persistence/Aster.Persistence.Sqlite/SqlitePersistenceOptions.cs
+- [ ] T011 [P] Implement `System.Text.Json` serializer configuration for persisted payloads (`PayloadJson`, `AspectsJson`, `ActiveVersionsJson`) in src/persistence/Aster.Persistence.Sqlite/Internal/JsonSerializerOptions.cs
+- [ ] T012 Implement `SchemaInitializer` to create `ResourceDefinitionRecord`, `ResourceRecord`, and `ActivationRecord` tables on first run in src/persistence/Aster.Persistence.Sqlite/Schema/SchemaInitializer.cs
+- [ ] T013 Implement `AddSqlitePersistence()` DI extension registering all Sqlite provider services and running schema initialization in src/persistence/Aster.Persistence.Sqlite/Extensions/ServiceCollectionExtensions.cs
 - [ ] T014 Wire Sqlite provider in host composition root at src/apps/Aster.Web/Program.cs
 - [ ] T015 [P] Add Sqlite connection string configuration to src/apps/Aster.Web/appsettings.json
 - [ ] T016 [P] Add development Sqlite connection overrides to src/apps/Aster.Web/appsettings.Development.json
@@ -57,8 +57,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implement `SqliteResourceDefinitionStore` (`RegisterDefinitionAsync` append-only with auto-increment version, `GetDefinitionAsync`, `GetDefinitionVersionAsync`, `ListDefinitionsAsync`, structured logging) in src/core/Aster.Sqlite/Persistence/SqliteResourceDefinitionStore.cs
-- [ ] T023 [US1] Implement `SqliteResourceWriteStore` (`SaveVersionAsync` with append-only, `IsSingleton` guard, optimistic concurrency on `BaseVersion`; `UpdateActivationAsync` with durable `ChannelMode` upsert and mode enforcement; version/activation read operations; structured logging) in src/core/Aster.Sqlite/Persistence/SqliteResourceWriteStore.cs
+- [ ] T022 [US1] Implement `SqliteResourceDefinitionStore` (`RegisterDefinitionAsync` append-only with auto-increment version, `GetDefinitionAsync`, `GetDefinitionVersionAsync`, `ListDefinitionsAsync`, structured logging) in src/persistence/Aster.Persistence.Sqlite/Persistence/SqliteResourceDefinitionStore.cs
+- [ ] T023 [US1] Implement `SqliteResourceWriteStore` (`SaveVersionAsync` with append-only, `IsSingleton` guard, optimistic concurrency on `BaseVersion`; `UpdateActivationAsync` with durable `ChannelMode` upsert and mode enforcement; version/activation read operations; structured logging) in src/persistence/Aster.Persistence.Sqlite/Persistence/SqliteResourceWriteStore.cs
 - [ ] T024 [US1] Update `QuickstartIntegrationTest` to use the Sqlite provider and the new `ChannelMode` parameter in test/Aster.Tests/Integration/QuickstartIntegrationTest.cs
 - [ ] T025 [US1] Update `SeedDataInitializer` to pass `ChannelMode.SingleActive` on all `ActivateAsync` calls in src/apps/Aster.Web/SeedDataInitializer.cs
 
@@ -81,8 +81,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Implement `SqliteQueryTranslator` translating `ResourceQuery` AST (`Equals`, `Contains`, `Range`) to parameterised SQL with missing-sort-value-last `CASE` ordering in src/core/Aster.Sqlite/Internal/SqliteQueryTranslator.cs
-- [ ] T031 [US2] Implement `SqliteResourceQueryService.QueryAsync` with deterministic tie-break sort, paging, typed `UnsupportedQueryFeature` errors, and slow-query `ILogger` warnings in src/core/Aster.Sqlite/Persistence/SqliteResourceQueryService.cs
+- [ ] T030 [US2] Implement `SqliteQueryTranslator` translating `ResourceQuery` AST (`Equals`, `Contains`, `Range`) to parameterised SQL with missing-sort-value-last `CASE` ordering in src/persistence/Aster.Persistence.Sqlite/Internal/SqliteQueryTranslator.cs
+- [ ] T031 [US2] Implement `SqliteResourceQueryService.QueryAsync` with deterministic tie-break sort, paging, typed `UnsupportedQueryFeature` errors, and slow-query `ILogger` warnings in src/persistence/Aster.Persistence.Sqlite/Persistence/SqliteResourceQueryService.cs
 
 **Checkpoint**: User Stories 1 and 2 both independently functional.
 
