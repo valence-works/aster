@@ -33,7 +33,7 @@ Persists an immutable version snapshot of `Aster.Core.Models.Instances.Resource`
   - `Version` (int, required, >= 1) — monotonic version ordinal. Maps to `Resource.Version`.
   - `VersionId` (string, required) — unique snapshot identifier (GUID). Maps to `Resource.Id`.
   - `DefinitionId` (string, required) — logical definition the resource conforms to. Maps to `Resource.DefinitionId`.
-  - `DefinitionVersion` (int, optional) — definition version active at creation time, for traceability. Maps to `Resource.DefinitionVersion`.
+  - `DefinitionVersion` (int, optional) — definition version active at creation time, for traceability. Maps to `Resource.DefinitionVersion`. Advisory only: the system returns the resource as-is regardless of whether the referenced definition version is loaded in the runtime store.
   - `AspectsJson` (string, required) — serialised `Resource.Aspects` map (keys are `AspectDefinitionId` or `"{AspectDefinitionId}:{Name}"` composites).
   - `CreatedUtc` (datetime, required) — maps to `Resource.Created`.
   - `Owner` (string, optional) — maps to `Resource.Owner`.
@@ -113,7 +113,7 @@ Phase 2 signature:
 ```
 ActivateAsync(string resourceId, int version, string channel, ChannelMode? mode = null, ...)
 ```
-- `mode = null` → use the stored mode for the channel (error if no record exists yet and mode is required).
+- `mode = null` → use the stored mode for the channel. If no `ActivationRecord` exists yet for this channel, a typed `ValidationFailed` error is returned — a mode must be supplied explicitly on first activation.
 - `mode = ChannelMode.SingleActive` or `MultiActive` → set or update stored mode, then enforce.
 
 ---

@@ -57,4 +57,5 @@ Notes:
 
 ## Compatibility Rules
 - No contract changes may leak provider-specific SQL or database types into `Aster.Core` public abstractions.
-- Serialization format changes must preserve backward readability for previously persisted rows within the same provider major version.
+- The Phase 2 provider ships a single fixed schema version. In-place schema upgrades are out of scope; a breaking schema change requires a fresh database.
+- Within Phase 2, the JSON serialisation format of all stored fields (`PayloadJson`, `AspectsJson`, `ActiveVersionsJson`) MUST NOT change in a way that breaks deserialisation of previously written rows.

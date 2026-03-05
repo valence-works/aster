@@ -55,6 +55,6 @@ Expected:
 - No corrupted version history is observed.
 
 ## 6) Completion Checklist
-- FR-001 through FR-011 covered by tests or executable validation scenarios.
-- SC-001 through SC-004 evidence captured (test output and measurement notes).
+- FR-001 through FR-012 covered by tests or executable validation scenarios.
+- SC-001 through SC-005 evidence captured (test output and measurement notes).
 - Provider remains behind core abstractions with no provider-specific API leakage.

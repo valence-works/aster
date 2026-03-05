@@ -24,7 +24,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Define provider options contract in src/providers/Aster.Persistence.Sqlite/Configuration/SqlitePersistenceOptions.cs
+- [ ] T005 Define provider options contract (including `SlowQueryThreshold`, default 500 ms) in src/providers/Aster.Persistence.Sqlite/Configuration/SqlitePersistenceOptions.cs
+- [ ] T005-a Implement structured logging helpers (lifecycle events, concurrency conflicts, slow-query detection) in src/providers/Aster.Persistence.Sqlite/Diagnostics/SqliteProviderLogger.cs
 - [ ] T006 [P] Implement SQLite connection factory in src/providers/Aster.Persistence.Sqlite/Infrastructure/SqliteConnectionFactory.cs
 - [ ] T007 [P] Implement JSON serialization helper for persisted payloads in src/providers/Aster.Persistence.Sqlite/Serialization/SqliteJsonSerializer.cs
 - [ ] T008 Define shared persistence record mappings in src/providers/Aster.Persistence.Sqlite/Models/PersistenceRecords.cs
@@ -52,7 +53,7 @@
 - [ ] T014 [P] [US1] Add append-only persistence tests in test/Aster.Tests/Persistence/SqliteResourceWriteStoreTests.cs
 - [ ] T015 [P] [US1] Add optimistic concurrency conflict tests in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs
 - [ ] T016 [P] [US1] Add activation mode tests (SingleActive vs MultiActive, mode persistence and enforcement) in test/Aster.Tests/Persistence/SqliteActivationModeTests.cs
-- [ ] T017 [P] [US1] Add restart durability integration test in test/Aster.Tests/Integration/SqliteDurabilityIntegrationTests.cs
+- [ ] T017 [P] [US1] Add restart durability integration test (versions, activation state, and stored ChannelMode — covers SC-001 and SC-005) in test/Aster.Tests/Integration/SqliteDurabilityIntegrationTests.cs
 
 ### Implementation for User Story 1
 
@@ -100,7 +101,7 @@
 - [ ] T034 [P] Update provider usage and configuration docs in README.md
 - [ ] T035 [P] Add persistence architecture notes in docs/architecture-review.md
 - [ ] T036 Run full quickstart validation scenarios from specs/002-roadmap-next-phase/quickstart.md
-- [ ] T037 Run complete test suite and capture SC-001..SC-004 evidence in specs/002-roadmap-next-phase/quickstart.md
+- [ ] T037 Run complete test suite and capture SC-001..SC-005 evidence in specs/002-roadmap-next-phase/quickstart.md
 - [ ] T038 Final code cleanup/refactor across src/providers/Aster.Persistence.Sqlite/**/*.cs
 
 ---
