@@ -71,8 +71,8 @@ As an operator, I need to search persisted resources by core metadata and simple
 - **FR-004**: The system MUST support persisted filtering by resource metadata and simple aspect values using equals, contains, and range semantics.
 - **FR-005**: The system MUST support deterministic paging and sorting for persisted query results.
 - **FR-006**: The system MUST enforce optimistic concurrency for conflicting updates, return a typed conflict outcome, and require caller-initiated retry without automatic overwrite.
-- **FR-007**: The system MUST expose clear failure reasons when a query cannot be executed as requested.
-- **FR-008**: The system MUST maintain behavioral parity with Phase 1 core lifecycle semantics for create, draft save, activate, deactivate, and retrieval.
+- **FR-007**: The system MUST expose clear failure reasons when a query cannot be executed as requested, using typed errors as defined in `contracts/persistence-query-contract.md` §Error Contract.
+- **FR-008**: The Sqlite provider MUST implement the full `IResourceManager` lifecycle contract: `CreateAsync` (singleton and duplicate-ID enforcement), `UpdateAsync` (optimistic version lock), `ActivateAsync` and `DeactivateAsync` (channel state management and `ChannelMode` enforcement), and all read operations (`GetAsync`, `GetVersionAsync`, `ListAsync`). Existing in-memory contract behaviour is the reference for expected outcomes.
 - **FR-009**: Phase 2 MUST ship one production-grade reference provider based on Sqlite with JSON document storage semantics.
 - **FR-010**: Activation channel policy (`SingleActive` | `MultiActive`) MUST be stored durably per `(ResourceId, Channel)` pair, survive restarts, and be enforced on every subsequent activation within that channel. An explicit `ChannelMode` MUST be supplied on the first activation of a channel; omitting it MUST return a typed validation error.
 - **FR-011**: Query sorting MUST include records with missing sort fields and order those missing values after all records with present sort values.
@@ -84,13 +84,13 @@ As an operator, I need to search persisted resources by core metadata and simple
 
 - **Resource Definition Record**: Persists an immutable version of a `ResourceDefinition`, including all embedded `AspectDefinition` and `FacetDefinition` snapshots. Identified by (`DefinitionId`, `Version`).
 - **Resource Record**: Persists an immutable version snapshot of a `Resource` instance. Identified by (`ResourceId`, `Version`). Status (draft vs active) is derived from activation state, not stored.
-- **Activation Record**: Persists the mutable channel activation state for a resource, tracking which version ordinals are active per channel and the durable `ChannelMode` policy (`SingleActive` | `MultiActive`). Maps to `ActivationState`.
+- **ActivationRecord**: Persists the mutable channel activation state for a resource, tracking which version ordinals are active per channel and the durable `ChannelMode` policy (`SingleActive` | `MultiActive`). Maps to `ActivationState`.
 
 ## Non-Functional Requirements
 
 ### Observability
 - The provider uses `ILogger<T>` (injected via DI) exclusively; no external telemetry dependency is introduced.
-- Log levels: `Information` for normal lifecycle events; `Warning` for concurrency conflicts and slow queries; `Error` for unhandled failures.
+- Log levels: `Information` for normal lifecycle events; `Warning` for concurrency conflicts and slow queries; `Error` for exceptions that escape provider-internal catch blocks and propagate to callers.
 - Slow-query threshold is configurable via provider options (default: 500 ms).
 - No metrics or distributed tracing are in scope for Phase 2.
 

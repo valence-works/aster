@@ -54,11 +54,13 @@
 - [ ] T019 [P] [US1] Add `ActivationRecord` persistence, durable `ChannelMode`, and mode-enforcement tests (`SingleActive` vs `MultiActive`) in test/Aster.Tests/Persistence/SqliteActivationTests.cs
 - [ ] T020 [P] [US1] Add concurrent save/activate conflict tests verifying unbroken version history and typed `ConcurrencyConflict` outcome in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs
 - [ ] T021 [P] [US1] Add restart durability integration test verifying all versions, activation state, and stored `ChannelMode` survive process restart (SC-001, SC-005) in test/Aster.Tests/Persistence/RestartDurabilityTests.cs
+- [ ] T037 [P] [US1] Add `ILogger` output verification tests via log-capture mock covering: one lifecycle event (`Information`), one `ConcurrencyConflict` (`Warning`), and one slow-query threshold breach (`Warning`) in test/Aster.Tests/Persistence/SqliteLoggingTests.cs
+- [ ] T038 [P] [US1] Add baseline provider lifecycle unit test covering the full create→multi-version-update→activate→deactivate→retrieve cycle via the Sqlite provider in test/Aster.Tests/Persistence/SqliteLifecycleTests.cs
 
 ### Implementation for User Story 1
 
 - [ ] T022 [US1] Implement `SqliteResourceDefinitionStore` (`RegisterDefinitionAsync` append-only with auto-increment version, `GetDefinitionAsync`, `GetDefinitionVersionAsync`, `ListDefinitionsAsync`, structured logging) in src/persistence/Aster.Persistence.Sqlite/Persistence/SqliteResourceDefinitionStore.cs
-- [ ] T023 [US1] Implement `SqliteResourceWriteStore` (`SaveVersionAsync` with append-only, `IsSingleton` guard, optimistic concurrency on `BaseVersion`; `UpdateActivationAsync` with durable `ChannelMode` upsert and mode enforcement; version/activation read operations; structured logging) in src/persistence/Aster.Persistence.Sqlite/Persistence/SqliteResourceWriteStore.cs
+- [ ] T023 [US1] Implement `SqliteResourceWriteStore` (`SaveVersionAsync` with append-only, `IsSingleton` guard, optimistic concurrency on `BaseVersion`; `UpdateActivationAsync` with durable `ChannelMode` upsert, mode enforcement, and `ValidationFailed` on first-channel activation if no mode is supplied; version/activation read operations; structured logging) in src/persistence/Aster.Persistence.Sqlite/Persistence/SqliteResourceWriteStore.cs
 - [ ] T024 [US1] Update `QuickstartIntegrationTest` to use the Sqlite provider and the new `ChannelMode` parameter in test/Aster.Tests/Integration/QuickstartIntegrationTest.cs
 - [ ] T025 [US1] Update `SeedDataInitializer` to pass `ChannelMode.SingleActive` on all `ActivateAsync` calls in src/apps/Aster.Web/SeedDataInitializer.cs
 
@@ -92,10 +94,11 @@
 
 **Purpose**: Fulfil the constitution architecture-review obligation, update documentation, and run final end-to-end validation.
 
-- [ ] T032 [P] Author Phase 1 → Phase 2 architecture review document (constitution gate — required before merge) in docs/architecture-review-phase2.md
-- [ ] T033 [P] Update `Aster.Core` README and wiki Getting-Started guide documenting `ChannelMode` usage and migration from `bool allowMultipleActive` in src/core/Aster.Core/README.md
+- [ ] T032 [P] Author Phase 1 → Phase 2 architecture review document (constitution gate — required before merge); explicitly note that Phase 2 defers multi-version schema migration and that constitution P-V.3 ("Infrastructure steps MUST be abstract") is an obligation carried forward to future phases in docs/architecture-review-phase2.md
+- [ ] T033 [P] Update `Aster.Core` README, wiki Getting-Started guide (ChannelMode usage and migration from `bool allowMultipleActive`), and wiki Architecture-Overview page (link to `docs/adr/ADR-001-persistence-provider-naming-and-data-access.md`) in src/core/Aster.Core/README.md
 - [ ] T034 Execute all quickstart validation scenarios from specs/002-roadmap-next-phase/quickstart.md and capture SC-001..SC-005 evidence
-- [ ] T035 Run complete test suite and confirm zero failures across all affected projects before merge
+- [ ] T035 [P] Verify FR-013 naming convention compliance (project `Aster.Persistence.Sqlite`, folder `src/persistence/`, DI ext `AddSqlitePersistence()`, options class `SqlitePersistenceOptions`), FR-014 raw ADO.NET constraint (no ORM or micro-ORM package references), and NFR-OBS-004 (no metrics or tracing packages, e.g. `OpenTelemetry.*`) in src/persistence/Aster.Persistence.Sqlite/Aster.Persistence.Sqlite.csproj. (Depends on T001 completion.)
+- [ ] T036 Run complete test suite and confirm zero failures across all affected projects before merge
 
 ---
 
@@ -125,9 +128,9 @@
 
 - Phase 1: T003, T004 can run in parallel.
 - Phase 2: T005–T009 (Aster.Core changes) can proceed before T010–T016 (Sqlite infra); T010+T011 can run in parallel; T015+T016 can run in parallel.
-- US1: T017–T021 (tests) can all run in parallel; T022+T023 can run in parallel before T024+T025.
+- US1: T017–T021, T037, T038 (tests) can all run in parallel; T022+T023 can run in parallel before T024+T025.
 - US2: T026–T029 (tests) can all run in parallel; T030+T031 can run in parallel.
-- Phase 5: T032+T033 can run in parallel.
+- Phase 5: T032+T033+T035 can run in parallel.
 
 ---
 
@@ -139,6 +142,8 @@ Task: "T018 [P] [US1] Add resource append-only write and version retrieval tests
 Task: "T019 [P] [US1] Add ActivationRecord persistence and ChannelMode durability tests in test/Aster.Tests/Persistence/SqliteActivationTests.cs"
 Task: "T020 [P] [US1] Add concurrent save/activate conflict tests in test/Aster.Tests/Persistence/SqliteConcurrencyTests.cs"
 Task: "T021 [P] [US1] Add restart durability integration test (SC-001, SC-005) in test/Aster.Tests/Persistence/RestartDurabilityTests.cs"
+Task: "T037 [P] [US1] Add ILogger output verification tests via log-capture mock in test/Aster.Tests/Persistence/SqliteLoggingTests.cs"
+Task: "T038 [P] [US1] Add baseline provider lifecycle unit test (create→update→activate→deactivate→retrieve) in test/Aster.Tests/Persistence/SqliteLifecycleTests.cs"
 ```
 
 ## Parallel Example: User Story 2

@@ -24,7 +24,7 @@ Behavioral guarantees:
 Behavioral guarantees:
 - `CreateAsync` honors singleton and duplicate-ID constraints (resolved via `ResourceDefinitionRecord.IsSingleton`).
 - `UpdateAsync` requires matching `BaseVersion` (optimistic lock).
-- `ActivateAsync` accepts an optional `ChannelMode`; if supplied it sets or updates the stored per-channel mode, if omitted the stored mode is used. `SingleActive` enforces at-most-one active version; `MultiActive` allows many.
+- `ActivateAsync` accepts an optional `ChannelMode`; if supplied it sets or updates the stored per-channel mode, if omitted the stored mode is used. If mode is omitted and no `ActivationRecord` exists yet for the channel, a typed `ValidationFailed` error MUST be returned. `SingleActive` enforces at-most-one active version; `MultiActive` allows many.
 
 ### 3) Query Contract
 - `IResourceQueryService.QueryAsync(ResourceQuery, CancellationToken)`

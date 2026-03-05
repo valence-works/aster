@@ -65,7 +65,8 @@ Persists the mutable activation state for a `(ResourceId, Channel)` pair. Maps t
     - `SingleActive` → at most 1 version ordinal in `ActiveVersionsJson` after any activation call.
     - `MultiActive` → 0..N distinct version ordinals.
 - Notes:
-  - Mode is persisted on the first `ActivateAsync` call for a channel. An explicit mode supplied on a subsequent call updates the stored mode.
+  - An explicit `ChannelMode` MUST be supplied on the first `ActivateAsync` call for a channel; omitting it MUST return a typed `ValidationFailed` error.
+  - An explicit mode supplied on a subsequent call updates the stored mode.
   - Once a mode is stored, calling `ActivateAsync` without a mode uses the stored mode.
   - Row is upserted on each activation or deactivation change; it is not append-only.
 
@@ -79,7 +80,7 @@ Persists the mutable activation state for a `(ResourceId, Channel)` pair. Maps t
 ### Resource Lifecycle
 1. `Create` → insert `ResourceRecord` with `Version = 1`. No prior row for this `ResourceId`.
 2. `Update` → optimistic check that `Version = max(existing)`; insert `ResourceRecord` with `Version = N + 1`.
-3. `Activate(channel, mode?)` → upsert `ActivationRecord`; store or update `Mode` if supplied, otherwise use stored mode; add version ordinal to `ActiveVersionsJson` subject to mode enforcement.
+3. `Activate(channel, mode?)` → if no `ActivationRecord` exists for the channel and `mode` is null, return a typed `ValidationFailed` error; otherwise upsert `ActivationRecord`; store or update `Mode` if supplied, otherwise use stored mode; add version ordinal to `ActiveVersionsJson` subject to mode enforcement.
 4. `Deactivate(channel)` → update `ActivationRecord`; remove version ordinal from `ActiveVersionsJson`. History in `ResourceRecord` is unchanged.
 
 ---
@@ -101,7 +102,7 @@ The following `Aster.Core` types require extension to support durable per-channe
 
 | Field | Type | Description |
 |---|---|---|
-| `Mode` | `ChannelMode` enum | `SingleActive` \| `MultiActive`. Stored per channel. Defaults to `SingleActive` if omitted on first activation. |
+| `Mode` | `ChannelMode` enum | `SingleActive` \| `MultiActive`. Stored per channel. An explicit mode MUST be supplied on first activation; omitting it MUST return a typed `ValidationFailed` error. Subsequent calls may omit mode to reuse the stored value. |
 
 ### `IResourceManager.ActivateAsync` — replace `allowMultipleActive` with `ChannelMode?`
 
