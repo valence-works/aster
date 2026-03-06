@@ -37,8 +37,14 @@ This page describes the internal architecture, layering, and key design decision
 |  |  QueryService · ResourceStore           |    |
 |  +─────────────────────────────────────────+    |
 +─────────────────────────────────────────────────+
-|  Aster.Persistence.<Backend>  (Phase 2+)        |
-|  (PostgresJsonb / SqliteJson / Mongo / ...)      |
+|  Aster.Persistence.Sqlite (Phase 2)             |
+|  Raw ADO.NET · JSON document columns            |
+|  SqliteResourceDefinitionStore                  |
+|  SqliteResourceWriteStore                       |
+|  SqliteResourceQueryService                     |
++─────────────────────────────────────────────────+
+|  Aster.Persistence.<Backend>  (Future)          |
+|  (PostgresJsonb / Mongo / ...)                  |
 +─────────────────────────────────────────────────+
 ```
 
@@ -52,6 +58,7 @@ This page describes the internal architecture, layering, and key design decision
 | **Services** | `Aster.Core` | `SystemTextJsonAspectBinder`, `SystemTextJsonFacetBinder`, `GuidIdentityGenerator` |
 | **InMemory** | `Aster.Core` | Phase 1 implementations: `InMemoryResourceManager`, `InMemoryResourceDefinitionStore`, `InMemoryResourceStore`, `InMemoryQueryService` |
 | **Extensions** | `Aster.Core` | `AddAsterCore()` DI extension; `GetAspect<T>`, `SetAspect<T>`, `GetFacet<T>`, `SetFacet<T>` |
+| **Persistence** | `Aster.Persistence.Sqlite` | Phase 2 durable provider: Sqlite + JSON columns via raw ADO.NET (see [ADR-001](../docs/adr/ADR-001-persistence-provider-naming-and-data-access.md)) |
 
 ---
 
@@ -103,8 +110,10 @@ Activation is a **separate concern** from versioning:
 ### Channel semantics
 
 - Channel names are arbitrary strings (case-sensitive).
-- `allowMultipleActive = false` (default): single-active per channel — activating V2 deactivates others.
-- `allowMultipleActive = true`: multi-active — V2 is added alongside existing active versions.
+- `ChannelMode.SingleActive` (default): single-active per channel — activating V2 deactivates others.
+- `ChannelMode.MultiActive`: multi-active — V2 is added alongside existing active versions.
+- The mode is set on **first activation** of a channel and stored durably per `(ResourceId, Channel)` pair.
+- Subsequent activations reuse the stored mode unless an explicit override is supplied.
 
 ---
 

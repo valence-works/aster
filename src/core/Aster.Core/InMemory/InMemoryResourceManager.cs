@@ -185,7 +185,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         string resourceId,
         int version,
         string channel,
-        bool allowMultipleActive = false,
+        ChannelMode? mode = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
@@ -209,6 +209,29 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         if (version != latest.Version)
             throw new ConcurrencyException(resourceId, version, latest.Version);
 
+        // Resolve effective ChannelMode
+        var channelModes = store.GetOrAddChannelModes(resourceId);
+        ChannelMode effectiveMode;
+
+        if (mode.HasValue)
+        {
+            // Explicit mode supplied — set or update stored mode
+            channelModes[channel] = mode.Value;
+            effectiveMode = mode.Value;
+        }
+        else if (channelModes.TryGetValue(channel, out var storedMode))
+        {
+            // No mode supplied but stored mode exists — reuse it
+            effectiveMode = storedMode;
+        }
+        else
+        {
+            // No mode supplied and no stored mode — ValidationFailed
+            throw new ValidationException(
+                $"ChannelMode must be supplied on first activation of channel '{channel}' for resource '{resourceId}'. " +
+                $"No stored activation record exists for this channel.");
+        }
+
         var channelActivations = store.GetOrAddActivations(resourceId);
         var newActiveVersions = new HashSet<int>();
 
@@ -216,7 +239,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         {
             if (channelActivations.TryGetValue(channel, out var existing))
             {
-                if (allowMultipleActive)
+                if (effectiveMode == ChannelMode.MultiActive)
                     newActiveVersions = new HashSet<int>(existing);
             }
 
@@ -228,6 +251,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         {
             ResourceId = resourceId,
             Channel = channel,
+            Mode = effectiveMode,
             ActiveVersions = [.. newActiveVersions],
             LastUpdated = DateTime.UtcNow,
         };
@@ -258,10 +282,13 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         }
 
         var remaining = channelActivations.TryGetValue(channel, out var current) ? current : new HashSet<int>();
+        var channelModes = store.GetOrAddChannelModes(resourceId);
+        var storedMode = channelModes.TryGetValue(channel, out var m) ? m : ChannelMode.SingleActive;
         var state = new ActivationState
         {
             ResourceId = resourceId,
             Channel = channel,
+            Mode = storedMode,
             ActiveVersions = [.. remaining],
             LastUpdated = DateTime.UtcNow,
         };

@@ -1,6 +1,7 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.InMemory;
+using Aster.Core.Models.Instances;
 using Aster.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -37,7 +38,7 @@ public sealed class InMemoryActivationTests
         var resourceId = await SeedResource(manager);
 
         // Act
-        await manager.ActivateAsync(resourceId, 1, "Published");
+        await manager.ActivateAsync(resourceId, 1, "Published", ChannelMode.SingleActive);
         var active = (await manager.GetActiveVersionsAsync(resourceId, "Published")).ToList();
 
         // Assert
@@ -71,12 +72,44 @@ public sealed class InMemoryActivationTests
     }
 
     [Fact]
+    public async Task ActivateAsync_NoMode_FirstActivation_ThrowsValidationException()
+    {
+        // Arrange — first activation must supply an explicit ChannelMode
+        var (manager, _) = CreateManager();
+        var resourceId = await SeedResource(manager);
+
+        // Act & Assert — omitting mode on first activation for a channel returns ValidationFailed
+        await Assert.ThrowsAsync<ValidationException>(() =>
+            manager.ActivateAsync(resourceId, 1, "Published").AsTask());
+    }
+
+    [Fact]
+    public async Task ActivateAsync_NoMode_SubsequentActivation_ReusesStoredMode()
+    {
+        // Arrange — set mode on first activation, then reuse on subsequent
+        var (manager, _) = CreateManager();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
+        await manager.ActivateAsync(v1.ResourceId, 1, "Published", ChannelMode.SingleActive);
+
+        // Update to V2
+        await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
+
+        // Act — activate V2 without explicit mode (should reuse SingleActive)
+        await manager.ActivateAsync(v1.ResourceId, 2, "Published");
+        var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
+
+        // Assert — SingleActive means only V2 active
+        Assert.Single(active);
+        Assert.Equal(2, active[0].Version);
+    }
+
+    [Fact]
     public async Task ActivateAsync_SingleActive_DeactivatesPreviousVersion()
     {
         // Arrange
         var (manager, _) = CreateManager();
         var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
-        await manager.ActivateAsync(v1.ResourceId, 1, "Published", allowMultipleActive: false);
+        await manager.ActivateAsync(v1.ResourceId, 1, "Published", ChannelMode.SingleActive);
 
         // Sanity: V1 is active
         var beforeUpdate = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
@@ -85,8 +118,8 @@ public sealed class InMemoryActivationTests
         // Update to V2 so V2 is now latest
         var v2 = await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
 
-        // Act — activate V2 with single-active (default)
-        await manager.ActivateAsync(v1.ResourceId, 2, "Published", allowMultipleActive: false);
+        // Act — activate V2 with single-active (reuses stored mode)
+        await manager.ActivateAsync(v1.ResourceId, 2, "Published");
         var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
 
         // Assert — only V2 should be active
@@ -100,11 +133,11 @@ public sealed class InMemoryActivationTests
         // Arrange
         var (manager, _) = CreateManager();
         var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
-        await manager.ActivateAsync(v1.ResourceId, 1, "Preview", allowMultipleActive: true);
+        await manager.ActivateAsync(v1.ResourceId, 1, "Preview", ChannelMode.MultiActive);
 
-        // Update to V2 and activate too (multi-active)
+        // Update to V2 and activate too (multi-active — reuses stored mode)
         await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
-        await manager.ActivateAsync(v1.ResourceId, 2, "Preview", allowMultipleActive: true);
+        await manager.ActivateAsync(v1.ResourceId, 2, "Preview");
 
         // Act
         var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Preview")).ToList();
@@ -125,7 +158,7 @@ public sealed class InMemoryActivationTests
         // Arrange
         var (manager, _) = CreateManager();
         var resourceId = await SeedResource(manager);
-        await manager.ActivateAsync(resourceId, 1, "Published");
+        await manager.ActivateAsync(resourceId, 1, "Published", ChannelMode.SingleActive);
 
         // Act
         await manager.DeactivateAsync(resourceId, 1, "Published");
@@ -156,7 +189,7 @@ public sealed class InMemoryActivationTests
         // Arrange
         var (manager, _) = CreateManager();
         var resourceId = await SeedResource(manager);
-        await manager.ActivateAsync(resourceId, 1, "Published");
+        await manager.ActivateAsync(resourceId, 1, "Published", ChannelMode.SingleActive);
 
         // Act — "Preview" channel has not been activated
         var preview = (await manager.GetActiveVersionsAsync(resourceId, "Preview")).ToList();

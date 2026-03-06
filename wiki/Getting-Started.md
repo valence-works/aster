@@ -153,17 +153,30 @@ If the resource was concurrently modified between your read and your update, `Co
 await manager.ActivateAsync(
     resourceId: resource.ResourceId,
     version: 2,
-    channel: "Published"
+    channel: "Published",
+    mode: ChannelMode.SingleActive   // required on first activation, stored durably
 );
 ```
 
-By default (`allowMultipleActive = false`) this deactivates any previously active version in `"Published"` first.
+`ChannelMode` controls how many versions can be active in a channel simultaneously:
 
-To allow multiple simultaneous active versions in the same channel:
+| Mode | Behaviour |
+|---|---|
+| `SingleActive` | Deactivates any previously active version first. Only the new version is active. |
+| `MultiActive` | The new version is added alongside existing active versions. |
+
+Once set, subsequent activations reuse the stored mode unless an explicit `mode` override is supplied:
 
 ```csharp
-await manager.ActivateAsync(resource.ResourceId, version: 2, "Staging", allowMultipleActive: true);
+// Second activation in the same channel — mode is already stored as SingleActive
+await manager.ActivateAsync(resource.ResourceId, version: 3, "Published");
+
+// Override with MultiActive for a different channel
+await manager.ActivateAsync(resource.ResourceId, version: 2, "Staging",
+    mode: ChannelMode.MultiActive);
 ```
+
+> **Migration from `bool allowMultipleActive`:** The boolean parameter has been replaced by `ChannelMode? mode`. Pass `ChannelMode.SingleActive` (equivalent to `false`) or `ChannelMode.MultiActive` (equivalent to `true`). The mode is now required on first activation of each channel and persisted durably.
 
 ---
 

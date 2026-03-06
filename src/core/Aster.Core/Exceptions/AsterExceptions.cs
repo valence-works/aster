@@ -85,3 +85,18 @@ public sealed class SingletonViolationException : Exception
     /// <inheritdoc />
     public SingletonViolationException(string message, Exception innerException) : base(message, innerException) { }
 }
+
+/// <summary>
+/// Thrown when a validation rule is violated (e.g., missing required <c>ChannelMode</c> on first channel activation).
+/// </summary>
+public sealed class ValidationException : Exception
+{
+    /// <inheritdoc />
+    public ValidationException() : base("A validation rule was violated.") { }
+
+    /// <inheritdoc />
+    public ValidationException(string message) : base(message) { }
+
+    /// <inheritdoc />
+    public ValidationException(string message, Exception innerException) : base(message, innerException) { }
+}

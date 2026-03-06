@@ -68,16 +68,21 @@ public interface IResourceManager
     /// <param name="resourceId">Logical resource identifier.</param>
     /// <param name="version">The version number to activate.</param>
     /// <param name="channel">The channel name (e.g., "Published").</param>
-    /// <param name="allowMultipleActive">
-    /// If <see langword="false"/> (default), activating a version deactivates all others in the same channel.
-    /// If <see langword="true"/>, the version is added alongside existing active versions.
+    /// <param name="mode">
+    /// Activation policy for the channel. Required on first activation for a channel
+    /// (no stored <c>ActivationRecord</c> exists); omitting it on first activation returns
+    /// a typed <c>ValidationFailed</c> error. On subsequent activations, if <see langword="null"/>,
+    /// the stored mode is reused; if supplied, the stored mode is updated.
     /// </param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <exception cref="VersionNotFoundException">Thrown if the specified version does not exist.</exception>
     /// <exception cref="ConcurrencyException">
     /// Thrown if the store's latest version has changed since the caller last read.
     /// </exception>
-    ValueTask ActivateAsync(string resourceId, int version, string channel, bool allowMultipleActive = false, CancellationToken cancellationToken = default);
+    /// <exception cref="ValidationException">
+    /// Thrown if <paramref name="mode"/> is <see langword="null"/> and no stored mode exists for the channel.
+    /// </exception>
+    ValueTask ActivateAsync(string resourceId, int version, string channel, ChannelMode? mode = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deactivates the given version in the specified channel.

@@ -104,11 +104,23 @@ var v2 = await manager.UpdateAsync(resource.ResourceId, new UpdateResourceReques
 ### 5. Activate a version in a channel
 
 ```csharp
-await manager.ActivateAsync(resource.ResourceId, v2.Version, "Published");
+await manager.ActivateAsync(resource.ResourceId, v2.Version, "Published",
+    mode: ChannelMode.SingleActive);   // set on first activation, stored durably
 
 var active = await manager.GetActiveVersionsAsync(resource.ResourceId, "Published");
 // active.Single().Version == 2
 ```
+
+`ChannelMode` is a durable per-channel policy:
+
+| Mode | Behaviour |
+|---|---|
+| `SingleActive` | Activating V2 implicitly deactivates previous versions in the channel. |
+| `MultiActive` | V2 is added alongside existing active versions. |
+
+Once set, subsequent activations reuse the stored mode unless an explicit `mode` override is supplied.
+
+> **Migration from `bool allowMultipleActive`:** The boolean parameter has been replaced by `ChannelMode? mode`. Pass `ChannelMode.SingleActive` (equivalent to `false`, the old default) or `ChannelMode.MultiActive` (equivalent to `true`). The mode is now required on first activation of each channel and persisted durably.
 
 ---
 
@@ -155,6 +167,26 @@ All in-memory implementations are thread-safe:
 - `ConcurrentDictionary<K,V>` for key-level bucket operations.
 - `lock(list)` guards all `List<T>` mutations (version lists, definition version lists).
 - `lock(channelActivations)` guards `HashSet<int>` activation sets.
+
+---
+
+## Persistence providers
+
+The in-memory stores registered by `AddAsterCore()` are suitable for prototyping. For durable storage, add a persistence provider:
+
+```csharp
+using Aster.Persistence.Sqlite.Extensions;
+
+builder.Services.AddAsterCore();
+builder.Services.AddSqlitePersistence(options =>
+{
+    options.ConnectionString = "Data Source=aster.db";
+});
+```
+
+The Sqlite provider replaces `IResourceDefinitionStore`, `IResourceWriteStore`, and `IResourceQueryService` with Sqlite-backed implementations using raw ADO.NET (no ORM).
+
+See [ADR-001](../../docs/adr/ADR-001-persistence-provider-naming-and-data-access.md) for naming conventions and data-access rationale.
 
 ---
 

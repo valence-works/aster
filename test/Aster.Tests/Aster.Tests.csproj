@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\core\Aster.Core\Aster.Core.csproj" />
+    <ProjectReference Include="..\..\src\persistence\Aster.Persistence.Sqlite\Aster.Persistence.Sqlite.csproj" />
   </ItemGroup>
 
 </Project>

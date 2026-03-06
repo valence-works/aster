@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
+using Aster.Core.Models.Instances;
 
 namespace Aster.Web;
 
@@ -67,7 +68,7 @@ internal sealed class SeedDataInitializer : BackgroundService
             }, stoppingToken);
 
             // Activate V1 in Published channel
-            await resourceManager.ActivateAsync(resource.ResourceId, 1, "Published", cancellationToken: stoppingToken);
+            await resourceManager.ActivateAsync(resource.ResourceId, 1, "Published", ChannelMode.SingleActive, cancellationToken: stoppingToken);
             logger.LogInformation("Seeded product '{Title}' (ResourceId={ResourceId}).", sample.Title, resource.ResourceId);
         }
 

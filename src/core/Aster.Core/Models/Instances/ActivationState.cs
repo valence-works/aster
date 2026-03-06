@@ -16,6 +16,12 @@ public sealed record ActivationState
     public required string Channel { get; init; }
 
     /// <summary>
+    /// Durable per-channel activation policy.
+    /// Set on first activation; subsequent calls may update or reuse the stored value.
+    /// </summary>
+    public required ChannelMode Mode { get; init; }
+
+    /// <summary>
     /// Active <c>Resource.Version</c> numbers. Supports multi-active.
     /// </summary>
     public IReadOnlyList<int> ActiveVersions { get; init; } = [];

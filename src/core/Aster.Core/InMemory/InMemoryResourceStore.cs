@@ -25,6 +25,12 @@ public sealed class InMemoryResourceStore
         new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Durable channel mode keyed by <c>ResourceId</c> → channel name → <see cref="ChannelMode"/>.
+    /// </summary>
+    internal readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ChannelMode>> ChannelModes =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Returns the ordered version list for a resource, or <see langword="null"/> if it does not exist.
     /// The caller must <c>lock</c> the returned list when reading or mutating.
     /// </summary>
@@ -36,6 +42,12 @@ public sealed class InMemoryResourceStore
     /// </summary>
     internal ConcurrentDictionary<string, HashSet<int>> GetOrAddActivations(string resourceId) =>
         Activations.GetOrAdd(resourceId, _ => new ConcurrentDictionary<string, HashSet<int>>(StringComparer.Ordinal));
+
+    /// <summary>
+    /// Returns the channel mode map for a resource, creating it if absent.
+    /// </summary>
+    internal ConcurrentDictionary<string, ChannelMode> GetOrAddChannelModes(string resourceId) =>
+        ChannelModes.GetOrAdd(resourceId, _ => new ConcurrentDictionary<string, ChannelMode>(StringComparer.Ordinal));
 
     /// <summary>
     /// Returns all resource IDs that belong to the specified definition.

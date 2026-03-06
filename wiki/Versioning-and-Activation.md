@@ -65,16 +65,25 @@ await manager.ActivateAsync(
     resourceId: resource.ResourceId,
     version: 2,
     channel: "Published",
-    allowMultipleActive: false   // default
+    mode: ChannelMode.SingleActive   // required on first activation, stored durably
 );
 ```
 
-### Single-active vs multi-active
+### SingleActive vs MultiActive (ChannelMode)
 
-| `allowMultipleActive` | Behaviour |
+| `ChannelMode` | Behaviour |
 |---|---|
-| `false` (default) | All other versions in `channel` are deactivated first. Only V2 is active. |
-| `true` | V2 is added alongside any existing active versions in `channel`. |
+| `SingleActive` | All other versions in `channel` are deactivated first. Only V2 is active. |
+| `MultiActive` | V2 is added alongside any existing active versions in `channel`. |
+
+The mode is set on **first activation** of each channel and stored durably per `(ResourceId, Channel)` pair. Subsequent activations reuse the stored mode unless an explicit override is supplied:
+
+```csharp
+// Second activation — mode already stored as SingleActive, no need to supply again
+await manager.ActivateAsync(resource.ResourceId, 3, "Published");
+```
+
+> **Migration from `bool allowMultipleActive`:** The boolean parameter has been replaced by `ChannelMode? mode`. Pass `ChannelMode.SingleActive` (equivalent to `false`) or `ChannelMode.MultiActive` (equivalent to `true`).
 
 ### Multiple channels
 
