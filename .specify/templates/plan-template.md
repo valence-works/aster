@@ -31,7 +31,22 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Answer each gate with PASS/FAIL and a short justification. Any FAIL requires an entry in Complexity Tracking.
+
+- **SDK-first/headless**: Contracts remain host-agnostic and do not introduce UI/CMS coupling.
+- **Immutable versioning**: Resource changes preserve append-only version snapshots.
+- **Channel activation**: Activation state remains separate from resource payloads.
+- **Typed/queryable**: Typed aspects and portable query AST semantics are preserved; no public `IQueryable` leakage.
+- **Provider agnostic**: Core logic avoids direct dependency on specific database/provider frameworks.
+- **Simplicity first**: The design is the simplest implementation that satisfies current requirements.
+- **Modern C# idioms**: The approach uses modern C#/.NET features where they improve clarity.
+- **Readability over cleverness**: Implementation avoids obscure control flow, metaprogramming, and excessive indirection.
+- **Explicitness over magic**: Behavior is discoverable through code/configuration, not hidden scanning or side effects.
+- **Abstractions justified**: New interfaces/layers/extensions solve a demonstrated current need.
+- **Optimize for deletion**: Components can be removed/replaced without broad coupling.
+- **Composition over inheritance**: Design avoids unnecessary inheritance hierarchies.
+- **Intentional dependencies**: New third-party dependencies are justified against platform alternatives.
+- **Operational simplicity**: Local development, deployment, debugging, and observability remain straightforward.
 
 ## Project Structure
 

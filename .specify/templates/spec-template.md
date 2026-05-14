@@ -75,6 +75,13 @@
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
 
+### Constitution Alignment *(mandatory)*
+
+- **Simplicity**: [Describe the simplest acceptable behavior and what is intentionally out of scope]
+- **Explicitness**: [Describe configuration/registration/discovery behavior users can see and control]
+- **Dependencies**: [List new dependencies, or state "None"]
+- **Operational Impact**: [Describe setup, local development, deployment, debugging, and observability impact]
+
 ## Requirements *(mandatory)*
 
 <!--
