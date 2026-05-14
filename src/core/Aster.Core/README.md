@@ -35,8 +35,8 @@ builder.Services.AddAsterCore();
 | Service | Interface |
 |---|---|
 | `InMemoryResourceDefinitionStore` | `IResourceDefinitionStore` |
-| `InMemoryResourceStore` | `IResourceVersionReader` |
-| `InMemoryResourceManager` | `IResourceManager`, `IResourceVersionWriter` |
+| `InMemoryResourceStore` | `IResourceVersionReader`, `IResourceVersionWriter` |
+| `DefaultResourceManager` | `IResourceManager` |
 | `InMemoryQueryService` | `IResourceQueryService` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
@@ -131,7 +131,7 @@ var results = await queryService.QueryAsync(new ResourceQuery
 
 ```
 IResourceDefinitionStore      — stores versioned ResourceDefinition schemas
-IResourceManager              — create / update / activate resource instances
+IResourceManager              — provider-backed create / update / activate orchestration
 IResourceVersionWriter           — low-level version/activation persistence hook
 IResourceVersionReader           — low-level read hook for query candidate version sets
 IResourceQueryService         — LINQ-based in-memory query engine

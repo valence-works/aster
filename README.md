@@ -121,8 +121,8 @@ Console.WriteLine(title?.Title); // "Super Gadget Pro"
 | Interface | Default Implementation |
 |---|---|
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` |
-| `IResourceManager` | `InMemoryResourceManager` |
-| `IResourceVersionWriter` | `InMemoryResourceManager` |
+| `IResourceManager` | `DefaultResourceManager` |
+| `IResourceVersionWriter` | `InMemoryResourceStore` |
 | `IResourceVersionReader` | `InMemoryResourceStore` |
 | `IResourceQueryService` | `InMemoryQueryService` |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` |

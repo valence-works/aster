@@ -26,8 +26,9 @@ builder.Services.AddAsterCore();
 | Interface | Implementation |
 |---|---|
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` |
-| `IResourceManager` | `InMemoryResourceManager` |
-| `IResourceVersionWriter` | `InMemoryResourceManager` |
+| `IResourceManager` | `DefaultResourceManager` |
+| `IResourceVersionWriter` | `InMemoryResourceStore` |
+| `IResourceVersionReader` | `InMemoryResourceStore` |
 | `IResourceQueryService` | `InMemoryQueryService` |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` |
@@ -249,4 +250,3 @@ Navigate to `http://localhost:5000` for the index page linking to both endpoints
 - [Versioning & Activation](Versioning-and-Activation) — deep dive into the activation model
 - [Typed Aspects & Facets](Typed-Aspects-and-Facets) — working with POCOs at the facet level
 - [Querying](Querying) — filter resources by metadata and aspect/facet values
-

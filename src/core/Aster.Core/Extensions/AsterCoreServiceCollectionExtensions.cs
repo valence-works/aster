@@ -2,6 +2,9 @@ using Aster.Core.Abstractions;
 using Aster.Core.InMemory;
 using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aster.Core.Extensions;
 
@@ -22,6 +25,8 @@ public static class AsterCoreServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+
         // Identity
         services.AddSingleton<GuidIdentityGenerator>();
         services.AddSingleton<IIdentityGenerator>(sp => sp.GetRequiredService<GuidIdentityGenerator>());
@@ -33,11 +38,12 @@ public static class AsterCoreServiceCollectionExtensions
         // Resource backing store
         services.AddSingleton<InMemoryResourceStore>();
         services.AddSingleton<IResourceVersionReader>(sp => sp.GetRequiredService<InMemoryResourceStore>());
+        services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<InMemoryResourceStore>());
 
         // Resource manager
         services.AddSingleton<InMemoryResourceManager>();
-        services.AddSingleton<IResourceManager>(sp => sp.GetRequiredService<InMemoryResourceManager>());
-        services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<InMemoryResourceManager>());
+        services.AddSingleton<DefaultResourceManager>();
+        services.AddSingleton<IResourceManager>(sp => sp.GetRequiredService<DefaultResourceManager>());
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();

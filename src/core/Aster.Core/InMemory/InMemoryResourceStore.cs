@@ -9,7 +9,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory store for <see cref="Resource"/> versions and activation state.
 /// Intended for use by <see cref="InMemoryResourceManager"/> only.
 /// </summary>
-public sealed class InMemoryResourceStore : IResourceVersionReader
+public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter
 {
     /// <summary>
     /// Resource version history keyed by <c>ResourceId</c>.
@@ -56,6 +56,38 @@ public sealed class InMemoryResourceStore : IResourceVersionReader
         };
 
         return ValueTask.FromResult<IEnumerable<Resource>>(resources.ToList());
+    }
+
+    /// <inheritdoc />
+    public ValueTask<Resource> SaveVersionAsync(Resource resource, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+
+        var versions = Versions.GetOrAdd(resource.ResourceId, _ => []);
+        lock (versions)
+        {
+            versions.Add(resource);
+        }
+
+        return ValueTask.FromResult(resource);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<ActivationState> UpdateActivationAsync(
+        string resourceId,
+        string channel,
+        ActivationState state,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var channelActivations = GetOrAddActivations(resourceId);
+        lock (channelActivations)
+            channelActivations[channel] = state.ActiveVersions.ToHashSet();
+
+        return ValueTask.FromResult(state);
     }
 
     /// <summary>

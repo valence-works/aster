@@ -20,13 +20,14 @@ All services are registered as **singletons**.
 |---|---|---|
 | `IIdentityGenerator` | `GuidIdentityGenerator` | Generates `Guid.NewGuid().ToString()` IDs |
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` | Thread-safe in-memory definition registry |
-| `IResourceManager` | `InMemoryResourceManager` | Create / update / activate / retrieve resources |
-| `IResourceVersionWriter` | `InMemoryResourceManager` | Version/activation write primitive (same underlying instance) |
+| `IResourceManager` | `DefaultResourceManager` | Create / update / activate / retrieve resources |
+| `IResourceVersionWriter` | `InMemoryResourceStore` | Version/activation write primitive |
+| `IResourceVersionReader` | `InMemoryResourceStore` | Query/read candidate version primitive |
 | `IResourceQueryService` | `InMemoryQueryService` | LINQ-based query evaluator |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` | Aspect POCO ↔ raw storage via `System.Text.Json` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` | Facet value POCO ↔ raw storage via `System.Text.Json` |
 
-The concrete types (`InMemoryResourceManager`, `InMemoryResourceDefinitionStore`, etc.) are also registered as singletons so they can be resolved directly where needed (e.g., in tests).
+The concrete types (`DefaultResourceManager`, `InMemoryResourceManager`, `InMemoryResourceDefinitionStore`, etc.) are also registered as singletons so they can be resolved directly where needed (e.g., in tests).
 
 ---
 

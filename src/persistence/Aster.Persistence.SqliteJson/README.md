@@ -18,4 +18,4 @@ services.AddAsterSqliteJson(options =>
 });
 ```
 
-Current boundary: this package supplies the low-level provider contracts. `IResourceManager` is still implemented by the in-memory manager, so a provider-backed manager/refactor is the next integration slice.
+Use this after `AddAsterCore()` to replace the default in-memory definition and version primitives while keeping the provider-backed `DefaultResourceManager` and query service orchestration.

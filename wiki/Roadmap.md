@@ -49,7 +49,7 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 | **2.3** | Query surface implementation — translate `ResourceQuery` AST to provider queries; paging/sorting |
 | **2.4** | Provider migrations / provisioning — `IInfrastructureStep`, auto-run at startup or manual CLI execution |
 
-Initial implementation note: `Aster.Persistence.SqliteJson` provides the low-level SQLite JSON definition store and resource version reader/writer. The next integration step is a provider-backed `IResourceManager` or a refactor of the current manager to use these primitives.
+Initial implementation note: `Aster.Persistence.SqliteJson` provides the low-level SQLite JSON definition store and resource version reader/writer. Core now includes a provider-backed `DefaultResourceManager` that can orchestrate lifecycle operations against those primitives.
 
 ### Backend candidates
 

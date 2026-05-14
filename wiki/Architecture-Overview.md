@@ -50,7 +50,7 @@ This page describes the internal architecture, layering, and key design decision
 | **Models** | `Aster.Core` | Immutable domain records: `Resource`, `ResourceDefinition`, `AspectDefinition`, `FacetDefinition`, `AspectInstance`, `FacetValue`, `ActivationState`, `ResourceQuery`, filter types |
 | **Definitions** | `Aster.Core` | `ResourceDefinitionBuilder` — fluent code-first API |
 | **Services** | `Aster.Core` | `SystemTextJsonAspectBinder`, `SystemTextJsonFacetBinder`, `GuidIdentityGenerator` |
-| **InMemory** | `Aster.Core` | Phase 1 implementations: `InMemoryResourceManager`, `InMemoryResourceDefinitionStore`, `InMemoryResourceStore`, `InMemoryQueryService` |
+| **InMemory** | `Aster.Core` | Phase 1 implementations: `DefaultResourceManager`, `InMemoryResourceDefinitionStore`, `InMemoryResourceStore`, `InMemoryQueryService` |
 | **Extensions** | `Aster.Core` | `AddAsterCore()` DI extension; `GetAspect<T>`, `SetAspect<T>`, `GetFacet<T>`, `SetFacet<T>` |
 
 ---
