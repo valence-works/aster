@@ -216,6 +216,9 @@ src/
       InMemory/              ← In-memory implementations
       Models/                ← Domain models (Resource, AspectDefinition, ResourceQuery, …)
       Services/              ← SystemTextJson binders, GuidIdentityGenerator
+  persistence/
+    Aster.Persistence.SqliteJson/
+      ← SQLite JSON low-level definition/resource version provider
   apps/
     Aster.Web/               ← Workbench / playground (ASP.NET Core minimal API)
 test/
