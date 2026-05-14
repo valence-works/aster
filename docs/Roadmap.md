@@ -277,8 +277,8 @@ Defining the query contract early prevents the persistence layer (Phase 2) from 
 ## Epic 2.1 — Persistence Abstractions (Write Model)
 **Deliverables**
 - Storage interfaces:
-    - `IResourceWriteStore`
-    - `IResourceReadStore` (basic)
+    - `IResourceVersionWriter`
+    - `IResourceVersionReader` (basic)
     - `IUnitOfWork` (optional)
 - Serialization strategy:
     - a resource version as a “document” referencing a specific **Resource Definition Version**

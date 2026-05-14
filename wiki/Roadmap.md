@@ -44,7 +44,7 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 
 | Epic | Description |
 |---|---|
-| **2.1** | Persistence abstractions (`IResourceWriteStore`, `IResourceReadStore`, optional `IUnitOfWork`) |
+| **2.1** | Persistence abstractions (`IResourceVersionWriter`, `IResourceVersionReader`, optional `IUnitOfWork`) |
 | **2.2** | Reference backend — choose one: SQLite+JSON, PostgreSQL+JSONB, or MongoDB |
 | **2.3** | Query surface implementation — translate `ResourceQuery` AST to provider queries; paging/sorting |
 | **2.4** | Provider migrations / provisioning — `IInfrastructureStep`, auto-run at startup or manual CLI execution |

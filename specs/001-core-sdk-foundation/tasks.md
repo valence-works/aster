@@ -45,7 +45,7 @@
 - [x] T012 Transcribe `IResourceDefinitionStore` contract (including `GetDefinitionVersionAsync`) from `contracts/Abstractions.cs` into `src/core/Aster.Core/Abstractions/IResourceDefinitionStore.cs`
 - [x] T012a [P] Define `IIdentityGenerator` contract in `src/core/Aster.Core/Abstractions/IIdentityGenerator.cs` and implement `GuidIdentityGenerator` (default, `Guid.NewGuid().ToString()`) in `src/core/Aster.Core/Services/GuidIdentityGenerator.cs`
 - [x] T013 [P] Transcribe `IResourceManager` contract (including activation methods and `GetLatestVersionAsync`) from `contracts/Abstractions.cs` into `src/core/Aster.Core/Abstractions/IResourceManager.cs`
-- [x] T013a Define `IResourceWriteStore` contract (`SaveVersionAsync`, `UpdateActivationAsync`) in `src/core/Aster.Core/Abstractions/IResourceWriteStore.cs` — required by Constitution Principle V (Provider Agnostic); `Resource` IS a version so no separate `WriteVersionAsync` needed
+- [x] T013a Define `IResourceVersionWriter` contract (`SaveVersionAsync`, `UpdateActivationAsync`) in `src/core/Aster.Core/Abstractions/IResourceVersionWriter.cs` — required by Constitution Principle V (Provider Agnostic); `Resource` IS a version so no separate `WriteVersionAsync` needed
 
 **Checkpoint**: Solution compiles with all shared types and contracts defined. User stories can now proceed in parallel.
 

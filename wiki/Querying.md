@@ -86,9 +86,9 @@ new LogicalExpression(LogicalOperator.Not, [
 |---|---|---|
 | `Equals` | Exact match (case-insensitive for strings) | ✅ |
 | `Contains` | Substring match (strings only) | ✅ |
-| `Range` | Min/max bounds (numeric / date) | ❌ throws `NotSupportedException` |
+| `Range` | Min/max bounds (numeric / date) via `RangeValue` | ✅ |
 
-`Range` is defined in the AST contract so that future backends can implement it without API changes.
+`Range` values use `new RangeValue(min, max, includeMin, includeMax)`. A `null` min or max means the range is unbounded on that side.
 
 ---
 
@@ -114,13 +114,13 @@ foreach (var resource in results)
 }
 ```
 
-`QueryAsync` returns the **latest version** of each matching resource.
+`QueryAsync` returns the **latest version** of each matching resource by default. Set `Scope` to `AllVersions`, `Active`, or `Draft` to query a different candidate set; `Active` also requires `ActivationChannel`.
 
 ---
 
 ## Compound Query Example
 
-Find all Products with "Pro" in the title **and** a price under $100 (using `Equals` as a proxy — Range comes in Phase 2+):
+Find all Products with "Pro" in the title **and** a price under $100:
 
 ```csharp
 var results = await queryService.QueryAsync(new ResourceQuery
@@ -128,8 +128,13 @@ var results = await queryService.QueryAsync(new ResourceQuery
     DefinitionId = "Product",
     Filter = new LogicalExpression(LogicalOperator.And, [
         new FacetValueFilter("TitleAspect", "Title", "Pro", ComparisonOperator.Contains),
-        new AspectPresenceFilter("PriceAspect"),
+        new FacetValueFilter(
+            "PriceAspect",
+            "Amount",
+            new RangeValue(Min: null, Max: 100),
+            ComparisonOperator.Range),
     ]),
+    Sorts = [new SortExpression("Created", SortDirection.Descending)],
     Take = 50,
 });
 ```
@@ -140,9 +145,9 @@ var results = await queryService.QueryAsync(new ResourceQuery
 
 The in-memory evaluator (`InMemoryQueryService`) works on in-process objects via LINQ. Limitations:
 
-- **No `Range` operator** — throws `NotSupportedException`.
-- **No sorting** — results come back in insertion order.
-- **Facet value comparison** — values are compared after round-tripping through `System.Text.Json` serialization; strongly-typed comparisons use `ToString()` / string equality internally.
+- **No provider capability planner yet** — unsupported fields or value shapes fail at execution time.
+- **Sorting is intentionally small** — metadata fields and facet values are supported; provider-specific collation/index rules come later.
+- **Facet value comparison** — values are resolved through dictionaries, JSON, or POCO serialization; advanced typed/index semantics come later.
 
 These limitations will be addressed in Phase 2 (persistence backends) and Phase 3 (advanced indexing).
 
@@ -163,4 +168,3 @@ The `ResourceQuery` AST was designed early (Phase 1) to avoid painting future pe
 - [Concepts & Terminology](Concepts-and-Terminology) — aspect keys, facet naming
 - [Typed Aspects & Facets](Typed-Aspects-and-Facets) — reading aspect values from query results
 - [Roadmap](Roadmap) — Phase 3 advanced indexing and typed querying
-

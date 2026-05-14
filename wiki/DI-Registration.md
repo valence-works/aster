@@ -21,7 +21,7 @@ All services are registered as **singletons**.
 | `IIdentityGenerator` | `GuidIdentityGenerator` | Generates `Guid.NewGuid().ToString()` IDs |
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` | Thread-safe in-memory definition registry |
 | `IResourceManager` | `InMemoryResourceManager` | Create / update / activate / retrieve resources |
-| `IResourceWriteStore` | `InMemoryResourceManager` | Write-only surface (same underlying instance) |
+| `IResourceVersionWriter` | `InMemoryResourceManager` | Version/activation write primitive (same underlying instance) |
 | `IResourceQueryService` | `InMemoryQueryService` | LINQ-based query evaluator |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` | Aspect POCO ↔ raw storage via `System.Text.Json` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` | Facet value POCO ↔ raw storage via `System.Text.Json` |
@@ -138,4 +138,3 @@ Hosting extension methods will move to `Aster.Hosting` so consumers can depend o
 
 - [Getting Started](Getting-Started) — full usage walkthrough
 - [Typed Aspects & Facets](Typed-Aspects-and-Facets) — binder usage details
-

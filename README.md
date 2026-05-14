@@ -122,7 +122,8 @@ Console.WriteLine(title?.Title); // "Super Gadget Pro"
 |---|---|
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` |
 | `IResourceManager` | `InMemoryResourceManager` |
-| `IResourceWriteStore` | `InMemoryResourceManager` |
+| `IResourceVersionWriter` | `InMemoryResourceManager` |
+| `IResourceVersionReader` | `InMemoryResourceStore` |
 | `IResourceQueryService` | `InMemoryQueryService` |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` |
@@ -140,19 +141,14 @@ Use `IResourceQueryService` with a portable `ResourceQuery` AST:
 var results = await queryService.QueryAsync(new ResourceQuery
 {
     DefinitionId = "Product",
-    Filter = new AspectFacetFilter
-    {
-        AspectKey  = "TitleAspect",
-        FacetName  = "Title",
-        Operator   = ComparisonOperator.Contains,
-        Value      = "Gadget",
-    },
+    Filter = new FacetValueFilter("TitleAspect", "Title", "Gadget", ComparisonOperator.Contains),
+    Sorts = [new SortExpression("Created", SortDirection.Descending)],
     Skip = 0,
     Take = 20,
 });
 ```
 
-The in-memory evaluator supports `Equals` and `Contains` operators. `Range` is planned for Phase 2+.
+The in-memory evaluator supports `Equals`, `Contains`, and `Range`, plus latest/all/active/draft version scopes.
 
 ---
 

@@ -6,10 +6,10 @@ using Microsoft.Extensions.Logging;
 namespace Aster.Core.InMemory;
 
 /// <summary>
-/// Thread-safe in-memory implementation of <see cref="IResourceManager"/> and <see cref="IResourceWriteStore"/>.
+/// Thread-safe in-memory implementation of <see cref="IResourceManager"/> and <see cref="IResourceVersionWriter"/>.
 /// Provides full create → version → activate lifecycle for resource instances.
 /// </summary>
-public sealed partial class InMemoryResourceManager : IResourceManager, IResourceWriteStore
+public sealed partial class InMemoryResourceManager : IResourceManager, IResourceVersionWriter
 {
     private readonly InMemoryResourceStore store;
     private readonly IResourceDefinitionStore definitionStore;
@@ -304,7 +304,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // IResourceWriteStore
+    // IResourceVersionWriter
     // ──────────────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />

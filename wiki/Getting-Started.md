@@ -27,7 +27,7 @@ builder.Services.AddAsterCore();
 |---|---|
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` |
 | `IResourceManager` | `InMemoryResourceManager` |
-| `IResourceWriteStore` | `InMemoryResourceManager` |
+| `IResourceVersionWriter` | `InMemoryResourceManager` |
 | `IResourceQueryService` | `InMemoryQueryService` |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` |

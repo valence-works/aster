@@ -6,6 +6,16 @@ namespace Aster.Core.Models.Querying;
 public sealed record ResourceQuery
 {
     /// <summary>
+    /// Which resource versions to query. Defaults to latest versions only.
+    /// </summary>
+    public ResourceVersionScope Scope { get; init; } = ResourceVersionScope.Latest;
+
+    /// <summary>
+    /// Channel used when <see cref="Scope"/> is <see cref="ResourceVersionScope.Active"/>.
+    /// </summary>
+    public string? ActivationChannel { get; init; }
+
+    /// <summary>
     /// Optional — restricts results to resources with the given <c>DefinitionId</c>.
     /// Equivalent to a <see cref="MetadataFilter"/> on the <c>DefinitionId</c> field with <see cref="ComparisonOperator.Equals"/>.
     /// </summary>
@@ -13,10 +23,14 @@ public sealed record ResourceQuery
 
     /// <summary>
     /// Optional filter expression tree evaluated against each resource version.
-    /// Supports <see cref="ComparisonOperator.Equals"/> and <see cref="ComparisonOperator.Contains"/>.
-    /// <see cref="ComparisonOperator.Range"/> throws <see cref="NotSupportedException"/> in Phase 1.
+    /// Supports metadata, aspect-presence, facet-value, and logical predicates.
     /// </summary>
     public FilterExpression? Filter { get; init; }
+
+    /// <summary>
+    /// Optional result ordering. Sorts are applied in sequence.
+    /// </summary>
+    public IReadOnlyList<SortExpression> Sorts { get; init; } = [];
 
     /// <summary>Number of results to skip (pagination). <see langword="null"/> = no skip.</summary>
     public int? Skip { get; init; }

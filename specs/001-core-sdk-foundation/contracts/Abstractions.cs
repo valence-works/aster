@@ -63,7 +63,7 @@ public class UpdateResourceRequest
 // InMemoryResourceManager implements this internally; a SQL/Document store would plug in here.
 // Throws SingletonViolationException if definition.IsSingleton and an instance already exists.
 // Resource IS a version snapshot; there is no separate ResourceVersion type.
-public interface IResourceWriteStore
+public interface IResourceVersionWriter
 {
     /// <summary>
     /// Persists a Resource version (V1 on create, V2+ on update).

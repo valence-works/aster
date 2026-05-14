@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Querying;
 
 namespace Aster.Core.InMemory;
 
@@ -7,7 +9,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory store for <see cref="Resource"/> versions and activation state.
 /// Intended for use by <see cref="InMemoryResourceManager"/> only.
 /// </summary>
-public sealed class InMemoryResourceStore
+public sealed class InMemoryResourceStore : IResourceVersionReader
 {
     /// <summary>
     /// Resource version history keyed by <c>ResourceId</c>.
@@ -37,6 +39,25 @@ public sealed class InMemoryResourceStore
     internal ConcurrentDictionary<string, HashSet<int>> GetOrAddActivations(string resourceId) =>
         Activations.GetOrAdd(resourceId, _ => new ConcurrentDictionary<string, HashSet<int>>(StringComparer.Ordinal));
 
+    /// <inheritdoc />
+    public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
+        ResourceVersionReadRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var resources = request.Scope switch
+        {
+            ResourceVersionScope.Latest => ReadLatestVersions(cancellationToken),
+            ResourceVersionScope.AllVersions => ReadAllVersions(cancellationToken),
+            ResourceVersionScope.Active => ReadActiveVersions(request.ActivationChannel, cancellationToken),
+            ResourceVersionScope.Draft => ReadDraftVersions(cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(request), request.Scope, "Unknown resource version scope.")
+        };
+
+        return ValueTask.FromResult<IEnumerable<Resource>>(resources.ToList());
+    }
+
     /// <summary>
     /// Returns all resource IDs that belong to the specified definition.
     /// </summary>
@@ -49,6 +70,101 @@ public sealed class InMemoryResourceStore
                 if (list.Count > 0 && string.Equals(list[0].DefinitionId, definitionId, StringComparison.Ordinal))
                     yield return resourceId;
             }
+        }
+    }
+
+    private IEnumerable<Resource> ReadLatestVersions(CancellationToken cancellationToken)
+    {
+        foreach (var versionList in Versions.Values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            lock (versionList)
+            {
+                if (versionList.Count > 0)
+                    yield return versionList[^1];
+            }
+        }
+    }
+
+    private IEnumerable<Resource> ReadAllVersions(CancellationToken cancellationToken)
+    {
+        foreach (var versionList in Versions.Values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<Resource> snapshot;
+            lock (versionList)
+                snapshot = [.. versionList];
+
+            foreach (var resource in snapshot)
+                yield return resource;
+        }
+    }
+
+    private IEnumerable<Resource> ReadActiveVersions(string? channel, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+
+        foreach (var (resourceId, versionList) in Versions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!Activations.TryGetValue(resourceId, out var channelActivations))
+                continue;
+
+            HashSet<int> activeVersionNumbers;
+            lock (channelActivations)
+            {
+                activeVersionNumbers = channelActivations.TryGetValue(channel, out var active)
+                    ? new HashSet<int>(active)
+                    : [];
+            }
+
+            if (activeVersionNumbers.Count == 0)
+                continue;
+
+            List<Resource> snapshot;
+            lock (versionList)
+                snapshot = versionList.Where(r => activeVersionNumbers.Contains(r.Version)).ToList();
+
+            foreach (var resource in snapshot)
+                yield return resource;
+        }
+    }
+
+    private IEnumerable<Resource> ReadDraftVersions(CancellationToken cancellationToken)
+    {
+        var activeVersionsByResource = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+
+        foreach (var (resourceId, channelActivations) in Activations)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            lock (channelActivations)
+            {
+                activeVersionsByResource[resourceId] = channelActivations.Values
+                    .SelectMany(static versions => versions)
+                    .ToHashSet();
+            }
+        }
+
+        foreach (var (resourceId, versionList) in Versions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            activeVersionsByResource.TryGetValue(resourceId, out var activeVersionNumbers);
+
+            List<Resource> snapshot;
+            lock (versionList)
+            {
+                snapshot = versionList
+                    .Where(r => activeVersionNumbers?.Contains(r.Version) != true)
+                    .ToList();
+            }
+
+            foreach (var resource in snapshot)
+                yield return resource;
         }
     }
 }

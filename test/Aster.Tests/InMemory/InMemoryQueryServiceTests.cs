@@ -202,22 +202,40 @@ public sealed class InMemoryQueryServiceTests
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Range operator — must throw NotSupportedException
+    // Range operator
     // ──────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task QueryAsync_RangeOperator_ThrowsNotSupportedException()
+    public async Task QueryAsync_RangeOperator_ReturnsValuesWithinBounds()
     {
         // Arrange
         var (manager, query) = CreateSetup();
-        await manager.CreateAsync("Product", new CreateResourceRequest());
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects = new() { ["Price"] = new { Amount = 10 } }
+        });
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects = new() { ["Price"] = new { Amount = 20 } }
+        });
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects = new() { ["Price"] = new { Amount = 30 } }
+        });
 
-        // Act & Assert
-        await Assert.ThrowsAsync<NotSupportedException>(() =>
-            query.QueryAsync(new ResourceQuery
-            {
-                Filter = new FacetValueFilter("Price", "Amount", 100, ComparisonOperator.Range)
-            }).AsTask());
+        // Act
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            Filter = new FacetValueFilter(
+                "Price",
+                "Amount",
+                new RangeValue(Min: 15, Max: 25),
+                ComparisonOperator.Range)
+        })).ToList();
+
+        // Assert
+        Assert.Single(results);
+        Assert.Equal(20, ((dynamic)results[0].Aspects["Price"]).Amount);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -241,5 +259,102 @@ public sealed class InMemoryQueryServiceTests
         // Assert
         Assert.Single(results);
         Assert.Equal("Order", results[0].DefinitionId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_AllVersionsScope_ReturnsHistoricalVersions()
+    {
+        // Arrange
+        var (manager, query) = CreateSetup();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects = new() { ["Title"] = new TitleAspect("V1") }
+        });
+        await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest
+        {
+            BaseVersion = 1,
+            AspectUpdates = new() { ["Title"] = new TitleAspect("V2") }
+        });
+
+        // Act
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            Scope = ResourceVersionScope.AllVersions,
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("Version")]
+        })).ToList();
+
+        // Assert
+        Assert.Equal([1, 2], results.Select(r => r.Version).ToList());
+    }
+
+    [Fact]
+    public async Task QueryAsync_ActiveScope_ReturnsVersionsActiveInChannel()
+    {
+        // Arrange
+        var (manager, query) = CreateSetup();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
+        await manager.ActivateAsync(v1.ResourceId, 1, "Published");
+
+        await manager.CreateAsync("Product", new CreateResourceRequest());
+
+        // Act
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            Scope = ResourceVersionScope.Active,
+            ActivationChannel = "Published",
+            DefinitionId = "Product"
+        })).ToList();
+
+        // Assert
+        Assert.Single(results);
+        Assert.Equal(v1.ResourceId, results[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_DraftScope_ReturnsVersionsNotActiveInAnyChannel()
+    {
+        // Arrange
+        var (manager, query) = CreateSetup();
+        var active = await manager.CreateAsync("Product", new CreateResourceRequest());
+        await manager.ActivateAsync(active.ResourceId, 1, "Published");
+
+        var draft = await manager.CreateAsync("Product", new CreateResourceRequest());
+
+        // Act
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            Scope = ResourceVersionScope.Draft,
+            DefinitionId = "Product"
+        })).ToList();
+
+        // Assert
+        Assert.Single(results);
+        Assert.Equal(draft.ResourceId, results[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_SortsByFacetValue()
+    {
+        // Arrange
+        var (manager, query) = CreateSetup();
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects = new() { ["Title"] = new TitleAspect("Bravo") }
+        });
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects = new() { ["Title"] = new TitleAspect("Alpha") }
+        });
+
+        // Act
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("Title", AspectKey: "Title")]
+        })).ToList();
+
+        // Assert
+        Assert.Equal(["Alpha", "Bravo"], results.Select(r => ((TitleAspect)r.Aspects["Title"]).Title).ToList());
     }
 }

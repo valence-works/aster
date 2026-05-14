@@ -32,11 +32,12 @@ public static class AsterCoreServiceCollectionExtensions
 
         // Resource backing store
         services.AddSingleton<InMemoryResourceStore>();
+        services.AddSingleton<IResourceVersionReader>(sp => sp.GetRequiredService<InMemoryResourceStore>());
 
         // Resource manager
         services.AddSingleton<InMemoryResourceManager>();
         services.AddSingleton<IResourceManager>(sp => sp.GetRequiredService<InMemoryResourceManager>());
-        services.AddSingleton<IResourceWriteStore>(sp => sp.GetRequiredService<InMemoryResourceManager>());
+        services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<InMemoryResourceManager>());
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();

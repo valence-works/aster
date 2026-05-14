@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Microsoft.Extensions.Logging;
@@ -8,56 +9,42 @@ namespace Aster.Core.InMemory;
 
 /// <summary>
 /// LINQ-based in-memory implementation of <see cref="IResourceQueryService"/>.
-/// Evaluates <see cref="ResourceQuery"/> ASTs against the latest version of each resource.
+/// Evaluates <see cref="ResourceQuery"/> ASTs against versions supplied by <see cref="IResourceVersionReader"/>.
 /// </summary>
 /// <remarks>
-/// Supported comparators: <see cref="ComparisonOperator.Equals"/> and <see cref="ComparisonOperator.Contains"/>.
-/// <see cref="ComparisonOperator.Range"/> throws <see cref="NotSupportedException"/> (spec §6, Phase 1 scope).
+/// Supported comparators: <see cref="ComparisonOperator.Equals"/>, <see cref="ComparisonOperator.Contains"/>,
+/// and <see cref="ComparisonOperator.Range"/>.
 /// </remarks>
 public sealed partial class InMemoryQueryService : IResourceQueryService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly InMemoryResourceStore store;
+    private readonly IResourceVersionReader versionReader;
     private readonly ILogger<InMemoryQueryService> logger;
 
     /// <summary>
     /// Initializes a new instance of <see cref="InMemoryQueryService"/>.
     /// </summary>
-    /// <param name="store">The backing in-memory resource store.</param>
+    /// <param name="versionReader">The backing resource version reader.</param>
     /// <param name="logger">The logger.</param>
-    public InMemoryQueryService(InMemoryResourceStore store, ILogger<InMemoryQueryService> logger)
+    public InMemoryQueryService(IResourceVersionReader versionReader, ILogger<InMemoryQueryService> logger)
     {
-        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(logger);
-        this.store = store;
+        this.versionReader = versionReader;
         this.logger = logger;
     }
 
     /// <inheritdoc />
-    public ValueTask<IEnumerable<Resource>> QueryAsync(ResourceQuery query, CancellationToken cancellationToken = default)
+    public async ValueTask<IEnumerable<Resource>> QueryAsync(ResourceQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        // Validate the filter AST upfront — Range is unsupported (spec §6)
-        if (query.Filter is not null)
-            ValidateFilterExpression(query.Filter);
-
-        // Collect latest version of every resource
-        var candidates = new List<Resource>();
-        foreach (var versionList in store.Versions.Values)
+        var candidates = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            Resource? latest;
-            lock (versionList)
-            {
-                latest = versionList.Count > 0 ? versionList[^1] : null;
-            }
-
-            if (latest is not null)
-                candidates.Add(latest);
-        }
+            Scope = query.Scope,
+            ActivationChannel = query.ActivationChannel,
+        }, cancellationToken);
 
         IEnumerable<Resource> result = candidates;
 
@@ -69,6 +56,9 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         if (query.Filter is not null)
             result = result.Where(r => Evaluate(query.Filter, r));
 
+        if (query.Sorts.Count > 0)
+            result = result.Order(new ResourceSortComparer(query.Sorts));
+
         // Pagination
         if (query.Skip.HasValue)
             result = result.Skip(query.Skip.Value);
@@ -77,25 +67,7 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
 
         var materialized = result.ToList();
         LogQueryExecuted(query.DefinitionId ?? "(all)", materialized.Count);
-        return ValueTask.FromResult(materialized.AsEnumerable());
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Upfront AST validation
-    // ──────────────────────────────────────────────────────────────────────────
-
-    private static void ValidateFilterExpression(FilterExpression expr)
-    {
-        switch (expr)
-        {
-            case MetadataFilter m when m.Operator == ComparisonOperator.Range:
-            case FacetValueFilter fv when fv.Operator == ComparisonOperator.Range:
-                throw new NotSupportedException("Range comparator is not supported by the Phase 1 in-memory evaluator (spec §6).");
-            case LogicalExpression logic:
-                foreach (var operand in logic.Operands)
-                    ValidateFilterExpression(operand);
-                break;
-        }
+        return materialized;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -108,19 +80,12 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         AspectPresenceFilter asp => EvaluateAspectPresence(asp, resource),
         FacetValueFilter fv      => EvaluateFacetValue(fv, resource),
         LogicalExpression logic  => EvaluateLogical(logic, resource),
-        _                        => throw new NotSupportedException($"Unknown filter expression type: {expr.GetType().Name}")
+        _                        => throw new UnsupportedQueryFeatureException($"Unknown filter expression type: {expr.GetType().Name}")
     };
 
     private static bool EvaluateMetadata(MetadataFilter filter, Resource resource)
     {
-        var actual = filter.Field.ToLowerInvariant() switch
-        {
-            "resourceid"   => resource.ResourceId,
-            "definitionid" => resource.DefinitionId,
-            "owner"        => resource.Owner ?? string.Empty,
-            "version"      => resource.Version.ToString(),
-            _ => throw new NotSupportedException($"Metadata field '{filter.Field}' is not supported by the in-memory evaluator.")
-        };
+        var actual = ResolveMetadataValue(filter.Field, resource);
 
         return ApplyComparator(actual, filter.Value, filter.Operator);
     }
@@ -138,11 +103,14 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         if (facetValue is null)
             return false;
 
-        return ApplyComparator(facetValue, filter.Value?.ToString() ?? string.Empty, filter.Operator);
+        return ApplyComparator(facetValue, filter.Value, filter.Operator);
     }
 
-    private static string? ResolveFacetValue(object aspectRaw, string facetDefinitionId)
+    private static string? ResolveFacetValue(object? aspectRaw, string facetDefinitionId)
     {
+        if (aspectRaw is null)
+            return null;
+
         if (string.IsNullOrEmpty(facetDefinitionId))
             return null;
 
@@ -198,6 +166,7 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
                 return elemCamel.ToString();
         }
         catch (JsonException) { /* ignore */ }
+        catch (InvalidOperationException) { /* ignore */ }
 
         return null;
     }
@@ -207,16 +176,138 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         LogicalOperator.And => expr.Operands.All(op => Evaluate(op, resource)),
         LogicalOperator.Or  => expr.Operands.Any(op => Evaluate(op, resource)),
         LogicalOperator.Not => expr.Operands is [var single] && !Evaluate(single, resource),
-        _                   => throw new NotSupportedException($"Unsupported logical operator: {expr.Operator}")
+        _                   => throw new UnsupportedQueryFeatureException($"Unsupported logical operator: {expr.Operator}")
     };
 
-    private static bool ApplyComparator(string actual, string expected, ComparisonOperator op) => op switch
+    private static bool ApplyComparator(object? actual, object? expected, ComparisonOperator op) => op switch
     {
-        ComparisonOperator.Equals   => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase),
-        ComparisonOperator.Contains => actual.Contains(expected, StringComparison.OrdinalIgnoreCase),
-        ComparisonOperator.Range    => throw new NotSupportedException("Range comparator is not supported by the Phase 1 in-memory evaluator (spec §6)."),
-        _                           => throw new NotSupportedException($"Unknown comparator: {op}")
+        ComparisonOperator.Equals => string.Equals(
+            FormatValueInvariant(actual),
+            FormatValueInvariant(expected),
+            StringComparison.OrdinalIgnoreCase),
+        ComparisonOperator.Contains => FormatValueInvariant(actual)?.Contains(
+            FormatValueInvariant(expected) ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase) == true,
+        ComparisonOperator.Range => ApplyRangeComparator(actual, expected),
+        _ => throw new UnsupportedQueryFeatureException($"Unknown comparator: {op}")
     };
+
+    private static bool ApplyRangeComparator(object? actual, object? expected)
+    {
+        if (expected is not RangeValue range)
+            throw new UnsupportedQueryFeatureException("Range predicates require a RangeValue.");
+
+        if (actual is null)
+            return false;
+
+        if (range.Min is not null)
+        {
+            var minComparison = CompareValues(actual, range.Min);
+            if (range.IncludeMin ? minComparison < 0 : minComparison <= 0)
+                return false;
+        }
+
+        if (range.Max is not null)
+        {
+            var maxComparison = CompareValues(actual, range.Max);
+            if (range.IncludeMax ? maxComparison > 0 : maxComparison >= 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static object? ResolveMetadataValue(string field, Resource resource) => field.ToLowerInvariant() switch
+    {
+        "resourceid"   => resource.ResourceId,
+        "id"           => resource.Id,
+        "definitionid" => resource.DefinitionId,
+        "owner"        => resource.Owner,
+        "version"      => resource.Version,
+        "created"      => resource.Created,
+        _ => throw new UnsupportedQueryFeatureException($"Metadata field '{field}' is not supported by the in-memory evaluator.")
+    };
+
+    private static object? ResolveSortValue(Resource resource, SortExpression sort) =>
+        string.IsNullOrWhiteSpace(sort.AspectKey)
+            ? ResolveMetadataValue(sort.Field, resource)
+            : ResolveFacetValue(resource.Aspects.TryGetValue(sort.AspectKey, out var aspectRaw) ? aspectRaw : null, sort.Field);
+
+    private static int CompareValues(object? left, object? right)
+    {
+        if (left is null && right is null)
+            return 0;
+        if (left is null)
+            return 1;
+        if (right is null)
+            return -1;
+
+        if (TryConvertDecimal(left, out var leftDecimal) && TryConvertDecimal(right, out var rightDecimal))
+            return leftDecimal.CompareTo(rightDecimal);
+
+        if (TryConvertDateTime(left, out var leftDate) && TryConvertDateTime(right, out var rightDate))
+            return leftDate.CompareTo(rightDate);
+
+        if (left.GetType() == right.GetType() && left is IComparable comparable)
+            return comparable.CompareTo(right);
+
+        return string.Compare(
+            FormatValueInvariant(left),
+            FormatValueInvariant(right),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryConvertDecimal(object value, out decimal result)
+    {
+        if (value is decimal decimalValue)
+        {
+            result = decimalValue;
+            return true;
+        }
+
+        if (value is IConvertible convertible)
+        {
+            try
+            {
+                result = convertible.ToDecimal(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch (FormatException) { }
+            catch (InvalidCastException) { }
+            catch (OverflowException) { }
+        }
+
+        result = default;
+        return false;
+    }
+
+    private static bool TryConvertDateTime(object value, out DateTime result)
+    {
+        if (value is DateTime dateTime)
+        {
+            result = dateTime;
+            return true;
+        }
+
+        if (value is DateTimeOffset dateTimeOffset)
+        {
+            result = dateTimeOffset.UtcDateTime;
+            return true;
+        }
+
+        if (value is string str && DateTime.TryParse(
+            str,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AdjustToUniversal,
+            out var parsed))
+        {
+            result = parsed;
+            return true;
+        }
+
+        result = default;
+        return false;
+    }
 
     private static string? FormatValueInvariant(object? value) => value switch
     {
@@ -224,6 +315,30 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         IFormattable f => f.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
         _ => value.ToString()
     };
+
+    private sealed class ResourceSortComparer(IReadOnlyList<SortExpression> sorts) : IComparer<Resource>
+    {
+        public int Compare(Resource? x, Resource? y)
+        {
+            if (ReferenceEquals(x, y))
+                return 0;
+            if (x is null)
+                return 1;
+            if (y is null)
+                return -1;
+
+            foreach (var sort in sorts)
+            {
+                var comparison = CompareValues(ResolveSortValue(x, sort), ResolveSortValue(y, sort));
+                if (comparison == 0)
+                    continue;
+
+                return sort.Direction == SortDirection.Descending ? -comparison : comparison;
+            }
+
+            return 0;
+        }
+    }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Structured log methods (source generated)

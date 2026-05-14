@@ -85,3 +85,19 @@ public sealed class SingletonViolationException : Exception
     /// <inheritdoc />
     public SingletonViolationException(string message, Exception innerException) : base(message, innerException) { }
 }
+
+/// <summary>
+/// Thrown when a query contains a predicate, scope, sort, or value shape that the provider cannot execute.
+/// </summary>
+public sealed class UnsupportedQueryFeatureException : Exception
+{
+    /// <inheritdoc />
+    public UnsupportedQueryFeatureException() : base("The query contains an unsupported feature.") { }
+
+    /// <inheritdoc />
+    public UnsupportedQueryFeatureException(string feature)
+        : base($"The query feature '{feature}' is not supported.") { }
+
+    /// <inheritdoc />
+    public UnsupportedQueryFeatureException(string message, Exception innerException) : base(message, innerException) { }
+}

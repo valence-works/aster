@@ -4,7 +4,7 @@ using Aster.Core.Models.Instances;
 namespace Aster.Core.Abstractions;
 
 /// <summary>
-/// Provider-agnostic write store for resource versions and activation state.
+/// Provider-agnostic writer for resource version snapshots and activation state.
 /// Required by Constitution Principle V (Provider Agnostic).
 /// </summary>
 /// <remarks>
@@ -14,7 +14,7 @@ namespace Aster.Core.Abstractions;
 /// <c>Resource</c> IS a version snapshot; there is no separate <c>ResourceVersion</c> type.
 /// </para>
 /// </remarks>
-public interface IResourceWriteStore
+public interface IResourceVersionWriter
 {
     /// <summary>
     /// Persists a <see cref="Resource"/> version (V1 on create, V2+ on update).

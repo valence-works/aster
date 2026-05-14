@@ -30,13 +30,13 @@ Or add a project reference:
 builder.Services.AddAsterCore();
 ```
 
-`AddAsterCore()` registers all seven singleton services:
+`AddAsterCore()` registers the core singleton services:
 
 | Service | Interface |
 |---|---|
 | `InMemoryResourceDefinitionStore` | `IResourceDefinitionStore` |
-| `InMemoryResourceStore` | *(backing store — no public interface)* |
-| `InMemoryResourceManager` | `IResourceManager`, `IResourceWriteStore` |
+| `InMemoryResourceStore` | `IResourceVersionReader` |
+| `InMemoryResourceManager` | `IResourceManager`, `IResourceVersionWriter` |
 | `InMemoryQueryService` | `IResourceQueryService` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
@@ -132,7 +132,8 @@ var results = await queryService.QueryAsync(new ResourceQuery
 ```
 IResourceDefinitionStore      — stores versioned ResourceDefinition schemas
 IResourceManager              — create / update / activate resource instances
-IResourceWriteStore           — low-level persistence hook (implemented by InMemoryResourceManager)
+IResourceVersionWriter           — low-level version/activation persistence hook
+IResourceVersionReader           — low-level read hook for query candidate version sets
 IResourceQueryService         — LINQ-based in-memory query engine
 ITypedAspectBinder            — serialise/deserialise full aspects (System.Text.Json)
 ITypedFacetBinder             — serialise/deserialise individual facet values

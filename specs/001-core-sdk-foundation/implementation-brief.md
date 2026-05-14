@@ -59,7 +59,7 @@ Optimistic lock token = current latest `Resource.Version`. Throw `ConcurrencyExc
 
 `Range` comparator is defined in the AST but `InMemoryQueryService` MUST throw `NotSupportedException` for Range. Phase 1 evaluator supports Equals + Contains only (spec §6).
 
-### `IResourceWriteStore`
+### `IResourceVersionWriter`
 
 Constitution Principle V requires this. `InMemoryResourceManager` implements it internally; the interface must exist as a standalone contract. Methods: `SaveVersionAsync(Resource)`, `UpdateActivationAsync(...)`.
 
@@ -90,7 +90,7 @@ ConcurrentDictionary<string, ConcurrentDictionary<string, HashSet<int>>>
 - `IIdentityGenerator`
 - `CreateResourceRequest` (`ResourceId?`, `InitialAspects`)
 - `UpdateResourceRequest` (`BaseVersion`, `AspectUpdates`)
-- `IResourceWriteStore` — `SaveVersionAsync`, `UpdateActivationAsync`
+- `IResourceVersionWriter` — `SaveVersionAsync`, `UpdateActivationAsync`
 
 ---
 
@@ -142,7 +142,7 @@ src/core/Aster.Core/
 │   ├── IResourceDefinitionStore.cs
 │   ├── IResourceManager.cs
 │   ├── IIdentityGenerator.cs
-│   ├── IResourceWriteStore.cs
+│   ├── IResourceVersionWriter.cs
 │   ├── ITypedAspectBinder.cs
 │   ├── ITypedFacetBinder.cs
 │   ├── IResourceQueryService.cs

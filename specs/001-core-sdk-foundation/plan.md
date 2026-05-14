@@ -29,7 +29,7 @@ This feature implements the foundational SDK and In-Memory engine for Aster. It 
 - [x] **Immutable Versioning**: Spec requires "Update operations always result in a new ResourceVersion entry" and "Versions must be immutable".
 - [x] **Channel-Based Activation**: Spec requires "activations accepts allowMultipleActive flag" and "Support activating a specific version in a named channel".
 - [x] **Typed & Queryable**: Spec explicitly mentions "Using Typed Aspects (POCOs)" and "ResourceQuery ... translates ... to LINQ".
-- [x] **Provider Agnostic**: Spec mentions "In-Memory provider" and abstractions like `IResourceWriteStore`.
+- [x] **Provider Agnostic**: Spec mentions "In-Memory provider" and abstractions like `IResourceVersionWriter`.
 - [x] **Coding Standards**: Must adhere to `docs/coding-conventions.md`.
 
 ## Project Structure

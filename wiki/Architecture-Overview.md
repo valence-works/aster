@@ -46,7 +46,7 @@ This page describes the internal architecture, layering, and key design decision
 
 | Layer | Package (current) | Responsibility |
 |---|---|---|
-| **Abstractions** | `Aster.Core` | Interfaces: `IResourceManager`, `IResourceDefinitionStore`, `IResourceQueryService`, `ITypedAspectBinder`, `ITypedFacetBinder`, `IIdentityGenerator`, `IResourceWriteStore` |
+| **Abstractions** | `Aster.Core` | Interfaces: `IResourceManager`, `IResourceDefinitionStore`, `IResourceQueryService`, `ITypedAspectBinder`, `ITypedFacetBinder`, `IIdentityGenerator`, `IResourceVersionWriter` |
 | **Models** | `Aster.Core` | Immutable domain records: `Resource`, `ResourceDefinition`, `AspectDefinition`, `FacetDefinition`, `AspectInstance`, `FacetValue`, `ActivationState`, `ResourceQuery`, filter types |
 | **Definitions** | `Aster.Core` | `ResourceDefinitionBuilder` — fluent code-first API |
 | **Services** | `Aster.Core` | `SystemTextJsonAspectBinder`, `SystemTextJsonFacetBinder`, `GuidIdentityGenerator` |
