@@ -1,0 +1,305 @@
+using System.Linq;
+using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
+using Aster.Core.Models.Instances;
+using Aster.Core.Models.Querying;
+using Aster.Persistence.SqliteJson;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Aster.Tests.SqliteJson;
+
+public sealed class SqliteJsonQueryServiceTests : IDisposable
+{
+    private readonly string databasePath =
+        Path.Combine(Path.GetTempPath(), $"aster-query-{Guid.NewGuid():N}.db");
+
+    public void Dispose()
+    {
+        TryDelete(databasePath);
+        TryDelete($"{databasePath}-shm");
+        TryDelete($"{databasePath}-wal");
+    }
+
+    [Fact]
+    public async Task QueryAsync_MetadataFilters_ReturnMatchingPersistedResources()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "alice", aspects: new()
+        {
+            ["Title"] = new { Title = "Alpha" },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", owner: "bob", aspects: new()
+        {
+            ["Title"] = new { Title = "Beta" },
+        }));
+        await store.SaveVersionAsync(CreateResource("order-a", "Order", owner: "alice"));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Filter = new MetadataFilter("Owner", "alice", ComparisonOperator.Equals),
+        })).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("product-a", results[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_Scopes_SelectLatestAllActiveAndDraftVersions()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", version: 1));
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", version: 2));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", version: 1));
+        await store.UpdateActivationAsync("product-a", "Published", new ActivationState
+        {
+            ResourceId = "product-a",
+            Channel = "Published",
+            ActiveVersions = [2],
+            LastUpdated = DateTime.UtcNow,
+        });
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var latest = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("ResourceId")],
+        })).ToList();
+        var all = (await query.QueryAsync(new ResourceQuery
+        {
+            Scope = ResourceVersionScope.AllVersions,
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("ResourceId"), new SortExpression("Version")],
+        })).ToList();
+        var active = (await query.QueryAsync(new ResourceQuery
+        {
+            Scope = ResourceVersionScope.Active,
+            ActivationChannel = "Published",
+            DefinitionId = "Product",
+        })).ToList();
+        var draft = (await query.QueryAsync(new ResourceQuery
+        {
+            Scope = ResourceVersionScope.Draft,
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("ResourceId"), new SortExpression("Version")],
+        })).ToList();
+
+        Assert.Equal([("product-a", 2), ("product-b", 1)], latest.Select(r => (r.ResourceId, r.Version)).ToList());
+        Assert.Equal([("product-a", 1), ("product-a", 2), ("product-b", 1)], all.Select(r => (r.ResourceId, r.Version)).ToList());
+        Assert.Equal(("product-a", 2), (active.Single().ResourceId, active.Single().Version));
+        Assert.Equal([("product-a", 1), ("product-b", 1)], draft.Select(r => (r.ResourceId, r.Version)).ToList());
+    }
+
+    [Fact]
+    public async Task QueryAsync_MetadataSortSkipAndTake_AreExecutedInSqlite()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-c", "Product", created: Utc(2026, 1, 3)));
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", created: Utc(2026, 1, 1)));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", created: Utc(2026, 1, 2)));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("Created", SortDirection.Descending)],
+            Skip = 1,
+            Take = 1,
+        })).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("product-b", results[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_AspectPresenceAndFacetFilters_ReadPersistedJson()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
+        {
+            ["Title"] = new { Title = "Super Gadget" },
+            ["Price"] = new { Amount = 20 },
+            ["Inventory"] = new { Count = 5 },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", aspects: new()
+        {
+            ["Title"] = new { Title = "Regular Widget" },
+            ["Price"] = new { Amount = 30 },
+            ["Inventory"] = new { Count = 10 },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-c", "Product", aspects: new()
+        {
+            ["Title"] = new { Title = "Another Gadget" },
+        }));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var filter = new LogicalExpression(LogicalOperator.And, [
+            new AspectPresenceFilter("Price"),
+            new FacetValueFilter("Title", "Title", "Gadget", ComparisonOperator.Contains),
+            new FacetValueFilter("Inventory", "Count", 5, ComparisonOperator.Equals),
+            new FacetValueFilter("Price", "Amount", new RangeValue(Min: 10, Max: 25), ComparisonOperator.Range),
+        ]);
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Filter = filter,
+        })).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("product-a", results[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_MissingAspectOrFacet_DoesNotMatch()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
+        {
+            ["Title"] = new { Title = "Gadget" },
+        }));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = await query.QueryAsync(new ResourceQuery
+        {
+            Filter = new FacetValueFilter("Price", "Amount", 10, ComparisonOperator.Equals),
+        });
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task QueryAsync_UnsupportedQueryShapes_ThrowTypedException()
+    {
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new MetadataFilter("Unknown", "value", ComparisonOperator.Equals),
+            }).AsTask());
+
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(new ResourceQuery
+            {
+                Sorts = [new SortExpression("Title", AspectKey: "Title")],
+            }).AsTask());
+
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(new ResourceQuery
+            {
+                Scope = ResourceVersionScope.Active,
+            }).AsTask());
+
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(new ResourceQuery { Skip = -1 }).AsTask());
+
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(new ResourceQuery { Take = -1 }).AsTask());
+
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new FacetValueFilter("Price", "Amount", new RangeValue(null, null), ComparisonOperator.Range),
+            }).AsTask());
+    }
+
+    [Fact]
+    public async Task QueryAsync_DoesNotUseInMemoryReaderFallback()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product"));
+
+        var services = CreateServices();
+        services.AddSingleton<IResourceVersionReader, ThrowingVersionReader>();
+
+        await using var provider = services.BuildServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+        })).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("product-a", results[0].ResourceId);
+    }
+
+    [Fact]
+    public void SqliteJsonQueryService_DoesNotExposeQueryableApi()
+    {
+        Assert.False(typeof(IQueryable<Resource>).IsAssignableFrom(typeof(SqliteJsonQueryService)));
+    }
+
+    private ServiceProvider CreateServiceProvider() => CreateServices().BuildServiceProvider();
+
+    private ServiceCollection CreateServices()
+    {
+        var services = new ServiceCollection();
+        services.AddAsterCore();
+        services.AddAsterSqliteJson(options =>
+        {
+            options.ConnectionString = $"Data Source={databasePath}";
+        });
+
+        return services;
+    }
+
+    private SqliteJsonResourceStore CreateStore() =>
+        new(new SqliteJsonAsterOptions
+        {
+            ConnectionString = $"Data Source={databasePath}",
+        });
+
+    private static Resource CreateResource(
+        string resourceId,
+        string definitionId,
+        int version = 1,
+        string? owner = null,
+        DateTime? created = null,
+        Dictionary<string, object>? aspects = null) =>
+        new()
+        {
+            ResourceId = resourceId,
+            Id = $"{resourceId}-v{version}",
+            DefinitionId = definitionId,
+            DefinitionVersion = 1,
+            Version = version,
+            Created = created ?? Utc(2026, 1, version),
+            Owner = owner,
+            Aspects = aspects ?? [],
+        };
+
+    private static DateTime Utc(int year, int month, int day) =>
+        new(year, month, day, 0, 0, 0, DateTimeKind.Utc);
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private sealed class ThrowingVersionReader : IResourceVersionReader
+    {
+        public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
+            ResourceVersionReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("SQLite query service should execute SQL directly.");
+    }
+}

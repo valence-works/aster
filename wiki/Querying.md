@@ -1,6 +1,6 @@
 # Querying
 
-Aster provides a portable **query AST** (`ResourceQuery`) that can be translated to any backend. The Phase 1 in-memory evaluator executes it via LINQ.
+Aster provides a portable **query AST** (`ResourceQuery`) that can be translated to any backend. The in-memory evaluator executes it via LINQ; the SQLite JSON provider translates the same AST to parameterized SQLite SQL plus JSON1 expressions.
 
 ---
 
@@ -9,8 +9,11 @@ Aster provides a portable **query AST** (`ResourceQuery`) that can be translated
 ```csharp
 public sealed record ResourceQuery
 {
+    public ResourceVersionScope Scope { get; init; } = ResourceVersionScope.Latest;
+    public string? ActivationChannel { get; init; }
     public string? DefinitionId { get; init; }   // filter by resource type
     public FilterExpression? Filter { get; init; } // filter expression tree
+    public IReadOnlyList<SortExpression> Sorts { get; init; }
     public int? Skip { get; init; }               // pagination
     public int? Take { get; init; }               // pagination
 }
@@ -34,7 +37,7 @@ new MetadataFilter(
 )
 ```
 
-Supported fields: `ResourceId`, `DefinitionId`, `Owner`, `Version`.
+Supported fields: `ResourceId`, `Id`, `DefinitionId`, `Owner`, `Version`, `Created`.
 
 ### `AspectPresenceFilter`
 
@@ -82,11 +85,11 @@ new LogicalExpression(LogicalOperator.Not, [
 
 ## Comparison Operators
 
-| Operator | Description | Phase 1 support |
-|---|---|---|
-| `Equals` | Exact match (case-insensitive for strings) | ✅ |
-| `Contains` | Substring match (strings only) | ✅ |
-| `Range` | Min/max bounds (numeric / date) via `RangeValue` | ✅ |
+| Operator | Description | In-memory support | SQLite JSON support |
+|---|---|---|---|
+| `Equals` | Exact match (case-insensitive for strings) | Yes | Yes |
+| `Contains` | Substring match (strings only) | Yes | Yes |
+| `Range` | Min/max bounds via `RangeValue` | Numeric / date | Numeric scalar facets |
 
 `Range` values use `new RangeValue(min, max, includeMin, includeMax)`. A `null` min or max means the range is unbounded on that side.
 
@@ -141,15 +144,28 @@ var results = await queryService.QueryAsync(new ResourceQuery
 
 ---
 
-## Phase 1 Limitations
+## SQLite JSON Provider
 
-The in-memory evaluator (`InMemoryQueryService`) works on in-process objects via LINQ. Limitations:
+`Aster.Persistence.SqliteJson` registers `SqliteJsonQueryService` as `IResourceQueryService` when `AddAsterSqliteJson()` is called after `AddAsterCore()`.
 
-- **No provider capability planner yet** — unsupported fields or value shapes fail at execution time.
-- **Sorting is intentionally small** — metadata fields and facet values are supported; provider-specific collation/index rules come later.
-- **Facet value comparison** — values are resolved through dictionaries, JSON, or POCO serialization; advanced typed/index semantics come later.
+The provider supports:
 
-These limitations will be addressed in Phase 2 (persistence backends) and Phase 3 (advanced indexing).
+- `Latest`, `AllVersions`, `Active`, and `Draft` scopes; `Active` requires `ActivationChannel`.
+- `DefinitionId` shortcut filtering.
+- metadata filtering and sorting over `ResourceId`, `Id`, `DefinitionId`, `Owner`, `Version`, and `Created`.
+- `Skip` and `Take`.
+- aspect presence checks.
+- facet `Equals`, string `Contains`, and numeric `Range`.
+- `And`, `Or`, and single-operand `Not`.
+
+Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. Current intentional exclusions include facet sorting, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges.
+
+## Current Limitations
+
+- **No provider capability planner yet** — unsupported fields or value shapes fail when a provider translates the AST.
+- **Provider-specific semantics are explicit** — SQLite facet ranges are numeric-only in this phase.
+- **No public `IQueryable<Resource>`** — LINQ may be used inside a provider, but the public contract stays on the portable AST.
+- **Typed helper direction** — future helpers may map typed expressions into the AST, but provider execution should still consume the explicit query model rather than exposing backend-specific LINQ providers.
 
 ---
 
