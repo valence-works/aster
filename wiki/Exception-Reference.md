@@ -13,6 +13,7 @@ Aster throws typed exceptions for all domain-level error conditions. All excepti
 | `SingletonViolationException` | `Aster.Core.Exceptions` | Attempt to create a second instance of a singleton definition |
 | `DuplicateResourceIdException` | `Aster.Core.Exceptions` | Caller-supplied `ResourceId` already exists |
 | `DuplicateAspectAttachmentException` | `Aster.Core.Exceptions` | Same aspect key attached twice to a definition |
+| `UnsupportedQueryFeatureException` | `Aster.Core.Exceptions` | Query execution receives a provider-unsupported scope, predicate, sort, paging value, or value shape |
 
 ---
 
@@ -135,6 +136,36 @@ var definition = new ResourceDefinitionBuilder()
 
 ---
 
+## `UnsupportedQueryFeatureException`
+
+**Thrown by:** `IResourceQueryService.QueryAsync`
+
+**Why:** The active provider cannot execute the supplied `ResourceQuery`. Providers run shared validation before execution and still keep provider-specific checks during translation/execution.
+
+The exception exposes structured details:
+
+| Property | Meaning |
+|---|---|
+| `Code` | Stable failure code such as `unsupported-facet-sort` or `capabilities-not-declared` |
+| `Feature` | Unsupported feature category such as `sort`, `metadata field`, or `value shape` |
+| `Path` | Optional query path such as `Sorts[0]` or `Filter.Value` |
+| `Message` | Human-readable actionable explanation |
+
+```csharp
+try
+{
+    var results = await queryService.QueryAsync(query);
+}
+catch (UnsupportedQueryFeatureException ex)
+{
+    Console.WriteLine($"{ex.Code} ({ex.Feature}): {ex.Message}");
+}
+```
+
+Use `IResourceQueryValidator` for non-throwing preflight when handling user-defined queries. Execution remains authoritative, so callers should still handle this exception when validation is skipped or provider-specific checks fail later.
+
+---
+
 ## Handling Pattern
 
 Because all exceptions are typed, you can handle them selectively:
@@ -162,4 +193,3 @@ catch (VersionNotFoundException)
 
 - [Getting Started](Getting-Started) — error conditions in context
 - [Versioning & Activation](Versioning-and-Activation) — concurrency details
-

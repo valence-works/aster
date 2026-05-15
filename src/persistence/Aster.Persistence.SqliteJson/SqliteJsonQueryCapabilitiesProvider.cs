@@ -8,8 +8,14 @@ namespace Aster.Persistence.SqliteJson;
 /// </summary>
 public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
 {
+    /// <summary>
+    /// Stable provider key used by the SQLite JSON query provider and its capability declaration.
+    /// </summary>
+    public const string ProviderKey = "sqlite-json";
+
     /// <inheritdoc />
     public QueryCapabilityDescription Capabilities { get; } = new(
+        ProviderKey: ProviderKey,
         ProviderName: "SQLite JSON",
         SupportedScopes: new HashSet<ResourceVersionScope>
         {

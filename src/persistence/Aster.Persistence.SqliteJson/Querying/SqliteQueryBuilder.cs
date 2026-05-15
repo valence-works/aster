@@ -19,8 +19,11 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 
     public void AddSorts(IReadOnlyList<SortExpression> sorts)
     {
-        foreach (var sort in sorts)
-            orderings.Add($"{ResolveMetadataColumn(sort)} {ResolveDirection(sort.Direction)}");
+        for (var index = 0; index < sorts.Count; index++)
+        {
+            var sort = sorts[index];
+            orderings.Add($"{ResolveMetadataColumn(sort, index)} {ResolveDirection(sort.Direction, index)}");
+        }
     }
 
     public string Build()
@@ -104,7 +107,11 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                       AND CAST(active_version.value AS INTEGER) = rv.version
                 )
                 """]),
-        _ => throw Unsupported($"Resource version scope '{query.Scope}'")
+        _ => throw Unsupported(
+            "unsupported-scope",
+            "scope",
+            $"Scope '{query.Scope}' is not supported by the SQLite JSON query provider.",
+            "Scope")
     };
 
     private (string Sql, IReadOnlyList<string> ScopePredicates) ActiveSql()
@@ -125,21 +132,38 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                 """]);
     }
 
-    private static string ResolveMetadataColumn(SortExpression sort)
+    private static string ResolveMetadataColumn(SortExpression sort, int index)
     {
         if (!string.IsNullOrWhiteSpace(sort.AspectKey))
-            throw Unsupported("Facet sorting");
+            throw Unsupported(
+                "unsupported-facet-sort",
+                "sort",
+                "Facet sorting is not supported by the SQLite JSON query provider.",
+                $"Sorts[{index}]");
 
-        return SqliteMetadataField.ResolveColumn(sort.Field, "Metadata sort field");
+        return SqliteMetadataField.ResolveColumn(
+            sort.Field,
+            "Metadata sort field",
+            "unsupported-metadata-sort-field",
+            "metadata field",
+            $"Sorts[{index}].Field");
     }
 
-    private static string ResolveDirection(SortDirection direction) => direction switch
+    private static string ResolveDirection(SortDirection direction, int index) => direction switch
     {
         SortDirection.Ascending => "ASC",
         SortDirection.Descending => "DESC",
-        _ => throw Unsupported($"Sort direction '{direction}'")
+        _ => throw Unsupported(
+            "unsupported-sort-direction",
+            "sort direction",
+            $"Sort direction '{direction}' is not supported by the SQLite JSON query provider.",
+            $"Sorts[{index}].Direction")
     };
 
-    private static UnsupportedQueryFeatureException Unsupported(string feature) =>
-        new($"{feature} is not supported by the SQLite JSON query provider.");
+    private static UnsupportedQueryFeatureException Unsupported(
+        string code,
+        string feature,
+        string message,
+        string? path = null) =>
+        new(code, feature, message, path);
 }

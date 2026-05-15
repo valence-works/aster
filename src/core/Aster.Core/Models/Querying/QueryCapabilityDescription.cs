@@ -3,6 +3,7 @@ namespace Aster.Core.Models.Querying;
 /// <summary>
 /// Describes the query shapes a resource query provider can execute.
 /// </summary>
+/// <param name="ProviderKey">Stable provider key used to match capabilities to the active query provider.</param>
 /// <param name="ProviderName">Human-readable provider name.</param>
 /// <param name="SupportedScopes">Resource version scopes supported by the provider.</param>
 /// <param name="RequiresActivationChannelForActiveScope">Whether active scope requires an activation channel.</param>
@@ -18,6 +19,7 @@ namespace Aster.Core.Models.Querying;
 /// <param name="FacetRangeSupport">Facet range value shapes supported by the provider.</param>
 /// <param name="UnsupportedFeatures">Known unsupported features, for discovery and documentation.</param>
 public sealed record QueryCapabilityDescription(
+    string ProviderKey,
     string ProviderName,
     IReadOnlySet<ResourceVersionScope> SupportedScopes,
     bool RequiresActivationChannelForActiveScope,

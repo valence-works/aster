@@ -8,8 +8,14 @@ namespace Aster.Core.InMemory;
 /// </summary>
 public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
 {
+    /// <summary>
+    /// Stable provider key used by the in-memory query provider and its capability declaration.
+    /// </summary>
+    public const string ProviderKey = "in-memory";
+
     /// <inheritdoc />
     public QueryCapabilityDescription Capabilities { get; } = new(
+        ProviderKey: ProviderKey,
         ProviderName: "In-memory",
         SupportedScopes: new HashSet<ResourceVersionScope>
         {

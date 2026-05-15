@@ -3,6 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Services;
 using Aster.Persistence.SqliteJson.Querying;
 using Microsoft.Data.Sqlite;
 
@@ -11,26 +12,36 @@ namespace Aster.Persistence.SqliteJson;
 /// <summary>
 /// SQLite JSON implementation of <see cref="IResourceQueryService"/>.
 /// </summary>
-public sealed class SqliteJsonQueryService : IResourceQueryService
+public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly string connectionString;
+    private readonly ResourceQueryValidator validator;
 
     /// <summary>
     /// Initializes a new instance of <see cref="SqliteJsonQueryService"/>.
     /// </summary>
     /// <param name="options">Provider options.</param>
-    public SqliteJsonQueryService(SqliteJsonAsterOptions options)
+    /// <param name="capabilityProviders">Registered provider capability declarations.</param>
+    public SqliteJsonQueryService(
+        SqliteJsonAsterOptions options,
+        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.ConnectionString);
 
         connectionString = options.ConnectionString;
+        validator = new ResourceQueryValidator(
+            capabilityProviders ?? [new SqliteJsonQueryCapabilitiesProvider()],
+            this);
 
         if (options.InitializeSchema)
             SqliteJsonSchema.Initialize(connectionString);
     }
+
+    /// <inheritdoc />
+    public string ProviderKey => SqliteJsonQueryCapabilitiesProvider.ProviderKey;
 
     /// <inheritdoc />
     public async ValueTask<IEnumerable<Resource>> QueryAsync(
@@ -38,6 +49,7 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
+        ThrowIfInvalid(query);
         Validate(query);
 
         var builder = new SqliteQueryBuilder(query);
@@ -65,16 +77,32 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
     private static void Validate(ResourceQuery query)
     {
         if (!Enum.IsDefined(query.Scope))
-            throw Unsupported($"Resource version scope '{query.Scope}'");
+            throw Unsupported(
+                "unsupported-scope",
+                "scope",
+                $"Scope '{query.Scope}' is not supported by the SQLite JSON query provider.",
+                "Scope");
 
         if (query.Scope == ResourceVersionScope.Active && string.IsNullOrWhiteSpace(query.ActivationChannel))
-            throw Unsupported("Active scope without an activation channel");
+            throw Unsupported(
+                "activation-channel-required",
+                "scope",
+                "Active scope requires an activation channel for the SQLite JSON query provider.",
+                "ActivationChannel");
 
         if (query.Skip is < 0)
-            throw Unsupported("Negative Skip");
+            throw Unsupported(
+                "negative-skip",
+                "paging",
+                "Skip must be zero or greater.",
+                "Skip");
 
         if (query.Take is < 0)
-            throw Unsupported("Negative Take");
+            throw Unsupported(
+                "negative-take",
+                "paging",
+                "Take must be zero or greater.",
+                "Take");
     }
 
     private static async Task<List<Resource>> ReadResourcesAsync(
@@ -111,6 +139,17 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
                 && actual.Contains(expected, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static UnsupportedQueryFeatureException Unsupported(string feature) =>
-        new($"{feature} is not supported by the SQLite JSON query provider.");
+    private void ThrowIfInvalid(ResourceQuery query)
+    {
+        var validation = validator.Validate(query);
+        if (!validation.IsValid)
+            throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
+    }
+
+    private static UnsupportedQueryFeatureException Unsupported(
+        string code,
+        string feature,
+        string message,
+        string? path = null) =>
+        new(code, feature, message, path);
 }

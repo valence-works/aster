@@ -1,3 +1,5 @@
+using Aster.Core.Models.Querying;
+
 namespace Aster.Core.Exceptions;
 
 /// <summary>
@@ -91,13 +93,73 @@ public sealed class SingletonViolationException : Exception
 /// </summary>
 public sealed class UnsupportedQueryFeatureException : Exception
 {
+    /// <summary>
+    /// Gets the stable unsupported query failure code.
+    /// </summary>
+    public string Code { get; }
+
+    /// <summary>
+    /// Gets the unsupported query feature category.
+    /// </summary>
+    public string Feature { get; }
+
+    /// <summary>
+    /// Gets the optional query path where the unsupported feature was found.
+    /// </summary>
+    public string? Path { get; }
+
     /// <inheritdoc />
-    public UnsupportedQueryFeatureException() : base("The query contains an unsupported feature.") { }
+    public UnsupportedQueryFeatureException()
+        : this("unsupported-query-feature", "query", "The query contains an unsupported feature.") { }
 
     /// <inheritdoc />
     public UnsupportedQueryFeatureException(string feature)
-        : base($"The query feature '{feature}' is not supported.") { }
+        : this("unsupported-query-feature", feature, $"The query feature '{feature}' is not supported.") { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UnsupportedQueryFeatureException"/> class.
+    /// </summary>
+    /// <param name="code">Stable unsupported query failure code.</param>
+    /// <param name="feature">Unsupported query feature category.</param>
+    /// <param name="message">Human-readable actionable explanation.</param>
+    /// <param name="path">Optional query path where the unsupported feature was found.</param>
+    public UnsupportedQueryFeatureException(
+        string code,
+        string feature,
+        string message,
+        string? path = null)
+        : base(message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        ArgumentException.ThrowIfNullOrWhiteSpace(feature);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        Code = code;
+        Feature = feature;
+        Path = path;
+    }
 
     /// <inheritdoc />
-    public UnsupportedQueryFeatureException(string message, Exception innerException) : base(message, innerException) { }
+    public UnsupportedQueryFeatureException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+        Code = "unsupported-query-feature";
+        Feature = "query";
+    }
+
+    /// <summary>
+    /// Creates an execution exception from a validation failure.
+    /// </summary>
+    /// <param name="failure">The validation failure to expose as an execution failure.</param>
+    /// <returns>An unsupported query feature exception with matching structured details.</returns>
+    public static UnsupportedQueryFeatureException FromValidationFailure(QueryValidationFailure failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+
+        return new(
+            failure.Code,
+            failure.Feature ?? "query",
+            failure.Message,
+            failure.Path);
+    }
 }

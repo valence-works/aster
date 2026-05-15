@@ -131,10 +131,12 @@ var capabilities = serviceProvider
     .Capabilities;
 
 Console.WriteLine(capabilities.ProviderName);
+Console.WriteLine(capabilities.ProviderKey);
 Console.WriteLine(capabilities.SupportsFacetSorting);
 ```
 
 Capabilities describe supported scopes, filter categories, comparison operators, logical operators, metadata fields, sort categories, paging, facet range value shapes, and known exclusions. The in-memory provider currently declares facet sorting and numeric/date-like facet ranges; SQLite JSON declares metadata sorting, numeric facet ranges, and no facet sorting.
+Capability declarations are matched to the active query provider by explicit `ProviderKey` values such as `in-memory` and `sqlite-json`.
 
 ## Preflight Validation
 
@@ -146,13 +148,31 @@ var validation = validator.Validate(query);
 if (!validation.IsValid)
 {
     foreach (var failure in validation.Failures)
-        Console.WriteLine($"{failure.Code}: {failure.Message}");
+        Console.WriteLine($"{failure.Code} ({failure.Feature}): {failure.Message}");
 
     return;
 }
 ```
 
 Validation returns a structured `QueryValidationResult` and does not mutate the query. If no capability provider is declared for the active provider, validation fails closed with `capabilities-not-declared`. Execution still rejects unsupported shapes even when validation is skipped.
+
+Recommended flow for user-defined queries:
+
+1. Inspect provider capabilities when deciding what query UI or API options to expose.
+2. Validate a `ResourceQuery` before execution and show all `QueryValidationFailure` entries to the caller.
+3. Execute only when validation succeeds.
+4. Still handle `UnsupportedQueryFeatureException`, because execution is authoritative and may detect provider-specific constraints.
+
+```csharp
+try
+{
+    var results = await queryService.QueryAsync(query);
+}
+catch (UnsupportedQueryFeatureException ex)
+{
+    Console.WriteLine($"{ex.Code} ({ex.Feature}): {ex.Message}");
+}
+```
 
 ## Typed Query Helpers
 
@@ -221,7 +241,7 @@ The provider supports:
 - facet `Equals`, string `Contains`, and numeric `Range`.
 - `And`, `Or`, and single-operand `Not`.
 
-Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. Current intentional exclusions include facet sorting, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges.
+Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. The exception exposes stable `Code`, `Feature`, optional `Path`, and a human-readable message. Current intentional exclusions include facet sorting, metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges.
 
 ## Current Limitations
 

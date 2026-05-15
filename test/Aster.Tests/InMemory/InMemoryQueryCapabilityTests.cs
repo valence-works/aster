@@ -10,6 +10,7 @@ public sealed class InMemoryQueryCapabilityTests
     [Fact]
     public void Capabilities_DeclareCurrentInMemoryQuerySurface()
     {
+        Assert.Equal(InMemoryQueryCapabilitiesProvider.ProviderKey, capabilities.ProviderKey);
         Assert.Equal("In-memory", capabilities.ProviderName);
         Assert.True(capabilities.RequiresActivationChannelForActiveScope);
         Assert.True(capabilities.SupportsMetadataSorting);
