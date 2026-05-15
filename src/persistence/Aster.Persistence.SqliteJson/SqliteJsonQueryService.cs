@@ -3,6 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Services;
 using Aster.Persistence.SqliteJson.Querying;
 using Microsoft.Data.Sqlite;
 
@@ -11,26 +12,36 @@ namespace Aster.Persistence.SqliteJson;
 /// <summary>
 /// SQLite JSON implementation of <see cref="IResourceQueryService"/>.
 /// </summary>
-public sealed class SqliteJsonQueryService : IResourceQueryService
+public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly string connectionString;
+    private readonly ResourceQueryValidator validator;
 
     /// <summary>
     /// Initializes a new instance of <see cref="SqliteJsonQueryService"/>.
     /// </summary>
     /// <param name="options">Provider options.</param>
-    public SqliteJsonQueryService(SqliteJsonAsterOptions options)
+    /// <param name="capabilityProviders">Registered provider capability declarations.</param>
+    public SqliteJsonQueryService(
+        SqliteJsonAsterOptions options,
+        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.ConnectionString);
 
         connectionString = options.ConnectionString;
+        validator = new ResourceQueryValidator(
+            capabilityProviders ?? [new SqliteJsonQueryCapabilitiesProvider()],
+            this);
 
         if (options.InitializeSchema)
             SqliteJsonSchema.Initialize(connectionString);
     }
+
+    /// <inheritdoc />
+    public string ProviderKey => SqliteJsonQueryCapabilitiesProvider.ProviderKey;
 
     /// <inheritdoc />
     public async ValueTask<IEnumerable<Resource>> QueryAsync(
@@ -38,7 +49,7 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        Validate(query);
+        ThrowIfInvalid(query);
 
         var builder = new SqliteQueryBuilder(query);
         var translator = new SqliteWhereTranslator(builder.Parameters);
@@ -60,21 +71,6 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
         builder.Parameters.ApplyTo(command);
 
         return await ReadResourcesAsync(command, cancellationToken);
-    }
-
-    private static void Validate(ResourceQuery query)
-    {
-        if (!Enum.IsDefined(query.Scope))
-            throw Unsupported($"Resource version scope '{query.Scope}'");
-
-        if (query.Scope == ResourceVersionScope.Active && string.IsNullOrWhiteSpace(query.ActivationChannel))
-            throw Unsupported("Active scope without an activation channel");
-
-        if (query.Skip is < 0)
-            throw Unsupported("Negative Skip");
-
-        if (query.Take is < 0)
-            throw Unsupported("Negative Take");
     }
 
     private static async Task<List<Resource>> ReadResourcesAsync(
@@ -111,6 +107,11 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
                 && actual.Contains(expected, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static UnsupportedQueryFeatureException Unsupported(string feature) =>
-        new($"{feature} is not supported by the SQLite JSON query provider.");
+    private void ThrowIfInvalid(ResourceQuery query)
+    {
+        var validation = validator.Validate(query);
+        if (!validation.IsValid)
+            throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
+    }
+
 }

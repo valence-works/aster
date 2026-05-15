@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.InMemory;
 using Aster.Core.Models.Querying;
 using Aster.Core.Services;
@@ -357,4 +358,46 @@ public sealed class InMemoryQueryServiceTests
         // Assert
         Assert.Equal(["Alpha", "Bravo"], results.Select(r => ((TitleAspect)r.Aspects["Title"]).Title).ToList());
     }
+
+    [Fact]
+    public async Task QueryAsync_UnsupportedQueryShapes_ThrowStructuredFailures()
+    {
+        var (_, query) = CreateSetup();
+
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new UnknownFilterExpression(),
+            }).AsTask(),
+            "unsupported-filter-type",
+            "predicate");
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new LogicalExpression((LogicalOperator)999, []),
+            }).AsTask(),
+            "unsupported-logical-operator",
+            "logical operator");
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new FacetValueFilter("Title", "Title", "Gadget", (ComparisonOperator)999),
+            }).AsTask(),
+            "unsupported-comparison-operator",
+            "comparison operator");
+    }
+
+    private static async Task AssertUnsupportedAsync(
+        Task task,
+        string expectedCode,
+        string expectedFeature)
+    {
+        var exception = await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() => task);
+
+        Assert.Equal(expectedCode, exception.Code);
+        Assert.Equal(expectedFeature, exception.Feature);
+        Assert.False(string.IsNullOrWhiteSpace(exception.Message));
+    }
+
+    private sealed record UnknownFilterExpression : FilterExpression;
 }

@@ -340,35 +340,118 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         await using var provider = CreateServiceProvider();
         var query = provider.GetRequiredService<IResourceQueryService>();
 
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+        await AssertUnsupportedAsync(
             query.QueryAsync(new ResourceQuery
             {
                 Filter = new MetadataFilter("Unknown", "value", ComparisonOperator.Equals),
-            }).AsTask());
+            }).AsTask(),
+            "unsupported-metadata-field",
+            "metadata field",
+            "Filter.Field");
 
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+        await AssertUnsupportedAsync(
             query.QueryAsync(new ResourceQuery
             {
                 Sorts = [new SortExpression("Title", AspectKey: "Title")],
-            }).AsTask());
+            }).AsTask(),
+            "unsupported-facet-sort",
+            "sort",
+            "Sorts[0]");
 
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+        await AssertUnsupportedAsync(
             query.QueryAsync(new ResourceQuery
             {
                 Scope = ResourceVersionScope.Active,
-            }).AsTask());
+            }).AsTask(),
+            "activation-channel-required",
+            "scope",
+            "ActivationChannel");
 
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
-            query.QueryAsync(new ResourceQuery { Skip = -1 }).AsTask());
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery { Skip = -1 }).AsTask(),
+            "negative-skip",
+            "paging",
+            "Skip");
 
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
-            query.QueryAsync(new ResourceQuery { Take = -1 }).AsTask());
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery { Take = -1 }).AsTask(),
+            "negative-take",
+            "paging",
+            "Take");
 
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+        await AssertUnsupportedAsync(
             query.QueryAsync(new ResourceQuery
             {
                 Filter = new FacetValueFilter("Price", "Amount", new RangeValue(null, null), ComparisonOperator.Range),
-            }).AsTask());
+            }).AsTask(),
+            "empty-range",
+            "value shape",
+            "Filter.Value");
+    }
+
+    [Fact]
+    public async Task QueryAsync_UnsupportedSqliteShapes_MatchValidationFailureDetails()
+    {
+        await using var provider = CreateServiceProvider();
+        var validator = provider.GetRequiredService<IResourceQueryValidator>();
+        var queryService = provider.GetRequiredService<IResourceQueryService>();
+
+        await AssertValidationMatchesExecutionAsync(
+            validator,
+            queryService,
+            new ResourceQuery
+            {
+                Filter = new MetadataFilter("Version", "1", ComparisonOperator.Contains),
+            },
+            "unsupported-metadata-contains-field",
+            "Filter.Field");
+        await AssertValidationMatchesExecutionAsync(
+            validator,
+            queryService,
+            new ResourceQuery
+            {
+                Filter = new MetadataFilter("Created", "2026-01-01", ComparisonOperator.Range),
+            },
+            "unsupported-comparison-operator",
+            "Filter.Operator");
+        await AssertValidationMatchesExecutionAsync(
+            validator,
+            queryService,
+            new ResourceQuery
+            {
+                Sorts = [new SortExpression("Title", AspectKey: "Title")],
+            },
+            "unsupported-facet-sort",
+            "Sorts[0]");
+        await AssertValidationMatchesExecutionAsync(
+            validator,
+            queryService,
+            new ResourceQuery
+            {
+                Filter = new FacetValueFilter(
+                    "Schedule",
+                    "StartsAt",
+                    new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                    ComparisonOperator.Range),
+            },
+            "unsupported-range-value-shape",
+            "Filter.Value.Min");
+    }
+
+    [Fact]
+    public async Task QueryAsync_ProviderSpecificUnsupportedFailure_ReportsPath()
+    {
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new MetadataFilter("Version", "not-an-integer", ComparisonOperator.Equals),
+            }).AsTask(),
+            "invalid-metadata-value",
+            "metadata value",
+            "Filter.Value");
     }
 
     [Fact]
@@ -456,6 +539,40 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
 
     private static DateTime Utc(int year, int month, int day) =>
         new(year, month, day, 0, 0, 0, DateTimeKind.Utc);
+
+    private static async Task<UnsupportedQueryFeatureException> AssertUnsupportedAsync(
+        Task task,
+        string expectedCode,
+        string expectedFeature,
+        string? expectedPath = null)
+    {
+        var exception = await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() => task);
+
+        Assert.Equal(expectedCode, exception.Code);
+        Assert.Equal(expectedFeature, exception.Feature);
+        Assert.Equal(expectedPath, exception.Path);
+        Assert.False(string.IsNullOrWhiteSpace(exception.Message));
+        return exception;
+    }
+
+    private static async Task AssertValidationMatchesExecutionAsync(
+        IResourceQueryValidator validator,
+        IResourceQueryService queryService,
+        ResourceQuery query,
+        string expectedCode,
+        string? expectedPath = null)
+    {
+        var validation = validator.Validate(query);
+        var exception = await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(
+            () => queryService.QueryAsync(query).AsTask());
+
+        Assert.Contains(validation.Failures, failure =>
+            failure.Code == exception.Code
+            && failure.Feature == exception.Feature
+            && failure.Path == exception.Path);
+        Assert.Equal(expectedCode, exception.Code);
+        Assert.Equal(expectedPath, exception.Path);
+    }
 
     private static void TryDelete(string path)
     {

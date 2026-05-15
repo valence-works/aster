@@ -184,9 +184,26 @@ public sealed class ResourceQueryValidatorTests
         Assert.Contains(result.Failures, failure => failure.Code == "capabilities-not-declared");
     }
 
+    [Fact]
+    public void Validate_WhenActiveProviderKeyDoesNotMatchCapabilities_FailsClosed()
+    {
+        using var provider = new ServiceCollection()
+            .AddSingleton<IResourceQueryCapabilitiesProvider, EmptyCapabilitiesProvider>()
+            .AddSingleton<IResourceQueryService, CustomQueryService>()
+            .AddSingleton<IResourceQueryValidator, ResourceQueryValidator>()
+            .BuildServiceProvider();
+
+        var result = provider.GetRequiredService<IResourceQueryValidator>().Validate(new ResourceQuery());
+
+        Assert.False(result.IsValid);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("capabilities-not-declared", failure.Code);
+    }
+
     private sealed class EmptyCapabilitiesProvider : IResourceQueryCapabilitiesProvider
     {
         public QueryCapabilityDescription Capabilities { get; } = new(
+            ProviderKey: "empty",
             ProviderName: "Empty",
             SupportedScopes: new HashSet<ResourceVersionScope>(),
             RequiresActivationChannelForActiveScope: false,
@@ -203,8 +220,10 @@ public sealed class ResourceQueryValidatorTests
             UnsupportedFeatures: []);
     }
 
-    private sealed class CustomQueryService : IResourceQueryService
+    private sealed class CustomQueryService : IResourceQueryService, IResourceQueryProviderIdentity
     {
+        public string ProviderKey => "custom";
+
         public ValueTask<IEnumerable<Resource>> QueryAsync(
             ResourceQuery query,
             CancellationToken cancellationToken = default) =>

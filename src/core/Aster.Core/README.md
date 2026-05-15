@@ -133,7 +133,15 @@ Preflight the query against the active provider:
 ```csharp
 var validator = serviceProvider.GetRequiredService<IResourceQueryValidator>();
 var validation = validator.Validate(query);
+
+if (!validation.IsValid)
+{
+    foreach (var failure in validation.Failures)
+        Console.WriteLine($"{failure.Code} ({failure.Feature}): {failure.Message}");
+}
 ```
+
+Provider capabilities are matched to the active query provider by explicit provider key. If a custom provider has no matching capability declaration, validation fails closed with `capabilities-not-declared`. Query execution still enforces unsupported shapes and throws `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message.
 
 Or build common typed aspect filters without repeating convention-based identifiers:
 

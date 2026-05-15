@@ -3,6 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Aster.Core.InMemory;
@@ -15,30 +16,42 @@ namespace Aster.Core.InMemory;
 /// Supported comparators: <see cref="ComparisonOperator.Equals"/>, <see cref="ComparisonOperator.Contains"/>,
 /// and <see cref="ComparisonOperator.Range"/>.
 /// </remarks>
-public sealed partial class InMemoryQueryService : IResourceQueryService
+public sealed partial class InMemoryQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IResourceVersionReader versionReader;
     private readonly ILogger<InMemoryQueryService> logger;
+    private readonly ResourceQueryValidator validator;
 
     /// <summary>
     /// Initializes a new instance of <see cref="InMemoryQueryService"/>.
     /// </summary>
     /// <param name="versionReader">The backing resource version reader.</param>
     /// <param name="logger">The logger.</param>
-    public InMemoryQueryService(IResourceVersionReader versionReader, ILogger<InMemoryQueryService> logger)
+    /// <param name="capabilityProviders">Registered provider capability declarations.</param>
+    public InMemoryQueryService(
+        IResourceVersionReader versionReader,
+        ILogger<InMemoryQueryService> logger,
+        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
     {
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(logger);
         this.versionReader = versionReader;
         this.logger = logger;
+        validator = new ResourceQueryValidator(
+            capabilityProviders ?? [new InMemoryQueryCapabilitiesProvider()],
+            this);
     }
+
+    /// <inheritdoc />
+    public string ProviderKey => InMemoryQueryCapabilitiesProvider.ProviderKey;
 
     /// <inheritdoc />
     public async ValueTask<IEnumerable<Resource>> QueryAsync(ResourceQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
+        ThrowIfInvalid(query);
 
         var candidates = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
@@ -80,7 +93,11 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         AspectPresenceFilter asp => EvaluateAspectPresence(asp, resource),
         FacetValueFilter fv      => EvaluateFacetValue(fv, resource),
         LogicalExpression logic  => EvaluateLogical(logic, resource),
-        _                        => throw new UnsupportedQueryFeatureException($"Unknown filter expression type: {expr.GetType().Name}")
+        _                        => throw Unsupported(
+            "unsupported-filter-type",
+            "predicate",
+            $"Filter expression '{expr.GetType().Name}' is not supported by the in-memory query provider.",
+            "Filter")
     };
 
     private static bool EvaluateMetadata(MetadataFilter filter, Resource resource)
@@ -176,7 +193,11 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         LogicalOperator.And => expr.Operands.All(op => Evaluate(op, resource)),
         LogicalOperator.Or  => expr.Operands.Any(op => Evaluate(op, resource)),
         LogicalOperator.Not => expr.Operands is [var single] && !Evaluate(single, resource),
-        _                   => throw new UnsupportedQueryFeatureException($"Unsupported logical operator: {expr.Operator}")
+        _                   => throw Unsupported(
+            "unsupported-logical-operator",
+            "logical operator",
+            $"Logical operator '{expr.Operator}' is not supported by the in-memory query provider.",
+            "Filter.Operator")
     };
 
     private static bool ApplyComparator(object? actual, object? expected, ComparisonOperator op) => op switch
@@ -189,13 +210,21 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
             FormatValueInvariant(expected) ?? string.Empty,
             StringComparison.OrdinalIgnoreCase) == true,
         ComparisonOperator.Range => ApplyRangeComparator(actual, expected),
-        _ => throw new UnsupportedQueryFeatureException($"Unknown comparator: {op}")
+        _ => throw Unsupported(
+            "unsupported-comparison-operator",
+            "comparison operator",
+            $"Comparison operator '{op}' is not supported by the in-memory query provider.",
+            "Filter.Operator")
     };
 
     private static bool ApplyRangeComparator(object? actual, object? expected)
     {
         if (expected is not RangeValue range)
-            throw new UnsupportedQueryFeatureException("Range predicates require a RangeValue.");
+            throw Unsupported(
+                "range-value-required",
+                "value shape",
+                "Range predicates require a RangeValue.",
+                "Filter.Value");
 
         if (actual is null)
             return false;
@@ -225,7 +254,11 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         "owner"        => resource.Owner,
         "version"      => resource.Version,
         "created"      => resource.Created,
-        _ => throw new UnsupportedQueryFeatureException($"Metadata field '{field}' is not supported by the in-memory evaluator.")
+        _ => throw Unsupported(
+            "unsupported-metadata-field",
+            "metadata field",
+            $"Metadata field '{field}' is not supported by the in-memory query provider.",
+            "Filter.Field")
     };
 
     private static object? ResolveSortValue(Resource resource, SortExpression sort) =>
@@ -315,6 +348,20 @@ public sealed partial class InMemoryQueryService : IResourceQueryService
         IFormattable f => f.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
         _ => value.ToString()
     };
+
+    private void ThrowIfInvalid(ResourceQuery query)
+    {
+        var validation = validator.Validate(query);
+        if (!validation.IsValid)
+            throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
+    }
+
+    private static UnsupportedQueryFeatureException Unsupported(
+        string code,
+        string feature,
+        string message,
+        string? path = null) =>
+        new(code, feature, message, path);
 
     private sealed class ResourceSortComparer(IReadOnlyList<SortExpression> sorts) : IComparer<Resource>
     {

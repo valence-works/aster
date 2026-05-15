@@ -18,7 +18,9 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
     public ResourceQueryValidator(IEnumerable<IResourceQueryCapabilitiesProvider> capabilityProviders)
     {
         ArgumentNullException.ThrowIfNull(capabilityProviders);
-        capabilities = capabilityProviders.LastOrDefault()?.Capabilities;
+        capabilities = capabilityProviders
+            .Select(provider => provider.Capabilities)
+            .LastOrDefault(HasProviderKey);
     }
 
     /// <summary>
@@ -33,9 +35,11 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         ArgumentNullException.ThrowIfNull(capabilityProviders);
         ArgumentNullException.ThrowIfNull(queryService);
 
-        capabilities = capabilityProviders
-            .LastOrDefault(provider => IsCapabilityProviderForQueryService(provider, queryService))
-            ?.Capabilities;
+        capabilities = queryService is IResourceQueryProviderIdentity identity
+            ? capabilityProviders
+                .Select(provider => provider.Capabilities)
+                .LastOrDefault(capabilities => IsCapabilityDeclarationForQueryService(capabilities, identity))
+            : null;
     }
 
     /// <inheritdoc />
@@ -377,18 +381,13 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         string? feature = null) =>
         new(code, message, path, feature);
 
-    private static bool IsCapabilityProviderForQueryService(
-        IResourceQueryCapabilitiesProvider provider,
-        IResourceQueryService queryService)
-    {
-        var providerName = NormalizeProviderTypeName(provider.GetType().Name);
-        var queryServiceName = NormalizeProviderTypeName(queryService.GetType().Name);
+    private static bool IsCapabilityDeclarationForQueryService(
+        QueryCapabilityDescription capabilities,
+        IResourceQueryProviderIdentity identity) =>
+        HasProviderKey(capabilities)
+        && !string.IsNullOrWhiteSpace(identity.ProviderKey)
+        && string.Equals(capabilities.ProviderKey, identity.ProviderKey, StringComparison.Ordinal);
 
-        return queryServiceName.StartsWith(providerName, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeProviderTypeName(string typeName) =>
-        typeName
-            .Replace("QueryCapabilitiesProvider", string.Empty, StringComparison.Ordinal)
-            .Replace("QueryService", string.Empty, StringComparison.Ordinal);
+    private static bool HasProviderKey(QueryCapabilityDescription capabilities) =>
+        !string.IsNullOrWhiteSpace(capabilities.ProviderKey);
 }

@@ -12,13 +12,21 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         AspectPresenceFilter aspect => TranslateAspectPresence(aspect),
         FacetValueFilter facet => TranslateFacetValue(facet),
         LogicalExpression logical => TranslateLogical(logical),
-        _ => throw Unsupported($"Filter expression '{expression.GetType().Name}'")
+        _ => throw Unsupported(
+            "unsupported-filter-type",
+            "predicate",
+            $"Filter expression '{expression.GetType().Name}' is not supported by the SQLite JSON query provider.",
+            "Filter")
     };
 
     public void Validate(FilterExpression expression)
     {
         if (expression is FacetValueFilter { Operator: ComparisonOperator.Range, Value: RangeValue { Min: null, Max: null } })
-            throw Unsupported("Empty range predicates");
+            throw Unsupported(
+                "empty-range",
+                "value shape",
+                "Range predicates require at least one bound.",
+                "Filter.Value");
 
         if (expression is LogicalExpression logical)
         {
@@ -29,7 +37,12 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
 
     private string TranslateMetadata(MetadataFilter filter)
     {
-        var column = SqliteMetadataField.ResolveColumn(filter.Field, "Metadata field");
+        var column = SqliteMetadataField.ResolveColumn(
+            filter.Field,
+            "Metadata field",
+            "unsupported-metadata-field",
+            "metadata field",
+            "Filter.Field");
 
         return filter.Operator switch
         {
@@ -39,7 +52,17 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
                 $"aster_text_equals(CAST({column} AS TEXT), CAST({parameters.Add(filter.Value)} AS TEXT))",
             ComparisonOperator.Contains when !SqliteMetadataField.IsNumeric(filter.Field) =>
                 $"aster_text_contains(CAST({column} AS TEXT), CAST({parameters.Add(filter.Value)} AS TEXT))",
-            _ => throw Unsupported($"Metadata filter '{filter.Field}' with operator '{filter.Operator}'")
+            ComparisonOperator.Contains =>
+                throw Unsupported(
+                    "unsupported-metadata-contains-field",
+                    "metadata field",
+                    $"Metadata field '{filter.Field}' does not support containment filtering in the SQLite JSON query provider.",
+                    "Filter.Field"),
+            _ => throw Unsupported(
+                "unsupported-comparison-operator",
+                "comparison operator",
+                $"Comparison operator '{filter.Operator}' is not supported for metadata filters by the SQLite JSON query provider.",
+                "Filter.Operator")
         };
     }
 
@@ -65,8 +88,16 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             ComparisonOperator.Range when filter.Value is RangeValue range =>
                 TranslateRange(value, range),
             ComparisonOperator.Range =>
-                throw Unsupported("Range predicates without RangeValue"),
-            _ => throw Unsupported($"Facet filter operator '{filter.Operator}'")
+                throw Unsupported(
+                    "range-value-required",
+                    "value shape",
+                    "Range predicates require a RangeValue.",
+                    "Filter.Value"),
+            _ => throw Unsupported(
+                "unsupported-comparison-operator",
+                "comparison operator",
+                $"Comparison operator '{filter.Operator}' is not supported for facet filters by the SQLite JSON query provider.",
+                "Filter.Operator")
         };
     }
 
@@ -77,15 +108,27 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             LogicalOperator.And => JoinLogical("AND", expression.Operands),
             LogicalOperator.Or => JoinLogical("OR", expression.Operands),
             LogicalOperator.Not when expression.Operands is [var operand] => $"NOT ({Translate(operand)})",
-            LogicalOperator.Not => throw Unsupported("NOT logical expressions with anything other than one operand"),
-            _ => throw Unsupported($"Logical operator '{expression.Operator}'")
+            LogicalOperator.Not => throw Unsupported(
+                "invalid-not-operands",
+                "logical expression",
+                "NOT logical expressions require exactly one operand.",
+                "Filter.Operands"),
+            _ => throw Unsupported(
+                "unsupported-logical-operator",
+                "logical operator",
+                $"Logical operator '{expression.Operator}' is not supported by the SQLite JSON query provider.",
+                "Filter.Operator")
         };
     }
 
     private string JoinLogical(string sqlOperator, IReadOnlyList<FilterExpression> operands)
     {
         if (operands.Count == 0)
-            throw Unsupported($"Empty {sqlOperator} logical expressions");
+            throw Unsupported(
+                "empty-logical-operands",
+                "logical expression",
+                $"{sqlOperator} logical expressions require at least one operand.",
+                "Filter.Operands");
 
         return string.Join($" {sqlOperator} ", operands.Select(operand => $"({Translate(operand)})"));
     }
@@ -137,7 +180,11 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             predicates.Add($"CAST({value.ValueExpression} AS REAL) {(range.IncludeMax ? "<=" : "<")} {parameters.Add(ConvertToDouble(range.Max, "maximum range bound"))}");
 
         if (predicates.Count == 0)
-            throw Unsupported("Empty range predicates");
+            throw Unsupported(
+                "empty-range",
+                "value shape",
+                "Range predicates require at least one bound.",
+                "Filter.Value");
 
         return string.Join(" AND ", predicates);
     }
@@ -145,7 +192,11 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
     private static int ParseInt(string value, string field) =>
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
-            : throw Unsupported($"Metadata field '{field}' requires an integer value");
+            : throw Unsupported(
+                "invalid-metadata-value",
+                "metadata value",
+                $"Metadata field '{field}' requires an integer value.",
+                "Filter.Value");
 
     private static bool TryConvertDouble(object? value, out double result)
     {
@@ -180,7 +231,11 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
     private static double ConvertToDouble(object value, string description) =>
         TryConvertDouble(value, out var result)
             ? result
-            : throw Unsupported($"{description} must be numeric");
+            : throw Unsupported(
+                "unsupported-range-value-shape",
+                "value shape",
+                $"{description} must be numeric.",
+                "Filter.Value");
 
     private static string? FormatValue(object? value) => value switch
     {
@@ -189,8 +244,12 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         _ => value.ToString()
     };
 
-    private static UnsupportedQueryFeatureException Unsupported(string feature) =>
-        new($"{feature} is not supported by the SQLite JSON query provider.");
+    private static UnsupportedQueryFeatureException Unsupported(
+        string code,
+        string feature,
+        string message,
+        string? path = null) =>
+        new(code, feature, message, path);
 
     private sealed record FacetValueSqlExpression(string ValueExpression, string IsNumericPredicate);
 }

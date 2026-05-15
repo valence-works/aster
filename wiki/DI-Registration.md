@@ -60,6 +60,33 @@ builder.Services.AddAsterSqliteJson(options =>
 
 `AddAsterSqliteJson()` should be called after `AddAsterCore()` so the provider registrations become the resolved implementations for the shared interfaces. The shared `IResourceQueryValidator` uses the active provider's capability declaration when preflighting queries.
 
+Query providers and capability declarations are matched with explicit provider keys. The default in-memory provider uses `in-memory`; the SQLite JSON provider uses `sqlite-json`. If a host replaces `IResourceQueryService` without registering a capability declaration with the same key, validation fails closed with a `capabilities-not-declared` failure instead of silently validating against stale defaults.
+
+Custom query providers should implement `IResourceQueryProviderIdentity` and register a matching `IResourceQueryCapabilitiesProvider`:
+
+```csharp
+public sealed class MyQueryService : IResourceQueryService, IResourceQueryProviderIdentity
+{
+    public string ProviderKey => "my-provider";
+
+    public ValueTask<IEnumerable<Resource>> QueryAsync(
+        ResourceQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        // Execute the portable ResourceQuery AST against this provider.
+        throw new NotImplementedException();
+    }
+}
+
+public sealed class MyQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
+{
+    public QueryCapabilityDescription Capabilities { get; } = new(
+        ProviderKey: "my-provider",
+        ProviderName: "My Provider",
+        /* supported query surface */);
+}
+```
+
 ---
 
 ## Customising the Identity Generator

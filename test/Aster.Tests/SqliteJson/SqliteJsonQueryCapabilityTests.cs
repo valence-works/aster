@@ -13,6 +13,7 @@ public sealed class SqliteJsonQueryCapabilityTests
     [Fact]
     public void Capabilities_DeclareCurrentSqliteQuerySurface()
     {
+        Assert.Equal(SqliteJsonQueryCapabilitiesProvider.ProviderKey, capabilities.ProviderKey);
         Assert.Equal("SQLite JSON", capabilities.ProviderName);
         Assert.True(capabilities.RequiresActivationChannelForActiveScope);
         Assert.True(capabilities.SupportsMetadataSorting);
