@@ -1,7 +1,7 @@
 # Aster.Core
 
 The core SDK for the Aster versioned resource platform.  
-Provides **definitions**, **versioned resources**, **activation channels**, **typed aspects**, and **in-memory querying** — all wired with standard `Microsoft.Extensions.DependencyInjection`.
+Provides **definitions**, **versioned resources**, **activation channels**, **typed aspects**, provider-backed lifecycle orchestration, and default in-memory querying — all wired with standard `Microsoft.Extensions.DependencyInjection`.
 
 ---
 
@@ -134,7 +134,7 @@ IResourceDefinitionStore      — stores versioned ResourceDefinition schemas
 IResourceManager              — provider-backed create / update / activate orchestration
 IResourceVersionWriter           — low-level version/activation persistence hook
 IResourceVersionReader           — low-level read hook for query candidate version sets
-IResourceQueryService         — LINQ-based in-memory query engine
+IResourceQueryService         — portable query service; default is LINQ-based in-memory
 ITypedAspectBinder            — serialise/deserialise full aspects (System.Text.Json)
 ITypedFacetBinder             — serialise/deserialise individual facet values
 IIdentityGenerator            — pluggable ID strategy (default: Guid)

@@ -6,7 +6,7 @@
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Phase 1 (Core SDK & In-Memory Engine) — active development. See [Roadmap](#roadmap) for future phases.
+> **Status:** Phase 2A complete — Core SDK, in-memory engine, and SQLite JSON persistence/querying are available. Next focus: query capabilities and typed query helpers. See [Roadmap](#roadmap) for future phases.
 
 ---
 
@@ -50,6 +50,16 @@ builder.Services.AddAsterCore();
 ```
 
 This registers the in-memory store, resource manager, query service, typed aspect/facet binders, and identity generator.
+
+For SQLite-backed persistence and querying, call `AddAsterSqliteJson(...)` after `AddAsterCore()`:
+
+```csharp
+builder.Services.AddAsterCore();
+builder.Services.AddAsterSqliteJson(options =>
+{
+    options.ConnectionString = "Data Source=aster.db";
+});
+```
 
 ### 2. Define a Resource Type
 
@@ -150,6 +160,8 @@ var results = await queryService.QueryAsync(new ResourceQuery
 
 The in-memory evaluator supports `Equals`, `Contains`, and `Range`, plus latest/all/active/draft version scopes.
 
+The SQLite JSON provider executes the same `ResourceQuery` AST in SQLite for its supported subset: metadata filters/sorts, version scopes, paging, aspect presence, scalar facet `Equals`/`Contains`, and numeric facet `Range`. Unsupported provider query shapes throw `UnsupportedQueryFeatureException`.
+
 ---
 
 ## Versioning & Activation
@@ -218,7 +230,7 @@ src/
       Services/              ← SystemTextJson binders, GuidIdentityGenerator
   persistence/
     Aster.Persistence.SqliteJson/
-      ← SQLite JSON low-level definition/resource version provider
+      ← SQLite JSON definition/resource version/query provider
   apps/
     Aster.Web/               ← Workbench / playground (ASP.NET Core minimal API)
 test/
@@ -233,14 +245,14 @@ specs/                       ← Feature specs (001-core-sdk-foundation, …)
 
 | Phase | Title | Status |
 |---|---|---|
-| **1** | Core SDK & In-Memory Engine | 🚧 In Progress |
-| **2** | Persistence & Querying (reference backend) | 📋 Planned |
-| **3** | Advanced Indexing & Typed Querying | 📋 Planned |
+| **1** | Core SDK & In-Memory Engine | ✅ Complete |
+| **2A** | SQLite JSON Persistence & Querying | ✅ Complete |
+| **3** | Query Capabilities & Typed Querying | 🔜 Next |
 | **4** | Portability & Integration Hooks | 📋 Planned |
 | **5** | Multi-tenancy, Policies, Advanced Versioning | 📋 Planned |
 | **6** | Operational Hardening (concurrency, perf, migrations) | 📋 Planned |
 
-See [`docs/roadmap.md`](docs/roadmap.md) for the full phase breakdown with epics and definitions of done.
+See [`docs/Roadmap.md`](docs/Roadmap.md) and [`wiki/Roadmap.md`](wiki/Roadmap.md) for the full phase breakdown with epics and definitions of done.
 
 ### Planned package layout (future)
 

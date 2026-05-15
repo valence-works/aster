@@ -2,7 +2,7 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 1 (Core SDK & In-Memory Engine) — active development.
+> **Current status:** Phase 2A complete — Core SDK, in-memory engine, and SQLite JSON persistence/querying are available. Next focus: query capabilities and typed query helpers.
 
 ---
 
@@ -10,9 +10,9 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 
 | Phase | Title | Status |
 |---|---|---|
-| **1** | Core SDK & In-Memory Engine | In Progress |
-| **2** | Persistence & Querying | Planned |
-| **3** | Advanced Indexing & Typed Querying | Planned |
+| **1** | Core SDK & In-Memory Engine | Complete |
+| **2A** | SQLite JSON Persistence & Querying | Complete |
+| **3** | Query Capabilities & Typed Querying | Next |
 | **4** | Portability & Integration Hooks | Planned |
 | **5** | Multi-tenancy, Policies, Advanced Versioning | Planned |
 | **6** | Operational Hardening | Planned |
@@ -44,32 +44,33 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 
 | Epic | Description |
 |---|---|
-| **2.1** | Persistence abstractions (`IResourceVersionWriter`, `IResourceVersionReader`, optional `IUnitOfWork`) |
-| **2.2** | Reference backend — choose one: SQLite+JSON, PostgreSQL+JSONB, or MongoDB |
+| **2.1** | Persistence abstractions (`IResourceVersionWriter`, `IResourceVersionReader`) |
+| **2.2** | Reference backend — SQLite JSON |
 | **2.3** | Query surface implementation — translate `ResourceQuery` AST to provider queries; paging/sorting |
 | **2.4** | Provider migrations / provisioning — `IInfrastructureStep`, auto-run at startup or manual CLI execution |
 
-Initial implementation note: `Aster.Persistence.SqliteJson` provides the low-level SQLite JSON definition store and resource version reader/writer. Core now includes a provider-backed `DefaultResourceManager` that can orchestrate lifecycle operations against those primitives.
+Completed implementation note: `Aster.Persistence.SqliteJson` provides the SQLite JSON definition store, resource version reader/writer, activation state persistence, and provider-backed `IResourceQueryService`. Core includes a provider-backed `DefaultResourceManager` that orchestrates lifecycle operations against those primitives.
 
-### Backend candidates
+### Backend notes
 
-- **SQLite + JSON** — simple, great for local dev and small deployments.
+- **SQLite + JSON** — selected reference backend; simple, great for local dev and small deployments.
 - **PostgreSQL + JSONB** — production-grade, native JSON indexing, recommended for most teams.
 - **MongoDB** — document-native, schema provisioning via indexes.
 
 ---
 
-## Phase 3 — Advanced Indexing & Typed Querying
+## Phase 3 — Query Capabilities & Typed Querying
 
-**Goal:** Provider capability negotiation, advanced text handling, typed query helpers, and versioned definition schemas.
+**Goal:** Provider capability discovery, query preflight validation, typed query helpers, and the foundation for advanced indexing.
 
 ### Epics
 
 | Epic | Description |
 |---|---|
-| **3.1** | Advanced indexing logic (`IQueryCapabilities`; portable index field types: `Keyword`, `Text`, `NormalizedText`, `Boolean`, `Integer`, `Decimal`, `DateTime`, `Guid`, `KeywordArray`) |
+| **3.1** | Query capabilities (`IQueryCapabilities`) and provider preflight validation |
 | **3.2** | Typed aspect querying — `WhereAspect<TAspect>(...)` compiles to `ResourceQuery` predicates via mapping metadata |
-| **3.3** | Versioned definition schemas — `ResourceDefinitionVersion` model; resources reference a definition version; upgrade API |
+| **3.3** | Advanced indexing logic; portable index field types such as `Keyword`, `Text`, `NormalizedText`, `Boolean`, `Integer`, `Decimal`, `DateTime`, `Guid`, `KeywordArray` |
+| **3.4** | Versioned definition schemas — `ResourceDefinitionVersion` model; resources reference a definition version; upgrade API |
 
 ### Planned portable operator set
 
@@ -150,7 +151,7 @@ Architectural decisions that should be documented before the relevant phase begi
 
 1. **Active vs Published semantics** — configurable multi-active with channels (resolved in Phase 1 spec).
 2. **Query Model vs IQueryable** — custom AST (resolved in Phase 1 spec).
-3. **Reference backend selection** — which database to target first in Phase 2.
+3. **Reference backend selection** — SQLite JSON selected for Phase 2A.
 4. **Indexing approach** — single built-in engine vs pluggable interface.
 5. **Document shape and growth strategy** — snapshots now, deltas + compaction later.
 6. **Typed aspect mapping** — how POCOs map to document payload and index fields.
@@ -163,4 +164,4 @@ Architectural decisions that should be documented before the relevant phase begi
 
 - [Architecture Overview](Architecture-Overview) — layering and key design decisions
 - [Concepts & Terminology](Concepts-and-Terminology) — domain model
-- Full roadmap source: [`docs/roadmap.md`](../docs/roadmap.md)
+- Full roadmap source: [`docs/Roadmap.md`](../docs/Roadmap.md)

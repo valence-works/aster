@@ -38,7 +38,7 @@ This page describes the internal architecture, layering, and key design decision
 |  +─────────────────────────────────────────+    |
 +─────────────────────────────────────────────────+
 |  Aster.Persistence.<Backend>  (Phase 2+)        |
-|  (PostgresJsonb / SqliteJson / Mongo / ...)      |
+|  (SqliteJson now; PostgresJsonb / Mongo later)   |
 +─────────────────────────────────────────────────+
 ```
 
@@ -50,7 +50,8 @@ This page describes the internal architecture, layering, and key design decision
 | **Models** | `Aster.Core` | Immutable domain records: `Resource`, `ResourceDefinition`, `AspectDefinition`, `FacetDefinition`, `AspectInstance`, `FacetValue`, `ActivationState`, `ResourceQuery`, filter types |
 | **Definitions** | `Aster.Core` | `ResourceDefinitionBuilder` — fluent code-first API |
 | **Services** | `Aster.Core` | `SystemTextJsonAspectBinder`, `SystemTextJsonFacetBinder`, `GuidIdentityGenerator` |
-| **InMemory** | `Aster.Core` | Phase 1 implementations: `DefaultResourceManager`, `InMemoryResourceDefinitionStore`, `InMemoryResourceStore`, `InMemoryQueryService` |
+| **InMemory** | `Aster.Core` | Default implementations: `InMemoryResourceDefinitionStore`, `InMemoryResourceStore`, `InMemoryQueryService`; `DefaultResourceManager` orchestrates through provider interfaces |
+| **SQLite JSON** | `Aster.Persistence.SqliteJson` | Provider-backed definition store, version reader/writer, activation state persistence, and `IResourceQueryService` |
 | **Extensions** | `Aster.Core` | `AddAsterCore()` DI extension; `GetAspect<T>`, `SetAspect<T>`, `GetFacet<T>`, `SetFacet<T>` |
 
 ---
@@ -124,7 +125,7 @@ ResourceQuery
   Take?
 ```
 
-The AST is evaluated by `IResourceQueryService`. Phase 1 translates to LINQ. Future backends will translate to SQL/JSONB/MongoDB aggregations.
+The AST is evaluated by `IResourceQueryService`. The default in-memory provider translates to LINQ. The SQLite JSON provider translates the supported subset to parameterized SQLite SQL/JSON expressions; future backends can translate to JSONB, MongoDB aggregations, or other provider-native forms.
 
 **Design decision:** `IQueryable<T>` was deliberately avoided — it is fine within a single ORM but breaks across provider boundaries.
 

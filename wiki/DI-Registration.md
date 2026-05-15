@@ -31,6 +31,34 @@ The concrete types (`DefaultResourceManager`, `InMemoryResourceManager`, `InMemo
 
 ---
 
+## `AddAsterSqliteJson()`
+
+`Aster.Persistence.SqliteJson` replaces the default in-memory definition, resource version, and query primitives with SQLite JSON-backed implementations.
+
+```csharp
+using Aster.Core.Extensions;
+using Aster.Persistence.SqliteJson;
+
+builder.Services.AddAsterCore();
+builder.Services.AddAsterSqliteJson(options =>
+{
+    options.ConnectionString = "Data Source=aster.db";
+});
+```
+
+### Provider-backed services
+
+| Interface | SQLite JSON implementation | Notes |
+|---|---|---|
+| `IResourceDefinitionStore` | `SqliteJsonResourceStore` | Persists definition versions |
+| `IResourceVersionWriter` | `SqliteJsonResourceStore` | Persists resource versions and activation state |
+| `IResourceVersionReader` | `SqliteJsonResourceStore` | Reads persisted version sets |
+| `IResourceQueryService` | `SqliteJsonQueryService` | Translates supported `ResourceQuery` ASTs to SQLite SQL/JSON queries |
+
+`AddAsterSqliteJson()` should be called after `AddAsterCore()` so the provider registrations become the resolved implementations for the shared interfaces.
+
+---
+
 ## Customising the Identity Generator
 
 Implement `IIdentityGenerator` and register before calling `AddAsterCore()`, or replace after:

@@ -4,7 +4,7 @@ Welcome to the Aster documentation wiki.
 
 **Aster** is a .NET SDK for defining, versioning, and querying composable resources using a **Resource → Aspect → Facet** model. It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities to any resource type.
 
-> **Current Status:** Phase 1 (Core SDK & In-Memory Engine) — active development.
+> **Current Status:** Phase 2A complete — Core SDK, in-memory engine, and SQLite JSON persistence/querying are available. Next focus: query capabilities and typed query helpers.
 
 ---
 
@@ -16,7 +16,7 @@ Welcome to the Aster documentation wiki.
 | [Getting Started](Getting-Started) | Install, register, define, create, update, and activate resources |
 | [Versioning & Activation](Versioning-and-Activation) | Immutable versions, optimistic concurrency, channel-based activation |
 | [Typed Aspects & Facets](Typed-Aspects-and-Facets) | Working with C# POCOs instead of raw dictionaries |
-| [Querying](Querying) | The portable `ResourceQuery` AST and in-memory evaluator |
+| [Querying](Querying) | The portable `ResourceQuery` AST, in-memory evaluator, and SQLite JSON provider subset |
 | [DI Registration & Configuration](DI-Registration) | Service registrations and extension points |
 | [Exception Reference](Exception-Reference) | All typed exceptions, when they are thrown, and how to handle them |
 | [Architecture Overview](Architecture-Overview) | Layered design, package layout, key design decisions |
@@ -41,4 +41,3 @@ Resource Definition  ─── defines the schema (type, aspects, facets)
 ```
 
 All resource versions are **immutable and append-only**. Activation is a separate concern from creation — any version can be activated in any named channel at any time.
-

@@ -288,11 +288,11 @@ Defining the query contract early prevents the persistence layer (Phase 2) from 
 - No coupling to EF/YesSQL/Mongo
 - Clear persistence shape (document-like)
 
-## Epic 2.2 — Reference Backend #1 (choose one)
-Pick one backend to prove the design. Recommended for speed:
-- **SQLite + JSON** (simple) OR
-- **PostgreSQL + JSONB** (realistic) OR
-- **MongoDB** (document-native)
+## Epic 2.2 — Reference Backend #1
+SQLite JSON was selected as the first reference backend to prove the design:
+- **SQLite + JSON** (selected for Phase 2A)
+- **PostgreSQL + JSONB** (future production-oriented backend candidate)
+- **MongoDB** (future document-native backend candidate)
 
 **Deliverables**
 - A single production-grade backend package:
@@ -304,6 +304,11 @@ Pick one backend to prove the design. Recommended for speed:
 - Activate/deactivate and version retrieval works
 - Concurrency strategy defined (at least optimistic)
 
+**Current status**
+- SQLite JSON is implemented in `Aster.Persistence.SqliteJson`.
+- Definitions, resource versions, activation state, and provider-backed SQLite querying are available.
+- The next planned slice is provider capability discovery and typed query helpers.
+
 ## Epic 2.3 — Query Surface Implementation
 **Deliverables**
 - Implementation of `IResourceQueryService` for the chosen backend (Epic 2.2)
@@ -313,6 +318,10 @@ Pick one backend to prove the design. Recommended for speed:
 **DoD**
 - Can filter resources by metadata and simplistic aspect values
 - Basic operators (`Equals`, `Contains`, `Range`) work against the persistence layer.
+
+**Current status**
+- SQLite JSON translates the supported `ResourceQuery` subset to parameterized SQLite SQL/JSON expressions.
+- Unsupported provider query shapes fail explicitly with `UnsupportedQueryFeatureException`.
 
 ## Epic 2.4 — Provider migrations / provisioning (per provider module)
 Aster should treat database setup as a **provider responsibility**.
