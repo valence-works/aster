@@ -10,6 +10,7 @@ namespace Aster.Core.Models.Querying;
 /// <param name="SupportedLogicalOperators">Logical operators supported by the provider.</param>
 /// <param name="SupportedComparisonOperators">Comparison operators supported for each filter category.</param>
 /// <param name="SupportedMetadataFields">Metadata fields supported for filtering and sorting.</param>
+/// <param name="MetadataContainsFields">Metadata fields that support containment filtering.</param>
 /// <param name="SupportsMetadataSorting">Whether metadata sort expressions are supported.</param>
 /// <param name="SupportsFacetSorting">Whether facet sort expressions are supported.</param>
 /// <param name="SupportsSkip">Whether skip paging is supported.</param>
@@ -24,6 +25,7 @@ public sealed record QueryCapabilityDescription(
     IReadOnlySet<LogicalOperator> SupportedLogicalOperators,
     IReadOnlyDictionary<QueryFilterType, IReadOnlySet<ComparisonOperator>> SupportedComparisonOperators,
     IReadOnlySet<string> SupportedMetadataFields,
+    IReadOnlySet<string> MetadataContainsFields,
     bool SupportsMetadataSorting,
     bool SupportsFacetSorting,
     bool SupportsSkip,

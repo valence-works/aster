@@ -55,6 +55,14 @@ public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabili
             "Version",
             "Created",
         },
+        MetadataContainsFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ResourceId",
+            "Id",
+            "DefinitionId",
+            "Owner",
+            "Created",
+        },
         SupportsMetadataSorting: true,
         SupportsFacetSorting: false,
         SupportsSkip: true,

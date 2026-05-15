@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using Aster.Core.Models.Querying;
 
 namespace Aster.Core.Extensions;
@@ -49,9 +50,14 @@ public static class TypedQuery
             ? unary.Operand
             : selector.Body;
 
-        return expression is MemberExpression { Member.Name.Length: > 0 } member
-            ? member.Member.Name
-            : throw new ArgumentException("Typed query selectors must identify a single readable member.", nameof(selector));
+        if (expression is not MemberExpression { Member.Name.Length: > 0 } member
+            || !ReferenceEquals(member.Expression, selector.Parameters[0])
+            || !IsReadableMember(member.Member))
+        {
+            throw new ArgumentException("Typed query selectors must identify a single readable member on the typed aspect.", nameof(selector));
+        }
+
+        return member.Member.Name;
     }
 
     internal static string ResolveFacetIdentifier<TAspect, TValue>(
@@ -59,15 +65,23 @@ public static class TypedQuery
         string? facetIdentifier,
         string? defaultFacetIdentifier)
     {
+        var memberName = ResolveMemberName(selector);
         var resolved = NonEmpty(facetIdentifier)
             ?? NonEmpty(defaultFacetIdentifier)
-            ?? ResolveMemberName(selector);
+            ?? memberName;
 
         return resolved;
     }
 
     private static string? NonEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static bool IsReadableMember(MemberInfo member) => member switch
+    {
+        PropertyInfo { CanRead: true } => true,
+        FieldInfo => true,
+        _ => false,
+    };
 }
 
 /// <summary>
@@ -153,8 +167,8 @@ public sealed class TypedFacetQuery<TValue>
     /// <param name="includeMax">Whether the upper bound is inclusive.</param>
     /// <returns>A portable facet value filter.</returns>
     public FilterExpression Range(
-        TValue? min = default,
-        TValue? max = default,
+        object? min = null,
+        object? max = null,
         bool includeMin = true,
         bool includeMax = true) =>
         new FacetValueFilter(

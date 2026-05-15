@@ -10,6 +10,9 @@ public sealed class TypedQueryHelperTests
 {
     private sealed record TitleAspect(string Title);
     private sealed record PriceAspect(decimal Amount);
+    private sealed record NestedAspect(TitleAspect Nested);
+
+    private static string StaticTitle => "Static";
 
     [Fact]
     public void HasAspect_UsesAspectTypeNameByConvention()
@@ -36,6 +39,18 @@ public sealed class TypedQueryHelperTests
         Assert.Equal(("TitleAspect", "Title", ComparisonOperator.Contains), (contains.AspectKey, contains.FacetDefinitionId, contains.Operator));
         Assert.Equal(("PriceAspect", "Amount", ComparisonOperator.Range), (range.AspectKey, range.FacetDefinitionId, range.Operator));
         Assert.Equal(new RangeValue(10m, 20m), range.Value);
+    }
+
+    [Fact]
+    public void Range_WithOnlyMaxBound_LeavesMinimumUnbounded()
+    {
+        var filter = Assert.IsType<FacetValueFilter>(TypedQuery.For<PriceAspect>()
+            .Facet(aspect => aspect.Amount)
+            .Range(max: 100m));
+
+        var range = Assert.IsType<RangeValue>(filter.Value);
+        Assert.Null(range.Min);
+        Assert.Equal(100m, range.Max);
     }
 
     [Fact]
@@ -71,6 +86,25 @@ public sealed class TypedQueryHelperTests
             .Facet(aspect => aspect.Title.ToUpperInvariant()));
 
         Assert.Contains("single readable member", exception.Message);
+    }
+
+    [Fact]
+    public void Facet_WithOverrideStillValidatesSelector()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => TypedQuery.For<TitleAspect>()
+            .Facet(aspect => aspect.Title.ToUpperInvariant(), facetIdentifier: "Title"));
+
+        Assert.Contains("single readable member", exception.Message);
+    }
+
+    [Fact]
+    public void Facet_WithNonDirectMemberSelector_FailsClearly()
+    {
+        Assert.Throws<ArgumentException>(() => TypedQuery.For<NestedAspect>()
+            .Facet(aspect => aspect.Nested.Title));
+
+        Assert.Throws<ArgumentException>(() => TypedQuery.For<TitleAspect>()
+            .Facet(_ => StaticTitle));
     }
 
     [Fact]

@@ -38,7 +38,6 @@ public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabiliti
             {
                 ComparisonOperator.Equals,
                 ComparisonOperator.Contains,
-                ComparisonOperator.Range,
             },
             [QueryFilterType.FacetValue] = new HashSet<ComparisonOperator>
             {
@@ -48,6 +47,15 @@ public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabiliti
             },
         },
         SupportedMetadataFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ResourceId",
+            "Id",
+            "DefinitionId",
+            "Owner",
+            "Version",
+            "Created",
+        },
+        MetadataContainsFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "ResourceId",
             "Id",

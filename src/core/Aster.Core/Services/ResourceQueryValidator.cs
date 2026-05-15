@@ -21,6 +21,23 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         capabilities = capabilityProviders.LastOrDefault()?.Capabilities;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceQueryValidator"/> class.
+    /// </summary>
+    /// <param name="capabilityProviders">Registered provider capability declarations.</param>
+    /// <param name="queryService">The active query service.</param>
+    public ResourceQueryValidator(
+        IEnumerable<IResourceQueryCapabilitiesProvider> capabilityProviders,
+        IResourceQueryService queryService)
+    {
+        ArgumentNullException.ThrowIfNull(capabilityProviders);
+        ArgumentNullException.ThrowIfNull(queryService);
+
+        capabilities = capabilityProviders
+            .LastOrDefault(provider => IsCapabilityProviderForQueryService(provider, queryService))
+            ?.Capabilities;
+    }
+
     /// <inheritdoc />
     public QueryValidationResult Validate(ResourceQuery query)
     {
@@ -153,6 +170,16 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         }
 
         ValidateComparison(QueryFilterType.Metadata, filter.Operator, $"{path}.Operator", failures);
+
+        if (filter.Operator == ComparisonOperator.Contains
+            && !capabilities.MetadataContainsFields.Contains(filter.Field))
+        {
+            failures.Add(Failure(
+                "unsupported-metadata-contains-field",
+                $"Metadata field '{filter.Field}' does not support containment filtering in {capabilities.ProviderName}.",
+                $"{path}.Field",
+                "metadata field"));
+        }
     }
 
     private void ValidateFacetValueFilter(FacetValueFilter filter, string path, List<QueryValidationFailure> failures)
@@ -208,6 +235,15 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         {
             var sort = sorts[index];
             var path = $"Sorts[{index}]";
+
+            if (!Enum.IsDefined(sort.Direction))
+            {
+                failures.Add(Failure(
+                    "unsupported-sort-direction",
+                    $"Sort direction '{sort.Direction}' is not supported by {capabilities!.ProviderName}.",
+                    $"{path}.Direction",
+                    "sort direction"));
+            }
 
             if (string.IsNullOrWhiteSpace(sort.AspectKey))
             {
@@ -314,7 +350,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
     private static QueryValueShape? ResolveValueShape(object value)
     {
-        if (value is DateTime or DateTimeOffset or DateOnly)
+        if (value is DateTime or DateTimeOffset)
             return QueryValueShape.DateTime;
 
         if (value is string stringValue)
@@ -340,4 +376,19 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         string? path = null,
         string? feature = null) =>
         new(code, message, path, feature);
+
+    private static bool IsCapabilityProviderForQueryService(
+        IResourceQueryCapabilitiesProvider provider,
+        IResourceQueryService queryService)
+    {
+        var providerName = NormalizeProviderTypeName(provider.GetType().Name);
+        var queryServiceName = NormalizeProviderTypeName(queryService.GetType().Name);
+
+        return queryServiceName.StartsWith(providerName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeProviderTypeName(string typeName) =>
+        typeName
+            .Replace("QueryCapabilitiesProvider", string.Empty, StringComparison.Ordinal)
+            .Replace("QueryService", string.Empty, StringComparison.Ordinal);
 }

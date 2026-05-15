@@ -87,13 +87,12 @@ The portable query object produced by typed helper construction.
 
 - `AspectPresenceFilter` for typed aspect presence.
 - `FacetValueFilter` for typed facet comparisons.
-- `ResourceQuery` when helper composition creates a full query.
 
 ### Validation Rules
 
 - Output must be inspectable as existing query model records.
 - Output must not depend on provider-specific state.
-- Output must be accepted by the shared validator like any manually built query.
+- Output must be accepted by the shared validator when placed into a manually built query.
 
 ## State Transitions
 

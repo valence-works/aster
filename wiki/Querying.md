@@ -180,7 +180,7 @@ var filter = TypedQuery.For<PriceAspect>(aspectKey: "PriceAspect:Sale")
     .Range(min: 10m, max: 100m);
 ```
 
-The generated `AspectPresenceFilter`, `FacetValueFilter`, or `ResourceQuery` remains inspectable before validation or execution.
+The generated `AspectPresenceFilter` or `FacetValueFilter` remains inspectable before validation or execution.
 
 ---
 

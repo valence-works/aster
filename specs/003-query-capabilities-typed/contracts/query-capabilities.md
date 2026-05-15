@@ -72,7 +72,7 @@ FilterExpression hasTitle = TypedQuery.HasAspect<TitleAspect>();
 // Equality / contains / range
 FilterExpression titleEquals = TypedQuery.For<TitleAspect>()
     .Facet(x => x.Title)
-    .Equals("Gadget");
+    .EqualTo("Gadget");
 
 FilterExpression titleContains = TypedQuery.For<TitleAspect>()
     .Facet(x => x.Title)
@@ -90,7 +90,7 @@ FilterExpression namedPrice = TypedQuery.For<PriceAspect>(aspectKey: "PriceAspec
 
 ### Expected Behavior
 
-- Helpers return `FilterExpression` or `ResourceQuery` objects.
+- Helpers return `FilterExpression` objects that callers place into `ResourceQuery`.
 - Generated aspect keys and facet identifiers remain visible in the produced query records.
 - Helpers do not expose or return `IQueryable<Resource>`.
 - Invalid member selection fails clearly before execution.

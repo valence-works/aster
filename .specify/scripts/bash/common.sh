@@ -154,3 +154,54 @@ EOF
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 check_dir() { [[ -d "$1" && -n $(ls -A "$1" 2>/dev/null) ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 
+has_jq() {
+    command -v jq >/dev/null 2>&1
+}
+
+json_escape() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//\"/\\\"}
+    value=${value//$'\n'/\\n}
+    value=${value//$'\r'/\\r}
+    value=${value//$'\t'/\\t}
+    printf '%s' "$value"
+}
+
+feature_json_matches_feature_dir() {
+    local repo_root="$1"
+    local feature_dir="$2"
+    local feature_json="$repo_root/.specify/feature.json"
+
+    [[ -f "$feature_json" ]] || return 1
+
+    if has_jq; then
+        local configured
+        configured=$(jq -r '.featureDir // .FEATURE_DIR // empty' "$feature_json" 2>/dev/null || true)
+        [[ -n "$configured" ]] || return 1
+        [[ "$configured" = /* ]] || configured="$repo_root/$configured"
+        [[ "$configured" == "$feature_dir" ]]
+        return
+    fi
+
+    return 1
+}
+
+resolve_template() {
+    local template_name="$1"
+    local repo_root="$2"
+    local template_file="$template_name.md"
+    local candidates=(
+        "$repo_root/.specify/templates/overrides/$template_file"
+        "$repo_root/.specify/templates/$template_file"
+    )
+
+    for candidate in "${candidates[@]}"; do
+        if [[ -f "$candidate" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
