@@ -143,6 +143,7 @@ public sealed class UnsupportedQueryFeatureException : Exception
     public UnsupportedQueryFeatureException(string message, Exception innerException)
         : base(message, innerException)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
         Code = "unsupported-query-feature";
         Feature = "query";
     }

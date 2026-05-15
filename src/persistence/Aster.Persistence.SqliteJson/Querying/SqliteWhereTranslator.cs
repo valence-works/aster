@@ -193,8 +193,8 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : throw Unsupported(
-                "unsupported-range-value-shape",
-                "value shape",
+                "invalid-metadata-value",
+                "metadata value",
                 $"Metadata field '{field}' requires an integer value.",
                 "Filter.Value");
 

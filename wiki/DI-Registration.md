@@ -68,6 +68,14 @@ Custom query providers should implement `IResourceQueryProviderIdentity` and reg
 public sealed class MyQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
     public string ProviderKey => "my-provider";
+
+    public ValueTask<IEnumerable<Resource>> QueryAsync(
+        ResourceQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        // Execute the portable ResourceQuery AST against this provider.
+        throw new NotImplementedException();
+    }
 }
 
 public sealed class MyQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider

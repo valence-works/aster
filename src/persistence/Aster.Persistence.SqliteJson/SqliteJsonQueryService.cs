@@ -50,7 +50,6 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
     {
         ArgumentNullException.ThrowIfNull(query);
         ThrowIfInvalid(query);
-        Validate(query);
 
         var builder = new SqliteQueryBuilder(query);
         var translator = new SqliteWhereTranslator(builder.Parameters);
@@ -72,37 +71,6 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
         builder.Parameters.ApplyTo(command);
 
         return await ReadResourcesAsync(command, cancellationToken);
-    }
-
-    private static void Validate(ResourceQuery query)
-    {
-        if (!Enum.IsDefined(query.Scope))
-            throw Unsupported(
-                "unsupported-scope",
-                "scope",
-                $"Scope '{query.Scope}' is not supported by the SQLite JSON query provider.",
-                "Scope");
-
-        if (query.Scope == ResourceVersionScope.Active && string.IsNullOrWhiteSpace(query.ActivationChannel))
-            throw Unsupported(
-                "activation-channel-required",
-                "scope",
-                "Active scope requires an activation channel for the SQLite JSON query provider.",
-                "ActivationChannel");
-
-        if (query.Skip is < 0)
-            throw Unsupported(
-                "negative-skip",
-                "paging",
-                "Skip must be zero or greater.",
-                "Skip");
-
-        if (query.Take is < 0)
-            throw Unsupported(
-                "negative-take",
-                "paging",
-                "Take must be zero or greater.",
-                "Take");
     }
 
     private static async Task<List<Resource>> ReadResourcesAsync(
@@ -146,10 +114,4 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
             throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
     }
 
-    private static UnsupportedQueryFeatureException Unsupported(
-        string code,
-        string feature,
-        string message,
-        string? path = null) =>
-        new(code, feature, message, path);
 }
