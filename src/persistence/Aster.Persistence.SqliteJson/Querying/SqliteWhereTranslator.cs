@@ -36,17 +36,18 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             ComparisonOperator.Equals when SqliteMetadataField.IsNumeric(filter.Field) =>
                 $"{column} = {parameters.Add(ParseInt(filter.Value, filter.Field))}",
             ComparisonOperator.Equals =>
-                $"LOWER(CAST({column} AS TEXT)) = LOWER(CAST({parameters.Add(filter.Value)} AS TEXT))",
+                $"aster_text_equals(CAST({column} AS TEXT), CAST({parameters.Add(filter.Value)} AS TEXT))",
             ComparisonOperator.Contains when !SqliteMetadataField.IsNumeric(filter.Field) =>
-                $"LOWER(CAST({column} AS TEXT)) LIKE '%' || LOWER(CAST({parameters.Add(filter.Value)} AS TEXT)) || '%'",
+                $"aster_text_contains(CAST({column} AS TEXT), CAST({parameters.Add(filter.Value)} AS TEXT))",
             _ => throw Unsupported($"Metadata filter '{filter.Field}' with operator '{filter.Operator}'")
         };
     }
 
     private string TranslateAspectPresence(AspectPresenceFilter filter)
     {
-        var path = parameters.Add(SqliteJsonPath.Aspect(filter.AspectKey));
-        return $"json_type(rv.payload, {path}) IS NOT NULL";
+        var path = parameters.Add(SqliteJsonPath.Aspects);
+        var aspectKey = parameters.Add(filter.AspectKey);
+        return $"EXISTS (SELECT 1 FROM json_each(json_extract(rv.payload, {path})) aspect WHERE aspect.key = {aspectKey})";
     }
 
     private string TranslateFacetValue(FacetValueFilter filter)
@@ -56,11 +57,11 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         return filter.Operator switch
         {
             ComparisonOperator.Equals when TryConvertDouble(filter.Value, out var number) =>
-                $"CAST({value} AS REAL) = {parameters.Add(number)}",
+                $"{value.IsNumericPredicate} AND CAST({value.ValueExpression} AS REAL) = {parameters.Add(number)}",
             ComparisonOperator.Equals =>
-                $"LOWER(CAST({value} AS TEXT)) = LOWER(CAST({parameters.Add(FormatValue(filter.Value))} AS TEXT))",
+                $"aster_text_equals(CAST({value.ValueExpression} AS TEXT), CAST({parameters.Add(FormatValue(filter.Value))} AS TEXT))",
             ComparisonOperator.Contains =>
-                $"LOWER(CAST({value} AS TEXT)) LIKE '%' || LOWER(CAST({parameters.Add(FormatValue(filter.Value))} AS TEXT)) || '%'",
+                $"aster_text_contains(CAST({value.ValueExpression} AS TEXT), CAST({parameters.Add(FormatValue(filter.Value))} AS TEXT))",
             ComparisonOperator.Range when filter.Value is RangeValue range =>
                 TranslateRange(value, range),
             ComparisonOperator.Range =>
@@ -89,23 +90,51 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         return string.Join($" {sqlOperator} ", operands.Select(operand => $"({Translate(operand)})"));
     }
 
-    private string FacetValueSql(string aspectKey, string facetDefinitionId)
+    private FacetValueSqlExpression FacetValueSql(string aspectKey, string facetDefinitionId)
     {
-        var paths = SqliteJsonPath.FacetCandidates(aspectKey, facetDefinitionId)
-            .Select(path => $"json_extract(rv.payload, {parameters.Add(path)})");
+        var aspectsPath = parameters.Add(SqliteJsonPath.Aspects);
+        var typeAspectsPath = parameters.Add(SqliteJsonPath.Aspects);
+        var aspectKeyParameter = parameters.Add(aspectKey);
+        var typeAspectKeyParameter = parameters.Add(aspectKey);
+        var facetKeys = SqliteJsonPath.FacetCandidates(facetDefinitionId).ToList();
+        var facetKeyParameters = facetKeys.Select(parameters.Add).ToList();
+        var typeFacetKeyParameters = facetKeys.Select(parameters.Add).ToList();
+        var facetKeyList = string.Join(", ", facetKeyParameters);
+        var typeFacetKeyList = string.Join(", ", typeFacetKeyParameters);
 
-        return $"COALESCE({string.Join(", ", paths)})";
+        return new($"""
+            (
+                SELECT facet.value
+                FROM json_each(json_extract(rv.payload, {aspectsPath})) aspect
+                JOIN json_each(aspect.value) facet
+                WHERE aspect.key = {aspectKeyParameter}
+                  AND facet.key IN ({facetKeyList})
+                ORDER BY CASE facet.key WHEN {facetKeyParameters[0]} THEN 0 ELSE 1 END
+                LIMIT 1
+            )
+            """,
+            $"""
+            (
+                SELECT facet.type
+                FROM json_each(json_extract(rv.payload, {typeAspectsPath})) aspect
+                JOIN json_each(aspect.value) facet
+                WHERE aspect.key = {typeAspectKeyParameter}
+                  AND facet.key IN ({typeFacetKeyList})
+                ORDER BY CASE facet.key WHEN {typeFacetKeyParameters[0]} THEN 0 ELSE 1 END
+                LIMIT 1
+            ) IN ('integer', 'real')
+            """);
     }
 
-    private string TranslateRange(string value, RangeValue range)
+    private string TranslateRange(FacetValueSqlExpression value, RangeValue range)
     {
-        var predicates = new List<string>();
+        var predicates = new List<string> { value.IsNumericPredicate };
 
         if (range.Min is not null)
-            predicates.Add($"CAST({value} AS REAL) {(range.IncludeMin ? ">=" : ">")} {parameters.Add(ConvertToDouble(range.Min, "minimum range bound"))}");
+            predicates.Add($"CAST({value.ValueExpression} AS REAL) {(range.IncludeMin ? ">=" : ">")} {parameters.Add(ConvertToDouble(range.Min, "minimum range bound"))}");
 
         if (range.Max is not null)
-            predicates.Add($"CAST({value} AS REAL) {(range.IncludeMax ? "<=" : "<")} {parameters.Add(ConvertToDouble(range.Max, "maximum range bound"))}");
+            predicates.Add($"CAST({value.ValueExpression} AS REAL) {(range.IncludeMax ? "<=" : "<")} {parameters.Add(ConvertToDouble(range.Max, "maximum range bound"))}");
 
         if (predicates.Count == 0)
             throw Unsupported("Empty range predicates");
@@ -162,4 +191,6 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
 
     private static UnsupportedQueryFeatureException Unsupported(string feature) =>
         new($"{feature} is not supported by the SQLite JSON query provider.");
+
+    private sealed record FacetValueSqlExpression(string ValueExpression, string IsNumericPredicate);
 }

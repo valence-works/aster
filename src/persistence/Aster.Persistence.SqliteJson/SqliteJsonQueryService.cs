@@ -27,6 +27,9 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
         ArgumentException.ThrowIfNullOrWhiteSpace(options.ConnectionString);
 
         connectionString = options.ConnectionString;
+
+        if (options.InitializeSchema)
+            SqliteJsonSchema.Initialize(connectionString);
     }
 
     /// <inheritdoc />
@@ -50,6 +53,7 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
 
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
+        RegisterTextFunctions(connection);
 
         await using var command = connection.CreateCommand();
         command.CommandText = builder.Build();
@@ -92,6 +96,20 @@ public sealed class SqliteJsonQueryService : IResourceQueryService
     private static Resource Deserialize(string payload) =>
         JsonSerializer.Deserialize<Resource>(payload, JsonOptions)
         ?? throw new InvalidOperationException("Unable to deserialize persisted Resource payload.");
+
+    private static void RegisterTextFunctions(SqliteConnection connection)
+    {
+        connection.CreateFunction<string?, string?, bool>(
+            "aster_text_equals",
+            (actual, expected) => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase));
+
+        connection.CreateFunction<string?, string?, bool>(
+            "aster_text_contains",
+            (actual, expected) =>
+                actual is not null
+                && expected is not null
+                && actual.Contains(expected, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static UnsupportedQueryFeatureException Unsupported(string feature) =>
         new($"{feature} is not supported by the SQLite JSON query provider.");

@@ -25,9 +25,9 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 
     public string Build()
     {
-        var sql = new StringBuilder(BaseSql());
-
-        AddScopePredicates();
+        var (baseSql, scopePredicates) = BuildScopeSql();
+        var sql = new StringBuilder(baseSql);
+        predicates.AddRange(scopePredicates);
 
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
         {
@@ -44,7 +44,7 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 
         sql.AppendLine();
         sql.Append("ORDER BY ");
-        sql.Append(orderings.Count == 0 ? "rv.resource_id ASC, rv.version ASC" : string.Join(", ", orderings));
+        sql.Append(string.Join(", ", Orderings()));
 
         if (query.Take.HasValue)
         {
@@ -69,9 +69,14 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
         return sql.ToString();
     }
 
-    private string BaseSql() => query.Scope switch
+    private IEnumerable<string> Orderings() =>
+        orderings.Count == 0
+            ? ["rv.resource_id ASC", "rv.version ASC"]
+            : [.. orderings, "rv.resource_id ASC", "rv.version ASC"];
+
+    private (string Sql, IReadOnlyList<string> ScopePredicates) BuildScopeSql() => query.Scope switch
     {
-        ResourceVersionScope.Latest => """
+        ResourceVersionScope.Latest => ("""
             SELECT rv.payload
             FROM resource_versions rv
             INNER JOIN (
@@ -81,35 +86,16 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
             ) latest
                 ON latest.resource_id = rv.resource_id
                 AND latest.version = rv.version
-            """,
-        ResourceVersionScope.AllVersions => """
+            """, []),
+        ResourceVersionScope.AllVersions => ("""
             SELECT rv.payload
             FROM resource_versions rv
-            """,
+            """, []),
         ResourceVersionScope.Active => ActiveSql(),
-        ResourceVersionScope.Draft => """
+        ResourceVersionScope.Draft => ("""
             SELECT rv.payload
             FROM resource_versions rv
-            """,
-        _ => throw Unsupported($"Resource version scope '{query.Scope}'")
-    };
-
-    private void AddScopePredicates()
-    {
-        if (query.Scope == ResourceVersionScope.Active)
-        {
-            predicates.Add("""
-                EXISTS (
-                    SELECT 1
-                    FROM json_each(json_extract(active_state.payload, '$.activeVersions')) active_version
-                    WHERE CAST(active_version.value AS INTEGER) = rv.version
-                )
-                """);
-        }
-
-        if (query.Scope == ResourceVersionScope.Draft)
-        {
-            predicates.Add("""
+            """, ["""
                 NOT EXISTS (
                     SELECT 1
                     FROM activation_states active_state
@@ -117,20 +103,26 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                     WHERE active_state.resource_id = rv.resource_id
                       AND CAST(active_version.value AS INTEGER) = rv.version
                 )
-                """);
-        }
-    }
+                """]),
+        _ => throw Unsupported($"Resource version scope '{query.Scope}'")
+    };
 
-    private string ActiveSql()
+    private (string Sql, IReadOnlyList<string> ScopePredicates) ActiveSql()
     {
         var channel = Parameters.Add(query.ActivationChannel);
-        return $$"""
+        return ($$"""
             SELECT rv.payload
             FROM resource_versions rv
             INNER JOIN activation_states active_state
                 ON active_state.resource_id = rv.resource_id
                 AND active_state.channel = {{channel}}
-            """;
+            """, ["""
+                EXISTS (
+                    SELECT 1
+                    FROM json_each(json_extract(active_state.payload, '$.activeVersions')) active_version
+                    WHERE CAST(active_version.value AS INTEGER) = rv.version
+                )
+                """]);
     }
 
     private static string ResolveMetadataColumn(SortExpression sort)
