@@ -135,6 +135,12 @@ public sealed class TypedFacetQuery<TValue>
     /// </summary>
     /// <param name="value">The substring to match.</param>
     /// <returns>A portable facet value filter.</returns>
+    /// <remarks>
+    /// Containment is a string-oriented predicate. Using this on non-string typed facets produces
+    /// a syntactically valid AST node, but execution depends on how the active provider serializes
+    /// the facet value. Prefer <see cref="EqualTo"/> or <see cref="Range"/> for strongly typed
+    /// non-string comparisons.
+    /// </remarks>
     public FilterExpression Contains(string value) =>
         new FacetValueFilter(aspectKey, facetIdentifier, value, ComparisonOperator.Contains);
 
