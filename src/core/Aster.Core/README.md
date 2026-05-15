@@ -38,6 +38,8 @@ builder.Services.AddAsterCore();
 | `InMemoryResourceStore` | `IResourceVersionReader`, `IResourceVersionWriter` |
 | `DefaultResourceManager` | `IResourceManager` |
 | `InMemoryQueryService` | `IResourceQueryService` |
+| `InMemoryQueryCapabilitiesProvider` | `IResourceQueryCapabilitiesProvider` |
+| `ResourceQueryValidator` | `IResourceQueryValidator` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
 | `SystemTextJsonFacetBinder` | `ITypedFacetBinder` |
@@ -116,13 +118,29 @@ var active = await manager.GetActiveVersionsAsync(resource.ResourceId, "Publishe
 
 ```csharp
 var queryService = serviceProvider.GetRequiredService<IResourceQueryService>();
-
-var results = await queryService.QueryAsync(new ResourceQuery
+var query = new ResourceQuery
 {
     DefinitionId = "Product",
     Filter = new FacetValueFilter("Title", "Title", "Super Gadget Pro", ComparisonOperator.Equals),
     Take = 10,
-});
+};
+
+var results = await queryService.QueryAsync(query);
+```
+
+Preflight the query against the active provider:
+
+```csharp
+var validator = serviceProvider.GetRequiredService<IResourceQueryValidator>();
+var validation = validator.Validate(query);
+```
+
+Or build common typed aspect filters without repeating convention-based identifiers:
+
+```csharp
+var filter = TypedQuery.For<TitleAspect>()
+    .Facet(x => x.Title)
+    .Contains("Gadget");
 ```
 
 ---
@@ -135,6 +153,8 @@ IResourceManager              — provider-backed create / update / activate orc
 IResourceVersionWriter           — low-level version/activation persistence hook
 IResourceVersionReader           — low-level read hook for query candidate version sets
 IResourceQueryService         — portable query service; default is LINQ-based in-memory
+IResourceQueryCapabilitiesProvider — declares active provider query support
+IResourceQueryValidator        — preflights ResourceQuery against provider capabilities
 ITypedAspectBinder            — serialise/deserialise full aspects (System.Text.Json)
 ITypedFacetBinder             — serialise/deserialise individual facet values
 IIdentityGenerator            — pluggable ID strategy (default: Guid)

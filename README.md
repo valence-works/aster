@@ -6,7 +6,7 @@
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Phase 2A complete — Core SDK, in-memory engine, and SQLite JSON persistence/querying are available. Next focus: query capabilities and typed query helpers. See [Roadmap](#roadmap) for future phases.
+> **Status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, and typed query helpers are available. See [Roadmap](#roadmap) for future phases.
 
 ---
 
@@ -135,6 +135,8 @@ Console.WriteLine(title?.Title); // "Super Gadget Pro"
 | `IResourceVersionWriter` | `InMemoryResourceStore` |
 | `IResourceVersionReader` | `InMemoryResourceStore` |
 | `IResourceQueryService` | `InMemoryQueryService` |
+| `IResourceQueryCapabilitiesProvider` | `InMemoryQueryCapabilitiesProvider` |
+| `IResourceQueryValidator` | `ResourceQueryValidator` |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` |
 | `IIdentityGenerator` | `GuidIdentityGenerator` |
@@ -148,19 +150,36 @@ All services are registered as **singletons** — the in-memory store is the sin
 Use `IResourceQueryService` with a portable `ResourceQuery` AST:
 
 ```csharp
-var results = await queryService.QueryAsync(new ResourceQuery
+var query = new ResourceQuery
 {
     DefinitionId = "Product",
     Filter = new FacetValueFilter("TitleAspect", "Title", "Gadget", ComparisonOperator.Contains),
     Sorts = [new SortExpression("Created", SortDirection.Descending)],
     Skip = 0,
     Take = 20,
-});
+};
+
+var results = await queryService.QueryAsync(query);
 ```
 
 The in-memory evaluator supports `Equals`, `Contains`, and `Range`, plus latest/all/active/draft version scopes.
 
 The SQLite JSON provider executes the same `ResourceQuery` AST in SQLite for its supported subset: metadata filters/sorts, version scopes, paging, aspect presence, scalar facet `Equals`/`Contains`, and numeric facet `Range`. Unsupported provider query shapes throw `UnsupportedQueryFeatureException`.
+
+Inspect provider support and validate before execution:
+
+```csharp
+var capabilities = serviceProvider.GetRequiredService<IResourceQueryCapabilitiesProvider>().Capabilities;
+var validation = serviceProvider.GetRequiredService<IResourceQueryValidator>().Validate(query);
+```
+
+Typed helpers build the same portable query model without repeating common aspect/facet strings:
+
+```csharp
+var filter = TypedQuery.For<TitleAspect>()
+    .Facet(x => x.Title)
+    .Contains("Gadget");
+```
 
 ---
 
@@ -247,7 +266,7 @@ specs/                       ← Feature specs (001-core-sdk-foundation, …)
 |---|---|---|
 | **1** | Core SDK & In-Memory Engine | ✅ Complete |
 | **2A** | SQLite JSON Persistence & Querying | ✅ Complete |
-| **3** | Query Capabilities & Typed Querying | 🔜 Next |
+| **3** | Query Capabilities & Typed Querying | 🚧 In Progress |
 | **4** | Portability & Integration Hooks | 📋 Planned |
 | **5** | Multi-tenancy, Policies, Advanced Versioning | 📋 Planned |
 | **6** | Operational Hardening (concurrency, perf, migrations) | 📋 Planned |

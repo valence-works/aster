@@ -48,6 +48,9 @@ public static class AsterCoreServiceCollectionExtensions
         // Query service
         services.AddSingleton<InMemoryQueryService>();
         services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<InMemoryQueryService>());
+        services.AddSingleton<InMemoryQueryCapabilitiesProvider>();
+        services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<InMemoryQueryCapabilitiesProvider>());
+        services.AddSingleton<IResourceQueryValidator, ResourceQueryValidator>();
 
         // Typed binders
         services.AddSingleton<SystemTextJsonAspectBinder>();
