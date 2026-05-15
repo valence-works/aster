@@ -10,6 +10,7 @@ This package currently provides:
 - `IResourceVersionReader`
 - `IResourceVersionWriter`
 - `IResourceQueryService`
+- `IResourceQueryCapabilitiesProvider`
 
 It persists resource definitions, resource version snapshots, and activation state using SQLite tables with JSON payload columns.
 Query execution is provider-backed: `ResourceQuery` ASTs are translated to parameterized SQLite SQL and JSON1 expressions instead of materializing the full store in memory.
@@ -35,3 +36,5 @@ Supported query shapes:
 - `And`, `Or`, and single-operand `Not`
 
 Unsupported query shapes throw `UnsupportedQueryFeatureException` with an actionable message. Facet sorting, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges are intentionally out of scope for this phase.
+
+The provider also declares this support through `SqliteJsonQueryCapabilitiesProvider`, so callers can inspect capabilities or use `IResourceQueryValidator` before execution. Validation reports unsupported SQLite shapes, such as facet sorting or date-like facet ranges, without falling back to the in-memory provider.

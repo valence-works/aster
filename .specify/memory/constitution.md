@@ -1,17 +1,24 @@
 <!--
 SYNC IMPACT REPORT
-Version Change: 1.0.0 -> 1.1.0
+Version Change: 1.1.0 -> 1.1.1
 Modified Principles:
-- II. Immutable Versioning (clarified Resource snapshot terminology)
-- V. Provider Agnostic (updated persistence abstraction names)
+- 16. Simplicity First (added rationale)
+- 17. Modern C# Idioms (added rationale)
+- 18. Readability Over Cleverness (added rationale)
+- 19. Explicitness Over Magic (added rationale)
+- 20. Abstractions Must Earn Their Existence (added rationale)
+- 21. Optimize For Deletion (added rationale)
+- 22. Favor Composition Over Inheritance (added rationale)
+- 23. Dependencies Should Remain Intentional (added rationale)
+- 24. Operational Simplicity Matters (added rationale)
 Added Sections:
-- Engineering Principles (16. Simplicity First through 24. Operational Simplicity Matters)
+- None
 Removed Sections:
 - None
 Templates Requiring Updates:
-- ✅ .specify/templates/plan-template.md
-- ✅ .specify/templates/spec-template.md
-- ✅ .specify/templates/tasks-template.md
+- ✅ .specify/templates/plan-template.md (no changes required)
+- ✅ .specify/templates/spec-template.md (no changes required)
+- ✅ .specify/templates/tasks-template.md (no changes required)
 Follow-up TODOs:
 - None
 -->
@@ -55,46 +62,55 @@ Follow-up TODOs:
 **Solutions SHOULD prefer the simplest architecture and implementation that correctly satisfies current requirements.**
 - Avoid speculative abstractions, premature generalization, and unnecessary infrastructure.
 - A simpler direct implementation SHOULD be preferred until a real use case proves it insufficient.
+- Rationale: Simpler designs reduce review burden, make provider behavior easier to reason about, and leave room to evolve once requirements are proven.
 
 ### 17. Modern C# Idioms
 **Code SHOULD use modern C# and .NET features when they improve clarity, correctness, and conciseness.**
 - Appropriate idioms include records, primary constructors, collection expressions, pattern matching, async streams, minimal APIs, and nullable reference types.
 - Modern language features SHOULD NOT be used when they make behavior harder to understand for experienced .NET developers.
+- Rationale: Modern C# can express immutable data, async workflows, and domain intent clearly, but language features are tools rather than goals.
 
 ### 18. Readability Over Cleverness
 **Code MUST optimize for maintainability and clarity by experienced .NET developers.**
 - Cleverness, excessive indirection, unnecessary metaprogramming, and obscure control flow SHOULD be avoided.
 - Names, boundaries, and behavior SHOULD make the code easy to review and change.
+- Rationale: Aster is SDK infrastructure; maintainers and consumers need predictable code paths more than compact tricks.
 
 ### 19. Explicitness Over Magic
 **Behavior SHOULD be discoverable through code and configuration rather than hidden conventions.**
 - Runtime scanning, implicit side effects, and convention-only behavior SHOULD be avoided unless they are clearly documented and justified.
 - Configuration and registration paths SHOULD make provider choices and operational behavior explicit.
+- Rationale: Explicit behavior makes provider selection, persistence semantics, and query support visible during development and debugging.
 
 ### 20. Abstractions Must Earn Their Existence
 **Interfaces, layers, generic pipelines, and extension points SHOULD only be introduced when they solve a demonstrated need.**
 - Avoid designing hypothetical frameworks inside the product.
 - New abstractions SHOULD identify the current duplication, provider boundary, test seam, or lifecycle need they address.
+- Rationale: Every abstraction becomes part of the SDK's maintenance and learning surface, so it must pay for itself in present product value.
 
 ### 21. Optimize For Deletion
 **The architecture SHOULD make it easy to remove, replace, or simplify components later.**
 - Small composable modules are preferred over deeply intertwined systems.
 - Features SHOULD avoid broad coupling and global side effects that make later deletion expensive.
+- Rationale: Early-stage architecture changes often reveal simpler paths; replaceable components let the project adapt without large rewrites.
 
 ### 22. Favor Composition Over Inheritance
 **Composition, explicit contracts, and data-oriented design SHOULD generally be preferred over deep inheritance hierarchies.**
 - Inheritance SHOULD be shallow and purposeful when used.
 - Reusable behavior SHOULD usually be expressed through services, records, functions, and explicit collaborators.
+- Rationale: Composition keeps provider behavior and lifecycle rules local, testable, and easier to recombine across host scenarios.
 
 ### 23. Dependencies Should Remain Intentional
 **The solution SHOULD minimize unnecessary third-party dependencies.**
 - Prefer platform capabilities before introducing additional frameworks.
 - New dependencies MUST be justified by clear product value, operational value, or meaningful risk reduction.
+- Rationale: Dependencies affect consumers, deployment, security review, versioning, and long-term portability.
 
 ### 24. Operational Simplicity Matters
 **Deployment, debugging, local development, and observability SHOULD remain straightforward.**
 - Operational complexity MUST be justified by clear product value.
 - Provider setup, migrations/provisioning, logs, and local test workflows SHOULD be understandable without specialized infrastructure.
+- Rationale: A headless SDK should be easy to embed and diagnose in many host applications, including small local and test environments.
 
 ## Governance
 
@@ -120,4 +136,4 @@ Follow-up TODOs:
 - The Constitution Check MUST explicitly consider simplicity, abstraction justification, dependency justification, provider boundaries, operational impact, and testability.
 - If a feature intentionally violates a SHOULD-level principle, the plan MUST explain why and identify the simpler alternative that was rejected.
 
-**Version**: 1.1.0 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-05-14
+**Version**: 1.1.1 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-05-15

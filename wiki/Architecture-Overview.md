@@ -138,7 +138,7 @@ Aster.Abstractions       -- interfaces only
 Aster.Definitions        -- builder API
 Aster.Runtime            -- services, lifecycle, versioning pipelines
 Aster.Querying           -- ResourceQuery AST + IResourceQueryService
-Aster.Indexing           -- index field model, IQueryCapabilities, query planner
+Aster.Indexing           -- index field model, provider capabilities, query planner
 Aster.Persistence.X      -- provider: SqliteJson, PostgresJsonb, Mongo, ...
 Aster.Hosting            -- AddAsterCore() and DI glue
 Aster.Recipes            -- optional: export/import recipe execution

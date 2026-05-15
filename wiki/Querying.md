@@ -121,6 +121,69 @@ foreach (var resource in results)
 
 ---
 
+## Capability Discovery
+
+Providers expose their supported query surface through `IResourceQueryCapabilitiesProvider`:
+
+```csharp
+var capabilities = serviceProvider
+    .GetRequiredService<IResourceQueryCapabilitiesProvider>()
+    .Capabilities;
+
+Console.WriteLine(capabilities.ProviderName);
+Console.WriteLine(capabilities.SupportsFacetSorting);
+```
+
+Capabilities describe supported scopes, filter categories, comparison operators, logical operators, metadata fields, sort categories, paging, facet range value shapes, and known exclusions. The in-memory provider currently declares facet sorting and numeric/date-like facet ranges; SQLite JSON declares metadata sorting, numeric facet ranges, and no facet sorting.
+
+## Preflight Validation
+
+Use `IResourceQueryValidator` to validate a query before execution:
+
+```csharp
+var validation = validator.Validate(query);
+
+if (!validation.IsValid)
+{
+    foreach (var failure in validation.Failures)
+        Console.WriteLine($"{failure.Code}: {failure.Message}");
+
+    return;
+}
+```
+
+Validation returns a structured `QueryValidationResult` and does not mutate the query. If no capability provider is declared for the active provider, validation fails closed with `capabilities-not-declared`. Execution still rejects unsupported shapes even when validation is skipped.
+
+## Typed Query Helpers
+
+Typed helpers reduce repeated aspect/facet strings while still producing the same portable AST:
+
+```csharp
+public sealed record TitleAspect(string Title);
+public sealed record PriceAspect(decimal Amount);
+
+var filter = new LogicalExpression(LogicalOperator.And, [
+    TypedQuery.For<TitleAspect>()
+        .Facet(x => x.Title)
+        .Contains("Gadget"),
+    TypedQuery.For<PriceAspect>()
+        .Facet(x => x.Amount)
+        .Range(min: 10m, max: 100m),
+]);
+```
+
+By default, the aspect key is the CLR type name and the facet identifier is the selected member name. Override either value per query when targeting named aspects or non-conventional identifiers:
+
+```csharp
+var filter = TypedQuery.For<PriceAspect>(aspectKey: "PriceAspect:Sale")
+    .Facet(x => x.Amount, facetIdentifier: "sale_amount")
+    .Range(min: 10m, max: 100m);
+```
+
+The generated `AspectPresenceFilter` or `FacetValueFilter` remains inspectable before validation or execution.
+
+---
+
 ## Compound Query Example
 
 Find all Products with "Pro" in the title **and** a price under $100:
@@ -162,10 +225,9 @@ Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` ins
 
 ## Current Limitations
 
-- **No provider capability planner yet** — unsupported fields or value shapes fail when a provider translates the AST.
+- **No provider capability planner yet** — capabilities and validation describe what a provider can execute; they do not rewrite queries.
 - **Provider-specific semantics are explicit** — SQLite facet ranges are numeric-only in this phase.
 - **No public `IQueryable<Resource>`** — LINQ may be used inside a provider, but the public contract stays on the portable AST.
-- **Typed helper direction** — future helpers may map typed expressions into the AST, but provider execution should still consume the explicit query model rather than exposing backend-specific LINQ providers.
 
 ---
 
@@ -174,7 +236,7 @@ Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` ins
 The `ResourceQuery` AST was designed early (Phase 1) to avoid painting future persistence backends into a corner. Key design decisions:
 
 - **No `IQueryable<T>`** as the public abstraction — `IQueryable` is fine within a single backend but breaks when crossing provider boundaries.
-- **Explicit operator set** — providers advertise what they support via `IQueryCapabilities` (Phase 3).
+- **Explicit operator set** — providers advertise what they support via `IResourceQueryCapabilitiesProvider`.
 - **Portable semantics** — `NormalizedText` fields for deterministic substring matching across backends; `Text` fields for provider-specific full-text search. (Phase 3+)
 
 ---

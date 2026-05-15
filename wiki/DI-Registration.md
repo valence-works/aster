@@ -24,6 +24,8 @@ All services are registered as **singletons**.
 | `IResourceVersionWriter` | `InMemoryResourceStore` | Version/activation write primitive |
 | `IResourceVersionReader` | `InMemoryResourceStore` | Query/read candidate version primitive |
 | `IResourceQueryService` | `InMemoryQueryService` | LINQ-based query evaluator |
+| `IResourceQueryCapabilitiesProvider` | `InMemoryQueryCapabilitiesProvider` | Declares in-memory query support |
+| `IResourceQueryValidator` | `ResourceQueryValidator` | Preflights `ResourceQuery` against active provider capabilities |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` | Aspect POCO ↔ raw storage via `System.Text.Json` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` | Facet value POCO ↔ raw storage via `System.Text.Json` |
 
@@ -54,8 +56,9 @@ builder.Services.AddAsterSqliteJson(options =>
 | `IResourceVersionWriter` | `SqliteJsonResourceStore` | Persists resource versions and activation state |
 | `IResourceVersionReader` | `SqliteJsonResourceStore` | Reads persisted version sets |
 | `IResourceQueryService` | `SqliteJsonQueryService` | Translates supported `ResourceQuery` ASTs to SQLite SQL/JSON queries |
+| `IResourceQueryCapabilitiesProvider` | `SqliteJsonQueryCapabilitiesProvider` | Declares SQLite JSON query support |
 
-`AddAsterSqliteJson()` should be called after `AddAsterCore()` so the provider registrations become the resolved implementations for the shared interfaces.
+`AddAsterSqliteJson()` should be called after `AddAsterCore()` so the provider registrations become the resolved implementations for the shared interfaces. The shared `IResourceQueryValidator` uses the active provider's capability declaration when preflighting queries.
 
 ---
 

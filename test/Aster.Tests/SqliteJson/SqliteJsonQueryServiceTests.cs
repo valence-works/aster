@@ -2,8 +2,10 @@ using System.Linq;
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
+using Aster.Core.InMemory;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Services;
 using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -388,6 +390,23 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
 
         Assert.Single(results);
         Assert.Equal("product-a", results[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task QueryAsync_AfterValidationAgainstDifferentProvider_StillEnforcesSqliteCapabilities()
+    {
+        var queryShape = new ResourceQuery
+        {
+            Sorts = [new SortExpression("Title", AspectKey: "Title")],
+        };
+        var inMemoryValidation = new ResourceQueryValidator([new InMemoryQueryCapabilitiesProvider()])
+            .Validate(queryShape);
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        Assert.True(inMemoryValidation.IsValid);
+        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
+            query.QueryAsync(queryShape).AsTask());
     }
 
     [Fact]

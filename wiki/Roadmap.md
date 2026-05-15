@@ -2,7 +2,7 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 2A complete — Core SDK, in-memory engine, and SQLite JSON persistence/querying are available. Next focus: query capabilities and typed query helpers.
+> **Current status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, and typed query helpers are available.
 
 ---
 
@@ -12,7 +12,7 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 |---|---|---|
 | **1** | Core SDK & In-Memory Engine | Complete |
 | **2A** | SQLite JSON Persistence & Querying | Complete |
-| **3** | Query Capabilities & Typed Querying | Next |
+| **3** | Query Capabilities & Typed Querying | In Progress |
 | **4** | Portability & Integration Hooks | Planned |
 | **5** | Multi-tenancy, Policies, Advanced Versioning | Planned |
 | **6** | Operational Hardening | Planned |
@@ -67,8 +67,8 @@ Completed implementation note: `Aster.Persistence.SqliteJson` provides the SQLit
 
 | Epic | Description |
 |---|---|
-| **3.1** | Query capabilities (`IQueryCapabilities`) and provider preflight validation |
-| **3.2** | Typed aspect querying — `WhereAspect<TAspect>(...)` compiles to `ResourceQuery` predicates via mapping metadata |
+| **3.1** | Query capabilities (`IResourceQueryCapabilitiesProvider`) and provider preflight validation |
+| **3.2** | Typed aspect querying — `TypedQuery.For<TAspect>()` builds portable `ResourceQuery` predicates via convention and per-query overrides |
 | **3.3** | Advanced indexing logic; portable index field types such as `Keyword`, `Text`, `NormalizedText`, `Boolean`, `Integer`, `Decimal`, `DateTime`, `Guid`, `KeywordArray` |
 | **3.4** | Versioned definition schemas — `ResourceDefinitionVersion` model; resources reference a definition version; upgrade API |
 
