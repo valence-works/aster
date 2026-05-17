@@ -156,6 +156,10 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
 
     private string TranslateRange(SqliteFacetValueExpression value, RangeValue range)
     {
+        var rangeKind = ResolveRangeKind(range);
+        if (rangeKind == RangeKind.DateTime)
+            return TranslateDateTimeRange(value, range);
+
         var predicates = new List<string> { value.IsNumeric };
 
         if (range.Min is not null)
@@ -170,6 +174,24 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
                 "value shape",
                 "Range predicates require at least one bound.",
                 "Filter.Value");
+
+        return string.Join(" AND ", predicates);
+    }
+
+    private string TranslateDateTimeRange(SqliteFacetValueExpression value, RangeValue range)
+    {
+        var dateKey = $"{SqliteDateTimeBehavior.DateKeyFunction}(CAST({value.Value} AS TEXT))";
+        var predicates = new List<string>
+        {
+            $"{value.Type} = 'text'",
+            $"{dateKey} IS NOT NULL",
+        };
+
+        if (range.Min is not null)
+            predicates.Add($"{dateKey} {(range.IncludeMin ? ">=" : ">")} {parameters.Add(ConvertToDateKey(range.Min, "minimum range bound"))}");
+
+        if (range.Max is not null)
+            predicates.Add($"{dateKey} {(range.IncludeMax ? "<=" : "<")} {parameters.Add(ConvertToDateKey(range.Max, "maximum range bound"))}");
 
         return string.Join(" AND ", predicates);
     }
@@ -287,6 +309,57 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
                 $"{description} must be numeric.",
                 "Filter.Value");
 
+    private static string ConvertToDateKey(object value, string description) =>
+        SqliteDateTimeBehavior.TryNormalizeDateKey(value, out var key)
+            ? key
+            : throw Unsupported(
+                "unsupported-range-value-shape",
+                "value shape",
+                $"{description} must be a date-like value.",
+                "Filter.Value");
+
+    private static RangeKind ResolveRangeKind(RangeValue range)
+    {
+        var minKind = ResolveRangeBoundKind(range.Min, "minimum range bound");
+        var maxKind = ResolveRangeBoundKind(range.Max, "maximum range bound");
+
+        return (minKind, maxKind) switch
+        {
+            (null, null) => throw Unsupported(
+                "empty-range",
+                "value shape",
+                "Range predicates require at least one bound.",
+                "Filter.Value"),
+            (RangeKind.Numeric, null) or (null, RangeKind.Numeric) or (RangeKind.Numeric, RangeKind.Numeric) =>
+                RangeKind.Numeric,
+            (RangeKind.DateTime, null) or (null, RangeKind.DateTime) or (RangeKind.DateTime, RangeKind.DateTime) =>
+                RangeKind.DateTime,
+            _ => throw Unsupported(
+                "unsupported-range-value-shape",
+                "value shape",
+                "Range bounds must use the same value shape.",
+                "Filter.Value"),
+        };
+    }
+
+    private static RangeKind? ResolveRangeBoundKind(object? value, string description)
+    {
+        if (value is null)
+            return null;
+
+        if (TryConvertDouble(value, out _))
+            return RangeKind.Numeric;
+
+        if (SqliteDateTimeBehavior.TryNormalizeDateKey(value, out _))
+            return RangeKind.DateTime;
+
+        throw Unsupported(
+            "unsupported-range-value-shape",
+            "value shape",
+            $"{description} must be numeric or date-like.",
+            "Filter.Value");
+    }
+
     private static string? FormatValue(object? value) => value switch
     {
         null => null,
@@ -300,4 +373,10 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         string message,
         string? path = null) =>
         new(code, feature, message, path);
+
+    private enum RangeKind
+    {
+        Numeric,
+        DateTime,
+    }
 }

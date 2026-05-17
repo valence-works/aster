@@ -80,10 +80,13 @@ public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabili
         SupportsFacetSorting: true,
         SupportsSkip: true,
         SupportsTake: true,
-        FacetRangeSupport: new HashSet<QueryValueShape> { QueryValueShape.Numeric },
+        FacetRangeSupport: new HashSet<QueryValueShape>
+        {
+            QueryValueShape.Numeric,
+            QueryValueShape.DateTime,
+        },
         UnsupportedFeatures:
         [
             "Metadata range filters",
-            "Date-like facet ranges",
         ]);
 }

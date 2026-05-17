@@ -574,6 +574,22 @@ internal static class ProviderConformanceSuite
                 });
         }
 
+        if (capabilities.FacetRangeSupport.Contains(QueryValueShape.DateTime)
+            && capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Range))
+        {
+            yield return new(
+                "Date-like facet range filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter(
+                        "Schedule",
+                        "StartsAt",
+                        new RangeValue(Utc(2026, 2, 1), Utc(2026, 2, 3)),
+                        ComparisonOperator.Range),
+                });
+        }
+
         if (capabilities.SupportedLogicalOperators.Contains(LogicalOperator.And)
             && capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Equals))
         {
@@ -698,6 +714,9 @@ internal static class ProviderConformanceSuite
 
     private static string FailureCodes(IEnumerable<QueryValidationFailure> failures) =>
         string.Join(", ", failures.Select(static failure => failure.Code));
+
+    private static DateTime Utc(int year, int month, int day) =>
+        new(year, month, day, 0, 0, 0, DateTimeKind.Utc);
 
     private sealed record ProviderQueryCase(
         string Name,

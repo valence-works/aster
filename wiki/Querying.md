@@ -92,10 +92,11 @@ new LogicalExpression(LogicalOperator.Not, [
 | `In` | Exact match against any value in a non-string enumerable candidate set | Yes | Yes |
 | `Contains` | Substring match (strings only) | Yes | Yes |
 | `StartsWith` | Prefix match (strings only, case-insensitive) | Yes | Yes |
-| `Range` | Min/max bounds via `RangeValue` | Numeric / date | Numeric scalar facets |
+| `Range` | Min/max bounds via `RangeValue` | Numeric / date | Numeric and date-like scalar facets |
 | `Exists` | Facet value is present and non-null | Facets | Facets |
 
 `Range` values use `new RangeValue(min, max, includeMin, includeMax)`. A `null` min or max means the range is unbounded on that side.
+SQLite date-like facet ranges match JSON string scalar values in the ISO-8601-style shape emitted by `System.Text.Json` for `DateTime` or `DateTimeOffset`. Date-only strings, malformed strings, numbers, booleans, objects, arrays, nulls, and missing facets do not match date-like ranges.
 `In` values must be non-null, non-string enumerables with at least one candidate. `Exists` is represented as a `FacetValueFilter`; providers ignore the value for that operator.
 `MetadataFilter.Value` now accepts `object` so metadata `In` predicates can carry enumerable candidate sets; callers that previously read it as `string` should format or pattern-match the value before using string-specific members.
 
@@ -141,7 +142,7 @@ Console.WriteLine(capabilities.ProviderKey);
 Console.WriteLine(capabilities.SupportsFacetSorting);
 ```
 
-Capabilities describe supported scopes, filter categories, comparison operators, logical operators, metadata fields, sort categories, paging, facet range value shapes, and known exclusions. The in-memory provider currently declares facet sorting and numeric/date-like facet ranges; SQLite JSON declares metadata sorting, facet sorting, and numeric facet ranges.
+Capabilities describe supported scopes, filter categories, comparison operators, logical operators, metadata fields, sort categories, paging, facet range value shapes, and known exclusions. The in-memory and SQLite JSON providers currently declare facet sorting and numeric/date-like facet ranges.
 Capability declarations are matched to the active query provider by explicit `ProviderKey` values such as `in-memory` and `sqlite-json`.
 
 Custom providers can use `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` to register their active query service and matching capability provider together. Validation fails closed with `capabilities-not-declared` when the active provider key has no matching declaration.
@@ -258,15 +259,15 @@ The provider supports:
 - metadata filtering and sorting over `ResourceId`, `Id`, `DefinitionId`, `Owner`, `Version`, and `Created`.
 - `Skip` and `Take`.
 - aspect presence checks.
-- metadata/facet `Equals`, `NotEquals`, `In`, string `Contains`, string `StartsWith`, facet `Exists`, numeric facet `Range`, and facet sorting.
+- metadata/facet `Equals`, `NotEquals`, `In`, string `Contains`, string `StartsWith`, facet `Exists`, numeric/date-like facet `Range`, and facet sorting.
 - `And`, `Or`, and single-operand `Not`.
 
-Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. The exception exposes stable `Code`, `Feature`, optional `Path`, and a human-readable message. Current intentional exclusions include metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges.
+Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. The exception exposes stable `Code`, `Feature`, optional `Path`, and a human-readable message. Current intentional exclusions include metadata range filters, unknown metadata fields, empty ranges, negative paging values, mixed range bound shapes, and invalid date-like range bound values.
 
 ## Current Limitations
 
 - **No provider capability planner yet** — capabilities and validation describe what a provider can execute; they do not rewrite queries.
-- **Provider-specific semantics are explicit** — SQLite facet ranges are numeric-only in this phase.
+- **Provider-specific semantics are explicit** — SQLite date-like facet ranges require accepted ISO-8601-style JSON string facet values.
 - **No public `IQueryable<Resource>`** — LINQ may be used inside a provider, but the public contract stays on the portable AST.
 
 ---

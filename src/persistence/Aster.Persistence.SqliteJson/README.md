@@ -36,9 +36,11 @@ Supported query shapes:
 - metadata/facet `Equals`, `NotEquals`, and `In`
 - string `Contains` and `StartsWith`
 - facet `Exists`
-- numeric facet `Range`
+- numeric/date-like facet `Range`
 - `And`, `Or`, and single-operand `Not`
 
-Unsupported query shapes throw `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message. Metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges are intentionally out of scope for this phase.
+Date-like facet ranges match JSON string scalar values in the ISO-8601-style shape emitted by `System.Text.Json` for `DateTime` or `DateTimeOffset`. Date-only strings, malformed strings, numbers, booleans, objects, arrays, nulls, and missing facets do not match date-like range predicates.
 
-The provider also declares this support through `SqliteJsonQueryCapabilitiesProvider` with provider key `sqlite-json`, so callers can inspect capabilities or use `IResourceQueryValidator` before execution. Validation reports unsupported SQLite shapes, such as date-like facet ranges, without falling back to the in-memory provider. Execution runs shared validation first and remains authoritative if validation is skipped.
+Unsupported query shapes throw `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message. Metadata range filters, unknown metadata fields, empty ranges, negative paging values, mixed range bound shapes, and invalid date-like range bounds are intentionally rejected.
+
+The provider also declares this support through `SqliteJsonQueryCapabilitiesProvider` with provider key `sqlite-json`, so callers can inspect capabilities or use `IResourceQueryValidator` before execution. Execution runs shared validation first and remains authoritative if validation is skipped.

@@ -64,7 +64,7 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         Assert.True(inMemory.SupportsFacetSorting);
         Assert.True(sqlite.SupportsFacetSorting);
         Assert.Contains(QueryValueShape.DateTime, inMemory.FacetRangeSupport);
-        Assert.DoesNotContain(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
+        Assert.Contains(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
     }
 
     [Fact]
@@ -88,8 +88,7 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
                 ComparisonOperator.Range),
         });
 
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
+        Assert.True(result.IsValid);
     }
 
     [Fact]
@@ -134,12 +133,12 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
                 Filter = new FacetValueFilter(
                     "Schedule",
                     "StartsAt",
-                    new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                    new RangeValue(DateTime.UtcNow.AddDays(-1), 10),
                     ComparisonOperator.Range),
             },
             provider.GetRequiredService<IResourceQueryValidator>(),
             provider.GetRequiredService<IResourceQueryService>(),
-            "unsupported-range-value-shape");
+            "mixed-range-value-shapes");
     }
 
     private static async Task AssertValidatesAndExecutesAsync(
