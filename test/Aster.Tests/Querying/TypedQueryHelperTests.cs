@@ -28,16 +28,34 @@ public sealed class TypedQueryHelperTests
         var equality = Assert.IsType<FacetValueFilter>(TypedQuery.For<TitleAspect>()
             .Facet(aspect => aspect.Title)
             .EqualTo("Gadget"));
+        var inequality = Assert.IsType<FacetValueFilter>(TypedQuery.For<TitleAspect>()
+            .Facet(aspect => aspect.Title)
+            .NotEqualTo("Widget"));
+        var membership = Assert.IsType<FacetValueFilter>(TypedQuery.For<TitleAspect>()
+            .Facet(aspect => aspect.Title)
+            .In("Gadget", "Widget"));
         var contains = Assert.IsType<FacetValueFilter>(TypedQuery.For<TitleAspect>()
             .Facet(aspect => aspect.Title)
             .Contains("Gadget"));
+        var startsWith = Assert.IsType<FacetValueFilter>(TypedQuery.For<TitleAspect>()
+            .Facet(aspect => aspect.Title)
+            .StartsWith("Gad"));
+        var exists = Assert.IsType<FacetValueFilter>(TypedQuery.For<TitleAspect>()
+            .Facet(aspect => aspect.Title)
+            .Exists());
         var range = Assert.IsType<FacetValueFilter>(TypedQuery.For<PriceAspect>()
             .Facet(aspect => aspect.Amount)
             .Range(10m, 20m));
 
         Assert.Equal(("TitleAspect", "Title", ComparisonOperator.Equals), (equality.AspectKey, equality.FacetDefinitionId, equality.Operator));
+        Assert.Equal(("TitleAspect", "Title", ComparisonOperator.NotEquals), (inequality.AspectKey, inequality.FacetDefinitionId, inequality.Operator));
+        Assert.Equal(("TitleAspect", "Title", ComparisonOperator.In), (membership.AspectKey, membership.FacetDefinitionId, membership.Operator));
         Assert.Equal(("TitleAspect", "Title", ComparisonOperator.Contains), (contains.AspectKey, contains.FacetDefinitionId, contains.Operator));
+        Assert.Equal(("TitleAspect", "Title", ComparisonOperator.StartsWith), (startsWith.AspectKey, startsWith.FacetDefinitionId, startsWith.Operator));
+        Assert.Equal(("TitleAspect", "Title", ComparisonOperator.Exists), (exists.AspectKey, exists.FacetDefinitionId, exists.Operator));
         Assert.Equal(("PriceAspect", "Amount", ComparisonOperator.Range), (range.AspectKey, range.FacetDefinitionId, range.Operator));
+        Assert.Equal(new[] { "Gadget", "Widget" }, Assert.IsType<string[]>(membership.Value));
+        Assert.True(Assert.IsType<bool>(exists.Value));
         Assert.Equal(new RangeValue(10m, 20m), range.Value);
     }
 

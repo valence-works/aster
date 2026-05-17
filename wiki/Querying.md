@@ -88,10 +88,16 @@ new LogicalExpression(LogicalOperator.Not, [
 | Operator | Description | In-memory support | SQLite JSON support |
 |---|---|---|---|
 | `Equals` | Exact match (case-insensitive for strings) | Yes | Yes |
+| `NotEquals` | Inverse exact match (case-insensitive for strings) | Yes | Yes |
+| `In` | Exact match against any value in a non-string enumerable candidate set | Yes | Yes |
 | `Contains` | Substring match (strings only) | Yes | Yes |
+| `StartsWith` | Prefix match (strings only, case-insensitive) | Yes | Yes |
 | `Range` | Min/max bounds via `RangeValue` | Numeric / date | Numeric scalar facets |
+| `Exists` | Facet value is present and non-null | Facets | Facets |
 
 `Range` values use `new RangeValue(min, max, includeMin, includeMax)`. A `null` min or max means the range is unbounded on that side.
+`In` values must be non-null, non-string enumerables with at least one candidate. `Exists` is represented as a `FacetValueFilter`; providers ignore the value for that operator.
+`MetadataFilter.Value` now accepts `object` so metadata `In` predicates can carry enumerable candidate sets; callers that previously read it as `string` should format or pattern-match the value before using string-specific members.
 
 ---
 
@@ -191,7 +197,10 @@ public sealed record PriceAspect(decimal Amount);
 var filter = TypedQuery.And(
     TypedQuery.For<TitleAspect>()
         .Facet(x => x.Title)
-        .Contains("Gadget"),
+        .StartsWith("Gadget"),
+    TypedQuery.For<TitleAspect>()
+        .Facet(x => x.Title)
+        .In("Gadget Pro", "Gadget Plus"),
     TypedQuery.For<PriceAspect>()
         .Facet(x => x.Amount)
         .Range(min: 10m, max: 100m));
@@ -249,7 +258,7 @@ The provider supports:
 - metadata filtering and sorting over `ResourceId`, `Id`, `DefinitionId`, `Owner`, `Version`, and `Created`.
 - `Skip` and `Take`.
 - aspect presence checks.
-- facet `Equals`, string `Contains`, numeric `Range`, and facet sorting.
+- metadata/facet `Equals`, `NotEquals`, `In`, string `Contains`, string `StartsWith`, facet `Exists`, numeric facet `Range`, and facet sorting.
 - `And`, `Or`, and single-operand `Not`.
 
 Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. The exception exposes stable `Code`, `Feature`, optional `Path`, and a human-readable message. Current intentional exclusions include metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges.

@@ -43,13 +43,20 @@ public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabiliti
             [QueryFilterType.Metadata] = new HashSet<ComparisonOperator>
             {
                 ComparisonOperator.Equals,
+                ComparisonOperator.NotEquals,
+                ComparisonOperator.In,
                 ComparisonOperator.Contains,
+                ComparisonOperator.StartsWith,
             },
             [QueryFilterType.FacetValue] = new HashSet<ComparisonOperator>
             {
                 ComparisonOperator.Equals,
+                ComparisonOperator.NotEquals,
+                ComparisonOperator.In,
                 ComparisonOperator.Contains,
+                ComparisonOperator.StartsWith,
                 ComparisonOperator.Range,
+                ComparisonOperator.Exists,
             },
         },
         SupportedMetadataFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)

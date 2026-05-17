@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Text.Json;
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
@@ -13,8 +14,7 @@ namespace Aster.Core.InMemory;
 /// Evaluates <see cref="ResourceQuery"/> ASTs against versions supplied by <see cref="IResourceVersionReader"/>.
 /// </summary>
 /// <remarks>
-/// Supported comparators: <see cref="ComparisonOperator.Equals"/>, <see cref="ComparisonOperator.Contains"/>,
-/// and <see cref="ComparisonOperator.Range"/>.
+/// Supported comparators include equality, membership, text, range, and facet existence predicates.
 /// </remarks>
 public sealed partial class InMemoryQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
@@ -117,6 +117,9 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
 
         // Resolve the facet value from the aspect payload
         var facetValue = ResolveFacetValue(aspectRaw, filter.FacetDefinitionId);
+        if (filter.Operator == ComparisonOperator.Exists)
+            return facetValue is not null;
+
         if (facetValue is null)
             return false;
 
@@ -202,20 +205,56 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
 
     private static bool ApplyComparator(object? actual, object? expected, ComparisonOperator op) => op switch
     {
-        ComparisonOperator.Equals => string.Equals(
-            FormatValueInvariant(actual),
-            FormatValueInvariant(expected),
-            StringComparison.OrdinalIgnoreCase),
+        ComparisonOperator.Equals => ValuesEqual(actual, expected),
+        ComparisonOperator.NotEquals => !ValuesEqual(actual, expected),
+        ComparisonOperator.In => ApplyInComparator(actual, expected),
         ComparisonOperator.Contains => FormatValueInvariant(actual)?.Contains(
             FormatValueInvariant(expected) ?? string.Empty,
             StringComparison.OrdinalIgnoreCase) == true,
+        ComparisonOperator.StartsWith => FormatValueInvariant(actual)?.StartsWith(
+            FormatValueInvariant(expected) ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase) == true,
         ComparisonOperator.Range => ApplyRangeComparator(actual, expected),
+        ComparisonOperator.Exists => actual is not null,
         _ => throw Unsupported(
             "unsupported-comparison-operator",
             "comparison operator",
             $"Comparison operator '{op}' is not supported by the in-memory query provider.",
             "Filter.Operator")
     };
+
+    private static bool ValuesEqual(object? actual, object? expected) =>
+        string.Equals(
+            FormatValueInvariant(actual),
+            FormatValueInvariant(expected),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool ApplyInComparator(object? actual, object? expected)
+    {
+        if (expected is string || expected is not IEnumerable enumerable)
+            throw Unsupported(
+                "in-values-required",
+                "value shape",
+                "In predicates require a non-string enumerable value set.",
+                "Filter.Value");
+
+        var hasElements = false;
+        foreach (var candidate in enumerable)
+        {
+            hasElements = true;
+            if (ValuesEqual(actual, candidate))
+                return true;
+        }
+
+        if (!hasElements)
+            throw Unsupported(
+                "empty-in-values",
+                "value shape",
+                "In predicates require at least one candidate value.",
+                "Filter.Value");
+
+        return false;
+    }
 
     private static bool ApplyRangeComparator(object? actual, object? expected)
     {

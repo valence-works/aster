@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Querying;
@@ -49,14 +50,24 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             ComparisonOperator.Equals when SqliteMetadataField.IsNumeric(filter.Field) =>
                 $"{column} = {parameters.Add(ParseInt(filter.Value, filter.Field))}",
             ComparisonOperator.Equals =>
-                $"{SqliteTextBehavior.EqualsFunction}(CAST({column} AS TEXT), CAST({parameters.Add(filter.Value)} AS TEXT))",
+                TextEquals($"CAST({column} AS TEXT)", filter.Value),
+            ComparisonOperator.NotEquals when SqliteMetadataField.IsNumeric(filter.Field) =>
+                $"{column} <> {parameters.Add(ParseInt(filter.Value, filter.Field))}",
+            ComparisonOperator.NotEquals =>
+                $"NOT {TextEquals($"CAST({column} AS TEXT)", filter.Value)}",
+            ComparisonOperator.In when SqliteMetadataField.IsNumeric(filter.Field) =>
+                TranslateNumericIn(column, filter.Value, candidate => ParseInt(candidate, filter.Field)),
+            ComparisonOperator.In =>
+                TranslateTextIn($"CAST({column} AS TEXT)", filter.Value),
             ComparisonOperator.Contains when !SqliteMetadataField.IsNumeric(filter.Field) =>
-                $"{SqliteTextBehavior.ContainsFunction}(CAST({column} AS TEXT), CAST({parameters.Add(filter.Value)} AS TEXT))",
-            ComparisonOperator.Contains =>
+                TextContains($"CAST({column} AS TEXT)", filter.Value),
+            ComparisonOperator.StartsWith when !SqliteMetadataField.IsNumeric(filter.Field) =>
+                TextStartsWith($"CAST({column} AS TEXT)", filter.Value),
+            ComparisonOperator.Contains or ComparisonOperator.StartsWith =>
                 throw Unsupported(
                     "unsupported-metadata-contains-field",
                     "metadata field",
-                    $"Metadata field '{filter.Field}' does not support containment filtering in the SQLite JSON query provider.",
+                    $"Metadata field '{filter.Field}' does not support text filtering in the SQLite JSON query provider.",
                     "Filter.Field"),
             _ => throw Unsupported(
                 "unsupported-comparison-operator",
@@ -82,9 +93,19 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             ComparisonOperator.Equals when TryConvertDouble(filter.Value, out var number) =>
                 $"{value.IsNumeric} AND CAST({value.Value} AS REAL) = {parameters.Add(number)}",
             ComparisonOperator.Equals =>
-                $"{SqliteTextBehavior.EqualsFunction}(CAST({value.Value} AS TEXT), CAST({parameters.Add(FormatValue(filter.Value))} AS TEXT))",
+                TextEquals($"CAST({value.Value} AS TEXT)", filter.Value),
+            ComparisonOperator.NotEquals when TryConvertDouble(filter.Value, out var number) =>
+                $"{value.Value} IS NOT NULL AND NOT ({value.IsNumeric} AND CAST({value.Value} AS REAL) = {parameters.Add(number)})",
+            ComparisonOperator.NotEquals =>
+                $"{value.Value} IS NOT NULL AND NOT {TextEquals($"CAST({value.Value} AS TEXT)", filter.Value)}",
+            ComparisonOperator.In =>
+                TranslateFacetIn(value, filter.Value),
             ComparisonOperator.Contains =>
-                $"{SqliteTextBehavior.ContainsFunction}(CAST({value.Value} AS TEXT), CAST({parameters.Add(FormatValue(filter.Value))} AS TEXT))",
+                TextContains($"CAST({value.Value} AS TEXT)", filter.Value),
+            ComparisonOperator.StartsWith =>
+                TextStartsWith($"CAST({value.Value} AS TEXT)", filter.Value),
+            ComparisonOperator.Exists =>
+                $"{value.Value} IS NOT NULL",
             ComparisonOperator.Range when filter.Value is RangeValue range =>
                 TranslateRange(value, range),
             ComparisonOperator.Range =>
@@ -153,8 +174,73 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         return string.Join(" AND ", predicates);
     }
 
-    private static int ParseInt(string value, string field) =>
-        int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+    private string TextEquals(string actualSql, object? expected) =>
+        $"{SqliteTextBehavior.EqualsFunction}({actualSql}, CAST({parameters.Add(FormatValue(expected))} AS TEXT))";
+
+    private string TextContains(string actualSql, object? expected) =>
+        $"{SqliteTextBehavior.ContainsFunction}({actualSql}, CAST({parameters.Add(FormatValue(expected))} AS TEXT))";
+
+    private string TextStartsWith(string actualSql, object? expected) =>
+        $"{SqliteTextBehavior.StartsWithFunction}({actualSql}, CAST({parameters.Add(FormatValue(expected))} AS TEXT))";
+
+    private string TranslateNumericIn<TNumber>(string actualSql, object? expected, Func<object?, TNumber> convert)
+    {
+        var parameterNames = ResolveInValues(expected)
+            .Select(candidate => parameters.Add(convert(candidate)))
+            .ToArray();
+
+        return $"{actualSql} IN ({string.Join(", ", parameterNames)})";
+    }
+
+    private string TranslateTextIn(string actualSql, object? expected)
+    {
+        // Keep one UDF call per candidate so text IN follows the same null and case behavior as Equals.
+        var predicates = ResolveInValues(expected)
+            .Select(candidate => TextEquals(actualSql, candidate))
+            .ToArray();
+
+        return string.Join(" OR ", predicates.Select(predicate => $"({predicate})"));
+    }
+
+    private string TranslateFacetIn(SqliteFacetValueExpression value, object? expected)
+    {
+        var predicates = ResolveInValues(expected)
+            .Select(candidate => TranslateFacetEquals(value, candidate))
+            .ToArray();
+
+        return string.Join(" OR ", predicates.Select(predicate => $"({predicate})"));
+    }
+
+    private string TranslateFacetEquals(SqliteFacetValueExpression value, object? expected) =>
+        TryConvertDouble(expected, out var number)
+            ? $"{value.IsNumeric} AND CAST({value.Value} AS REAL) = {parameters.Add(number)}"
+            : TextEquals($"CAST({value.Value} AS TEXT)", expected);
+
+    private static IReadOnlyList<object?> ResolveInValues(object? value)
+    {
+        if (value is string || value is not IEnumerable enumerable)
+            throw Unsupported(
+                "in-values-required",
+                "value shape",
+                "In predicates require a non-string enumerable value set.",
+                "Filter.Value");
+
+        var values = new List<object?>();
+        foreach (var item in enumerable)
+            values.Add(item);
+
+        if (values.Count == 0)
+            throw Unsupported(
+                "empty-in-values",
+                "value shape",
+                "In predicates require at least one candidate value.",
+                "Filter.Value");
+
+        return values;
+    }
+
+    private static int ParseInt(object? value, string field) =>
+        int.TryParse(FormatValue(value), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : throw Unsupported(
                 "invalid-metadata-value",

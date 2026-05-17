@@ -27,6 +27,10 @@ public sealed class InMemoryQueryCapabilityTests
         Assert.Contains(QueryFilterType.AspectPresence, capabilities.SupportedFilterTypes);
         Assert.Contains(QueryFilterType.FacetValue, capabilities.SupportedFilterTypes);
         Assert.Contains(QueryFilterType.Logical, capabilities.SupportedFilterTypes);
+
+        AssertPortableOperators(QueryFilterType.Metadata);
+        AssertPortableOperators(QueryFilterType.FacetValue);
+        Assert.True(capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Exists));
     }
 
     [Fact]
@@ -36,5 +40,12 @@ public sealed class InMemoryQueryCapabilityTests
         Assert.Contains(QueryValueShape.Numeric, capabilities.FacetRangeSupport);
         Assert.Contains(QueryValueShape.DateTime, capabilities.FacetRangeSupport);
         Assert.True(capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Range));
+    }
+
+    private void AssertPortableOperators(QueryFilterType filterType)
+    {
+        Assert.True(capabilities.SupportsComparison(filterType, ComparisonOperator.NotEquals));
+        Assert.True(capabilities.SupportsComparison(filterType, ComparisonOperator.In));
+        Assert.True(capabilities.SupportsComparison(filterType, ComparisonOperator.StartsWith));
     }
 }

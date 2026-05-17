@@ -25,6 +25,10 @@ public sealed class SqliteJsonQueryCapabilityTests
         Assert.Contains(ResourceVersionScope.AllVersions, capabilities.SupportedScopes);
         Assert.Contains(ResourceVersionScope.Active, capabilities.SupportedScopes);
         Assert.Contains(ResourceVersionScope.Draft, capabilities.SupportedScopes);
+
+        AssertPortableOperators(QueryFilterType.Metadata);
+        AssertPortableOperators(QueryFilterType.FacetValue);
+        Assert.True(capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Exists));
     }
 
     [Fact]
@@ -57,5 +61,12 @@ public sealed class SqliteJsonQueryCapabilityTests
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Failures);
+    }
+
+    private void AssertPortableOperators(QueryFilterType filterType)
+    {
+        Assert.True(capabilities.SupportsComparison(filterType, ComparisonOperator.NotEquals));
+        Assert.True(capabilities.SupportsComparison(filterType, ComparisonOperator.In));
+        Assert.True(capabilities.SupportsComparison(filterType, ComparisonOperator.StartsWith));
     }
 }

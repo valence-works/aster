@@ -136,6 +136,53 @@ public sealed class InMemoryQueryServiceTests
         Assert.Single(results);
     }
 
+    [Fact]
+    public async Task QueryAsync_PortableOperators_ReturnMatchingResources()
+    {
+        var (manager, query) = CreateSetup();
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "product-a",
+            InitialAspects = new()
+            {
+                ["Title"] = new TitleAspect("Alpha Gadget"),
+                ["Category"] = new CategoryAspect("Electronics"),
+            },
+        });
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "product-b",
+            InitialAspects = new()
+            {
+                ["Title"] = new TitleAspect("Beta Widget"),
+                ["Category"] = new CategoryAspect("Hardware"),
+            },
+        });
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "product-c",
+            InitialAspects = new()
+            {
+                ["Category"] = new CategoryAspect("Electronics"),
+            },
+        });
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            Filter = new LogicalExpression(LogicalOperator.And, [
+                new MetadataFilter("ResourceId", "product-b", ComparisonOperator.NotEquals),
+                new MetadataFilter("ResourceId", new[] { "product-a", "product-c" }, ComparisonOperator.In),
+                new FacetValueFilter("Category", "Category", "Hardware", ComparisonOperator.NotEquals),
+                new FacetValueFilter("Category", "Category", new[] { "Electronics" }, ComparisonOperator.In),
+                new FacetValueFilter("Title", "Title", "Alpha", ComparisonOperator.StartsWith),
+                new FacetValueFilter("Title", "Title", true, ComparisonOperator.Exists),
+            ]),
+        })).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("product-a", results[0].ResourceId);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // AND / OR composition
     // ──────────────────────────────────────────────────────────────────────────
