@@ -156,6 +156,58 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task QueryAsync_FacetSorts_OrderByTextFacetValue()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
+        {
+            ["Title"] = new { Title = "Bravo" },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", aspects: new()
+        {
+            ["Title"] = new { Title = "alpha" },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-c", "Product"));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("Title", AspectKey: "Title")],
+        })).ToList();
+
+        Assert.Equal(["product-b", "product-a", "product-c"], results.Select(r => r.ResourceId).ToList());
+    }
+
+    [Fact]
+    public async Task QueryAsync_FacetSorts_OrderByNumericFacetValueDescending()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
+        {
+            ["Price"] = new { Amount = 20 },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", aspects: new()
+        {
+            ["Price"] = new { Amount = 30 },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-c", "Product"));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Product",
+            Sorts = [new SortExpression("Amount", SortDirection.Descending, AspectKey: "Price")],
+        })).ToList();
+
+        Assert.Equal(["product-b", "product-a", "product-c"], results.Select(r => r.ResourceId).ToList());
+    }
+
+    [Fact]
     public async Task QueryAsync_AspectPresenceAndFacetFilters_ReadPersistedJson()
     {
         var store = CreateStore();
@@ -352,15 +404,6 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         await AssertUnsupportedAsync(
             query.QueryAsync(new ResourceQuery
             {
-                Sorts = [new SortExpression("Title", AspectKey: "Title")],
-            }).AsTask(),
-            "unsupported-facet-sort",
-            "sort",
-            "Sorts[0]");
-
-        await AssertUnsupportedAsync(
-            query.QueryAsync(new ResourceQuery
-            {
                 Scope = ResourceVersionScope.Active,
             }).AsTask(),
             "activation-channel-required",
@@ -419,15 +462,6 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             queryService,
             new ResourceQuery
             {
-                Sorts = [new SortExpression("Title", AspectKey: "Title")],
-            },
-            "unsupported-facet-sort",
-            "Sorts[0]");
-        await AssertValidationMatchesExecutionAsync(
-            validator,
-            queryService,
-            new ResourceQuery
-            {
                 Filter = new FacetValueFilter(
                     "Schedule",
                     "StartsAt",
@@ -480,7 +514,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
     {
         var queryShape = new ResourceQuery
         {
-            Sorts = [new SortExpression("Title", AspectKey: "Title")],
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                ComparisonOperator.Range),
         };
         var inMemoryValidation = new ResourceQueryValidator([new InMemoryQueryCapabilitiesProvider()])
             .Validate(queryShape);

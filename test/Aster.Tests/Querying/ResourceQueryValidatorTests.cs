@@ -60,7 +60,6 @@ public sealed class ResourceQueryValidatorTests
                     new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
                     ComparisonOperator.Range),
             ]),
-            Sorts = [new SortExpression("Title", AspectKey: "Title")],
         });
 
         Assert.False(result.IsValid);
@@ -70,7 +69,6 @@ public sealed class ResourceQueryValidatorTests
         Assert.Contains(result.Failures, failure => failure.Code == "unsupported-metadata-field");
         Assert.Contains(result.Failures, failure => failure.Code == "unsupported-comparison-operator");
         Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
-        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-facet-sort");
     }
 
     [Fact]
@@ -120,7 +118,6 @@ public sealed class ResourceQueryValidatorTests
 
         Assert.False(sqliteResult.IsValid);
         Assert.Contains(sqliteResult.Failures, failure => failure.Code == "unsupported-range-value-shape");
-        Assert.Contains(sqliteResult.Failures, failure => failure.Code == "unsupported-facet-sort");
     }
 
     [Fact]

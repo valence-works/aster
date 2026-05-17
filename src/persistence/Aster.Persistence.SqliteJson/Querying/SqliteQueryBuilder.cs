@@ -8,6 +8,7 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 {
     private readonly List<string> predicates = [];
     private readonly List<string> orderings = [];
+    private readonly List<string> projections = [];
 
     public SqliteParameterBag Parameters { get; } = new();
 
@@ -22,14 +23,18 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
         for (var index = 0; index < sorts.Count; index++)
         {
             var sort = sorts[index];
-            orderings.Add($"{ResolveMetadataColumn(sort, index)} {ResolveDirection(sort.Direction, index)}");
+            orderings.Add(ResolveOrdering(sort, index));
         }
     }
 
     public string Build()
     {
         var (baseSql, scopePredicates) = BuildScopeSql();
-        var sql = new StringBuilder(baseSql);
+        var sql = new StringBuilder();
+        sql.Append("SELECT ");
+        sql.AppendJoin(", ", ["rv.payload", .. projections]);
+        sql.AppendLine();
+        sql.Append(baseSql);
         predicates.AddRange(scopePredicates);
 
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
@@ -80,7 +85,6 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
     private (string Sql, IReadOnlyList<string> ScopePredicates) BuildScopeSql() => query.Scope switch
     {
         ResourceVersionScope.Latest => ("""
-            SELECT rv.payload
             FROM resource_versions rv
             INNER JOIN (
                 SELECT resource_id, MAX(version) AS version
@@ -91,12 +95,10 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                 AND latest.version = rv.version
             """, []),
         ResourceVersionScope.AllVersions => ("""
-            SELECT rv.payload
             FROM resource_versions rv
             """, []),
         ResourceVersionScope.Active => ActiveSql(),
         ResourceVersionScope.Draft => ("""
-            SELECT rv.payload
             FROM resource_versions rv
             """, ["""
                 NOT EXISTS (
@@ -118,7 +120,6 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
     {
         var channel = Parameters.Add(query.ActivationChannel);
         return ($$"""
-            SELECT rv.payload
             FROM resource_versions rv
             INNER JOIN activation_states active_state
                 ON active_state.resource_id = rv.resource_id
@@ -132,22 +133,35 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                 """]);
     }
 
-    private static string ResolveMetadataColumn(SortExpression sort, int index)
+    private string ResolveOrdering(SortExpression sort, int index)
     {
-        if (!string.IsNullOrWhiteSpace(sort.AspectKey))
-            throw Unsupported(
-                "unsupported-facet-sort",
-                "sort",
-                "Facet sorting is not supported by the SQLite JSON query provider.",
-                $"Sorts[{index}]");
+        var direction = ResolveDirection(sort.Direction, index);
 
-        return SqliteMetadataField.ResolveColumn(
-            sort.Field,
+        if (string.IsNullOrWhiteSpace(sort.AspectKey))
+            return $"{ResolveMetadataColumn(sort.Field, index)} {direction}";
+
+        var facet = SqliteFacetValueExpression.Create(Parameters, sort.AspectKey, sort.Field);
+        var valueAlias = $"facet_sort_{index}_value";
+        var typeAlias = $"facet_sort_{index}_type";
+        var isNumeric = $"{typeAlias} IN ('integer', 'real')";
+
+        projections.Add($"{facet.Value} AS {valueAlias}");
+        projections.Add($"{facet.Type} AS {typeAlias}");
+
+        return string.Join(", ", [
+            $"{valueAlias} IS NULL ASC",
+            $"CASE WHEN {isNumeric} THEN CAST({valueAlias} AS REAL) END {direction}",
+            $"CASE WHEN NOT ({isNumeric}) THEN CAST({valueAlias} AS TEXT) END COLLATE {SqliteTextBehavior.OrdinalIgnoreCaseCollation} {direction}",
+        ]);
+    }
+
+    private static string ResolveMetadataColumn(string field, int index) =>
+        SqliteMetadataField.ResolveColumn(
+            field,
             "Metadata sort field",
             "unsupported-metadata-sort-field",
             "metadata field",
             $"Sorts[{index}].Field");
-    }
 
     private static string ResolveDirection(SortDirection direction, int index) => direction switch
     {

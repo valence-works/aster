@@ -64,7 +64,7 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
 
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
-        RegisterTextFunctions(connection);
+        RegisterTextBehavior(connection);
 
         await using var command = connection.CreateCommand();
         command.CommandText = builder.Build();
@@ -93,18 +93,19 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
         JsonSerializer.Deserialize<Resource>(payload, JsonOptions)
         ?? throw new InvalidOperationException("Unable to deserialize persisted Resource payload.");
 
-    private static void RegisterTextFunctions(SqliteConnection connection)
+    private static void RegisterTextBehavior(SqliteConnection connection)
     {
         connection.CreateFunction<string?, string?, bool>(
-            "aster_text_equals",
-            (actual, expected) => string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase));
+            SqliteTextBehavior.EqualsFunction,
+            SqliteTextBehavior.EqualsIgnoreCase);
 
         connection.CreateFunction<string?, string?, bool>(
-            "aster_text_contains",
-            (actual, expected) =>
-                actual is not null
-                && expected is not null
-                && actual.Contains(expected, StringComparison.OrdinalIgnoreCase));
+            SqliteTextBehavior.ContainsFunction,
+            SqliteTextBehavior.ContainsIgnoreCase);
+
+        connection.CreateCollation(
+            SqliteTextBehavior.OrdinalIgnoreCaseCollation,
+            SqliteTextBehavior.CompareIgnoreCase);
     }
 
     private void ThrowIfInvalid(ResourceQuery query)

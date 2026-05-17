@@ -10,6 +10,8 @@ Auto-generated from all feature plans. Last updated: 2026-05-17
 - N/A; no persistence format or storage behavior changes (005-provider-authoring-ergonomics)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting for libraries; tests target net10.0 + Existing xUnit and Microsoft.Extensions.DependencyInjection test stack (006-provider-conformance-tests)
 - Existing in-memory store and disposable SQLite JSON database files (006-provider-conformance-tests)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing SQLite JSON provider and test stack (007-sqlite-facet-sorting)
+- Existing SQLite JSON payload shape; no migration (007-sqlite-facet-sorting)
 
 - C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0) + Microsoft.Extensions.DependencyInjection, Microsoft.Extensions.Logging (001-core-sdk-foundation)
 
@@ -29,9 +31,9 @@ tests/
 C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0): Follow standard conventions
 
 ## Recent Changes
+- 007-sqlite-facet-sorting: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing SQLite JSON provider and test stack
 - 006-provider-conformance-tests: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting for libraries; tests target net10.0 + Existing xUnit and Microsoft.Extensions.DependencyInjection test stack
 - 005-provider-authoring-ergonomics: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`; no new third-party dependencies
-- 004-provider-validation-execution: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`; SQLite provider keeps existing `Microsoft.Data.Sqlite`
 
 
 <!-- MANUAL ADDITIONS START -->

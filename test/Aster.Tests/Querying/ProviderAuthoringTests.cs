@@ -169,7 +169,7 @@ public sealed class ProviderAuthoringTests
             SqliteJsonQueryCapabilitiesProvider.ProviderKey,
             sqliteProvider.GetRequiredService<IResourceQueryProviderIdentity>().ProviderKey);
         Assert.True(inMemoryCapabilities.SupportsFacetSorting);
-        Assert.False(sqliteCapabilities.SupportsFacetSorting);
+        Assert.True(sqliteCapabilities.SupportsFacetSorting);
     }
 
     [Fact]
