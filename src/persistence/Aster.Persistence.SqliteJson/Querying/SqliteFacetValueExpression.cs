@@ -1,7 +1,9 @@
 namespace Aster.Persistence.SqliteJson.Querying;
 
-internal sealed record SqliteFacetValueExpression(string Value, string IsNumeric)
+internal sealed record SqliteFacetValueExpression(string Value, string Type)
 {
+    public string IsNumeric => $"{Type} IN ('integer', 'real')";
+
     public static SqliteFacetValueExpression Create(
         SqliteParameterBag parameters,
         string aspectKey,
@@ -37,7 +39,7 @@ internal sealed record SqliteFacetValueExpression(string Value, string IsNumeric
                   AND facet.key IN ({typeFacetKeyList})
                 ORDER BY CASE facet.key WHEN {typeFacetKeyParameters[0]} THEN 0 ELSE 1 END
                 LIMIT 1
-            ) IN ('integer', 'real')
+            )
             """);
     }
 }

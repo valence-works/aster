@@ -193,6 +193,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         {
             ["Price"] = new { Amount = 30 },
         }));
+        await store.SaveVersionAsync(CreateResource("product-c", "Product"));
 
         await using var provider = CreateServiceProvider();
         var query = provider.GetRequiredService<IResourceQueryService>();
@@ -203,7 +204,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             Sorts = [new SortExpression("Amount", SortDirection.Descending, AspectKey: "Price")],
         })).ToList();
 
-        Assert.Equal(["product-b", "product-a"], results.Select(r => r.ResourceId).ToList());
+        Assert.Equal(["product-b", "product-a", "product-c"], results.Select(r => r.ResourceId).ToList());
     }
 
     [Fact]

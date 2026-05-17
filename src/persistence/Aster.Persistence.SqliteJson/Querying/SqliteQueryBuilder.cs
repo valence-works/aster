@@ -8,6 +8,7 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 {
     private readonly List<string> predicates = [];
     private readonly List<string> orderings = [];
+    private readonly List<string> projections = [];
 
     public SqliteParameterBag Parameters { get; } = new();
 
@@ -29,7 +30,11 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
     public string Build()
     {
         var (baseSql, scopePredicates) = BuildScopeSql();
-        var sql = new StringBuilder(baseSql);
+        var sql = new StringBuilder();
+        sql.Append("SELECT ");
+        sql.AppendJoin(", ", ["rv.payload", .. projections]);
+        sql.AppendLine();
+        sql.Append(baseSql);
         predicates.AddRange(scopePredicates);
 
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
@@ -80,7 +85,6 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
     private (string Sql, IReadOnlyList<string> ScopePredicates) BuildScopeSql() => query.Scope switch
     {
         ResourceVersionScope.Latest => ("""
-            SELECT rv.payload
             FROM resource_versions rv
             INNER JOIN (
                 SELECT resource_id, MAX(version) AS version
@@ -91,12 +95,10 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                 AND latest.version = rv.version
             """, []),
         ResourceVersionScope.AllVersions => ("""
-            SELECT rv.payload
             FROM resource_versions rv
             """, []),
         ResourceVersionScope.Active => ActiveSql(),
         ResourceVersionScope.Draft => ("""
-            SELECT rv.payload
             FROM resource_versions rv
             """, ["""
                 NOT EXISTS (
@@ -118,7 +120,6 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
     {
         var channel = Parameters.Add(query.ActivationChannel);
         return ($$"""
-            SELECT rv.payload
             FROM resource_versions rv
             INNER JOIN activation_states active_state
                 ON active_state.resource_id = rv.resource_id
@@ -140,10 +141,17 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
             return $"{ResolveMetadataColumn(sort.Field, index)} {direction}";
 
         var facet = SqliteFacetValueExpression.Create(Parameters, sort.AspectKey, sort.Field);
+        var valueAlias = $"facet_sort_{index}_value";
+        var typeAlias = $"facet_sort_{index}_type";
+        var isNumeric = $"{typeAlias} IN ('integer', 'real')";
+
+        projections.Add($"{facet.Value} AS {valueAlias}");
+        projections.Add($"{facet.Type} AS {typeAlias}");
+
         return string.Join(", ", [
-            $"({facet.Value}) IS NULL ASC",
-            $"CASE WHEN {facet.IsNumeric} THEN CAST({facet.Value} AS REAL) END {direction}",
-            $"CASE WHEN NOT ({facet.IsNumeric}) THEN CAST({facet.Value} AS TEXT) END COLLATE {SqliteTextBehavior.OrdinalIgnoreCaseCollation} {direction}",
+            $"{valueAlias} IS NULL ASC",
+            $"CASE WHEN {isNumeric} THEN CAST({valueAlias} AS REAL) END {direction}",
+            $"CASE WHEN NOT ({isNumeric}) THEN CAST({valueAlias} AS TEXT) END COLLATE {SqliteTextBehavior.OrdinalIgnoreCaseCollation} {direction}",
         ]);
     }
 
