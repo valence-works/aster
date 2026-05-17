@@ -184,6 +184,7 @@ public sealed class TypedQueryHelperTests
         Assert.Throws<ArgumentException>(() => TypedQuery.Or());
         Assert.Throws<ArgumentNullException>(() => TypedQuery.Not(null!));
         Assert.Throws<ArgumentException>(() => TypedQuery.And([null!]));
+        Assert.Throws<ArgumentException>(() => TypedQuery.Or([null!]));
     }
 
     [Fact]

@@ -8,7 +8,7 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, and SQLite facet sorting.
 
-The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The next useful slices should improve query authoring ergonomics and close remaining portable query/provider gaps without introducing a planner, registry, runtime scanning, public SQL, or `IQueryable<Resource>`.
+The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The next useful slices should close remaining portable query/provider gaps without introducing a planner, registry, runtime scanning, public SQL, or `IQueryable<Resource>`.
 
 ## Landed Slices
 
@@ -21,26 +21,9 @@ The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The n
 | `005-provider-authoring-ergonomics` | Landed | Explicit DI helper for custom query providers and provider authoring documentation. |
 | `006-provider-conformance-tests` | Landed | Reusable conformance tests that compare declared capabilities with validation and execution behavior. |
 | `007-sqlite-facet-sorting` | Landed | SQLite facet sorting, null-last behavior, numeric/text ordering, capability updates, and tests/docs. |
+| `008-typed-query-authoring` | Landed | Typed facet sort helpers, small logical composition helpers, and updated roadmap/query docs over the existing query AST. |
 
 ## Near-Term Roadmap
-
-### 008 — Typed Query Authoring Ergonomics
-
-**Goal:** Make common `ResourceQuery` construction less stringly typed now that SQLite and in-memory providers both support facet sorting.
-
-Candidate scope:
-
-- Add typed sort helpers for facet sorts, reusing the existing `TypedQuery.For<TAspect>().Facet(...)` path.
-- Add small composition helpers for `And`, `Or`, and `Not` if they reduce repeated manual `LogicalExpression` construction.
-- Add a minimal query-builder convenience only if it stays thin over the existing AST.
-- Keep output as plain `ResourceQuery`, `FilterExpression`, and `SortExpression`.
-
-Non-goals:
-
-- No LINQ provider.
-- No runtime scanning or automatic schema discovery.
-- No provider-specific SQL exposure.
-- No broad fluent framework unless the repeated usage proves it is needed.
 
 ### 009 — Portable Operator Expansion
 
