@@ -140,6 +140,10 @@ Capability declarations are matched to the active query provider by explicit `Pr
 
 Custom providers can use `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` to register their active query service and matching capability provider together. Validation fails closed with `capabilities-not-declared` when the active provider key has no matching declaration.
 
+Provider maintainers should cover new providers with the shared provider conformance tests in `test/Aster.Tests/Querying/ProviderConformanceTests.cs`.
+Those tests explicitly supply provider setup and fixture data, then verify that declared capabilities match validation and execution behavior.
+They are intentionally test-only: Aster still does not use provider registries, runtime scanning, query planners, raw SQL contracts, or public `IQueryable<Resource>` APIs.
+
 ## Preflight Validation
 
 Use `IResourceQueryValidator` to validate a query before execution:
