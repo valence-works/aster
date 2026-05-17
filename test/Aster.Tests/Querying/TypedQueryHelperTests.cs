@@ -182,10 +182,7 @@ public sealed class TypedQueryHelperTests
     {
         Assert.Throws<ArgumentException>(() => TypedQuery.And());
         Assert.Throws<ArgumentException>(() => TypedQuery.Or());
-        Assert.Throws<ArgumentException>(() => TypedQuery.Not());
-        Assert.Throws<ArgumentException>(() => TypedQuery.Not(
-            TypedQuery.For<TitleAspect>().Facet(aspect => aspect.Title).Contains("Gadget"),
-            TypedQuery.For<PriceAspect>().Facet(aspect => aspect.Amount).Range(max: 100m)));
+        Assert.Throws<ArgumentNullException>(() => TypedQuery.Not(null!));
         Assert.Throws<ArgumentException>(() => TypedQuery.And([null!]));
     }
 

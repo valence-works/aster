@@ -58,14 +58,13 @@ public static class TypedQuery
     /// <summary>
     /// Negates a single filter expression.
     /// </summary>
-    /// <param name="operands">The single filter expression to negate.</param>
+    /// <param name="operand">The filter expression to negate.</param>
     /// <returns>A logical NOT expression.</returns>
-    public static FilterExpression Not(params FilterExpression[] operands)
+    public static FilterExpression Not(FilterExpression operand)
     {
-        if (operands.Length != 1)
-            throw new ArgumentException("Typed query Not composition requires exactly one operand.", nameof(operands));
+        ArgumentNullException.ThrowIfNull(operand);
 
-        return Logical(LogicalOperator.Not, operands);
+        return new LogicalExpression(LogicalOperator.Not, [operand]);
     }
 
     internal static string ResolveAspectKey<TAspect>(string? aspectKey) =>

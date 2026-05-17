@@ -6,7 +6,7 @@
 
 - [X] T001 Add typed facet sort helpers to `TypedFacetQuery<TValue>`.
 - [X] T002 Add logical composition helpers to `TypedQuery`.
-- [X] T003 Add argument validation for empty logical operands and invalid `Not` operands.
+- [X] T003 Add argument validation for empty logical operands and a single-operand `Not` API.
 - [X] T004 Extend typed query helper tests for ascending/descending facet sorts.
 - [X] T005 Extend typed query helper tests for overrides and selector rejection on sort helpers.
 - [X] T006 Extend typed query helper tests for `And`, `Or`, and `Not` composition.

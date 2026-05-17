@@ -76,7 +76,7 @@ As a provider author, I want typed authoring helpers to emit the existing portab
 - **FR-002**: Typed sort helpers MUST use the same aspect key and facet identifier resolution rules as existing typed facet filter helpers.
 - **FR-003**: Typed sort helpers MUST support per-query aspect key and facet identifier overrides.
 - **FR-004**: The SDK SHOULD provide simple logical composition helpers for `And`, `Or`, and `Not` over existing `FilterExpression` values.
-- **FR-005**: Logical composition helpers MUST reject empty operand sets and MUST reject invalid `Not` operand counts.
+- **FR-005**: Logical composition helpers MUST reject empty `And`/`Or` operand sets, and `Not` MUST accept exactly one operand in its public API.
 - **FR-006**: Helper-generated filters and sorts MUST validate and execute like equivalent manually constructed query AST values.
 - **FR-007**: The feature MUST NOT introduce a LINQ provider, public `IQueryable<Resource>`, runtime scanning, provider registry, automatic discovery, raw SQL API, or query planner.
 - **FR-008**: Existing manual `ResourceQuery`, `FilterExpression`, and `SortExpression` construction MUST remain supported.

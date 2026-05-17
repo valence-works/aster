@@ -29,7 +29,7 @@ Expected behavior:
 - `Or` returns `new LogicalExpression(LogicalOperator.Or, operands)`.
 - `Not` returns `new LogicalExpression(LogicalOperator.Not, [operand])`.
 - Empty `And`/`Or` inputs are rejected.
-- `Not` accepts exactly one operand.
+- `Not` accepts exactly one operand in its public API.
 
 ## Compatibility Requirements
 
