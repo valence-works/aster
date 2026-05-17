@@ -153,12 +153,27 @@ services
 
 The helper registers the provider concrete types and shared query/provider interfaces as singletons, keeping the active query service, provider identity, and capability declaration together without introducing provider discovery or a registry. Hosts that need different lifetimes can still use explicit manual DI registration.
 
-Or build common typed aspect filters without repeating convention-based identifiers:
+Or build common typed aspect filters and sorts without repeating convention-based identifiers:
 
 ```csharp
-var filter = TypedQuery.For<TitleAspect>()
+var title = TypedQuery.For<TitleAspect>()
     .Facet(x => x.Title)
     .Contains("Gadget");
+
+var price = TypedQuery.For<PriceAspect>()
+    .Facet(x => x.Amount)
+    .Range(max: 100m);
+
+var query = new ResourceQuery
+{
+    Filter = TypedQuery.And(title, price),
+    Sorts =
+    [
+        TypedQuery.For<PriceAspect>()
+            .Facet(x => x.Amount)
+            .Descending(),
+    ],
+};
 ```
 
 ---

@@ -188,14 +188,17 @@ Typed helpers reduce repeated aspect/facet strings while still producing the sam
 public sealed record TitleAspect(string Title);
 public sealed record PriceAspect(decimal Amount);
 
-var filter = new LogicalExpression(LogicalOperator.And, [
+var filter = TypedQuery.And(
     TypedQuery.For<TitleAspect>()
         .Facet(x => x.Title)
         .Contains("Gadget"),
     TypedQuery.For<PriceAspect>()
         .Facet(x => x.Amount)
-        .Range(min: 10m, max: 100m),
-]);
+        .Range(min: 10m, max: 100m));
+
+var sort = TypedQuery.For<PriceAspect>()
+    .Facet(x => x.Amount)
+    .Descending();
 ```
 
 By default, the aspect key is the CLR type name and the facet identifier is the selected member name. Override either value per query when targeting named aspects or non-conventional identifiers:
@@ -207,6 +210,8 @@ var filter = TypedQuery.For<PriceAspect>(aspectKey: "PriceAspect:Sale")
 ```
 
 The generated `AspectPresenceFilter` or `FacetValueFilter` remains inspectable before validation or execution.
+
+Typed sort helpers generate ordinary `SortExpression` values, and logical helpers generate ordinary `LogicalExpression` values. Manual AST construction remains fully supported.
 
 ---
 

@@ -2,7 +2,9 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, and typed query helpers are available.
+> **Current status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider authoring/conformance support, and SQLite facet sorting are available.
+>
+> For the current implementation trail and next Spec Kit slices, see [`docs/ExecutionRoadmap.md`](../docs/ExecutionRoadmap.md).
 
 ---
 
@@ -16,6 +18,16 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 | **4** | Portability & Integration Hooks | Planned |
 | **5** | Multi-tenancy, Policies, Advanced Versioning | Planned |
 | **6** | Operational Hardening | Planned |
+
+## Immediate Next Slices
+
+| Slice | Status | Purpose |
+|---|---|---|
+| **008 Typed Query Authoring Ergonomics** | Next | Add typed sort helpers and small composition conveniences over the existing `ResourceQuery` AST. |
+| **009 Portable Operator Expansion** | Planned | Add operators such as `NotEquals`, `In`, `StartsWith`, and facet value presence with provider capabilities and conformance coverage. |
+| **010 SQLite Date-Like Facet Ranges** | Planned | Close the remaining SQLite date-like range capability gap with explicit serialization rules. |
+| **011 Explicit Indexing Model** | Planned | Introduce intentional index projection contracts without a hidden planner or runtime scanning. |
+| **012 Definition Schema Versions & Upgrade Flow** | Planned | Make long-lived resource schema versioning and upgrade behavior explicit. |
 
 ---
 

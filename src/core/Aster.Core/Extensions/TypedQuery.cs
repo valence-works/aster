@@ -39,6 +39,35 @@ public static class TypedQuery
         return new(ResolveAspectKey<TAspect>(options.AspectKey), options.FacetIdentifier);
     }
 
+    /// <summary>
+    /// Combines filter expressions with a logical AND.
+    /// </summary>
+    /// <param name="operands">The filter expressions to combine.</param>
+    /// <returns>A logical AND expression.</returns>
+    public static FilterExpression And(params FilterExpression[] operands) =>
+        Logical(LogicalOperator.And, operands);
+
+    /// <summary>
+    /// Combines filter expressions with a logical OR.
+    /// </summary>
+    /// <param name="operands">The filter expressions to combine.</param>
+    /// <returns>A logical OR expression.</returns>
+    public static FilterExpression Or(params FilterExpression[] operands) =>
+        Logical(LogicalOperator.Or, operands);
+
+    /// <summary>
+    /// Negates a single filter expression.
+    /// </summary>
+    /// <param name="operands">The single filter expression to negate.</param>
+    /// <returns>A logical NOT expression.</returns>
+    public static FilterExpression Not(params FilterExpression[] operands)
+    {
+        if (operands.Length != 1)
+            throw new ArgumentException("Typed query Not composition requires exactly one operand.", nameof(operands));
+
+        return Logical(LogicalOperator.Not, operands);
+    }
+
     internal static string ResolveAspectKey<TAspect>(string? aspectKey) =>
         NonEmpty(aspectKey) ?? typeof(TAspect).Name;
 
@@ -71,6 +100,19 @@ public static class TypedQuery
             ?? memberName;
 
         return resolved;
+    }
+
+    private static FilterExpression Logical(LogicalOperator logicalOperator, IReadOnlyList<FilterExpression> operands)
+    {
+        ArgumentNullException.ThrowIfNull(operands);
+
+        if (operands.Count == 0)
+            throw new ArgumentException("Typed query logical composition requires at least one operand.", nameof(operands));
+
+        if (operands.Any(operand => operand is null))
+            throw new ArgumentException("Typed query logical composition does not accept null operands.", nameof(operands));
+
+        return new LogicalExpression(logicalOperator, operands);
     }
 
     private static string? NonEmpty(string? value) =>
@@ -176,4 +218,26 @@ public sealed class TypedFacetQuery<TValue>
             facetIdentifier,
             new RangeValue(min, max, includeMin, includeMax),
             ComparisonOperator.Range);
+
+    /// <summary>
+    /// Creates an ascending facet sort.
+    /// </summary>
+    /// <returns>A portable facet sort expression.</returns>
+    public SortExpression Ascending() =>
+        Sort(SortDirection.Ascending);
+
+    /// <summary>
+    /// Creates a descending facet sort.
+    /// </summary>
+    /// <returns>A portable facet sort expression.</returns>
+    public SortExpression Descending() =>
+        Sort(SortDirection.Descending);
+
+    /// <summary>
+    /// Creates a facet sort with the specified direction.
+    /// </summary>
+    /// <param name="direction">The sort direction.</param>
+    /// <returns>A portable facet sort expression.</returns>
+    public SortExpression Sort(SortDirection direction) =>
+        new(facetIdentifier, direction, aspectKey);
 }
