@@ -30,11 +30,12 @@ Supported query shapes:
 - `DefinitionId` shortcut filtering
 - metadata filters over `ResourceId`, `Id`, `DefinitionId`, `Owner`, `Version`, and `Created`
 - metadata sorting over the same fields
+- facet sorting over scalar facet values
 - `Skip` and `Take`
 - aspect presence checks
 - scalar facet `Equals`, string `Contains`, and numeric `Range`
 - `And`, `Or`, and single-operand `Not`
 
-Unsupported query shapes throw `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message. Facet sorting, metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges are intentionally out of scope for this phase.
+Unsupported query shapes throw `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message. Metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges are intentionally out of scope for this phase.
 
-The provider also declares this support through `SqliteJsonQueryCapabilitiesProvider` with provider key `sqlite-json`, so callers can inspect capabilities or use `IResourceQueryValidator` before execution. Validation reports unsupported SQLite shapes, such as facet sorting or date-like facet ranges, without falling back to the in-memory provider. Execution runs shared validation first and remains authoritative if validation is skipped.
+The provider also declares this support through `SqliteJsonQueryCapabilitiesProvider` with provider key `sqlite-json`, so callers can inspect capabilities or use `IResourceQueryValidator` before execution. Validation reports unsupported SQLite shapes, such as date-like facet ranges, without falling back to the in-memory provider. Execution runs shared validation first and remains authoritative if validation is skipped.

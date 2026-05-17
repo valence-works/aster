@@ -48,8 +48,8 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
 
         Assert.Equal(SqliteJsonQueryCapabilitiesProvider.ProviderKey, capabilities.ProviderKey);
         Assert.Equal("SQLite JSON", capabilities.ProviderName);
-        Assert.False(capabilities.SupportsFacetSorting);
-        Assert.False(validator.Validate(new ResourceQuery
+        Assert.True(capabilities.SupportsFacetSorting);
+        Assert.True(validator.Validate(new ResourceQuery
         {
             Sorts = [new SortExpression("Title", AspectKey: "TitleAspect")],
         }).IsValid);
@@ -62,7 +62,7 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         var sqlite = new SqliteJsonQueryCapabilitiesProvider().Capabilities;
 
         Assert.True(inMemory.SupportsFacetSorting);
-        Assert.False(sqlite.SupportsFacetSorting);
+        Assert.True(sqlite.SupportsFacetSorting);
         Assert.Contains(QueryValueShape.DateTime, inMemory.FacetRangeSupport);
         Assert.DoesNotContain(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
     }
@@ -81,11 +81,15 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         var validator = provider.GetRequiredService<IResourceQueryValidator>();
         var result = validator.Validate(new ResourceQuery
         {
-            Sorts = [new SortExpression("Title", AspectKey: "TitleAspect")],
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                ComparisonOperator.Range),
         });
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-facet-sort");
+        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
     }
 
     [Fact]
@@ -125,10 +129,17 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
             .BuildServiceProvider();
 
         await AssertValidationMatchesExecutionAsync(
-            new ResourceQuery { Sorts = [new SortExpression("Title", AspectKey: "TitleAspect")] },
+            new ResourceQuery
+            {
+                Filter = new FacetValueFilter(
+                    "Schedule",
+                    "StartsAt",
+                    new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                    ComparisonOperator.Range),
+            },
             provider.GetRequiredService<IResourceQueryValidator>(),
             provider.GetRequiredService<IResourceQueryService>(),
-            "unsupported-facet-sort");
+            "unsupported-range-value-shape");
     }
 
     private static async Task AssertValidatesAndExecutesAsync(

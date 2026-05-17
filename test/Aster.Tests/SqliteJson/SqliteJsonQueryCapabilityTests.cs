@@ -17,7 +17,7 @@ public sealed class SqliteJsonQueryCapabilityTests
         Assert.Equal("SQLite JSON", capabilities.ProviderName);
         Assert.True(capabilities.RequiresActivationChannelForActiveScope);
         Assert.True(capabilities.SupportsMetadataSorting);
-        Assert.False(capabilities.SupportsFacetSorting);
+        Assert.True(capabilities.SupportsFacetSorting);
         Assert.True(capabilities.SupportsSkip);
         Assert.True(capabilities.SupportsTake);
 
@@ -28,17 +28,17 @@ public sealed class SqliteJsonQueryCapabilityTests
     }
 
     [Fact]
-    public void Capabilities_ExcludeFacetSortingAndDateLikeFacetRanges()
+    public void Capabilities_IncludeFacetSortingAndExcludeDateLikeFacetRanges()
     {
-        Assert.False(capabilities.SupportsFacetSorting);
-        Assert.Contains("Facet sorting", capabilities.UnsupportedFeatures);
+        Assert.True(capabilities.SupportsFacetSorting);
+        Assert.DoesNotContain("Facet sorting", capabilities.UnsupportedFeatures);
         Assert.Contains(QueryValueShape.Numeric, capabilities.FacetRangeSupport);
         Assert.DoesNotContain(QueryValueShape.DateTime, capabilities.FacetRangeSupport);
         Assert.True(capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Range));
     }
 
     [Fact]
-    public void Validator_RejectsFacetSortingForSqliteCapabilities()
+    public void Validator_AcceptsFacetSortingForSqliteCapabilities()
     {
         var validator = new ServiceCollection()
             .AddAsterCore()
@@ -55,7 +55,7 @@ public sealed class SqliteJsonQueryCapabilityTests
             Sorts = [new SortExpression("Title", AspectKey: "TitleAspect")],
         });
 
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-facet-sort");
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Failures);
     }
 }

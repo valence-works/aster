@@ -22,7 +22,7 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
         for (var index = 0; index < sorts.Count; index++)
         {
             var sort = sorts[index];
-            orderings.Add($"{ResolveMetadataColumn(sort, index)} {ResolveDirection(sort.Direction, index)}");
+            orderings.Add(ResolveOrdering(sort, index));
         }
     }
 
@@ -132,22 +132,28 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                 """]);
     }
 
-    private static string ResolveMetadataColumn(SortExpression sort, int index)
+    private string ResolveOrdering(SortExpression sort, int index)
     {
-        if (!string.IsNullOrWhiteSpace(sort.AspectKey))
-            throw Unsupported(
-                "unsupported-facet-sort",
-                "sort",
-                "Facet sorting is not supported by the SQLite JSON query provider.",
-                $"Sorts[{index}]");
+        var direction = ResolveDirection(sort.Direction, index);
 
-        return SqliteMetadataField.ResolveColumn(
-            sort.Field,
+        if (string.IsNullOrWhiteSpace(sort.AspectKey))
+            return $"{ResolveMetadataColumn(sort.Field, index)} {direction}";
+
+        var facet = SqliteFacetValueExpression.Create(Parameters, sort.AspectKey, sort.Field);
+        return string.Join(", ", [
+            $"({facet.Value}) IS NULL ASC",
+            $"CASE WHEN {facet.IsNumeric} THEN CAST({facet.Value} AS REAL) END {direction}",
+            $"CASE WHEN NOT ({facet.IsNumeric}) THEN CAST({facet.Value} AS TEXT) END COLLATE {SqliteTextBehavior.OrdinalIgnoreCaseCollation} {direction}",
+        ]);
+    }
+
+    private static string ResolveMetadataColumn(string field, int index) =>
+        SqliteMetadataField.ResolveColumn(
+            field,
             "Metadata sort field",
             "unsupported-metadata-sort-field",
             "metadata field",
             $"Sorts[{index}].Field");
-    }
 
     private static string ResolveDirection(SortDirection direction, int index) => direction switch
     {
