@@ -10,6 +10,8 @@ namespace Aster.Core.Services;
 public sealed class ResourceQueryValidator : IResourceQueryValidator
 {
     private readonly QueryCapabilityDescription? capabilities;
+    private readonly string? activeProviderKey;
+    private readonly bool activeProviderExposesIdentity;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ResourceQueryValidator"/> class.
@@ -18,6 +20,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
     public ResourceQueryValidator(IEnumerable<IResourceQueryCapabilitiesProvider> capabilityProviders)
     {
         ArgumentNullException.ThrowIfNull(capabilityProviders);
+        activeProviderExposesIdentity = false;
         capabilities = capabilityProviders
             .Select(provider => provider.Capabilities)
             .LastOrDefault(HasProviderKey);
@@ -35,11 +38,18 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         ArgumentNullException.ThrowIfNull(capabilityProviders);
         ArgumentNullException.ThrowIfNull(queryService);
 
-        capabilities = queryService is IResourceQueryProviderIdentity identity
-            ? capabilityProviders
+        if (queryService is IResourceQueryProviderIdentity identity)
+        {
+            activeProviderExposesIdentity = true;
+            activeProviderKey = identity.ProviderKey;
+            capabilities = capabilityProviders
                 .Select(provider => provider.Capabilities)
-                .LastOrDefault(capabilities => IsCapabilityDeclarationForQueryService(capabilities, identity))
-            : null;
+                .LastOrDefault(capabilities => IsCapabilityDeclarationForQueryService(capabilities, identity));
+        }
+        else
+        {
+            activeProviderExposesIdentity = false;
+        }
     }
 
     /// <inheritdoc />
@@ -52,7 +62,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
             return new([
                 Failure(
                     "capabilities-not-declared",
-                    "Query capabilities are not declared for the active provider.",
+                    CapabilitiesNotDeclaredMessage(),
                     feature: "capabilities missing"),
             ]);
         }
@@ -390,4 +400,19 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
     private static bool HasProviderKey(QueryCapabilityDescription capabilities) =>
         !string.IsNullOrWhiteSpace(capabilities.ProviderKey);
+
+    private string CapabilitiesNotDeclaredMessage()
+    {
+        if (!activeProviderExposesIdentity)
+        {
+            return "Query capabilities are not declared for the active provider. Register a query provider that implements IResourceQueryProviderIdentity and an IResourceQueryCapabilitiesProvider with a matching ProviderKey.";
+        }
+
+        if (string.IsNullOrWhiteSpace(activeProviderKey))
+        {
+            return "Query capabilities are not declared for the active provider because its ProviderKey is empty. Use a stable non-empty ProviderKey and register an IResourceQueryCapabilitiesProvider with the same ProviderKey.";
+        }
+
+        return $"Query capabilities are not declared for active provider key '{activeProviderKey}'. Register an IResourceQueryCapabilitiesProvider with a matching ProviderKey.";
+    }
 }

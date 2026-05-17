@@ -143,6 +143,16 @@ if (!validation.IsValid)
 
 Provider capabilities are matched to the active query provider by explicit provider key. If a custom provider has no matching capability declaration, validation fails closed with `capabilities-not-declared`. Query execution still enforces unsupported shapes and throws `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message.
 
+Custom query providers can be registered with the provider-authoring helper:
+
+```csharp
+services
+    .AddAsterCore()
+    .AddResourceQueryProvider<MyQueryService, MyQueryCapabilitiesProvider>();
+```
+
+The helper registers the provider concrete types and shared query/provider interfaces as singletons, keeping the active query service, provider identity, and capability declaration together without introducing provider discovery or a registry. Hosts that need different lifetimes can still use explicit manual DI registration.
+
 Or build common typed aspect filters without repeating convention-based identifiers:
 
 ```csharp

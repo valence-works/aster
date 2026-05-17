@@ -24,6 +24,7 @@ All services are registered as **singletons**.
 | `IResourceVersionWriter` | `InMemoryResourceStore` | Version/activation write primitive |
 | `IResourceVersionReader` | `InMemoryResourceStore` | Query/read candidate version primitive |
 | `IResourceQueryService` | `InMemoryQueryService` | LINQ-based query evaluator |
+| `IResourceQueryProviderIdentity` | `InMemoryQueryService` | Exposes the active provider key |
 | `IResourceQueryCapabilitiesProvider` | `InMemoryQueryCapabilitiesProvider` | Declares in-memory query support |
 | `IResourceQueryValidator` | `ResourceQueryValidator` | Preflights `ResourceQuery` against active provider capabilities |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` | Aspect POCO ↔ raw storage via `System.Text.Json` |
@@ -56,13 +57,14 @@ builder.Services.AddAsterSqliteJson(options =>
 | `IResourceVersionWriter` | `SqliteJsonResourceStore` | Persists resource versions and activation state |
 | `IResourceVersionReader` | `SqliteJsonResourceStore` | Reads persisted version sets |
 | `IResourceQueryService` | `SqliteJsonQueryService` | Translates supported `ResourceQuery` ASTs to SQLite SQL/JSON queries |
+| `IResourceQueryProviderIdentity` | `SqliteJsonQueryProviderIdentity` | Exposes the active provider key without opening SQLite |
 | `IResourceQueryCapabilitiesProvider` | `SqliteJsonQueryCapabilitiesProvider` | Declares SQLite JSON query support |
 
 `AddAsterSqliteJson()` should be called after `AddAsterCore()` so the provider registrations become the resolved implementations for the shared interfaces. The shared `IResourceQueryValidator` uses the active provider's capability declaration when preflighting queries.
 
 Query providers and capability declarations are matched with explicit provider keys. The default in-memory provider uses `in-memory`; the SQLite JSON provider uses `sqlite-json`. If a host replaces `IResourceQueryService` without registering a capability declaration with the same key, validation fails closed with a `capabilities-not-declared` failure instead of silently validating against stale defaults.
 
-Custom query providers should implement `IResourceQueryProviderIdentity` and register a matching `IResourceQueryCapabilitiesProvider`:
+Custom query providers should implement `IResourceQueryProviderIdentity` and register a matching `IResourceQueryCapabilitiesProvider`. The recommended path is `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()`, which registers the query service, provider identity, and capability provider together:
 
 ```csharp
 public sealed class MyQueryService : IResourceQueryService, IResourceQueryProviderIdentity
@@ -85,7 +87,27 @@ public sealed class MyQueryCapabilitiesProvider : IResourceQueryCapabilitiesProv
         ProviderName: "My Provider",
         /* supported query surface */);
 }
+
+services
+    .AddAsterCore()
+    .AddResourceQueryProvider<MyQueryService, MyQueryCapabilitiesProvider>();
 ```
+
+The helper keeps provider selection explicit and does not scan assemblies or create a provider registry. It registers both concrete types and the shared `IResourceQueryService`, `IResourceQueryProviderIdentity`, and `IResourceQueryCapabilitiesProvider` interfaces as singletons. The active `IResourceQueryService` and `IResourceQueryProviderIdentity` resolve to `MyQueryService`; `IResourceQueryCapabilitiesProvider` resolves to `MyQueryCapabilitiesProvider` by normal last-registration-wins DI behavior.
+
+Manual registration remains supported for advanced hosts. Use the same lifetime consistently for the concrete query service and its shared interface mappings:
+
+```csharp
+services.AddSingleton<MyQueryService>();
+services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<MyQueryService>());
+services.AddSingleton<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<MyQueryService>());
+services.AddSingleton<MyQueryCapabilitiesProvider>();
+services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<MyQueryCapabilitiesProvider>());
+```
+
+Hosts that use scoped or transient query providers must also replace `IResourceQueryValidator` with a compatible lifetime, because `AddAsterCore()` registers the default validator as a singleton. Keep non-singleton provider wiring in host-owned registration code and cover it with host tests.
+
+If validation returns `capabilities-not-declared`, check that the active query service implements `IResourceQueryProviderIdentity`, exposes a non-empty `ProviderKey`, and has a registered capability declaration with the exact same `ProviderKey`.
 
 ---
 
