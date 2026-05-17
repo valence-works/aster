@@ -181,9 +181,28 @@ public sealed class ResourceQueryValidatorTests
         var result = provider.GetRequiredService<IResourceQueryValidator>().Validate(new ResourceQuery());
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Failures, failure => failure.Code == "capabilities-not-declared");
-        Assert.Contains("custom", result.Failures[0].Message);
-        Assert.Contains("matching ProviderKey", result.Failures[0].Message);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("capabilities-not-declared", failure.Code);
+        Assert.Contains("custom", failure.Message);
+        Assert.Contains("matching ProviderKey", failure.Message);
+    }
+
+    [Fact]
+    public void Validate_WhenActiveQueryServiceHasNoProviderIdentity_FailsClosedWithIdentityGuidance()
+    {
+        using var provider = new ServiceCollection()
+            .AddSingleton<IResourceQueryCapabilitiesProvider, InMemoryQueryCapabilitiesProvider>()
+            .AddSingleton<IResourceQueryService, QueryServiceWithoutProviderIdentity>()
+            .AddSingleton<IResourceQueryValidator, ResourceQueryValidator>()
+            .BuildServiceProvider();
+
+        var result = provider.GetRequiredService<IResourceQueryValidator>().Validate(new ResourceQuery());
+
+        Assert.False(result.IsValid);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("capabilities-not-declared", failure.Code);
+        Assert.Contains("IResourceQueryProviderIdentity", failure.Message);
+        Assert.Contains("matching ProviderKey", failure.Message);
     }
 
     [Fact]
@@ -246,6 +265,14 @@ public sealed class ResourceQueryValidatorTests
     {
         public string ProviderKey => "custom";
 
+        public ValueTask<IEnumerable<Resource>> QueryAsync(
+            ResourceQuery query,
+            CancellationToken cancellationToken = default) =>
+            new([]);
+    }
+
+    private sealed class QueryServiceWithoutProviderIdentity : IResourceQueryService
+    {
         public ValueTask<IEnumerable<Resource>> QueryAsync(
             ResourceQuery query,
             CancellationToken cancellationToken = default) =>
