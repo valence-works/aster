@@ -238,15 +238,15 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
                 "In predicates require a non-string enumerable value set.",
                 "Filter.Value");
 
-        var matchedAny = false;
+        var hasElements = false;
         foreach (var candidate in enumerable)
         {
-            matchedAny = true;
+            hasElements = true;
             if (ValuesEqual(actual, candidate))
                 return true;
         }
 
-        if (!matchedAny)
+        if (!hasElements)
             throw Unsupported(
                 "empty-in-values",
                 "value shape",

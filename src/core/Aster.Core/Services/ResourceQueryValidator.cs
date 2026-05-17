@@ -422,7 +422,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         failures.Add(Failure(
             "text-value-required",
-            "Text predicates require a non-null string value.",
+            "Text predicates require a string value.",
             path,
             "value shape"));
     }
