@@ -182,6 +182,8 @@ public sealed class ResourceQueryValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Failures, failure => failure.Code == "capabilities-not-declared");
+        Assert.Contains("custom", result.Failures[0].Message);
+        Assert.Contains("matching ProviderKey", result.Failures[0].Message);
     }
 
     [Fact]
@@ -198,6 +200,8 @@ public sealed class ResourceQueryValidatorTests
         Assert.False(result.IsValid);
         var failure = Assert.Single(result.Failures);
         Assert.Equal("capabilities-not-declared", failure.Code);
+        Assert.Contains("custom", failure.Message);
+        Assert.Contains("matching ProviderKey", failure.Message);
     }
 
     private sealed class EmptyCapabilitiesProvider : IResourceQueryCapabilitiesProvider

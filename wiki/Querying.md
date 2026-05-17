@@ -138,6 +138,8 @@ Console.WriteLine(capabilities.SupportsFacetSorting);
 Capabilities describe supported scopes, filter categories, comparison operators, logical operators, metadata fields, sort categories, paging, facet range value shapes, and known exclusions. The in-memory provider currently declares facet sorting and numeric/date-like facet ranges; SQLite JSON declares metadata sorting, numeric facet ranges, and no facet sorting.
 Capability declarations are matched to the active query provider by explicit `ProviderKey` values such as `in-memory` and `sqlite-json`.
 
+Custom providers can use `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` to register their active query service and matching capability provider together. Validation fails closed with `capabilities-not-declared` when the active provider key has no matching declaration.
+
 ## Preflight Validation
 
 Use `IResourceQueryValidator` to validate a query before execution:

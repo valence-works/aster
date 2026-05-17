@@ -164,6 +164,8 @@ catch (UnsupportedQueryFeatureException ex)
 
 Use `IResourceQueryValidator` for non-throwing preflight when handling user-defined queries. Execution remains authoritative, so callers should still handle this exception when validation is skipped or provider-specific checks fail later.
 
+When validation returns `capabilities-not-declared`, the active query provider has no matching capability declaration. For custom providers, register the provider and capabilities together with `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` or ensure manual registrations expose the same non-empty provider key.
+
 ---
 
 ## Handling Pattern

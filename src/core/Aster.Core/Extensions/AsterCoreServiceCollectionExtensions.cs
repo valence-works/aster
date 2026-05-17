@@ -14,6 +14,30 @@ namespace Aster.Core.Extensions;
 public static class AsterCoreServiceCollectionExtensions
 {
     /// <summary>
+    /// Registers a custom resource query provider and its matching capability declaration.
+    /// </summary>
+    /// <typeparam name="TQueryService">The concrete query service type.</typeparam>
+    /// <typeparam name="TCapabilitiesProvider">The concrete capability provider type.</typeparam>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <returns>The <paramref name="services"/> for chaining.</returns>
+    public static IServiceCollection AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>(
+        this IServiceCollection services)
+        where TQueryService : class, IResourceQueryService, IResourceQueryProviderIdentity
+        where TCapabilitiesProvider : class, IResourceQueryCapabilitiesProvider
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<TQueryService>();
+        services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<TQueryService>());
+        services.AddSingleton<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<TQueryService>());
+
+        services.AddSingleton<TCapabilitiesProvider>();
+        services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<TCapabilitiesProvider>());
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers all Aster Core in-memory services:
     /// <see cref="InMemoryResourceDefinitionStore"/>, <see cref="InMemoryResourceManager"/>,
     /// <see cref="InMemoryQueryService"/>, <see cref="SystemTextJsonAspectBinder"/>,

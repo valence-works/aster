@@ -62,7 +62,7 @@ builder.Services.AddAsterSqliteJson(options =>
 
 Query providers and capability declarations are matched with explicit provider keys. The default in-memory provider uses `in-memory`; the SQLite JSON provider uses `sqlite-json`. If a host replaces `IResourceQueryService` without registering a capability declaration with the same key, validation fails closed with a `capabilities-not-declared` failure instead of silently validating against stale defaults.
 
-Custom query providers should implement `IResourceQueryProviderIdentity` and register a matching `IResourceQueryCapabilitiesProvider`:
+Custom query providers should implement `IResourceQueryProviderIdentity` and register a matching `IResourceQueryCapabilitiesProvider`. The recommended path is `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()`, which registers the query service, provider identity, and capability provider together:
 
 ```csharp
 public sealed class MyQueryService : IResourceQueryService, IResourceQueryProviderIdentity
@@ -85,7 +85,25 @@ public sealed class MyQueryCapabilitiesProvider : IResourceQueryCapabilitiesProv
         ProviderName: "My Provider",
         /* supported query surface */);
 }
+
+services
+    .AddAsterCore()
+    .AddResourceQueryProvider<MyQueryService, MyQueryCapabilitiesProvider>();
 ```
+
+The helper keeps provider selection explicit and does not scan assemblies or create a provider registry. It registers both concrete types and the shared `IResourceQueryService`, `IResourceQueryProviderIdentity`, and `IResourceQueryCapabilitiesProvider` interfaces as singletons. The active `IResourceQueryService` and `IResourceQueryProviderIdentity` resolve to `MyQueryService`; `IResourceQueryCapabilitiesProvider` resolves to `MyQueryCapabilitiesProvider` by normal last-registration-wins DI behavior.
+
+Manual registration remains supported for advanced hosts, including hosts that need non-singleton lifetimes:
+
+```csharp
+services.AddSingleton<MyQueryService>();
+services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<MyQueryService>());
+services.AddSingleton<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<MyQueryService>());
+services.AddSingleton<MyQueryCapabilitiesProvider>();
+services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<MyQueryCapabilitiesProvider>());
+```
+
+If validation returns `capabilities-not-declared`, check that the active query service implements `IResourceQueryProviderIdentity`, exposes a non-empty `ProviderKey`, and has a registered capability declaration with the exact same `ProviderKey`.
 
 ---
 
