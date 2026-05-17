@@ -1,6 +1,6 @@
 # Tasks: Provider Authoring Ergonomics
 
-**Input**: Design documents from `/specs/005-provider-authoring-ergonomics/`
+**Input**: Design documents from `specs/005-provider-authoring-ergonomics/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/provider-authoring-ergonomics.md, quickstart.md
 **Tests**: Required by FR-005, FR-006, FR-011, SC-001, SC-002, SC-004
 
@@ -16,10 +16,10 @@
 
 **Purpose**: Confirm the feature branch and existing provider/querying surface are ready for implementation.
 
-- [X] T001 Inspect existing query provider DI registrations in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
-- [X] T002 [P] Inspect existing provider identity and capability contracts in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Abstractions/IResourceQueryProviderIdentity.cs` and `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Abstractions/IResourceQueryCapabilitiesProvider.cs`
-- [X] T003 [P] Inspect existing query validation diagnostics in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceQueryValidator.cs`
-- [X] T004 Confirm no new dependency or storage changes are needed by checking `/Users/sipke/Projects/ValenceWorks/aster/specs/005-provider-authoring-ergonomics/plan.md`
+- [X] T001 Inspect existing query provider DI registrations in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
+- [X] T002 [P] Inspect existing provider identity and capability contracts in `src/core/Aster.Core/Abstractions/IResourceQueryProviderIdentity.cs` and `src/core/Aster.Core/Abstractions/IResourceQueryCapabilitiesProvider.cs`
+- [X] T003 [P] Inspect existing query validation diagnostics in `src/core/Aster.Core/Services/ResourceQueryValidator.cs`
+- [X] T004 Confirm no new dependency or storage changes are needed by checking `specs/005-provider-authoring-ergonomics/plan.md`
 
 ---
 
@@ -29,10 +29,10 @@
 
 **CRITICAL**: No user story work should begin until this phase is complete.
 
-- [X] T005 Create provider-authoring test scaffolding in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T006 Add custom provider test doubles implementing `IResourceQueryService` and `IResourceQueryProviderIdentity` in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T007 Add custom capabilities provider test doubles implementing `IResourceQueryCapabilitiesProvider` in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T008 Add shared custom query builder or fixture helpers for provider-authoring tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T005 Create provider-authoring test scaffolding in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T006 Add custom provider test doubles implementing `IResourceQueryService` and `IResourceQueryProviderIdentity` in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T007 Add custom capabilities provider test doubles implementing `IResourceQueryCapabilitiesProvider` in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T008 Add shared custom query builder or fixture helpers for provider-authoring tests in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
 
 **Checkpoint**: Test scaffolding exists and user story work can proceed.
 
@@ -46,16 +46,16 @@
 
 ### Tests for User Story 1
 
-- [X] T009 [US1] Add a failing test proving `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` resolves the custom provider as active `IResourceQueryService` in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T010 [US1] Add a failing test proving the helper resolves the custom provider identity and matching capability declaration in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T011 [US1] Add a failing test proving custom capabilities are used instead of earlier in-memory defaults in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T012 [US1] Add a failing test proving the helper registers query service and capabilities provider concrete types plus shared interfaces as singletons in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T009 [US1] Add a failing test proving `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` resolves the custom provider as active `IResourceQueryService` in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T010 [US1] Add a failing test proving the helper resolves the custom provider identity and matching capability declaration in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T011 [US1] Add a failing test proving custom capabilities are used instead of earlier in-memory defaults in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T012 [US1] Add a failing test proving the helper registers query service and capabilities provider concrete types plus shared interfaces as singletons in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
 
 ### Implementation for User Story 1
 
-- [X] T013 [US1] Implement `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
-- [X] T014 [US1] Apply generic constraints requiring `TQueryService` to implement `IResourceQueryService` and `IResourceQueryProviderIdentity` and `TCapabilitiesProvider` to implement `IResourceQueryCapabilitiesProvider` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
-- [X] T015 [US1] Register the query service and capabilities provider concrete types and shared interfaces as singletons while preserving last-registration-wins behavior in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
+- [X] T013 [US1] Implement `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
+- [X] T014 [US1] Apply generic constraints requiring `TQueryService` to implement `IResourceQueryService` and `IResourceQueryProviderIdentity` and `TCapabilitiesProvider` to implement `IResourceQueryCapabilitiesProvider` in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
+- [X] T015 [US1] Register the query service and capabilities provider concrete types and shared interfaces as singletons while preserving last-registration-wins behavior in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
 
 **Checkpoint**: User Story 1 is functional and independently testable.
 
@@ -69,15 +69,15 @@
 
 ### Tests for User Story 2
 
-- [X] T016 [US2] Add a failing test for missing custom provider capabilities returning `capabilities-not-declared` in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T017 [US2] Add a failing test for mismatched provider keys returning `capabilities-not-declared` with the active provider key in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T018 [P] [US2] Update existing validator diagnostic assertions for actionable provider-key guidance in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ResourceQueryValidatorTests.cs`
+- [X] T016 [US2] Add a failing test for missing custom provider capabilities returning `capabilities-not-declared` in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T017 [US2] Add a failing test for mismatched provider keys returning `capabilities-not-declared` with the active provider key in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T018 [P] [US2] Update existing validator diagnostic assertions for actionable provider-key guidance in `test/Aster.Tests/Querying/ResourceQueryValidatorTests.cs`
 
 ### Implementation for User Story 2
 
-- [X] T019 [US2] Update `ResourceQueryValidator` to track the active provider key from `IResourceQueryProviderIdentity` when available in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceQueryValidator.cs`
-- [X] T020 [US2] Improve the `capabilities-not-declared` message for missing identity, empty provider key, and mismatched capabilities in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceQueryValidator.cs`
-- [X] T021 [US2] Confirm validation still returns failures instead of throwing for missing or mismatched capabilities in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceQueryValidator.cs`
+- [X] T019 [US2] Update `ResourceQueryValidator` to track the active provider key from `IResourceQueryProviderIdentity` when available in `src/core/Aster.Core/Services/ResourceQueryValidator.cs`
+- [X] T020 [US2] Improve the `capabilities-not-declared` message for missing identity, empty provider key, and mismatched capabilities in `src/core/Aster.Core/Services/ResourceQueryValidator.cs`
+- [X] T021 [US2] Confirm validation still returns failures instead of throwing for missing or mismatched capabilities in `src/core/Aster.Core/Services/ResourceQueryValidator.cs`
 
 **Checkpoint**: User Story 2 is functional and independently testable.
 
@@ -91,14 +91,14 @@
 
 ### Tests for User Story 3
 
-- [X] T022 [US3] Add a failing test proving a custom provider can run shared validation before execution in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T023 [US3] Add a failing test proving provider-specific execution failures remain structured and authoritative in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T022 [US3] Add a failing test proving a custom provider can run shared validation before execution in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T023 [US3] Add a failing test proving provider-specific execution failures remain structured and authoritative in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
 
 ### Implementation for User Story 3
 
-- [X] T024 [US3] Add or adjust custom provider test-double execution logic that maps validation failures through structured unsupported-query failures in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T025 [US3] Document shared validation before execution and execution-authoritative behavior in `/Users/sipke/Projects/ValenceWorks/aster/wiki/Querying.md`
-- [X] T026 [US3] Document structured provider-specific unsupported-query failures in `/Users/sipke/Projects/ValenceWorks/aster/wiki/Exception-Reference.md`
+- [X] T024 [US3] Add or adjust custom provider test-double execution logic that maps validation failures through structured unsupported-query failures in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T025 [US3] Document shared validation before execution and execution-authoritative behavior in `wiki/Querying.md`
+- [X] T026 [US3] Document structured provider-specific unsupported-query failures in `wiki/Exception-Reference.md`
 
 **Checkpoint**: User Story 3 is functional and independently testable.
 
@@ -112,15 +112,15 @@
 
 ### Tests for User Story 4
 
-- [X] T027 [US4] Verify the quickstart minimal registration example is represented by tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
-- [X] T028 [US4] Verify existing built-in `AddAsterCore()` and `AddAsterSqliteJson()` behavior remains unchanged in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T027 [US4] Verify the quickstart minimal registration example is represented by tests in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
+- [X] T028 [US4] Verify existing built-in `AddAsterCore()` and `AddAsterSqliteJson()` behavior remains unchanged in `test/Aster.Tests/Querying/ProviderAuthoringTests.cs`
 
 ### Implementation for User Story 4
 
-- [X] T029 [P] [US4] Document the provider registration helper and manual-registration lifetime escape hatch in `/Users/sipke/Projects/ValenceWorks/aster/wiki/DI-Registration.md`
-- [X] T030 [P] [US4] Add provider-authoring guidance to the package README in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/README.md`
-- [X] T031 [P] [US4] Update the feature quickstart with the singleton helper contract and troubleshooting guidance in `/Users/sipke/Projects/ValenceWorks/aster/specs/005-provider-authoring-ergonomics/quickstart.md`
-- [X] T032 [P] [US4] Update the public contract document with singleton helper behavior in `/Users/sipke/Projects/ValenceWorks/aster/specs/005-provider-authoring-ergonomics/contracts/provider-authoring-ergonomics.md`
+- [X] T029 [P] [US4] Document the provider registration helper and manual-registration lifetime escape hatch in `wiki/DI-Registration.md`
+- [X] T030 [P] [US4] Add provider-authoring guidance to the package README in `src/core/Aster.Core/README.md`
+- [X] T031 [P] [US4] Update the feature quickstart with the singleton helper contract and troubleshooting guidance in `specs/005-provider-authoring-ergonomics/quickstart.md`
+- [X] T032 [P] [US4] Update the public contract document with singleton helper behavior in `specs/005-provider-authoring-ergonomics/contracts/provider-authoring-ergonomics.md`
 
 **Checkpoint**: User Story 4 is documented and independently verifiable.
 
@@ -130,11 +130,11 @@
 
 **Purpose**: Verify compatibility, constitution alignment, and final quality.
 
-- [X] T033 [P] Update agent context after planning artifacts are current by running `.specify/scripts/bash/update-agent-context.sh copilot` from `/Users/sipke/Projects/ValenceWorks/aster`
-- [X] T034 [P] Review implementation for unnecessary abstractions, runtime scanning, provider registry behavior, public raw SQL, and public `IQueryable<Resource>` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core`
-- [X] T035 Run `dotnet test Aster.sln` from `/Users/sipke/Projects/ValenceWorks/aster`
-- [X] T036 Run `dotnet build Aster.sln` from `/Users/sipke/Projects/ValenceWorks/aster`
-- [X] T037 Run `git diff --check` from `/Users/sipke/Projects/ValenceWorks/aster`
+- [X] T033 [P] Update agent context after planning artifacts are current by running `.specify/scripts/bash/update-agent-context.sh copilot` from `repository root`
+- [X] T034 [P] Review implementation for unnecessary abstractions, runtime scanning, provider registry behavior, public raw SQL, and public `IQueryable<Resource>` in `src/core/Aster.Core`
+- [X] T035 Run `dotnet test Aster.sln` from `repository root`
+- [X] T036 Run `dotnet build Aster.sln` from `repository root`
+- [X] T037 Run `git diff --check` from `repository root`
 
 ---
 
@@ -169,8 +169,8 @@
 ## Parallel Example: User Story 2
 
 ```bash
-Task: "Add a failing test for missing custom provider capabilities returning capabilities-not-declared in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ProviderAuthoringTests.cs"
-Task: "Update existing validator diagnostic assertions for actionable provider-key guidance in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/ResourceQueryValidatorTests.cs"
+Task: "Add a failing test for missing custom provider capabilities returning capabilities-not-declared in test/Aster.Tests/Querying/ProviderAuthoringTests.cs"
+Task: "Update existing validator diagnostic assertions for actionable provider-key guidance in test/Aster.Tests/Querying/ResourceQueryValidatorTests.cs"
 ```
 
 ---

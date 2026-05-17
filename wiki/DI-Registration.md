@@ -57,7 +57,7 @@ builder.Services.AddAsterSqliteJson(options =>
 | `IResourceVersionWriter` | `SqliteJsonResourceStore` | Persists resource versions and activation state |
 | `IResourceVersionReader` | `SqliteJsonResourceStore` | Reads persisted version sets |
 | `IResourceQueryService` | `SqliteJsonQueryService` | Translates supported `ResourceQuery` ASTs to SQLite SQL/JSON queries |
-| `IResourceQueryProviderIdentity` | `SqliteJsonQueryService` | Exposes the active provider key |
+| `IResourceQueryProviderIdentity` | `SqliteJsonQueryProviderIdentity` | Exposes the active provider key without opening SQLite |
 | `IResourceQueryCapabilitiesProvider` | `SqliteJsonQueryCapabilitiesProvider` | Declares SQLite JSON query support |
 
 `AddAsterSqliteJson()` should be called after `AddAsterCore()` so the provider registrations become the resolved implementations for the shared interfaces. The shared `IResourceQueryValidator` uses the active provider's capability declaration when preflighting queries.

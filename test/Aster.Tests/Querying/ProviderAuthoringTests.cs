@@ -191,6 +191,32 @@ public sealed class ProviderAuthoringTests
             provider.GetRequiredService<IResourceQueryProviderIdentity>().ProviderKey);
     }
 
+    [Fact]
+    public void AddAsterSqliteJson_ResolvesProviderIdentityWithoutInitializingSqlite()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+
+        try
+        {
+            using var provider = new ServiceCollection()
+                .AddAsterCore()
+                .AddAsterSqliteJson(options =>
+                {
+                    options.ConnectionString = $"Data Source={databasePath}";
+                })
+                .BuildServiceProvider();
+
+            var identity = provider.GetRequiredService<IResourceQueryProviderIdentity>();
+
+            Assert.Equal(SqliteJsonQueryCapabilitiesProvider.ProviderKey, identity.ProviderKey);
+            Assert.False(File.Exists(databasePath));
+        }
+        finally
+        {
+            File.Delete(databasePath);
+        }
+    }
+
     private sealed class CustomQueryService : IResourceQueryService, IResourceQueryProviderIdentity
     {
         public const string ProviderKeyValue = "custom-provider";

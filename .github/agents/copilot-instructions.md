@@ -1,6 +1,6 @@
 # main Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-03-04
+Auto-generated from all feature plans. Last updated: 2026-05-17
 
 ## Active Technologies
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`; SQLite provider keeps existing `Microsoft.Data.Sqlite` (003-query-capabilities-typed)
