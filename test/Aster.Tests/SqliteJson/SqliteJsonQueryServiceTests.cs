@@ -310,9 +310,14 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         {
             Filter = new FacetValueFilter("Price", "Amount", new RangeValue(-1, 1), ComparisonOperator.Range),
         })).ToList();
+        var notEqualsResults = (await query.QueryAsync(new ResourceQuery
+        {
+            Filter = new FacetValueFilter("Price", "Amount", 0, ComparisonOperator.NotEquals),
+        })).ToList();
 
         Assert.Equal(["product-b"], equalsResults.Select(r => r.ResourceId).ToList());
         Assert.Equal(["product-b"], rangeResults.Select(r => r.ResourceId).ToList());
+        Assert.Equal(["product-a"], notEqualsResults.Select(r => r.ResourceId).ToList());
     }
 
     [Fact]
@@ -338,6 +343,44 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
 
         Assert.Single(metadataResults);
         Assert.Single(facetResults);
+    }
+
+    [Fact]
+    public async Task QueryAsync_PortableOperators_AreTranslatedToSqlite()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "alice", aspects: new()
+        {
+            ["Title"] = new { Title = "Alpha Gadget" },
+            ["Category"] = new { Category = "Electronics" },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", owner: "bob", aspects: new()
+        {
+            ["Title"] = new { Title = "Beta Widget" },
+            ["Category"] = new { Category = "Hardware" },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-c", "Product", owner: "carol", aspects: new()
+        {
+            ["Category"] = new { Category = "Electronics" },
+        }));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            Filter = new LogicalExpression(LogicalOperator.And, [
+                new MetadataFilter("Owner", "bob", ComparisonOperator.NotEquals),
+                new MetadataFilter("Owner", new[] { "alice", "carol" }, ComparisonOperator.In),
+                new FacetValueFilter("Category", "Category", "Hardware", ComparisonOperator.NotEquals),
+                new FacetValueFilter("Category", "Category", new[] { "Electronics" }, ComparisonOperator.In),
+                new FacetValueFilter("Title", "Title", "Alpha", ComparisonOperator.StartsWith),
+                new FacetValueFilter("Title", "Title", true, ComparisonOperator.Exists),
+            ]),
+        })).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("product-a", results[0].ResourceId);
     }
 
     [Fact]

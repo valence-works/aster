@@ -186,6 +186,22 @@ public sealed class TypedFacetQuery<TValue>
         new FacetValueFilter(aspectKey, facetIdentifier, value!, ComparisonOperator.Equals);
 
     /// <summary>
+    /// Creates an inequality facet filter.
+    /// </summary>
+    /// <param name="value">The value to exclude.</param>
+    /// <returns>A portable facet value filter.</returns>
+    public FilterExpression NotEqualTo(TValue value) =>
+        new FacetValueFilter(aspectKey, facetIdentifier, value!, ComparisonOperator.NotEquals);
+
+    /// <summary>
+    /// Creates a membership facet filter.
+    /// </summary>
+    /// <param name="values">The candidate values to match.</param>
+    /// <returns>A portable facet value filter.</returns>
+    public FilterExpression In(params TValue[] values) =>
+        new FacetValueFilter(aspectKey, facetIdentifier, values, ComparisonOperator.In);
+
+    /// <summary>
     /// Creates a string containment facet filter.
     /// </summary>
     /// <param name="value">The substring to match.</param>
@@ -198,6 +214,27 @@ public sealed class TypedFacetQuery<TValue>
     /// </remarks>
     public FilterExpression Contains(string value) =>
         new FacetValueFilter(aspectKey, facetIdentifier, value, ComparisonOperator.Contains);
+
+    /// <summary>
+    /// Creates a string prefix facet filter.
+    /// </summary>
+    /// <param name="value">The prefix to match.</param>
+    /// <returns>A portable facet value filter.</returns>
+    /// <remarks>
+    /// Prefix matching is a string-oriented predicate. Using this on non-string typed facets produces
+    /// a syntactically valid AST node, but execution depends on how the active provider serializes
+    /// the facet value. Prefer <see cref="EqualTo"/> or <see cref="Range"/> for strongly typed
+    /// non-string comparisons.
+    /// </remarks>
+    public FilterExpression StartsWith(string value) =>
+        new FacetValueFilter(aspectKey, facetIdentifier, value, ComparisonOperator.StartsWith);
+
+    /// <summary>
+    /// Creates a facet existence filter.
+    /// </summary>
+    /// <returns>A portable facet value filter.</returns>
+    public FilterExpression Exists() =>
+        new FacetValueFilter(aspectKey, facetIdentifier, true, ComparisonOperator.Exists);
 
     /// <summary>
     /// Creates a range facet filter.

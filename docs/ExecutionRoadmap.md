@@ -1,6 +1,6 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
 
@@ -22,25 +22,9 @@ The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The n
 | `006-provider-conformance-tests` | Landed | Reusable conformance tests that compare declared capabilities with validation and execution behavior. |
 | `007-sqlite-facet-sorting` | Landed | SQLite facet sorting, null-last behavior, numeric/text ordering, capability updates, and tests/docs. |
 | `008-typed-query-authoring` | Landed | Typed facet sort helpers, small logical composition helpers, and updated roadmap/query docs over the existing query AST. |
+| `009-portable-operators` | Landed | Portable `NotEquals`, `In`, `StartsWith`, and facet `Exists` operators with provider capabilities, validation, built-in execution, typed helpers, and conformance coverage. |
 
 ## Near-Term Roadmap
-
-### 009 — Portable Operator Expansion
-
-**Goal:** Expand the portable query AST beyond `Equals`, `Contains`, and `Range` while preserving provider capability declarations.
-
-Candidate operators:
-
-- `NotEquals`
-- `In`
-- `StartsWith`
-- `Exists` for facet value presence, distinct from aspect presence
-
-Provider work:
-
-- In-memory support for all new operators.
-- SQLite support for the operators that can be translated simply and explicitly.
-- Capability and conformance updates for each operator.
 
 ### 010 — SQLite Date-Like Facet Ranges
 

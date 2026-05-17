@@ -103,6 +103,10 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
             SqliteTextBehavior.ContainsFunction,
             SqliteTextBehavior.ContainsIgnoreCase);
 
+        connection.CreateFunction<string?, string?, bool>(
+            SqliteTextBehavior.StartsWithFunction,
+            SqliteTextBehavior.StartsWithIgnoreCase);
+
         connection.CreateCollation(
             SqliteTextBehavior.OrdinalIgnoreCaseCollation,
             SqliteTextBehavior.CompareIgnoreCase);

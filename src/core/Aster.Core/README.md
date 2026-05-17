@@ -158,7 +158,11 @@ Or build common typed aspect filters and sorts without repeating convention-base
 ```csharp
 var title = TypedQuery.For<TitleAspect>()
     .Facet(x => x.Title)
-    .Contains("Gadget");
+    .StartsWith("Gadget");
+
+var titleSet = TypedQuery.For<TitleAspect>()
+    .Facet(x => x.Title)
+    .In("Gadget Pro", "Gadget Plus");
 
 var price = TypedQuery.For<PriceAspect>()
     .Facet(x => x.Amount)
@@ -166,7 +170,7 @@ var price = TypedQuery.For<PriceAspect>()
 
 var query = new ResourceQuery
 {
-    Filter = TypedQuery.And(title, price),
+    Filter = TypedQuery.And(title, titleSet, price),
     Sorts =
     [
         TypedQuery.For<PriceAspect>()

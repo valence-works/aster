@@ -33,7 +33,10 @@ Supported query shapes:
 - facet sorting over scalar facet values
 - `Skip` and `Take`
 - aspect presence checks
-- scalar facet `Equals`, string `Contains`, and numeric `Range`
+- metadata/facet `Equals`, `NotEquals`, and `In`
+- string `Contains` and `StartsWith`
+- facet `Exists`
+- numeric facet `Range`
 - `And`, `Or`, and single-operand `Not`
 
 Unsupported query shapes throw `UnsupportedQueryFeatureException` with stable `Code`, `Feature`, optional `Path`, and an actionable message. Metadata range filters, unknown metadata fields, empty ranges, negative paging values, and date-like facet ranges are intentionally out of scope for this phase.

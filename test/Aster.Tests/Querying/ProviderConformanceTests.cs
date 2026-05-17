@@ -460,6 +460,42 @@ internal static class ProviderConformanceSuite
                 });
         }
 
+        if (capabilities.SupportedMetadataFields.Contains("Owner")
+            && capabilities.SupportsComparison(QueryFilterType.Metadata, ComparisonOperator.NotEquals))
+        {
+            yield return new(
+                "Metadata not-equals filter",
+                "Metadata filter",
+                new ResourceQuery
+                {
+                    Filter = new MetadataFilter("Owner", "bob", ComparisonOperator.NotEquals),
+                });
+        }
+
+        if (capabilities.SupportedMetadataFields.Contains("Owner")
+            && capabilities.SupportsComparison(QueryFilterType.Metadata, ComparisonOperator.In))
+        {
+            yield return new(
+                "Metadata in filter",
+                "Metadata filter",
+                new ResourceQuery
+                {
+                    Filter = new MetadataFilter("Owner", new[] { "alice", "carol" }, ComparisonOperator.In),
+                });
+        }
+
+        if (capabilities.SupportedMetadataFields.Contains("Owner")
+            && capabilities.SupportsComparison(QueryFilterType.Metadata, ComparisonOperator.StartsWith))
+        {
+            yield return new(
+                "Metadata starts-with filter",
+                "Metadata filter",
+                new ResourceQuery
+                {
+                    Filter = new MetadataFilter("Owner", "ali", ComparisonOperator.StartsWith),
+                });
+        }
+
         if (capabilities.SupportedFilterTypes.Contains(QueryFilterType.AspectPresence))
         {
             yield return new(
@@ -479,6 +515,50 @@ internal static class ProviderConformanceSuite
                 new ResourceQuery
                 {
                     Filter = new FacetValueFilter("Title", "Title", "Gadget", ComparisonOperator.Contains),
+                });
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.NotEquals))
+        {
+            yield return new(
+                "Facet not-equals filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Title", "Title", "Beta Widget", ComparisonOperator.NotEquals),
+                });
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.In))
+        {
+            yield return new(
+                "Facet in filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Title", "Title", new[] { "Alpha Gadget Updated", "Other" }, ComparisonOperator.In),
+                });
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.StartsWith))
+        {
+            yield return new(
+                "Facet starts-with filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Title", "Title", "Alpha", ComparisonOperator.StartsWith),
+                });
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Exists))
+        {
+            yield return new(
+                "Facet exists filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Title", "Title", true, ComparisonOperator.Exists),
                 });
         }
 
@@ -561,6 +641,18 @@ internal static class ProviderConformanceSuite
             "Paging",
             new ResourceQuery { Take = -1 },
             RequiresMatch: false);
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.In))
+        {
+            yield return new(
+                "Invalid facet in value shape",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Title", "Title", "Alpha", ComparisonOperator.In),
+                },
+                RequiresMatch: false);
+        }
 
         if (!capabilities.SupportsFacetSorting)
         {

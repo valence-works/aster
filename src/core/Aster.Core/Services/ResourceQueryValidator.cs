@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Collections;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Querying;
 
@@ -185,15 +186,18 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         ValidateComparison(QueryFilterType.Metadata, filter.Operator, $"{path}.Operator", failures);
 
-        if (filter.Operator == ComparisonOperator.Contains
+        if (filter.Operator is ComparisonOperator.Contains or ComparisonOperator.StartsWith
             && !capabilities.MetadataContainsFields.Contains(filter.Field))
         {
             failures.Add(Failure(
                 "unsupported-metadata-contains-field",
-                $"Metadata field '{filter.Field}' does not support containment filtering in {capabilities.ProviderName}.",
+                $"Metadata field '{filter.Field}' does not support text filtering in {capabilities.ProviderName}.",
                 $"{path}.Field",
                 "metadata field"));
         }
+
+        if (filter.Operator == ComparisonOperator.In)
+            ValidateInValue(filter.Value, $"{path}.Value", failures);
     }
 
     private void ValidateFacetValueFilter(FacetValueFilter filter, string path, List<QueryValidationFailure> failures)
@@ -205,6 +209,9 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         if (filter.Operator == ComparisonOperator.Range)
             ValidateRangeValue(filter.Value, $"{path}.Value", failures);
+
+        if (filter.Operator == ComparisonOperator.In)
+            ValidateInValue(filter.Value, $"{path}.Value", failures);
     }
 
     private void ValidateLogicalExpression(LogicalExpression expression, string path, List<QueryValidationFailure> failures)
@@ -360,6 +367,46 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
             $"Range value shape '{shape?.ToString() ?? value.GetType().Name}' is not supported by {capabilities!.ProviderName}.",
             path,
             "value shape"));
+    }
+
+    private static void ValidateInValue(object? value, string path, List<QueryValidationFailure> failures)
+    {
+        if (value is null)
+        {
+            failures.Add(Failure(
+                "in-values-required",
+                "In predicates require a non-empty enumerable value set.",
+                path,
+                "value shape"));
+            return;
+        }
+
+        if (value is string || value is not IEnumerable enumerable)
+        {
+            failures.Add(Failure(
+                "in-values-required",
+                "In predicates require a non-string enumerable value set.",
+                path,
+                "value shape"));
+            return;
+        }
+
+        var enumerator = enumerable.GetEnumerator();
+        try
+        {
+            if (!enumerator.MoveNext())
+            {
+                failures.Add(Failure(
+                    "empty-in-values",
+                    "In predicates require at least one candidate value.",
+                    path,
+                    "value shape"));
+            }
+        }
+        finally
+        {
+            (enumerator as IDisposable)?.Dispose();
+        }
     }
 
     private static QueryValueShape? ResolveValueShape(object value)

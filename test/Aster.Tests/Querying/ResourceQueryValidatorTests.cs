@@ -139,6 +139,51 @@ public sealed class ResourceQueryValidatorTests
     }
 
     [Fact]
+    public void Validate_NewPortableOperators_UseCapabilityDeclarations()
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new LogicalExpression(LogicalOperator.And, [
+                new MetadataFilter("Owner", "bob", ComparisonOperator.NotEquals),
+                new MetadataFilter("Owner", new[] { "alice", "carol" }, ComparisonOperator.In),
+                new MetadataFilter("Owner", "al", ComparisonOperator.StartsWith),
+                new FacetValueFilter("Title", "Title", "Beta", ComparisonOperator.NotEquals),
+                new FacetValueFilter("Category", "Category", new[] { "Hardware", "Electronics" }, ComparisonOperator.In),
+                new FacetValueFilter("Title", "Title", "Al", ComparisonOperator.StartsWith),
+                new FacetValueFilter("Title", "Title", true, ComparisonOperator.Exists),
+            ]),
+        });
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData(null, "in-values-required")]
+    [InlineData("abc", "in-values-required")]
+    public void Validate_InOperatorRejectsInvalidValueShapes(object? value, string expectedCode)
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter("Category", "Category", value!, ComparisonOperator.In),
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == expectedCode);
+    }
+
+    [Fact]
+    public void Validate_InOperatorRejectsEmptyValueSet()
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new MetadataFilter("Owner", Array.Empty<string>(), ComparisonOperator.In),
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == "empty-in-values");
+    }
+
+    [Fact]
     public void Validate_RejectsInvalidSortDirection()
     {
         var result = sqliteValidator.Validate(new ResourceQuery

@@ -11,7 +11,7 @@ public abstract record FilterExpression;
 /// <param name="Field">The metadata field name (case-insensitive).</param>
 /// <param name="Value">The value to compare against.</param>
 /// <param name="Operator">The comparison operator to apply.</param>
-public sealed record MetadataFilter(string Field, string Value, ComparisonOperator Operator) : FilterExpression;
+public sealed record MetadataFilter(string Field, object Value, ComparisonOperator Operator) : FilterExpression;
 
 /// <summary>
 /// Filters resources that have an aspect at the specified key (presence check only).
