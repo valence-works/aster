@@ -196,6 +196,9 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
                 "metadata field"));
         }
 
+        if (filter.Operator is ComparisonOperator.Contains or ComparisonOperator.StartsWith)
+            ValidateTextValue(filter.Value, $"{path}.Value", failures);
+
         if (filter.Operator == ComparisonOperator.In)
             ValidateInValue(filter.Value, $"{path}.Value", failures);
     }
@@ -209,6 +212,9 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         if (filter.Operator == ComparisonOperator.Range)
             ValidateRangeValue(filter.Value, $"{path}.Value", failures);
+
+        if (filter.Operator is ComparisonOperator.Contains or ComparisonOperator.StartsWith)
+            ValidateTextValue(filter.Value, $"{path}.Value", failures);
 
         if (filter.Operator == ComparisonOperator.In)
             ValidateInValue(filter.Value, $"{path}.Value", failures);
@@ -407,6 +413,18 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         {
             (enumerator as IDisposable)?.Dispose();
         }
+    }
+
+    private static void ValidateTextValue(object? value, string path, List<QueryValidationFailure> failures)
+    {
+        if (value is string)
+            return;
+
+        failures.Add(Failure(
+            "text-value-required",
+            "Text predicates require a non-null string value.",
+            path,
+            "value shape"));
     }
 
     private static QueryValueShape? ResolveValueShape(object value)

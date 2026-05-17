@@ -194,6 +194,7 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
 
     private string TranslateTextIn(string actualSql, object? expected)
     {
+        // Keep one UDF call per candidate so text IN follows the same null and case behavior as Equals.
         var predicates = ResolveInValues(expected)
             .Select(candidate => TextEquals(actualSql, candidate))
             .ToArray();

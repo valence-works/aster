@@ -183,6 +183,20 @@ public sealed class ResourceQueryValidatorTests
         Assert.Contains(result.Failures, failure => failure.Code == "empty-in-values");
     }
 
+    [Theory]
+    [InlineData(ComparisonOperator.Contains)]
+    [InlineData(ComparisonOperator.StartsWith)]
+    public void Validate_TextOperatorsRejectNullValues(ComparisonOperator comparisonOperator)
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter("Title", "Title", null!, comparisonOperator),
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == "text-value-required");
+    }
+
     [Fact]
     public void Validate_RejectsInvalidSortDirection()
     {

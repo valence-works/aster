@@ -97,6 +97,7 @@ new LogicalExpression(LogicalOperator.Not, [
 
 `Range` values use `new RangeValue(min, max, includeMin, includeMax)`. A `null` min or max means the range is unbounded on that side.
 `In` values must be non-null, non-string enumerables with at least one candidate. `Exists` is represented as a `FacetValueFilter`; providers ignore the value for that operator.
+`MetadataFilter.Value` now accepts `object` so metadata `In` predicates can carry enumerable candidate sets; callers that previously read it as `string` should format or pattern-match the value before using string-specific members.
 
 ---
 
