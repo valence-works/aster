@@ -162,8 +162,33 @@ public sealed class ProviderAuthoringTests
 
         Assert.Equal(InMemoryQueryCapabilitiesProvider.ProviderKey, inMemoryCapabilities.ProviderKey);
         Assert.Equal(SqliteJsonQueryCapabilitiesProvider.ProviderKey, sqliteCapabilities.ProviderKey);
+        Assert.Equal(
+            InMemoryQueryCapabilitiesProvider.ProviderKey,
+            inMemoryProvider.GetRequiredService<IResourceQueryProviderIdentity>().ProviderKey);
+        Assert.Equal(
+            SqliteJsonQueryCapabilitiesProvider.ProviderKey,
+            sqliteProvider.GetRequiredService<IResourceQueryProviderIdentity>().ProviderKey);
         Assert.True(inMemoryCapabilities.SupportsFacetSorting);
         Assert.False(sqliteCapabilities.SupportsFacetSorting);
+    }
+
+    [Fact]
+    public void AddAsterSqliteJson_ReplacesCustomProviderIdentityWhenRegisteredAfterCustomProvider()
+    {
+        using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .AddResourceQueryProvider<CustomQueryService, CustomCapabilitiesProvider>()
+            .AddAsterSqliteJson(options =>
+            {
+                options.ConnectionString = "Data Source=:memory:";
+                options.InitializeSchema = false;
+            })
+            .BuildServiceProvider();
+
+        Assert.IsType<SqliteJsonQueryService>(provider.GetRequiredService<IResourceQueryService>());
+        Assert.Equal(
+            SqliteJsonQueryCapabilitiesProvider.ProviderKey,
+            provider.GetRequiredService<IResourceQueryProviderIdentity>().ProviderKey);
     }
 
     private sealed class CustomQueryService : IResourceQueryService, IResourceQueryProviderIdentity

@@ -93,7 +93,7 @@ services
 
 The helper keeps provider selection explicit and does not scan assemblies or create a provider registry. It registers both concrete types and the shared `IResourceQueryService`, `IResourceQueryProviderIdentity`, and `IResourceQueryCapabilitiesProvider` interfaces as singletons. The active `IResourceQueryService` and `IResourceQueryProviderIdentity` resolve to `MyQueryService`; `IResourceQueryCapabilitiesProvider` resolves to `MyQueryCapabilitiesProvider` by normal last-registration-wins DI behavior.
 
-Manual registration remains supported for advanced hosts, including hosts that need non-singleton lifetimes:
+Manual registration remains supported for advanced hosts. Use the same lifetime consistently for the concrete query service and its shared interface mappings:
 
 ```csharp
 services.AddSingleton<MyQueryService>();
@@ -101,6 +101,16 @@ services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<MyQuery
 services.AddSingleton<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<MyQueryService>());
 services.AddSingleton<MyQueryCapabilitiesProvider>();
 services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<MyQueryCapabilitiesProvider>());
+```
+
+For a scoped provider, use scoped registrations for the concrete provider types and the shared interfaces:
+
+```csharp
+services.AddScoped<MyQueryService>();
+services.AddScoped<IResourceQueryService>(sp => sp.GetRequiredService<MyQueryService>());
+services.AddScoped<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<MyQueryService>());
+services.AddScoped<MyQueryCapabilitiesProvider>();
+services.AddScoped<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<MyQueryCapabilitiesProvider>());
 ```
 
 If validation returns `capabilities-not-declared`, check that the active query service implements `IResourceQueryProviderIdentity`, exposes a non-empty `ProviderKey`, and has a registered capability declaration with the exact same `ProviderKey`.

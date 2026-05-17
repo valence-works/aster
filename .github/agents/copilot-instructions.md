@@ -28,7 +28,6 @@ C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0): Fo
 
 ## Recent Changes
 - 005-provider-authoring-ergonomics: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`; no new third-party dependencies
-- 005-provider-authoring-ergonomics: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`; no new third-party dependencies
 - 004-provider-validation-execution: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`; SQLite provider keeps existing `Microsoft.Data.Sqlite`
 
 

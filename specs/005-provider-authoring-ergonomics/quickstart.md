@@ -5,14 +5,24 @@
 ```csharp
 public sealed class MyQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
+    private readonly ResourceQueryValidator validator;
+
+    public MyQueryService(IEnumerable<IResourceQueryCapabilitiesProvider> capabilityProviders)
+    {
+        validator = new(capabilityProviders, this);
+    }
+
     public string ProviderKey => "my-provider";
 
     public ValueTask<IEnumerable<Resource>> QueryAsync(
         ResourceQuery query,
         CancellationToken cancellationToken = default)
     {
-        // Run shared validation before provider-specific translation/execution.
-        // Keep provider-specific checks authoritative.
+        var validation = validator.Validate(query);
+        if (!validation.IsValid)
+            throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
+
+        // Keep provider-specific checks authoritative during translation/execution.
         return new([]);
     }
 }

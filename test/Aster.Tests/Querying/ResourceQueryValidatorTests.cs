@@ -204,6 +204,24 @@ public sealed class ResourceQueryValidatorTests
         Assert.Contains("matching ProviderKey", failure.Message);
     }
 
+    [Fact]
+    public void Validate_WhenActiveProviderKeyIsEmpty_FailsClosedWithProviderKeyGuidance()
+    {
+        using var provider = new ServiceCollection()
+            .AddSingleton<IResourceQueryCapabilitiesProvider, InMemoryQueryCapabilitiesProvider>()
+            .AddSingleton<IResourceQueryService, EmptyProviderKeyQueryService>()
+            .AddSingleton<IResourceQueryValidator, ResourceQueryValidator>()
+            .BuildServiceProvider();
+
+        var result = provider.GetRequiredService<IResourceQueryValidator>().Validate(new ResourceQuery());
+
+        Assert.False(result.IsValid);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("capabilities-not-declared", failure.Code);
+        Assert.Contains("ProviderKey is empty", failure.Message);
+        Assert.Contains("non-empty ProviderKey", failure.Message);
+    }
+
     private sealed class EmptyCapabilitiesProvider : IResourceQueryCapabilitiesProvider
     {
         public QueryCapabilityDescription Capabilities { get; } = new(
@@ -227,6 +245,16 @@ public sealed class ResourceQueryValidatorTests
     private sealed class CustomQueryService : IResourceQueryService, IResourceQueryProviderIdentity
     {
         public string ProviderKey => "custom";
+
+        public ValueTask<IEnumerable<Resource>> QueryAsync(
+            ResourceQuery query,
+            CancellationToken cancellationToken = default) =>
+            new([]);
+    }
+
+    private sealed class EmptyProviderKeyQueryService : IResourceQueryService, IResourceQueryProviderIdentity
+    {
+        public string ProviderKey => " ";
 
         public ValueTask<IEnumerable<Resource>> QueryAsync(
             ResourceQuery query,
