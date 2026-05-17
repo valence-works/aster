@@ -25,8 +25,13 @@ public sealed class ProviderConformanceTests : IDisposable
     [Fact]
     public async Task BuiltInProviders_PassSharedConformanceSuite()
     {
-        var inMemory = await CreateInMemorySubjectAsync();
+        await using var inMemoryProvider = await CreateInMemoryProviderAsync();
         await using var sqliteProvider = await CreateSqliteProviderAsync();
+        var inMemory = new ProviderConformanceSubject(
+            "In-memory",
+            InMemoryQueryCapabilitiesProvider.ProviderKey,
+            inMemoryProvider,
+            RequiresNonEmptyResults: true);
         var sqlite = new ProviderConformanceSubject(
             "SQLite JSON",
             SqliteJsonQueryCapabilitiesProvider.ProviderKey,
@@ -113,18 +118,14 @@ public sealed class ProviderConformanceTests : IDisposable
                 && failure.Message.Contains("rejected supported query", StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task<ProviderConformanceSubject> CreateInMemorySubjectAsync()
+    private static async Task<ServiceProvider> CreateInMemoryProviderAsync()
     {
         var provider = new ServiceCollection()
             .AddAsterCore()
             .BuildServiceProvider();
         await SeedAsync(provider);
 
-        return new(
-            "In-memory",
-            InMemoryQueryCapabilitiesProvider.ProviderKey,
-            provider,
-            RequiresNonEmptyResults: true);
+        return provider;
     }
 
     private async Task<ServiceProvider> CreateSqliteProviderAsync()
@@ -226,11 +227,14 @@ public sealed class ProviderConformanceTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 
-    private sealed class ConformingCustomQueryService(
-        IEnumerable<IResourceQueryCapabilitiesProvider> capabilityProviders)
-        : IResourceQueryService, IResourceQueryProviderIdentity
+    private sealed class ConformingCustomQueryService : IResourceQueryService, IResourceQueryProviderIdentity
     {
-        private readonly ResourceQueryValidator validator = new(capabilityProviders, new ProviderIdentity());
+        private readonly ResourceQueryValidator validator;
+
+        public ConformingCustomQueryService(IEnumerable<IResourceQueryCapabilitiesProvider> capabilityProviders)
+        {
+            validator = new(capabilityProviders, this);
+        }
 
         public string ProviderKey => MinimalCustomCapabilitiesProvider.ProviderKey;
 
@@ -243,16 +247,6 @@ public sealed class ProviderConformanceTests : IDisposable
                 throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
 
             return new([]);
-        }
-
-        private sealed class ProviderIdentity : IResourceQueryService, IResourceQueryProviderIdentity
-        {
-            public string ProviderKey => MinimalCustomCapabilitiesProvider.ProviderKey;
-
-            public ValueTask<IEnumerable<Resource>> QueryAsync(
-                ResourceQuery query,
-                CancellationToken cancellationToken = default) =>
-                new([]);
         }
     }
 
