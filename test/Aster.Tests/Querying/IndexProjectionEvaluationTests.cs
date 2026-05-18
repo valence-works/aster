@@ -191,6 +191,26 @@ public sealed class IndexProjectionEvaluationTests
     }
 
     [Fact]
+    public void Evaluate_DoesNotReturnValuesForInvalidEmptyFieldNames()
+    {
+        var resource = CreateResource(aspects: new()
+        {
+            ["Title"] = new { Title = "Alpha Gadget" },
+        });
+        var projections = new[]
+        {
+            IndexProjection.Facet("", "Title", "Title", IndexFieldType.Keyword),
+        };
+
+        var result = evaluator.Evaluate(resource, projections);
+
+        Assert.Empty(result.Values);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("", failure.FieldName);
+        Assert.Equal(IndexProjectionFailureCodes.InvalidProjectionDeclaration, failure.Code);
+    }
+
+    [Fact]
     public void Evaluate_NormalizesAllSupportedClrIntegerValues()
     {
         var resource = CreateResource(aspects: new()

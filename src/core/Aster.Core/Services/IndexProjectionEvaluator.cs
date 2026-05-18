@@ -35,7 +35,7 @@ public sealed class IndexProjectionEvaluator
         var invalidFields = validation.Failures
             .Where(static failure => failure.Code == IndexProjectionFailureCodes.InvalidProjectionDeclaration)
             .Select(failure => failure.FieldName)
-            .Where(static fieldName => !string.IsNullOrWhiteSpace(fieldName))
+            .Where(static fieldName => fieldName is not null)
             .ToHashSet(StringComparer.Ordinal);
         var evaluatedFields = new HashSet<string>(StringComparer.Ordinal);
 
