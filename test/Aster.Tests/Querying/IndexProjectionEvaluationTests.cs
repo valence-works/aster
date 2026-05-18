@@ -217,6 +217,48 @@ public sealed class IndexProjectionEvaluationTests
     }
 
     [Fact]
+    public void Evaluate_ReturnsFailuresForNonFiniteOrOutOfRangeFloatingPointDecimalValues()
+    {
+        var resource = CreateResource(aspects: new()
+        {
+            ["Metrics"] = new Dictionary<string, object>
+            {
+                ["ValidFloat"] = 12.5f,
+                ["ValidDouble"] = 13.5d,
+                ["FloatNaN"] = float.NaN,
+                ["FloatInfinity"] = float.PositiveInfinity,
+                ["FloatMax"] = float.MaxValue,
+                ["DoubleNaN"] = double.NaN,
+                ["DoubleInfinity"] = double.PositiveInfinity,
+                ["DoubleMax"] = double.MaxValue,
+            },
+        });
+        var projections = new[]
+        {
+            IndexProjection.Facet("valid_float", "Metrics", "ValidFloat", IndexFieldType.Decimal),
+            IndexProjection.Facet("valid_double", "Metrics", "ValidDouble", IndexFieldType.Decimal),
+            IndexProjection.Facet("float_nan", "Metrics", "FloatNaN", IndexFieldType.Decimal),
+            IndexProjection.Facet("float_infinity", "Metrics", "FloatInfinity", IndexFieldType.Decimal),
+            IndexProjection.Facet("float_max", "Metrics", "FloatMax", IndexFieldType.Decimal),
+            IndexProjection.Facet("double_nan", "Metrics", "DoubleNaN", IndexFieldType.Decimal),
+            IndexProjection.Facet("double_infinity", "Metrics", "DoubleInfinity", IndexFieldType.Decimal),
+            IndexProjection.Facet("double_max", "Metrics", "DoubleMax", IndexFieldType.Decimal),
+        };
+
+        var result = evaluator.Evaluate(resource, projections);
+
+        Assert.Equal(12.5m, Value<decimal>(result, "valid_float"));
+        Assert.Equal(13.5m, Value<decimal>(result, "valid_double"));
+        Assert.Equal(6, result.Failures.Count);
+        Assert.Contains(result.Failures, Failure("float_nan", IndexProjectionFailureCodes.IncompatibleValueShape));
+        Assert.Contains(result.Failures, Failure("float_infinity", IndexProjectionFailureCodes.IncompatibleValueShape));
+        Assert.Contains(result.Failures, Failure("float_max", IndexProjectionFailureCodes.IncompatibleValueShape));
+        Assert.Contains(result.Failures, Failure("double_nan", IndexProjectionFailureCodes.IncompatibleValueShape));
+        Assert.Contains(result.Failures, Failure("double_infinity", IndexProjectionFailureCodes.IncompatibleValueShape));
+        Assert.Contains(result.Failures, Failure("double_max", IndexProjectionFailureCodes.IncompatibleValueShape));
+    }
+
+    [Fact]
     public void Evaluate_ReportsDuplicateProjectionFieldWithoutDiscardingFirstValue()
     {
         var resource = CreateResource(aspects: new()

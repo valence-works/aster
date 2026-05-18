@@ -292,14 +292,52 @@ public sealed class IndexProjectionEvaluator
                 result = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
                 return true;
             case float floatValue:
-                result = Convert.ToDecimal(floatValue, CultureInfo.InvariantCulture);
-                return true;
+                return TryConvertFloatingPointDecimal(floatValue, out result);
             case double doubleValue:
-                result = Convert.ToDecimal(doubleValue, CultureInfo.InvariantCulture);
-                return true;
+                return TryConvertFloatingPointDecimal(doubleValue, out result);
             default:
                 result = default;
                 return false;
+        }
+    }
+
+    private static bool TryConvertFloatingPointDecimal(float value, out decimal result)
+    {
+        if (!float.IsFinite(value))
+        {
+            result = default;
+            return false;
+        }
+
+        try
+        {
+            result = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    private static bool TryConvertFloatingPointDecimal(double value, out decimal result)
+    {
+        if (!double.IsFinite(value))
+        {
+            result = default;
+            return false;
+        }
+
+        try
+        {
+            result = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            result = default;
+            return false;
         }
     }
 
