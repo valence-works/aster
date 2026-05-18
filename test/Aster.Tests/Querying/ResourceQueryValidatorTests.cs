@@ -117,6 +117,21 @@ public sealed class ResourceQueryValidatorTests
     }
 
     [Fact]
+    public void Validate_AcceptsIsoStyleStringRangeBounds()
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue("2026-02-01T11:00:00+01:00", "2026-02-20T10:00:00Z"),
+                ComparisonOperator.Range),
+        });
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
     public void Validate_RejectsMixedRangeValueShapes()
     {
         var result = sqliteValidator.Validate(new ResourceQuery

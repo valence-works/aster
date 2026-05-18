@@ -70,17 +70,6 @@ public static class QueryDateTimeValue
             return true;
         }
 
-        if (DateTime.TryParseExact(
-            value,
-            AcceptedDateTimeFormats,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-            out var dateTime))
-        {
-            key = FormatUtc(new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)));
-            return true;
-        }
-
         key = string.Empty;
         return false;
     }

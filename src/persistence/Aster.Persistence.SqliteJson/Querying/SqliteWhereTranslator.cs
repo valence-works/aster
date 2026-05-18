@@ -188,10 +188,10 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         };
 
         if (range.Min is not null)
-            predicates.Add($"{dateKey} {(range.IncludeMin ? ">=" : ">")} {parameters.Add(ConvertToDateKey(range.Min, "minimum range bound"))}");
+            predicates.Add($"{dateKey} {(range.IncludeMin ? ">=" : ">")} {parameters.Add(ConvertToDateKey(range.Min, "minimum range bound", "Filter.Value.Min"))}");
 
         if (range.Max is not null)
-            predicates.Add($"{dateKey} {(range.IncludeMax ? "<=" : "<")} {parameters.Add(ConvertToDateKey(range.Max, "maximum range bound"))}");
+            predicates.Add($"{dateKey} {(range.IncludeMax ? "<=" : "<")} {parameters.Add(ConvertToDateKey(range.Max, "maximum range bound", "Filter.Value.Max"))}");
 
         return string.Join(" AND ", predicates);
     }
@@ -309,14 +309,14 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
                 $"{description} must be numeric.",
                 "Filter.Value");
 
-    private static string ConvertToDateKey(object value, string description) =>
+    private static string ConvertToDateKey(object value, string description, string path) =>
         SqliteDateTimeBehavior.TryNormalizeDateKey(value, out var key)
             ? key
             : throw Unsupported(
                 "unsupported-range-value-shape",
                 "value shape",
                 $"{description} must be a date-like value.",
-                "Filter.Value");
+                path);
 
     private static RangeKind ResolveRangeKind(RangeValue range)
     {
