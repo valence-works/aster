@@ -119,8 +119,8 @@ public sealed class IndexProjectionEvaluator
             return false;
         }
 
-        if (TryGetDictionaryValue(aspectRaw, facetKey, out value))
-            return value is not null;
+        if (IsDictionary(aspectRaw))
+            return TryGetDictionaryValue(aspectRaw, facetKey, out value) && value is not null;
 
         if (aspectRaw is JsonElement element)
             return TryGetJsonElementValue(element, facetKey, out value) && value is not null;
@@ -134,6 +134,11 @@ public sealed class IndexProjectionEvaluator
         value = property.GetValue(aspectRaw);
         return value is not null;
     }
+
+    private static bool IsDictionary(object value) =>
+        value is IReadOnlyDictionary<string, object>
+            or IDictionary<string, object>
+            or IDictionary;
 
     private static bool TryGetDictionaryValue(object value, string key, out object? result)
     {
@@ -261,6 +266,11 @@ public sealed class IndexProjectionEvaluator
                 return true;
             case long longValue:
                 result = longValue;
+                return true;
+            case decimal decimalValue when decimalValue >= long.MinValue
+                && decimalValue <= long.MaxValue
+                && decimal.Truncate(decimalValue) == decimalValue:
+                result = (long)decimalValue;
                 return true;
             case ulong ulongValue when ulongValue <= long.MaxValue:
                 result = (long)ulongValue;

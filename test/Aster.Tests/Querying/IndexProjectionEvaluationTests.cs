@@ -169,6 +169,54 @@ public sealed class IndexProjectionEvaluationTests
     }
 
     [Fact]
+    public void Evaluate_ReturnsMissingSourceForAbsentDictionaryKeysWithoutReflectingContainerProperties()
+    {
+        var resource = CreateResource(aspects: new()
+        {
+            ["Metrics"] = new Dictionary<string, object>
+            {
+                ["Amount"] = 12.5m,
+            },
+        });
+        var projections = new[]
+        {
+            IndexProjection.Facet("count", "Metrics", "Count", IndexFieldType.Integer),
+            IndexProjection.Facet("keys", "Metrics", "Keys", IndexFieldType.KeywordArray),
+        };
+
+        var result = evaluator.Evaluate(resource, projections);
+
+        Assert.Empty(result.Values);
+        Assert.Equal(2, result.Failures.Count);
+        Assert.Contains(result.Failures, Failure("count", IndexProjectionFailureCodes.MissingSource));
+        Assert.Contains(result.Failures, Failure("keys", IndexProjectionFailureCodes.MissingSource));
+    }
+
+    [Fact]
+    public void Evaluate_NormalizesJsonIntegerValuesWrittenWithDecimalNotation()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "count": 3.0
+            }
+            """);
+        var resource = CreateResource(aspects: new()
+        {
+            ["JsonFacet"] = document.RootElement.Clone(),
+        });
+        var projections = new[]
+        {
+            IndexProjection.Facet("count", "JsonFacet", "Count", IndexFieldType.Integer),
+        };
+
+        var result = evaluator.Evaluate(resource, projections);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(3L, Value<long>(result, "count"));
+    }
+
+    [Fact]
     public void Evaluate_ReportsDuplicateProjectionFieldWithoutDiscardingFirstValue()
     {
         var resource = CreateResource(aspects: new()
