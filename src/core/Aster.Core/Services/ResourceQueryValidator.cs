@@ -357,6 +357,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         ValidateRangeBound(range.Min, $"{path}.Min", failures);
         ValidateRangeBound(range.Max, $"{path}.Max", failures);
+        ValidateRangeBoundCompatibility(range, path, failures);
     }
 
     private void ValidateRangeBound(object? value, string path, List<QueryValidationFailure> failures)
@@ -371,6 +372,24 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         failures.Add(Failure(
             "unsupported-range-value-shape",
             $"Range value shape '{shape?.ToString() ?? value.GetType().Name}' is not supported by {capabilities!.ProviderName}.",
+            path,
+            "value shape"));
+    }
+
+    private static void ValidateRangeBoundCompatibility(RangeValue range, string path, List<QueryValidationFailure> failures)
+    {
+        if (range.Min is null || range.Max is null)
+            return;
+
+        var minShape = ResolveValueShape(range.Min);
+        var maxShape = ResolveValueShape(range.Max);
+
+        if (minShape is null || maxShape is null || minShape == maxShape)
+            return;
+
+        failures.Add(Failure(
+            "mixed-range-value-shapes",
+            $"Range bounds must use the same value shape, but received '{minShape}' and '{maxShape}'.",
             path,
             "value shape"));
     }
@@ -437,7 +456,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
             if (decimal.TryParse(stringValue, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
                 return QueryValueShape.Numeric;
 
-            if (DateTime.TryParse(stringValue, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out _))
+            if (QueryDateTimeValue.IsAcceptedDateTimeString(stringValue))
                 return QueryValueShape.DateTime;
 
             return QueryValueShape.String;

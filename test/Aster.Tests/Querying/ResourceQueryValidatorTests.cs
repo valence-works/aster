@@ -68,7 +68,7 @@ public sealed class ResourceQueryValidatorTests
         Assert.Contains(result.Failures, failure => failure.Code == "negative-take");
         Assert.Contains(result.Failures, failure => failure.Code == "unsupported-metadata-field");
         Assert.Contains(result.Failures, failure => failure.Code == "unsupported-comparison-operator");
-        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
+        Assert.DoesNotContain(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class ResourceQueryValidatorTests
     }
 
     [Fact]
-    public void Validate_InMemoryAndSqliteReflectProviderDifferences()
+    public void Validate_InMemoryAndSqliteBothSupportDateLikeFacetRanges()
     {
         var dateRangeQuery = new ResourceQuery
         {
@@ -113,11 +113,38 @@ public sealed class ResourceQueryValidatorTests
         };
 
         Assert.True(inMemoryValidator.Validate(dateRangeQuery).IsValid);
+        Assert.True(sqliteValidator.Validate(dateRangeQuery).IsValid);
+    }
 
-        var sqliteResult = sqliteValidator.Validate(dateRangeQuery);
+    [Fact]
+    public void Validate_AcceptsIsoStyleStringRangeBounds()
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue("2026-02-01T11:00:00+01:00", "2026-02-20T10:00:00Z"),
+                ComparisonOperator.Range),
+        });
 
-        Assert.False(sqliteResult.IsValid);
-        Assert.Contains(sqliteResult.Failures, failure => failure.Code == "unsupported-range-value-shape");
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_RejectsMixedRangeValueShapes()
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue(DateTime.UtcNow, 10),
+                ComparisonOperator.Range),
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == "mixed-range-value-shapes");
     }
 
     [Fact]
@@ -218,6 +245,24 @@ public sealed class ResourceQueryValidatorTests
                 "Schedule",
                 "StartsOn",
                 new RangeValue(DateOnly.FromDateTime(DateTime.UtcNow), null),
+                ComparisonOperator.Range),
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
+    }
+
+    [Theory]
+    [InlineData("2026-02-01")]
+    [InlineData("2026-02-01 10:00:00")]
+    public void Validate_RejectsUnsupportedDateLikeStringRangeBounds(string value)
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue(value, null),
                 ComparisonOperator.Range),
         });
 

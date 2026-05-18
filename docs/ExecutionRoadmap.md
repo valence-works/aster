@@ -23,18 +23,9 @@ The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The n
 | `007-sqlite-facet-sorting` | Landed | SQLite facet sorting, null-last behavior, numeric/text ordering, capability updates, and tests/docs. |
 | `008-typed-query-authoring` | Landed | Typed facet sort helpers, small logical composition helpers, and updated roadmap/query docs over the existing query AST. |
 | `009-portable-operators` | Landed | Portable `NotEquals`, `In`, `StartsWith`, and facet `Exists` operators with provider capabilities, validation, built-in execution, typed helpers, and conformance coverage. |
+| `010-sqlite-date-ranges` | Landed | SQLite date-like facet ranges for accepted JSON string date/time values with capability, validation, conformance, and docs coverage. |
 
 ## Near-Term Roadmap
-
-### 010 — SQLite Date-Like Facet Ranges
-
-**Goal:** Close the most visible remaining SQLite capability gap after numeric ranges and facet sorting.
-
-Candidate scope:
-
-- Define the accepted date/time serialization contract for facet range comparisons.
-- Translate date-like range filters in SQLite JSON when values are stored in the supported shape.
-- Keep invalid or mixed shapes fail-closed with structured diagnostics.
 
 ### 011 — Explicit Indexing Model
 

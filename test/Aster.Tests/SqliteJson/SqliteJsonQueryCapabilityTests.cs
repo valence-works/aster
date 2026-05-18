@@ -32,12 +32,13 @@ public sealed class SqliteJsonQueryCapabilityTests
     }
 
     [Fact]
-    public void Capabilities_IncludeFacetSortingAndExcludeDateLikeFacetRanges()
+    public void Capabilities_IncludeFacetSortingAndDateLikeFacetRanges()
     {
         Assert.True(capabilities.SupportsFacetSorting);
         Assert.DoesNotContain("Facet sorting", capabilities.UnsupportedFeatures);
         Assert.Contains(QueryValueShape.Numeric, capabilities.FacetRangeSupport);
-        Assert.DoesNotContain(QueryValueShape.DateTime, capabilities.FacetRangeSupport);
+        Assert.Contains(QueryValueShape.DateTime, capabilities.FacetRangeSupport);
+        Assert.DoesNotContain("Date-like facet ranges", capabilities.UnsupportedFeatures);
         Assert.True(capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.Range));
     }
 

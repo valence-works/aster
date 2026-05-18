@@ -64,7 +64,9 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         Assert.True(inMemory.SupportsFacetSorting);
         Assert.True(sqlite.SupportsFacetSorting);
         Assert.Contains(QueryValueShape.DateTime, inMemory.FacetRangeSupport);
-        Assert.DoesNotContain(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
+        Assert.Contains(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
+        Assert.Contains("Version", inMemory.MetadataContainsFields);
+        Assert.DoesNotContain("Version", sqlite.MetadataContainsFields);
     }
 
     [Fact]
@@ -81,15 +83,11 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         var validator = provider.GetRequiredService<IResourceQueryValidator>();
         var result = validator.Validate(new ResourceQuery
         {
-            Filter = new FacetValueFilter(
-                "Schedule",
-                "StartsAt",
-                new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
-                ComparisonOperator.Range),
+            Filter = new MetadataFilter("Version", "1", ComparisonOperator.Contains),
         });
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
+        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-metadata-contains-field");
     }
 
     [Fact]
@@ -134,12 +132,12 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
                 Filter = new FacetValueFilter(
                     "Schedule",
                     "StartsAt",
-                    new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                    new RangeValue(DateTime.UtcNow.AddDays(-1), 10),
                     ComparisonOperator.Range),
             },
             provider.GetRequiredService<IResourceQueryValidator>(),
             provider.GetRequiredService<IResourceQueryService>(),
-            "unsupported-range-value-shape");
+            "mixed-range-value-shapes");
     }
 
     private static async Task AssertValidatesAndExecutesAsync(

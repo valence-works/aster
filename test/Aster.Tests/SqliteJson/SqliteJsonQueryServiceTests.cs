@@ -321,6 +321,108 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task QueryAsync_DateLikeFacetRanges_FilterAcceptedStoredValues()
+    {
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("event-a", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 1, 10, 0, 0, TimeSpan.Zero) },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-b", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero) },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-b-offset", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 15, 12, 0, 0, TimeSpan.FromHours(2)) },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-c", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 20, 10, 0, 0, TimeSpan.Zero) },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-d", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 3, 1, 10, 0, 0, TimeSpan.Zero) },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-invalid-string", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = "not-a-date" },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-date-only", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = "2026-02-10" },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-space-separated", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = "2026-02-10 10:00:00" },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-number", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = 20260210 },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-null", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = (string?)null },
+        }));
+        await store.SaveVersionAsync(CreateResource("event-missing-facet", "Event", aspects: new()
+        {
+            ["Schedule"] = new { EndsAt = new DateTimeOffset(2026, 2, 10, 10, 0, 0, TimeSpan.Zero) },
+        }));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var inclusive = await ExecuteDateRangeAsync(
+            query,
+            new DateTimeOffset(2026, 2, 1, 10, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 2, 20, 10, 0, 0, TimeSpan.Zero));
+        var exclusive = await ExecuteDateRangeAsync(
+            query,
+            new DateTimeOffset(2026, 2, 1, 10, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 2, 20, 10, 0, 0, TimeSpan.Zero),
+            includeMin: false,
+            includeMax: false);
+        var oneSided = await ExecuteDateRangeAsync(
+            query,
+            min: null,
+            max: new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero));
+        var minOnly = await ExecuteDateRangeAsync(
+            query,
+            min: new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero),
+            max: null);
+        var stringBounds = await ExecuteDateRangeAsync(
+            query,
+            "2026-02-01T11:00:00+01:00",
+            "2026-02-20T10:00:00Z");
+
+        Assert.Equal(["event-a", "event-b", "event-b-offset", "event-c"], inclusive);
+        Assert.Equal(["event-b", "event-b-offset"], exclusive);
+        Assert.Equal(["event-a", "event-b", "event-b-offset"], oneSided);
+        Assert.Equal(["event-b", "event-b-offset", "event-c", "event-d"], minOnly);
+        Assert.Equal(["event-a", "event-b", "event-b-offset", "event-c"], stringBounds);
+    }
+
+    [Fact]
+    public async Task QueryAsync_DateOnlyStringRangeBound_FailsClosed()
+    {
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        await AssertUnsupportedAsync(
+            query.QueryAsync(new ResourceQuery
+            {
+                Filter = new FacetValueFilter(
+                    "Schedule",
+                    "StartsAt",
+                    new RangeValue("2026-02-01", "2026-02-28"),
+                    ComparisonOperator.Range),
+            }).AsTask(),
+            "unsupported-range-value-shape",
+            "value shape",
+            "Filter.Value.Min");
+    }
+
+    [Fact]
     public async Task QueryAsync_TextComparisons_UseOrdinalIgnoreCaseForNonAsciiValues()
     {
         var store = CreateStore();
@@ -508,11 +610,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
                 Filter = new FacetValueFilter(
                     "Schedule",
                     "StartsAt",
-                    new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
+                    new RangeValue(DateTime.UtcNow.AddDays(-1), 10),
                     ComparisonOperator.Range),
             },
-            "unsupported-range-value-shape",
-            "Filter.Value.Min");
+            "mixed-range-value-shapes",
+            "Filter.Value");
     }
 
     [Fact]
@@ -553,7 +655,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task QueryAsync_AfterValidationAgainstDifferentProvider_StillEnforcesSqliteCapabilities()
+    public async Task QueryAsync_AfterValidationAgainstDifferentProvider_AllowsSharedDateLikeRanges()
     {
         var queryShape = new ResourceQuery
         {
@@ -568,9 +670,10 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         await using var provider = CreateServiceProvider();
         var query = provider.GetRequiredService<IResourceQueryService>();
 
+        var sqliteResults = await query.QueryAsync(queryShape);
+
         Assert.True(inMemoryValidation.IsValid);
-        await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(() =>
-            query.QueryAsync(queryShape).AsTask());
+        Assert.Empty(sqliteResults);
     }
 
     [Fact]
@@ -620,6 +723,27 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
 
     private static DateTime Utc(int year, int month, int day) =>
         new(year, month, day, 0, 0, 0, DateTimeKind.Utc);
+
+    private static async Task<IReadOnlyList<string>> ExecuteDateRangeAsync(
+        IResourceQueryService query,
+        object? min,
+        object? max,
+        bool includeMin = true,
+        bool includeMax = true)
+    {
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            DefinitionId = "Event",
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue(min, max, includeMin, includeMax),
+                ComparisonOperator.Range),
+            Sorts = [new SortExpression("ResourceId")],
+        })).ToList();
+
+        return results.Select(resource => resource.ResourceId).ToList();
+    }
 
     private static async Task<UnsupportedQueryFeatureException> AssertUnsupportedAsync(
         Task task,

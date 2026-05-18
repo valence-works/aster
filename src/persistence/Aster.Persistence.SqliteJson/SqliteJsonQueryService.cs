@@ -107,6 +107,10 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
             SqliteTextBehavior.StartsWithFunction,
             SqliteTextBehavior.StartsWithIgnoreCase);
 
+        connection.CreateFunction<string?, string?>(
+            SqliteDateTimeBehavior.DateKeyFunction,
+            SqliteDateTimeBehavior.NormalizeDateKey);
+
         connection.CreateCollation(
             SqliteTextBehavior.OrdinalIgnoreCaseCollation,
             SqliteTextBehavior.CompareIgnoreCase);
