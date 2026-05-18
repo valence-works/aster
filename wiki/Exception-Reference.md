@@ -13,6 +13,7 @@ Aster throws typed exceptions for all domain-level error conditions. All excepti
 | `SingletonViolationException` | `Aster.Core.Exceptions` | Attempt to create a second instance of a singleton definition |
 | `DuplicateResourceIdException` | `Aster.Core.Exceptions` | Caller-supplied `ResourceId` already exists |
 | `DuplicateAspectAttachmentException` | `Aster.Core.Exceptions` | Same aspect key attached twice to a definition |
+| `ResourceSchemaUpgradeException` | `Aster.Core.Exceptions` | Explicit schema upgrade target is invalid or unavailable |
 | `UnsupportedQueryFeatureException` | `Aster.Core.Exceptions` | Query execution receives a provider-unsupported scope, predicate, sort, paging value, or value shape |
 
 ---
@@ -165,6 +166,45 @@ catch (UnsupportedQueryFeatureException ex)
 Use `IResourceQueryValidator` for non-throwing preflight when handling user-defined queries. Execution remains authoritative, so callers should still handle this exception when validation is skipped or provider-specific checks fail later.
 
 When validation returns `capabilities-not-declared`, the active query provider has no matching capability declaration. For custom providers, register the provider and capabilities together with `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` or ensure manual registrations expose the same non-empty provider key.
+
+---
+
+## `ResourceSchemaUpgradeException`
+
+**Thrown by:** `IResourceSchemaVersionService.UpgradeAsync`
+
+**Why:** The requested schema upgrade cannot be completed because the definition lineage or requested target definition version is invalid.
+
+The exception exposes structured details:
+
+| Property | Meaning |
+|---|---|
+| `Code` | Stable failure code |
+| `DefinitionId` | Definition involved in the failed upgrade, when available |
+| `TargetDefinitionVersion` | Requested target definition version, when available |
+| `Message` | Human-readable actionable explanation |
+
+Known codes:
+
+| Code | Meaning |
+|---|---|
+| `missing-definition` | The resource's definition ID has no registered definition |
+| `missing-definition-version` | The requested target definition version does not exist |
+| `target-definition-version-too-new` | The requested target is newer than the latest registered definition version |
+| `target-definition-version-before-source` | The requested target is older than the resource's recorded definition lineage |
+
+Stale upgrade requests still throw `ConcurrencyException`; missing latest resource versions still throw `VersionNotFoundException`.
+
+```csharp
+try
+{
+    await schemaVersions.UpgradeAsync(resourceId, request);
+}
+catch (ResourceSchemaUpgradeException ex)
+{
+    Console.WriteLine($"{ex.Code}: {ex.Message}");
+}
+```
 
 ---
 

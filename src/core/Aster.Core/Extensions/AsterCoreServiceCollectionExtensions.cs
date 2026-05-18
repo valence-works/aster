@@ -68,6 +68,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<InMemoryResourceManager>();
         services.AddSingleton<DefaultResourceManager>();
         services.AddSingleton<IResourceManager>(sp => sp.GetRequiredService<DefaultResourceManager>());
+        services.AddSingleton<IResourceSchemaVersionService, ResourceSchemaVersionService>();
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();

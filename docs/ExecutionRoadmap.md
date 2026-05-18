@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, and SQLite facet sorting.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, and explicit provider-declared index projections.
 
-The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The next useful slices should close remaining portable query/provider gaps without introducing a planner, registry, runtime scanning, public SQL, or `IQueryable<Resource>`.
+The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The next useful slice is definition schema versioning and explicit upgrade behavior, still without introducing migrations, planner behavior, runtime scanning, provider registries, public SQL, or `IQueryable<Resource>`.
 
 ## Landed Slices
 
@@ -24,18 +24,9 @@ The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The n
 | `008-typed-query-authoring` | Landed | Typed facet sort helpers, small logical composition helpers, and updated roadmap/query docs over the existing query AST. |
 | `009-portable-operators` | Landed | Portable `NotEquals`, `In`, `StartsWith`, and facet `Exists` operators with provider capabilities, validation, built-in execution, typed helpers, and conformance coverage. |
 | `010-sqlite-date-ranges` | Landed | SQLite date-like facet ranges for accepted JSON string date/time values with capability, validation, conformance, and docs coverage. |
+| `011-explicit-indexing-model` | Landed | Provider-declared index projection contracts, validation, evaluation, capability discovery, and provider-authoring docs without physical indexes or query planning. |
 
 ## Near-Term Roadmap
-
-### 011 — Explicit Indexing Model
-
-**Goal:** Introduce indexing as an explicit provider capability, not hidden magic.
-
-Candidate scope:
-
-- Define index field types such as `Keyword`, `Text`, `NormalizedText`, `Boolean`, `Integer`, `Decimal`, `DateTime`, `Guid`, and `KeywordArray`.
-- Add provider-facing contracts for declaring and consuming index projections.
-- Keep SQLite JSON simple; defer heavy query planning.
 
 ### 012 — Definition Schema Versions & Upgrade Flow
 
@@ -46,6 +37,16 @@ Candidate scope:
 - Model `ResourceDefinitionVersion` references on resources.
 - Define upgrade behavior from older definition versions.
 - Add validation and tests for resources that span schema versions.
+
+### 013 — Portability Primitives
+
+**Goal:** Start Phase 4 with deterministic export/import primitives for definitions and resources.
+
+Candidate scope:
+
+- Export definition and resource snapshots with stable references.
+- Import with deterministic ID remapping and collision diagnostics.
+- Keep recipes and host lifecycle hooks separate follow-up slices.
 
 ## Later Roadmap
 

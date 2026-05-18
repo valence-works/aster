@@ -2,7 +2,7 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, and SQLite facet sorting are available.
+> **Current status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, and explicit index projection contracts are available.
 >
 > For the current implementation trail and next Spec Kit slices, see [`docs/ExecutionRoadmap.md`](../docs/ExecutionRoadmap.md).
 
@@ -26,8 +26,8 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 | **008 Typed Query Authoring Ergonomics** | Landed | Add typed sort helpers and small composition conveniences over the existing `ResourceQuery` AST. |
 | **009 Portable Operator Expansion** | Landed | Add operators such as `NotEquals`, `In`, `StartsWith`, and facet value presence with provider capabilities and conformance coverage. |
 | **010 SQLite Date-Like Facet Ranges** | Landed | Close the remaining SQLite date-like range capability gap with explicit serialization rules. |
-| **011 Explicit Indexing Model** | Next | Introduce intentional index projection contracts without a hidden planner or runtime scanning. |
-| **012 Definition Schema Versions & Upgrade Flow** | Planned | Make long-lived resource schema versioning and upgrade behavior explicit. |
+| **011 Explicit Indexing Model** | Landed | Introduce intentional index projection contracts without a hidden planner or runtime scanning. |
+| **012 Definition Schema Versions & Upgrade Flow** | Next | Make long-lived resource schema versioning and upgrade behavior explicit. |
 
 ---
 
