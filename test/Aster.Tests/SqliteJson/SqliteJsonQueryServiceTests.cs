@@ -332,6 +332,10 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         {
             ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero) },
         }));
+        await store.SaveVersionAsync(CreateResource("event-b-offset", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 15, 12, 0, 0, TimeSpan.FromHours(2)) },
+        }));
         await store.SaveVersionAsync(CreateResource("event-c", "Event", aspects: new()
         {
             ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 20, 10, 0, 0, TimeSpan.Zero) },
@@ -383,9 +387,9 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             min: null,
             max: new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero));
 
-        Assert.Equal(["event-a", "event-b", "event-c"], inclusive);
-        Assert.Equal(["event-b"], exclusive);
-        Assert.Equal(["event-a", "event-b"], oneSided);
+        Assert.Equal(["event-a", "event-b", "event-b-offset", "event-c"], inclusive);
+        Assert.Equal(["event-b", "event-b-offset"], exclusive);
+        Assert.Equal(["event-a", "event-b", "event-b-offset"], oneSided);
     }
 
     [Fact]

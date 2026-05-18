@@ -456,7 +456,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
             if (decimal.TryParse(stringValue, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
                 return QueryValueShape.Numeric;
 
-            if (IsAcceptedDateTimeString(stringValue))
+            if (QueryDateTimeValue.IsAcceptedDateTimeString(stringValue))
                 return QueryValueShape.DateTime;
 
             return QueryValueShape.String;
@@ -467,21 +467,6 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         return null;
     }
-
-    private static bool IsAcceptedDateTimeString(string value) =>
-        value.Contains('T', StringComparison.Ordinal)
-        && DateTime.TryParseExact(
-            value,
-            AcceptedDateTimeFormats,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-            out _);
-
-    private static readonly string[] AcceptedDateTimeFormats =
-    [
-        "yyyy-MM-dd'T'HH:mm:ssK",
-        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK",
-    ];
 
     private static QueryValidationFailure Failure(
         string code,
