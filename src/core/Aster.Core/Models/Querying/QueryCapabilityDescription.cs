@@ -18,6 +18,7 @@ namespace Aster.Core.Models.Querying;
 /// <param name="SupportsTake">Whether take paging is supported.</param>
 /// <param name="FacetRangeSupport">Facet range value shapes supported by the provider.</param>
 /// <param name="UnsupportedFeatures">Known unsupported features, for discovery and documentation.</param>
+/// <param name="IndexProjections">Explicit index projection declarations exposed by the provider.</param>
 public sealed record QueryCapabilityDescription(
     string ProviderKey,
     string ProviderName,
@@ -33,8 +34,14 @@ public sealed record QueryCapabilityDescription(
     bool SupportsSkip,
     bool SupportsTake,
     IReadOnlySet<QueryValueShape> FacetRangeSupport,
-    IReadOnlyList<string> UnsupportedFeatures)
+    IReadOnlyList<string> UnsupportedFeatures,
+    IReadOnlyList<IndexProjection>? IndexProjections = null)
 {
+    /// <summary>
+    /// Gets explicit index projection declarations exposed by the provider.
+    /// </summary>
+    public IReadOnlyList<IndexProjection> IndexProjections { get; init; } = IndexProjections ?? [];
+
     /// <summary>
     /// Returns whether the provider supports the supplied comparison operator for the filter type.
     /// </summary>

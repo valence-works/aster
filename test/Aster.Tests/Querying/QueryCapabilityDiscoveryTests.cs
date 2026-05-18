@@ -29,6 +29,7 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         Assert.Equal(InMemoryQueryCapabilitiesProvider.ProviderKey, capabilities.ProviderKey);
         Assert.Equal("In-memory", capabilities.ProviderName);
         Assert.True(capabilities.SupportsFacetSorting);
+        Assert.Empty(capabilities.IndexProjections);
     }
 
     [Fact]
@@ -49,6 +50,7 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         Assert.Equal(SqliteJsonQueryCapabilitiesProvider.ProviderKey, capabilities.ProviderKey);
         Assert.Equal("SQLite JSON", capabilities.ProviderName);
         Assert.True(capabilities.SupportsFacetSorting);
+        Assert.Empty(capabilities.IndexProjections);
         Assert.True(validator.Validate(new ResourceQuery
         {
             Sorts = [new SortExpression("Title", AspectKey: "TitleAspect")],
@@ -67,6 +69,8 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         Assert.Contains(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
         Assert.Contains("Version", inMemory.MetadataContainsFields);
         Assert.DoesNotContain("Version", sqlite.MetadataContainsFields);
+        Assert.Empty(inMemory.IndexProjections);
+        Assert.Empty(sqlite.IndexProjections);
     }
 
     [Fact]

@@ -144,6 +144,38 @@ Console.WriteLine(capabilities.SupportsFacetSorting);
 
 Capabilities describe supported scopes, filter categories, comparison operators, logical operators, metadata fields, sort categories, paging, facet range value shapes, and known exclusions. The in-memory and SQLite JSON providers currently declare facet sorting and numeric/date-like facet ranges.
 Capability declarations are matched to the active query provider by explicit `ProviderKey` values such as `in-memory` and `sqlite-json`.
+Capabilities can also declare index projections through `IndexProjections`. These are provider-authored mappings from resource metadata or an aspect/facet pair to a typed index field. Built-in providers currently declare an empty projection collection; Aster does not infer indexes from definitions or scan aspect types.
+
+```csharp
+public sealed class SearchCapabilitiesProvider : IResourceQueryCapabilitiesProvider
+{
+    public QueryCapabilityDescription Capabilities { get; } = new(
+        ProviderKey: "search",
+        ProviderName: "Search",
+        /* supported query surface */,
+        IndexProjections:
+        [
+            IndexProjection.Metadata("resource_id", "ResourceId", IndexFieldType.Keyword),
+            IndexProjection.Facet("title", "Title", "Title", IndexFieldType.NormalizedText),
+            IndexProjection.Facet("tags", "Taxonomy", "Tags", IndexFieldType.KeywordArray),
+        ]);
+}
+```
+
+Provider authors can validate declarations with `IndexProjectionValidator` and evaluate them with `IndexProjectionEvaluator` when maintaining their own provider-side index or search document:
+
+```csharp
+var validation = new IndexProjectionValidator().Validate(capabilities.IndexProjections);
+var projectionResult = new IndexProjectionEvaluator().Evaluate(resource, capabilities.IndexProjections);
+
+foreach (var value in projectionResult.Values)
+    Console.WriteLine($"{value.FieldName}: {value.Value}");
+
+foreach (var failure in projectionResult.Failures)
+    Console.WriteLine($"{failure.FieldName}: {failure.Code}");
+```
+
+Projection evaluation is strict and fail-soft. Scalar projection types require matching CLR value shapes; numeric, boolean, and GUID-looking strings are not coerced. `DateTime` projections reuse the same accepted date/time normalization as portable date ranges. Missing or null sources produce `missing-source`, incompatible shapes produce `incompatible-value-shape`, and invalid declarations produce `invalid-projection-declaration` or `duplicate-projection-field`.
 
 Custom providers can use `AddResourceQueryProvider<TQueryService, TCapabilitiesProvider>()` to register their active query service and matching capability provider together. Validation fails closed with `capabilities-not-declared` when the active provider key has no matching declaration.
 
