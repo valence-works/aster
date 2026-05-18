@@ -168,6 +168,74 @@ public sealed class IndexProjectionEvaluationTests
             value => Assert.Equal("sale", value));
     }
 
+    [Fact]
+    public void Evaluate_ReportsDuplicateProjectionFieldWithoutDiscardingFirstValue()
+    {
+        var resource = CreateResource(aspects: new()
+        {
+            ["Title"] = new { Title = "Alpha Gadget", OtherTitle = "Beta Gadget" },
+        });
+        var projections = new[]
+        {
+            IndexProjection.Facet("title", "Title", "Title", IndexFieldType.Keyword),
+            IndexProjection.Facet("title", "Title", "OtherTitle", IndexFieldType.Keyword),
+        };
+
+        var result = evaluator.Evaluate(resource, projections);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("Alpha Gadget", Value<string>(result, "title"));
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("title", failure.FieldName);
+        Assert.Equal(IndexProjectionFailureCodes.DuplicateProjectionField, failure.Code);
+    }
+
+    [Fact]
+    public void Evaluate_NormalizesAllSupportedClrIntegerValues()
+    {
+        var resource = CreateResource(aspects: new()
+        {
+            ["Numbers"] = new Dictionary<string, object>
+            {
+                ["Byte"] = (byte)1,
+                ["SByte"] = (sbyte)-2,
+                ["Short"] = (short)-3,
+                ["UShort"] = (ushort)4,
+                ["Int"] = -5,
+                ["UInt"] = 6u,
+                ["Long"] = -7L,
+                ["ULong"] = 8ul,
+                ["TooLargeULong"] = ulong.MaxValue,
+            },
+        });
+        var projections = new[]
+        {
+            IndexProjection.Facet("byte", "Numbers", "Byte", IndexFieldType.Integer),
+            IndexProjection.Facet("sbyte", "Numbers", "SByte", IndexFieldType.Integer),
+            IndexProjection.Facet("short", "Numbers", "Short", IndexFieldType.Integer),
+            IndexProjection.Facet("ushort", "Numbers", "UShort", IndexFieldType.Integer),
+            IndexProjection.Facet("int", "Numbers", "Int", IndexFieldType.Integer),
+            IndexProjection.Facet("uint", "Numbers", "UInt", IndexFieldType.Integer),
+            IndexProjection.Facet("long", "Numbers", "Long", IndexFieldType.Integer),
+            IndexProjection.Facet("ulong", "Numbers", "ULong", IndexFieldType.Integer),
+            IndexProjection.Facet("too_large_ulong", "Numbers", "TooLargeULong", IndexFieldType.Integer),
+        };
+
+        var result = evaluator.Evaluate(resource, projections);
+
+        Assert.Equal(1L, Value<long>(result, "byte"));
+        Assert.Equal(-2L, Value<long>(result, "sbyte"));
+        Assert.Equal(-3L, Value<long>(result, "short"));
+        Assert.Equal(4L, Value<long>(result, "ushort"));
+        Assert.Equal(-5L, Value<long>(result, "int"));
+        Assert.Equal(6L, Value<long>(result, "uint"));
+        Assert.Equal(-7L, Value<long>(result, "long"));
+        Assert.Equal(8L, Value<long>(result, "ulong"));
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("too_large_ulong", failure.FieldName);
+        Assert.Equal(IndexProjectionFailureCodes.IncompatibleValueShape, failure.Code);
+    }
+
     private static Resource CreateResource(Dictionary<string, object>? aspects = null) =>
         new()
         {

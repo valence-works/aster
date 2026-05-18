@@ -33,13 +33,18 @@ public sealed class IndexProjectionEvaluator
         failures.AddRange(validation.Failures);
 
         var invalidFields = validation.Failures
+            .Where(static failure => failure.Code == IndexProjectionFailureCodes.InvalidProjectionDeclaration)
             .Select(failure => failure.FieldName)
             .Where(static fieldName => !string.IsNullOrWhiteSpace(fieldName))
             .ToHashSet(StringComparer.Ordinal);
+        var evaluatedFields = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var projection in projectionList)
         {
             if (invalidFields.Contains(projection.FieldName))
+                continue;
+
+            if (!evaluatedFields.Add(projection.FieldName))
                 continue;
 
             if (!TryResolveSourceValue(resource, projection.Source, out var sourceValue)
@@ -239,14 +244,26 @@ public sealed class IndexProjectionEvaluator
             case byte byteValue:
                 result = byteValue;
                 return true;
+            case sbyte sbyteValue:
+                result = sbyteValue;
+                return true;
             case short shortValue:
                 result = shortValue;
+                return true;
+            case ushort ushortValue:
+                result = ushortValue;
                 return true;
             case int intValue:
                 result = intValue;
                 return true;
+            case uint uintValue:
+                result = uintValue;
+                return true;
             case long longValue:
                 result = longValue;
+                return true;
+            case ulong ulongValue when ulongValue <= long.MaxValue:
+                result = (long)ulongValue;
                 return true;
             default:
                 result = default;
@@ -261,7 +278,7 @@ public sealed class IndexProjectionEvaluator
             case decimal decimalValue:
                 result = decimalValue;
                 return true;
-            case byte or short or int or long:
+            case byte or sbyte or short or ushort or int or uint or long or ulong:
                 result = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
                 return true;
             case float floatValue:

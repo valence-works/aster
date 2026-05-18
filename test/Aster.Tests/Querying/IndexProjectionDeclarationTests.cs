@@ -67,6 +67,16 @@ public sealed class IndexProjectionDeclarationTests
                 "unknown-source",
                 new IndexProjectionSource((IndexProjectionSourceKind)999),
                 IndexFieldType.Keyword),
+            new IndexProjection(
+                "scalar-multi-value",
+                IndexProjectionSource.Metadata("ResourceId"),
+                IndexFieldType.Keyword,
+                IsMultiValue: true),
+            new IndexProjection(
+                "array-single-value",
+                IndexProjectionSource.Facet("Taxonomy", "Tags"),
+                IndexFieldType.KeywordArray,
+                IsMultiValue: false),
         };
 
         var result = validator.Validate(projections);
@@ -74,6 +84,11 @@ public sealed class IndexProjectionDeclarationTests
         Assert.False(result.IsValid);
         Assert.Contains(result.Failures, failure => failure.Code == IndexProjectionFailureCodes.InvalidProjectionDeclaration);
         Assert.Contains(result.Failures, failure => failure.Code == IndexProjectionFailureCodes.DuplicateProjectionField);
+        Assert.Contains(result.Failures, Failure("scalar-multi-value", IndexProjectionFailureCodes.InvalidProjectionDeclaration));
+        Assert.Contains(result.Failures, Failure("array-single-value", IndexProjectionFailureCodes.InvalidProjectionDeclaration));
         Assert.All(result.Failures, failure => Assert.False(string.IsNullOrWhiteSpace(failure.Message)));
     }
+
+    private static Predicate<IndexProjectionFailure> Failure(string fieldName, string code) =>
+        failure => failure.FieldName == fieldName && failure.Code == code;
 }

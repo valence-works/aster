@@ -54,6 +54,13 @@ public sealed class IndexProjectionValidator
                 IndexProjectionFailureCodes.InvalidProjectionDeclaration,
                 $"Index projection field type '{projection.FieldType}' is not supported."));
         }
+        else if (projection.IsMultiValue != (projection.FieldType == IndexFieldType.KeywordArray))
+        {
+            failures.Add(Failure(
+                projection,
+                IndexProjectionFailureCodes.InvalidProjectionDeclaration,
+                "Index projection multi-value declarations must use the KeywordArray field type."));
+        }
 
         ValidateSource(projection, failures);
     }
