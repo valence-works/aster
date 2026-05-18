@@ -386,6 +386,10 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             query,
             min: null,
             max: new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero));
+        var minOnly = await ExecuteDateRangeAsync(
+            query,
+            min: new DateTimeOffset(2026, 2, 15, 10, 0, 0, TimeSpan.Zero),
+            max: null);
         var stringBounds = await ExecuteDateRangeAsync(
             query,
             "2026-02-01T11:00:00+01:00",
@@ -394,6 +398,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal(["event-a", "event-b", "event-b-offset", "event-c"], inclusive);
         Assert.Equal(["event-b", "event-b-offset"], exclusive);
         Assert.Equal(["event-a", "event-b", "event-b-offset"], oneSided);
+        Assert.Equal(["event-b", "event-b-offset", "event-c", "event-d"], minOnly);
         Assert.Equal(["event-a", "event-b", "event-b-offset", "event-c"], stringBounds);
     }
 

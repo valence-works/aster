@@ -65,6 +65,8 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         Assert.True(sqlite.SupportsFacetSorting);
         Assert.Contains(QueryValueShape.DateTime, inMemory.FacetRangeSupport);
         Assert.Contains(QueryValueShape.DateTime, sqlite.FacetRangeSupport);
+        Assert.Contains("Version", inMemory.MetadataContainsFields);
+        Assert.DoesNotContain("Version", sqlite.MetadataContainsFields);
     }
 
     [Fact]
@@ -81,14 +83,11 @@ public sealed class QueryCapabilityDiscoveryTests : IDisposable
         var validator = provider.GetRequiredService<IResourceQueryValidator>();
         var result = validator.Validate(new ResourceQuery
         {
-            Filter = new FacetValueFilter(
-                "Schedule",
-                "StartsAt",
-                new RangeValue(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow),
-                ComparisonOperator.Range),
+            Filter = new MetadataFilter("Version", "1", ComparisonOperator.Contains),
         });
 
-        Assert.True(result.IsValid);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-metadata-contains-field");
     }
 
     [Fact]
