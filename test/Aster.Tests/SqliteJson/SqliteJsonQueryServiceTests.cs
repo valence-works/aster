@@ -348,6 +348,10 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         {
             ["Schedule"] = new { StartsAt = "2026-02-10" },
         }));
+        await store.SaveVersionAsync(CreateResource("event-space-separated", "Event", aspects: new()
+        {
+            ["Schedule"] = new { StartsAt = "2026-02-10 10:00:00" },
+        }));
         await store.SaveVersionAsync(CreateResource("event-number", "Event", aspects: new()
         {
             ["Schedule"] = new { StartsAt = 20260210 },
@@ -401,7 +405,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             }).AsTask(),
             "unsupported-range-value-shape",
             "value shape",
-            "Filter.Value");
+            "Filter.Value.Min");
     }
 
     [Fact]

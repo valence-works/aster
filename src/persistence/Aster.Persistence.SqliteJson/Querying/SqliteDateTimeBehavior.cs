@@ -35,8 +35,9 @@ internal static class SqliteDateTimeBehavior
             return false;
         }
 
-        if (DateTimeOffset.TryParse(
+        if (DateTimeOffset.TryParseExact(
             value,
+            AcceptedDateTimeFormats,
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
             out var dateTimeOffset))
@@ -45,8 +46,9 @@ internal static class SqliteDateTimeBehavior
             return true;
         }
 
-        if (DateTime.TryParse(
+        if (DateTime.TryParseExact(
             value,
+            AcceptedDateTimeFormats,
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
             out var dateTime))
@@ -60,8 +62,13 @@ internal static class SqliteDateTimeBehavior
     }
 
     private static bool ContainsTimeComponent(string value) =>
-        value.Contains('T', StringComparison.Ordinal)
-        || value.Contains(' ', StringComparison.Ordinal);
+        value.Contains('T', StringComparison.Ordinal);
+
+    private static readonly string[] AcceptedDateTimeFormats =
+    [
+        "yyyy-MM-dd'T'HH:mm:ssK",
+        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK",
+    ];
 
     private static DateTime NormalizeDateTime(DateTime value) => value.Kind switch
     {

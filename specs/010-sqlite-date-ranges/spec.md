@@ -2,7 +2,7 @@
 
 **Feature Branch**: `010-sqlite-date-ranges`  
 **Created**: 2026-05-18  
-**Status**: Draft  
+**Status**: Implemented
 **Input**: User description: "Add SQLite JSON support for date-like facet range filters with an explicit accepted serialization contract, provider capability updates, validation alignment, SQL translation, conformance coverage, docs, and fail-closed diagnostics for unsupported or invalid date-like shapes."
 
 ## User Scenarios & Testing *(mandatory)*

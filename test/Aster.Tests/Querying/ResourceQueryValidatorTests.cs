@@ -237,6 +237,24 @@ public sealed class ResourceQueryValidatorTests
         Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
     }
 
+    [Theory]
+    [InlineData("2026-02-01")]
+    [InlineData("2026-02-01 10:00:00")]
+    public void Validate_RejectsUnsupportedDateLikeStringRangeBounds(string value)
+    {
+        var result = sqliteValidator.Validate(new ResourceQuery
+        {
+            Filter = new FacetValueFilter(
+                "Schedule",
+                "StartsAt",
+                new RangeValue(value, null),
+                ComparisonOperator.Range),
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Failures, failure => failure.Code == "unsupported-range-value-shape");
+    }
+
     [Fact]
     public void Validate_WhenActiveQueryServiceHasNoMatchingCapabilities_FailsClosed()
     {
