@@ -85,7 +85,12 @@ public sealed class MyQueryCapabilitiesProvider : IResourceQueryCapabilitiesProv
     public QueryCapabilityDescription Capabilities { get; } = new(
         ProviderKey: "my-provider",
         ProviderName: "My Provider",
-        /* supported query surface */);
+        /* supported query surface */,
+        IndexProjections:
+        [
+            IndexProjection.Metadata("resource_id", "ResourceId", IndexFieldType.Keyword),
+            IndexProjection.Facet("title", "Title", "Title", IndexFieldType.NormalizedText),
+        ]);
 }
 
 services
@@ -94,6 +99,10 @@ services
 ```
 
 The helper keeps provider selection explicit and does not scan assemblies or create a provider registry. It registers both concrete types and the shared `IResourceQueryService`, `IResourceQueryProviderIdentity`, and `IResourceQueryCapabilitiesProvider` interfaces as singletons. The active `IResourceQueryService` and `IResourceQueryProviderIdentity` resolve to `MyQueryService`; `IResourceQueryCapabilitiesProvider` resolves to `MyQueryCapabilitiesProvider` by normal last-registration-wins DI behavior.
+
+Index projection declarations are optional. The in-memory and SQLite JSON providers declare no default projections. Custom providers that maintain provider-specific indexes can expose projection declarations through `QueryCapabilityDescription.IndexProjections`, validate them with `IndexProjectionValidator`, and evaluate resource versions with `IndexProjectionEvaluator`. Projection evaluation returns successful values and structured failures together, so providers can reject or quarantine only the problematic projection input without hiding other valid projected values.
+
+Projection declarations do not create physical indexes, migrations, generated columns, a query planner, or provider discovery. They are an explicit SDK contract that lets provider authors describe and reuse the fields their own provider implementation chooses to index.
 
 Manual registration remains supported for advanced hosts. Use the same lifetime consistently for the concrete query service and its shared interface mappings:
 

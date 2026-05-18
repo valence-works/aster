@@ -70,6 +70,35 @@ public sealed class ProviderAuthoringTests
     }
 
     [Fact]
+    public void AddResourceQueryProvider_ExposesCustomIndexProjectionDeclarations()
+    {
+        using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .AddResourceQueryProvider<CustomQueryService, CustomCapabilitiesProvider>()
+            .BuildServiceProvider();
+
+        var capabilities = provider.GetRequiredService<IResourceQueryCapabilitiesProvider>().Capabilities;
+
+        Assert.Collection(
+            capabilities.IndexProjections,
+            projection =>
+            {
+                Assert.Equal("resource_id", projection.FieldName);
+                Assert.Equal(IndexProjectionSourceKind.Metadata, projection.Source.Kind);
+                Assert.Equal("ResourceId", projection.Source.MetadataField);
+                Assert.Equal(IndexFieldType.Keyword, projection.FieldType);
+            },
+            projection =>
+            {
+                Assert.Equal("title", projection.FieldName);
+                Assert.Equal(IndexProjectionSourceKind.Facet, projection.Source.Kind);
+                Assert.Equal("Title", projection.Source.AspectKey);
+                Assert.Equal("Title", projection.Source.FacetKey);
+                Assert.Equal(IndexFieldType.NormalizedText, projection.FieldType);
+            });
+    }
+
+    [Fact]
     public void Validate_WithMissingCustomCapabilities_FailsClosedWithProviderKey()
     {
         using var provider = new ServiceCollection()
@@ -294,5 +323,10 @@ public sealed class ProviderAuthoringTests
             SupportsSkip: false,
             SupportsTake: false,
             FacetRangeSupport: new HashSet<QueryValueShape>(),
-            UnsupportedFeatures: []);
+            UnsupportedFeatures: [],
+            IndexProjections:
+            [
+                IndexProjection.Metadata("resource_id", "ResourceId", IndexFieldType.Keyword),
+                IndexProjection.Facet("title", "Title", "Title", IndexFieldType.NormalizedText),
+            ]);
 }

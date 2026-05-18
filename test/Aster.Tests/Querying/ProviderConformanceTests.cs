@@ -118,6 +118,26 @@ public sealed class ProviderConformanceTests : IDisposable
                 && failure.Message.Contains("rejected supported query", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task ConformanceSuite_DetectsInvalidIndexProjectionDeclarations()
+    {
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .AddResourceQueryProvider<ConformingCustomQueryService, InvalidIndexProjectionCapabilitiesProvider>()
+            .BuildServiceProvider();
+        var subject = new ProviderConformanceSubject(
+            "Invalid index projections",
+            MinimalCustomCapabilitiesProvider.ProviderKey,
+            provider);
+
+        var failures = await ProviderConformanceSuite.EvaluateAsync(subject);
+
+        Assert.Contains(
+            failures,
+            failure => failure.Area == "Index projections"
+                && failure.Message.Contains(IndexProjectionFailureCodes.DuplicateProjectionField, StringComparison.Ordinal));
+    }
+
     private static async Task<ServiceProvider> CreateInMemoryProviderAsync()
     {
         var provider = new ServiceCollection()
@@ -299,6 +319,31 @@ public sealed class ProviderConformanceTests : IDisposable
                 "Paging",
             ]);
     }
+
+    private sealed class InvalidIndexProjectionCapabilitiesProvider : IResourceQueryCapabilitiesProvider
+    {
+        public QueryCapabilityDescription Capabilities { get; } = new(
+            ProviderKey: MinimalCustomCapabilitiesProvider.ProviderKey,
+            ProviderName: "Invalid index projections",
+            SupportedScopes: new HashSet<ResourceVersionScope> { ResourceVersionScope.Latest },
+            RequiresActivationChannelForActiveScope: false,
+            SupportedFilterTypes: new HashSet<QueryFilterType>(),
+            SupportedLogicalOperators: new HashSet<LogicalOperator>(),
+            SupportedComparisonOperators: new Dictionary<QueryFilterType, IReadOnlySet<ComparisonOperator>>(),
+            SupportedMetadataFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            MetadataContainsFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            SupportsMetadataSorting: false,
+            SupportsFacetSorting: false,
+            SupportsSkip: false,
+            SupportsTake: false,
+            FacetRangeSupport: new HashSet<QueryValueShape>(),
+            UnsupportedFeatures: [],
+            IndexProjections:
+            [
+                IndexProjection.Metadata("duplicate", "ResourceId", IndexFieldType.Keyword),
+                IndexProjection.Facet("duplicate", "Title", "Title", IndexFieldType.Keyword),
+            ]);
+    }
 }
 
 internal sealed record ProviderConformanceSubject(
@@ -345,6 +390,16 @@ internal static class ProviderConformanceSuite
                 "Provider identity",
                 $"Expected active provider key '{subject.ExpectedProviderKey}' with a matching capability declaration."));
             return failures;
+        }
+
+        var indexProjectionValidation = new IndexProjectionValidator().Validate(capabilities.IndexProjections);
+        if (!indexProjectionValidation.IsValid)
+        {
+            failures.Add(new(
+                subject.Name,
+                "Index projection declarations",
+                "Index projections",
+                $"Invalid index projection declarations: {FailureCodes(indexProjectionValidation.Failures)}."));
         }
 
         var validator = subject.Services.GetRequiredService<IResourceQueryValidator>();
@@ -713,6 +768,9 @@ internal static class ProviderConformanceSuite
     }
 
     private static string FailureCodes(IEnumerable<QueryValidationFailure> failures) =>
+        string.Join(", ", failures.Select(static failure => failure.Code));
+
+    private static string FailureCodes(IEnumerable<IndexProjectionFailure> failures) =>
         string.Join(", ", failures.Select(static failure => failure.Code));
 
     private static DateTime Utc(int year, int month, int day) =>

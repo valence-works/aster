@@ -38,6 +38,7 @@ builder.Services.AddAsterCore();
 | `InMemoryResourceStore` | `IResourceVersionReader`, `IResourceVersionWriter` |
 | `DefaultResourceManager` | `IResourceManager` |
 | `InMemoryQueryService` | `IResourceQueryService` |
+| `InMemoryQueryService` | `IResourceQueryProviderIdentity` |
 | `InMemoryQueryCapabilitiesProvider` | `IResourceQueryCapabilitiesProvider` |
 | `ResourceQueryValidator` | `IResourceQueryValidator` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
@@ -153,6 +154,19 @@ services
 
 The helper registers the provider concrete types and shared query/provider interfaces as singletons, keeping the active query service, provider identity, and capability declaration together without introducing provider discovery or a registry. Hosts that need different lifetimes can still use explicit manual DI registration.
 
+Provider capabilities may also declare explicit index projections:
+
+```csharp
+IndexProjections:
+[
+    IndexProjection.Metadata("resource_id", "ResourceId", IndexFieldType.Keyword),
+    IndexProjection.Facet("title", "Title", "Title", IndexFieldType.NormalizedText),
+    IndexProjection.Facet("tags", "Taxonomy", "Tags", IndexFieldType.KeywordArray),
+]
+```
+
+Built-in providers declare no default projections. Custom providers can use `IndexProjectionValidator` to validate declarations and `IndexProjectionEvaluator` to turn a resource version into typed projection values plus structured failures such as `missing-source` and `incompatible-value-shape`. Projection declarations are metadata for provider authors; they do not create physical indexes or add query planning.
+
 Or build common typed aspect filters and sorts without repeating convention-based identifiers:
 
 ```csharp
@@ -190,6 +204,7 @@ IResourceManager              — provider-backed create / update / activate orc
 IResourceVersionWriter           — low-level version/activation persistence hook
 IResourceVersionReader           — low-level read hook for query candidate version sets
 IResourceQueryService         — portable query service; default is LINQ-based in-memory
+IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support
 IResourceQueryValidator        — preflights ResourceQuery against provider capabilities
 ITypedAspectBinder            — serialise/deserialise full aspects (System.Text.Json)
