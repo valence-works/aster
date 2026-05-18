@@ -53,18 +53,13 @@ public static class QueryDateTimeValue
 
     private static bool TryNormalizeTextDateKey(string value, out string key)
     {
-        if (!IsAcceptedDateTimeString(value))
-        {
-            key = string.Empty;
-            return false;
-        }
-
-        if (DateTimeOffset.TryParseExact(
-            value,
-            AcceptedDateTimeFormats,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-            out var dateTimeOffset))
+        if (value.Contains('T', StringComparison.Ordinal)
+            && DateTimeOffset.TryParseExact(
+                value,
+                AcceptedDateTimeFormats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var dateTimeOffset))
         {
             key = FormatUtc(dateTimeOffset);
             return true;
