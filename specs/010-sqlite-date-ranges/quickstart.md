@@ -15,7 +15,7 @@ await manager.CreateAsync("Event", new CreateResourceRequest
 ## Query A Date Range
 
 ```csharp
-var results = await query.QueryAsync(new ResourceQuery
+var resourceQuery = new ResourceQuery
 {
     DefinitionId = "Event",
     Filter = new FacetValueFilter(
@@ -25,13 +25,15 @@ var results = await query.QueryAsync(new ResourceQuery
             Min: new DateTimeOffset(2026, 02, 01, 00, 00, 00, TimeSpan.Zero),
             Max: new DateTimeOffset(2026, 02, 28, 23, 59, 59, TimeSpan.Zero)),
         ComparisonOperator.Range),
-});
+};
+
+var results = await query.QueryAsync(resourceQuery);
 ```
 
 ## Validate First
 
 ```csharp
-var validation = validator.Validate(query);
+var validation = validator.Validate(resourceQuery);
 if (!validation.IsValid)
 {
     foreach (var failure in validation.Failures)
