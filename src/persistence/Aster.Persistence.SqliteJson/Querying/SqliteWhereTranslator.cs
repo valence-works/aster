@@ -320,8 +320,8 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
 
     private static RangeKind ResolveRangeKind(RangeValue range)
     {
-        var minKind = ResolveRangeBoundKind(range.Min, "minimum range bound");
-        var maxKind = ResolveRangeBoundKind(range.Max, "maximum range bound");
+        var minKind = ResolveRangeBoundKind(range.Min, "minimum range bound", "Filter.Value.Min");
+        var maxKind = ResolveRangeBoundKind(range.Max, "maximum range bound", "Filter.Value.Max");
 
         return (minKind, maxKind) switch
         {
@@ -335,14 +335,14 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             (RangeKind.DateTime, null) or (null, RangeKind.DateTime) or (RangeKind.DateTime, RangeKind.DateTime) =>
                 RangeKind.DateTime,
             _ => throw Unsupported(
-                "unsupported-range-value-shape",
+                "mixed-range-value-shapes",
                 "value shape",
                 "Range bounds must use the same value shape.",
                 "Filter.Value"),
         };
     }
 
-    private static RangeKind? ResolveRangeBoundKind(object? value, string description)
+    private static RangeKind? ResolveRangeBoundKind(object? value, string description, string path)
     {
         if (value is null)
             return null;
@@ -357,7 +357,7 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             "unsupported-range-value-shape",
             "value shape",
             $"{description} must be numeric or date-like.",
-            "Filter.Value");
+            path);
     }
 
     private static string? FormatValue(object? value) => value switch
