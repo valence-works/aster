@@ -6,7 +6,7 @@
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, and typed query helpers are available. See [Roadmap](#roadmap) for future phases.
+> **Status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider conformance support, portable operators, SQLite date-like ranges, and explicit index projection contracts are available. See [Roadmap](#roadmap) for future phases.
 
 ---
 
@@ -137,6 +137,7 @@ Console.WriteLine(title?.Title); // "Super Gadget Pro"
 | `IResourceQueryService` | `InMemoryQueryService` |
 | `IResourceQueryCapabilitiesProvider` | `InMemoryQueryCapabilitiesProvider` |
 | `IResourceQueryValidator` | `ResourceQueryValidator` |
+| `IResourceSchemaVersionService` | `ResourceSchemaVersionService` |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` |
 | `IIdentityGenerator` | `GuidIdentityGenerator` |
@@ -186,6 +187,7 @@ var filter = TypedQuery.For<TitleAspect>()
 ## Versioning & Activation
 
 - **Immutable versions** — every call to `UpdateAsync` appends a new version.
+- **Definition lineage** — every new resource records the active `ResourceDefinition.Version` in `Resource.DefinitionVersion`. Normal updates preserve that recorded lineage.
 - **Optimistic concurrency** — `UpdateResourceRequest.BaseVersion` must match the current latest; mismatches throw `ConcurrencyException`.
 - **Activation** — `ActivateAsync(resourceId, version, channel, allowMultipleActive)`:
   - `allowMultipleActive = false` (default): deactivates all other versions in the channel first.
@@ -196,12 +198,28 @@ var filter = TypedQuery.For<TitleAspect>()
   - `GetVersionsAsync(resourceId)` — all versions.
   - `GetActiveVersionsAsync(resourceId, channel)` — all active versions in a channel.
 
+Use `IResourceSchemaVersionService` when a host needs to inspect or explicitly advance definition lineage:
+
+```csharp
+var schemaVersions = serviceProvider.GetRequiredService<IResourceSchemaVersionService>();
+var status = await schemaVersions.GetSchemaStatusAsync(resource);
+
+var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, new ResourceSchemaUpgradeRequest
+{
+    BaseVersion = resource.Version,
+    TargetDefinitionVersion = status.LatestDefinitionVersion,
+});
+```
+
+Schema status is evaluated for one resource version at a time. Explicit upgrades append a new resource version, default to the latest definition version when no target is supplied, preserve existing aspect data by default, and report `CarriedForwardAspectKeys` for aspect keys not declared by the target definition. A target equal to the source lineage returns `ResourceSchemaUpgradeStatus.NoOp`; invalid targets throw `ResourceSchemaUpgradeException` with a stable `Code`.
+
 ### Exception reference
 
 | Exception | When thrown |
 |---|---|
 | `ConcurrencyException` | `BaseVersion` mismatch on update or activate |
 | `VersionNotFoundException` | Requested version does not exist |
+| `ResourceSchemaUpgradeException` | Explicit schema upgrade target is invalid or unavailable |
 | `SingletonViolationException` | Creating a second instance of a singleton definition |
 | `DuplicateResourceIdException` | Caller-supplied `ResourceId` already exists |
 | `DuplicateAspectAttachmentException` | Same aspect key attached twice to a definition |

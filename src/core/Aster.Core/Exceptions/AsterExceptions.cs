@@ -89,6 +89,61 @@ public sealed class SingletonViolationException : Exception
 }
 
 /// <summary>
+/// Thrown when an explicit resource schema upgrade request is invalid.
+/// </summary>
+public sealed class ResourceSchemaUpgradeException : Exception
+{
+    /// <summary>
+    /// Gets the stable schema-upgrade failure code.
+    /// </summary>
+    public string Code { get; }
+
+    /// <summary>
+    /// Gets the resource definition identifier associated with the failure, when available.
+    /// </summary>
+    public string? DefinitionId { get; }
+
+    /// <summary>
+    /// Gets the requested target definition version, when available.
+    /// </summary>
+    public int? TargetDefinitionVersion { get; }
+
+    /// <inheritdoc />
+    public ResourceSchemaUpgradeException()
+        : this("invalid-schema-upgrade", "The schema upgrade request is invalid.") { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceSchemaUpgradeException"/> class.
+    /// </summary>
+    /// <param name="code">Stable schema-upgrade failure code.</param>
+    /// <param name="message">Human-readable actionable explanation.</param>
+    /// <param name="definitionId">Optional resource definition identifier.</param>
+    /// <param name="targetDefinitionVersion">Optional target definition version.</param>
+    public ResourceSchemaUpgradeException(
+        string code,
+        string message,
+        string? definitionId = null,
+        int? targetDefinitionVersion = null)
+        : base(message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        Code = code;
+        DefinitionId = definitionId;
+        TargetDefinitionVersion = targetDefinitionVersion;
+    }
+
+    /// <inheritdoc />
+    public ResourceSchemaUpgradeException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        Code = "invalid-schema-upgrade";
+    }
+}
+
+/// <summary>
 /// Thrown when a query contains a predicate, scope, sort, or value shape that the provider cannot execute.
 /// </summary>
 public sealed class UnsupportedQueryFeatureException : Exception

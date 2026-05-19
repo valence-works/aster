@@ -41,6 +41,7 @@ builder.Services.AddAsterCore();
 | `InMemoryQueryService` | `IResourceQueryProviderIdentity` |
 | `InMemoryQueryCapabilitiesProvider` | `IResourceQueryCapabilitiesProvider` |
 | `ResourceQueryValidator` | `IResourceQueryValidator` |
+| `ResourceSchemaVersionService` | `IResourceSchemaVersionService` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
 | `SystemTextJsonFacetBinder` | `ITypedFacetBinder` |
@@ -196,6 +197,30 @@ var query = new ResourceQuery
 
 ---
 
+### 7. Inspect and upgrade definition lineage
+
+`CreateAsync` records the active definition version on the new resource. Normal `UpdateAsync` calls preserve that `DefinitionVersion`; they do not silently move long-lived resources to newer schemas.
+
+```csharp
+var schemaVersions = serviceProvider.GetRequiredService<IResourceSchemaVersionService>();
+var status = await schemaVersions.GetSchemaStatusAsync(resource);
+
+if (status.Status == ResourceSchemaStatus.OlderThanLatest)
+{
+    var upgraded = await schemaVersions.UpgradeAsync(resource.ResourceId, new ResourceSchemaUpgradeRequest
+    {
+        BaseVersion = resource.Version,
+        TargetDefinitionVersion = status.LatestDefinitionVersion,
+    });
+}
+```
+
+`UpgradeAsync` appends a new resource version with the requested target definition version. When the target is omitted, it defaults to the latest definition version. Existing aspect data is carried forward unless explicitly replaced through `AspectUpdates`; undeclared carried-forward aspect keys are reported in `CarriedForwardAspectKeys`.
+
+Invalid upgrade targets throw `ResourceSchemaUpgradeException` with a stable `Code` such as `missing-definition`, `missing-definition-version`, `target-definition-version-too-new`, or `target-definition-version-before-source`. Stale base versions keep using `ConcurrencyException`.
+
+---
+
 ## Architecture overview
 
 ```
@@ -207,6 +232,7 @@ IResourceQueryService         — portable query service; default is LINQ-based 
 IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support
 IResourceQueryValidator        — preflights ResourceQuery against provider capabilities
+IResourceSchemaVersionService — inspects and explicitly upgrades resource definition lineage
 ITypedAspectBinder            — serialise/deserialise full aspects (System.Text.Json)
 ITypedFacetBinder             — serialise/deserialise individual facet values
 IIdentityGenerator            — pluggable ID strategy (default: Guid)
@@ -216,6 +242,7 @@ Key invariants:
 
 - `Resource` is **immutable** — every `UpdateAsync` call produces a **new** version snapshot. The original version is never mutated.
 - `ResourceId` is the **logical** identifier shared across all versions. Each version has its own `Id` (GUID).
+- `DefinitionVersion` records schema lineage for a resource version. Normal updates preserve it; explicit schema upgrades advance it.
 - Activation channels are independent: a resource can be active in `"Published"` at V2 and in `"Staging"` at V3 simultaneously.
 - Optimistic concurrency is enforced on `UpdateAsync` (must supply `BaseVersion == current latest Version`) and `ActivateAsync` (must supply the current latest version number).
 

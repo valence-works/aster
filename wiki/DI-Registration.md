@@ -27,6 +27,7 @@ All services are registered as **singletons**.
 | `IResourceQueryProviderIdentity` | `InMemoryQueryService` | Exposes the active provider key |
 | `IResourceQueryCapabilitiesProvider` | `InMemoryQueryCapabilitiesProvider` | Declares in-memory query support |
 | `IResourceQueryValidator` | `ResourceQueryValidator` | Preflights `ResourceQuery` against active provider capabilities |
+| `IResourceSchemaVersionService` | `ResourceSchemaVersionService` | Inspects and explicitly upgrades resource definition lineage |
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` | Aspect POCO ↔ raw storage via `System.Text.Json` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` | Facet value POCO ↔ raw storage via `System.Text.Json` |
 

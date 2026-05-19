@@ -121,6 +121,8 @@ await definitionStore.RegisterDefinitionAsync(updatedDef);
 
 Existing resources continue to reference the definition version they were created against. `DefinitionVersion` on a `Resource` records which definition version was active at creation time.
 
+Normal resource updates preserve the source resource version's `DefinitionVersion`. Registering a new definition version does not automatically rewrite existing resources or move them to the newer schema.
+
 Retrieval:
 
 ```csharp
@@ -133,6 +135,47 @@ var v1def = await definitionStore.GetDefinitionVersionAsync("Product", version: 
 // All definitions (latest version per DefinitionId)
 var all = await definitionStore.ListDefinitionsAsync();
 ```
+
+## Schema Status and Explicit Upgrades
+
+Use `IResourceSchemaVersionService` to inspect one resource version's schema status relative to registered definition versions:
+
+```csharp
+var schemaVersions = serviceProvider.GetRequiredService<IResourceSchemaVersionService>();
+var status = await schemaVersions.GetSchemaStatusAsync(resource);
+```
+
+Possible `ResourceSchemaStatus` values:
+
+| Status | Meaning |
+|---|---|
+| `Current` | The resource version references the latest available definition version |
+| `OlderThanLatest` | The resource version references an available definition version older than latest |
+| `MissingDefinition` | No definition exists for the resource's `DefinitionId` |
+| `MissingDefinitionVersion` | The recorded definition version cannot be found, or is newer than the latest known version |
+| `UnknownResourceLineage` | The resource version does not record `DefinitionVersion` |
+
+To advance lineage, explicitly request an upgrade against the latest resource version:
+
+```csharp
+var latest = await manager.GetLatestVersionAsync(resource.ResourceId);
+
+var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, new ResourceSchemaUpgradeRequest
+{
+    BaseVersion = latest!.Version,
+    TargetDefinitionVersion = status.LatestDefinitionVersion,
+    AspectUpdates = new()
+    {
+        ["SearchAspect"] = new SearchAspect("search text"),
+    },
+});
+```
+
+`UpgradeAsync` appends a new immutable resource version with the requested target definition version. If `TargetDefinitionVersion` is omitted, it defaults to the latest definition version. If the target matches the source lineage, the result is `ResourceSchemaUpgradeStatus.NoOp` and no new version is appended.
+
+Existing aspect data is preserved by default. Aspect keys not declared by the target definition are still carried forward and listed in `CarriedForwardAspectKeys`, so hosts can warn, transform, or clean up explicitly.
+
+Upgrade failures use existing lifecycle exceptions where appropriate: stale `BaseVersion` throws `ConcurrencyException`, and a missing latest resource throws `VersionNotFoundException`. Invalid schema targets throw `ResourceSchemaUpgradeException` with stable codes including `missing-definition`, `missing-definition-version`, `target-definition-version-too-new`, and `target-definition-version-before-source`.
 
 ---
 
@@ -148,4 +191,3 @@ Phase 6 will harden this for distributed/multi-node scenarios with proper confli
 
 - [Getting Started](Getting-Started) — `CreateAsync`, `UpdateAsync`, `ActivateAsync` usage
 - [Exception Reference](Exception-Reference) — `ConcurrencyException`, `VersionNotFoundException`
-
