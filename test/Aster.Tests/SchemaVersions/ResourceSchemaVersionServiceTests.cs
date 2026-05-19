@@ -193,6 +193,39 @@ public sealed class ResourceSchemaVersionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task UpgradeAsync_DoesNotReportExplicitlyUpdatedUndeclaredAspectAsCarriedForward()
+    {
+        await using var provider = CreateInMemoryProvider();
+        var definitionStore = provider.GetRequiredService<IResourceDefinitionStore>();
+        var manager = provider.GetRequiredService<IResourceManager>();
+        var service = provider.GetRequiredService<IResourceSchemaVersionService>();
+
+        await RegisterProductDefinitionAsync(definitionStore, "TitleAspect", "LegacyAspect");
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            InitialAspects =
+            {
+                ["TitleAspect"] = new { Title = "Alpha" },
+                ["LegacyAspect"] = new { Value = "old" },
+            },
+        });
+        await RegisterProductDefinitionAsync(definitionStore, "TitleAspect");
+
+        var result = await service.UpgradeAsync(v1.ResourceId, new ResourceSchemaUpgradeRequest
+        {
+            BaseVersion = v1.Version,
+            AspectUpdates =
+            {
+                ["LegacyAspect"] = new { Value = "explicit" },
+            },
+        });
+
+        Assert.Equal(ResourceSchemaUpgradeStatus.Upgraded, result.Status);
+        Assert.Empty(result.CarriedForwardAspectKeys);
+        Assert.Equal("explicit", GetAspectValue(result.Resource!, "LegacyAspect"));
+    }
+
+    [Fact]
     public async Task UpgradeAsync_UnknownLineageCanUpgradeToExistingTarget()
     {
         await using var provider = CreateInMemoryProvider();
@@ -357,6 +390,9 @@ public sealed class ResourceSchemaVersionServiceTests : IDisposable
                 ["TitleAspect"] = new { Title = "Alpha" },
             },
         };
+
+    private static string? GetAspectValue(Resource resource, string key) =>
+        resource.Aspects[key].GetType().GetProperty("Value")?.GetValue(resource.Aspects[key]) as string;
 
     private static void TryDelete(string path)
     {

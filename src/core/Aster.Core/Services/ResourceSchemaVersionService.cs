@@ -139,7 +139,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
         }
 
         var upgraded = await SaveUpgradedResourceAsync(latestResource, targetVersion, request, cancellationToken);
-        var carriedForwardAspectKeys = GetCarriedForwardAspectKeys(upgraded, targetDefinition);
+        var carriedForwardAspectKeys = GetCarriedForwardAspectKeys(latestResource, targetDefinition, request.AspectUpdates);
 
         return new ResourceSchemaUpgradeResult
         {
@@ -176,12 +176,14 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
 
     private static List<string> GetCarriedForwardAspectKeys(
         Resource resource,
-        ResourceDefinition targetDefinition)
+        ResourceDefinition targetDefinition,
+        Dictionary<string, object> explicitUpdates)
     {
         var declared = targetDefinition.AspectDefinitions.Keys.ToHashSet(StringComparer.Ordinal);
+        var explicitlyChanged = explicitUpdates.Keys.ToHashSet(StringComparer.Ordinal);
 
         return resource.Aspects.Keys
-            .Where(key => !declared.Contains(key))
+            .Where(key => !declared.Contains(key) && !explicitlyChanged.Contains(key))
             .Order(StringComparer.Ordinal)
             .ToList();
     }
