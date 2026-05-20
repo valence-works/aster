@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Portability;
 
-public sealed class PortabilityPreviewTests : IDisposable
+public sealed class PortabilityPreviewTests : IAsyncDisposable
 {
     private readonly ServiceProvider provider;
     private readonly IResourceDefinitionStore definitionStore;
@@ -25,7 +25,7 @@ public sealed class PortabilityPreviewTests : IDisposable
         portability = provider.GetRequiredService<IResourcePortabilityService>();
     }
 
-    public void Dispose() => provider.Dispose();
+    public ValueTask DisposeAsync() => provider.DisposeAsync();
 
     [Fact]
     public async Task PreviewImportAsync_ValidSnapshot_ReturnsPlannedCountsAndDoesNotMutateStore()
