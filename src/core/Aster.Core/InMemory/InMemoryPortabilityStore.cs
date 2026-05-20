@@ -139,7 +139,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var previous = resourceStore.GetActivationState(state.ResourceId, state.Channel);
-                await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, CancellationToken.None);
+                await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, cancellationToken);
                 appliedActivationStates.Add((state, previous));
             }
         }

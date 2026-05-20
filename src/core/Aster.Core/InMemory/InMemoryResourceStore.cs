@@ -113,7 +113,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
             _ => new ConcurrentDictionary<string, ActivationState>(StringComparer.Ordinal));
 
         if (state is null)
-            states.Remove(channel, out _);
+            states.TryRemove(channel, out _);
         else
             states[channel] = state;
     }

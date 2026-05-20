@@ -214,6 +214,34 @@ public sealed class PortabilityImportTests : IDisposable
         Assert.Null(await manager.GetLatestVersionAsync("rollback-product-1"));
     }
 
+    [Fact]
+    public async Task RegisterDefinitionAsync_AfterHighVersionImport_UsesNextHighestVersion()
+    {
+        var store = provider.GetRequiredService<IResourcePortabilityStore>();
+        await store.ApplyImportAsync(new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            Definitions =
+            [
+                new ResourceDefinition
+                {
+                    DefinitionId = "VersionedProduct",
+                    Id = "versioned-product-definition-v10",
+                    Version = 10,
+                },
+            ],
+        });
+
+        await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+            .WithDefinitionId("VersionedProduct")
+            .Build());
+
+        var latest = await definitionStore.GetDefinitionAsync("VersionedProduct");
+
+        Assert.NotNull(latest);
+        Assert.Equal(11, latest.Version);
+    }
+
     private static PortableSnapshot CreateSnapshot()
     {
         var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

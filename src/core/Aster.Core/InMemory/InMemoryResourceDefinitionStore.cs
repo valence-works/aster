@@ -66,7 +66,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
 
         lock (versions)
         {
-            int nextVersion = versions.Count + 1;
+            int nextVersion = versions.Count > 0 ? versions[^1].Version + 1 : 1;
             var versionedDefinition = definition with { Version = nextVersion };
             versions.Add(versionedDefinition);
             LogDefinitionRegistered(definition.DefinitionId, nextVersion);
