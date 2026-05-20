@@ -88,6 +88,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         ArgumentNullException.ThrowIfNull(state);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var channelActivations = GetOrAddActivations(resourceId);
         lock (channelActivations)

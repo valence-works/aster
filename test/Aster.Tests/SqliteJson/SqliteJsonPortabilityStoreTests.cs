@@ -53,6 +53,43 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.Equal([1, 2], activationState.ActiveVersions);
     }
 
+    [Fact]
+    public async Task ExportAsync_SpecificVersionsWithSqlite_ExportsOnlyRequestedVersion()
+    {
+        await using var provider = CreateServiceProvider();
+        var definitionStore = provider.GetRequiredService<IResourceDefinitionStore>();
+        var manager = provider.GetRequiredService<IResourceManager>();
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+
+        await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+            .WithDefinitionId("Product")
+            .Build());
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
+        await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest
+        {
+            BaseVersion = v1.Version,
+        });
+
+        var result = await portability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceVersionScope = PortableResourceVersionScope.SpecificVersions,
+            SpecificResourceVersions =
+            [
+                new ResourceVersionReference
+                {
+                    ResourceId = v1.ResourceId,
+                    Version = v1.Version,
+                },
+            ],
+        });
+
+        Assert.NotNull(result.Snapshot);
+        var resource = Assert.Single(result.Snapshot.Resources);
+        Assert.Equal(v1.ResourceId, resource.ResourceId);
+        Assert.Equal(v1.Version, resource.Version);
+    }
+
     private ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();

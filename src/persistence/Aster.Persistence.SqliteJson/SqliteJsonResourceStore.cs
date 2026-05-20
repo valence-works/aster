@@ -366,6 +366,12 @@ public sealed class SqliteJsonResourceStore :
         PortableSnapshotExportRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.ScopeMode == PortableExportScopeMode.SelectedResources
+            && request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions)
+        {
+            return await ReadSpecificResourceVersionsAsync(request.SpecificResourceVersions, cancellationToken);
+        }
+
         var (columnName, ids) = request.ScopeMode switch
         {
             PortableExportScopeMode.DefinitionWithResources => ("definition_id", request.DefinitionIds),
@@ -386,6 +392,38 @@ public sealed class SqliteJsonResourceStore :
             cancellationToken);
 
         return resources
+            .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static resource => resource.Version)
+            .ToList();
+    }
+
+    private async Task<List<Resource>> ReadSpecificResourceVersionsAsync(
+        IReadOnlyCollection<ResourceVersionReference> references,
+        CancellationToken cancellationToken)
+    {
+        if (references.Count == 0)
+            return [];
+
+        var results = new List<Resource>();
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in references
+            .OrderBy(static reference => reference.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static reference => reference.Version)
+            .Chunk(MaxSqliteParametersPerQuery / 2))
+        {
+            await using var command = connection.CreateCommand();
+            var predicates = AddResourceVersionPredicates(command, batch);
+            command.CommandText = $"""
+                SELECT payload
+                FROM resource_versions
+                WHERE {string.Join(" OR ", predicates)}
+                ORDER BY resource_id, version;
+                """;
+
+            results.AddRange(await ReadPayloadsAsync<Resource>(command, cancellationToken));
+        }
+
+        return results
             .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
             .ThenBy(static resource => resource.Version)
             .ToList();
@@ -499,6 +537,24 @@ public sealed class SqliteJsonResourceStore :
         }
 
         return parameterNames;
+    }
+
+    private static List<string> AddResourceVersionPredicates(
+        SqliteCommand command,
+        IReadOnlyList<ResourceVersionReference> references)
+    {
+        var predicates = new List<string>();
+
+        for (var index = 0; index < references.Count; index++)
+        {
+            var resourceIdParameter = $"$resourceId{index}";
+            var versionParameter = $"$version{index}";
+            command.Parameters.AddWithValue(resourceIdParameter, references[index].ResourceId);
+            command.Parameters.AddWithValue(versionParameter, references[index].Version);
+            predicates.Add($"(resource_id = {resourceIdParameter} AND version = {versionParameter})");
+        }
+
+        return predicates;
     }
 
     private async Task<List<T>> ReadPayloadsByTextIdsAsync<T>(
