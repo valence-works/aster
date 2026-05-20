@@ -1,8 +1,8 @@
 # Feature Specification: Portability Primitives
 
-**Feature Branch**: `013-portability-primitives`  
-**Created**: 2026-05-19  
-**Status**: Draft  
+**Feature Branch**: `013-portability-primitives`
+**Created**: 2026-05-19
+**Status**: Draft
 **Input**: User description: "Start Phase 4 with deterministic export/import primitives for definitions and resources. Export definition and resource snapshots with stable references. Import with deterministic ID remapping and collision diagnostics. Keep recipes and host lifecycle hooks separate follow-up slices."
 
 ## Clarifications

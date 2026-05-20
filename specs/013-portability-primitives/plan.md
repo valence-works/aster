@@ -9,14 +9,14 @@ Start Phase 4 with explicit SDK portability primitives for exporting and importi
 
 ## Technical Context
 
-**Language/Version**: C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting  
-**Primary Dependencies**: Existing core SDK, resource definition/resource version abstractions, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies  
-**Storage**: Existing resource definitions, resource versions, and activation state; no schema migration planned for SQLite JSON or in-memory stores  
-**Testing**: `dotnet test Aster.sln`, focused portability service tests, in-memory and SQLite JSON round-trip tests, invalid snapshot/collision tests, `dotnet build Aster.sln /m:1`, `git diff --check`  
-**Target Platform**: .NET SDK/library consumers and local test environment  
-**Project Type**: SDK/library with provider packages and tests  
-**Performance Goals**: Export and preview are linear in selected definitions, selected resource versions, and activation entries; import performs validation and identity-map planning before writes  
-**Constraints**: Strict import by default; explicit deterministic remap mode; all-or-nothing import; exact definition/resource version identity preservation when no collision exists; no recipes, lifecycle hooks, live sync, migrations, runtime scanning, provider registries, public SQL, or public `IQueryable<Resource>`  
+**Language/Version**: C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting
+**Primary Dependencies**: Existing core SDK, resource definition/resource version abstractions, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies
+**Storage**: Existing resource definitions, resource versions, and activation state; no schema migration planned for SQLite JSON or in-memory stores
+**Testing**: `dotnet test Aster.sln`, focused portability service tests, in-memory and SQLite JSON round-trip tests, invalid snapshot/collision tests, `dotnet build Aster.sln /m:1`, `git diff --check`
+**Target Platform**: .NET SDK/library consumers and local test environment
+**Project Type**: SDK/library with provider packages and tests
+**Performance Goals**: Export and preview are linear in selected definitions, selected resource versions, and activation entries; import performs validation and identity-map planning before writes
+**Constraints**: Strict import by default; explicit deterministic remap mode; all-or-nothing import; exact definition/resource version identity preservation when no collision exists; no recipes, lifecycle hooks, live sync, migrations, runtime scanning, provider registries, public SQL, or public `IQueryable<Resource>`
 **Scale/Scope**: Core portability contracts and orchestration with in-memory and SQLite JSON provider support for deterministic SDK-to-SDK snapshot export/import
 
 ## Constitution Check

@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Portability Primitives
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: 2026-05-19  
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: 2026-05-19
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
