@@ -473,7 +473,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         string.Equals(left.ResourceId, right.ResourceId, StringComparison.Ordinal)
         && string.Equals(left.Channel, right.Channel, StringComparison.Ordinal)
         && left.LastUpdated == right.LastUpdated
-        && left.ActiveVersions.Order().SequenceEqual(right.ActiveVersions.Order());
+        && left.ActiveVersions.Distinct().Order().SequenceEqual(right.ActiveVersions.Distinct().Order());
 
     private static bool DictionaryContentEquals<TValue>(
         IReadOnlyDictionary<string, TValue> left,

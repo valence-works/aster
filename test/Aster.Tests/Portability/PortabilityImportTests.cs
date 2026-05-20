@@ -76,7 +76,7 @@ public sealed class PortabilityImportTests : IDisposable
         var snapshot = CreateSnapshotWithTwoActiveVersions([1, 2]);
         await portability.ImportAsync(snapshot);
 
-        var result = await portability.ImportAsync(CreateSnapshotWithTwoActiveVersions([2, 1]));
+        var result = await portability.ImportAsync(CreateSnapshotWithTwoActiveVersions([2, 1, 1]));
 
         Assert.Equal(PortableImportStatus.NoOp, result.Status);
         Assert.Equal(0, result.Counts.Definitions);
