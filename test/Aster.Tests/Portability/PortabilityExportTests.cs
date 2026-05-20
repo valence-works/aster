@@ -97,7 +97,8 @@ public sealed class PortabilityExportTests : IDisposable
     {
         await RegisterDefinitionVersionsAsync("Product", count: 1);
         var (v1, v2) = await CreateTwoVersionResourceAsync();
-        await ActivateVersionsAsync(v1.ResourceId, "Preview", [v1.Version, v2.Version]);
+        var lastUpdated = DateTime.UtcNow.AddMinutes(-5);
+        await ActivateVersionsAsync(v1.ResourceId, "Preview", [v1.Version, v2.Version], lastUpdated);
 
         var result = await portability.ExportAsync(new PortableSnapshotExportRequest
         {
@@ -118,6 +119,7 @@ public sealed class PortabilityExportTests : IDisposable
 
         var state = Assert.Single(result.Snapshot.ActivationStates);
         Assert.Equal([v2.Version], state.ActiveVersions);
+        Assert.Equal(lastUpdated, state.LastUpdated);
     }
 
     [Fact]
@@ -162,7 +164,11 @@ public sealed class PortabilityExportTests : IDisposable
         return (v1, v2);
     }
 
-    private async Task ActivateVersionsAsync(string resourceId, string channel, IReadOnlyList<int> versions)
+    private async Task ActivateVersionsAsync(
+        string resourceId,
+        string channel,
+        IReadOnlyList<int> versions,
+        DateTime? lastUpdated = null)
     {
         var writer = provider.GetRequiredService<IResourceVersionWriter>();
         await writer.UpdateActivationAsync(resourceId, channel, new ActivationState
@@ -170,7 +176,7 @@ public sealed class PortabilityExportTests : IDisposable
             ResourceId = resourceId,
             Channel = channel,
             ActiveVersions = versions,
-            LastUpdated = DateTime.UtcNow,
+            LastUpdated = lastUpdated ?? DateTime.UtcNow,
         });
     }
 }

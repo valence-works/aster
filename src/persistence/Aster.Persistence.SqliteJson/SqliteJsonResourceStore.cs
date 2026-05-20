@@ -228,9 +228,17 @@ public sealed class SqliteJsonResourceStore :
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var resources = SelectResources(
+        if (request.ExportRequest.ScopeMode == PortableExportScopeMode.DefinitionsOnly)
+        {
+            return new PortableStoreSnapshot
+            {
+                Definitions = await SelectDefinitionsAsync(request.ExportRequest, [], cancellationToken),
+            };
+        }
+
+        var resources = SelectResourceVersions(
             request.ExportRequest,
-            (await ReadAllVersionsAsync(cancellationToken)).ToList());
+            await ReadScopedResourceVersionsAsync(request.ExportRequest, cancellationToken));
         var definitions = await SelectDefinitionsAsync(request.ExportRequest, resources, cancellationToken);
         var activationStates = await ReadAllActivationStatesAsync(cancellationToken);
         var (includedActivationStates, skippedActivationEntries) = SelectActivationStates(resources, activationStates);
@@ -283,6 +291,8 @@ public sealed class SqliteJsonResourceStore :
         CancellationToken cancellationToken)
     {
         var allDefinitions = await ReadAllDefinitionVersionsAsync(cancellationToken);
+        var allDefinitionsByVersion = allDefinitions.ToDictionary(
+            static definition => (definition.DefinitionId, definition.Version));
         var definitions = new Dictionary<(string DefinitionId, int Version), ResourceDefinition>();
 
         if (request.ScopeMode is PortableExportScopeMode.DefinitionsOnly or PortableExportScopeMode.DefinitionWithResources)
@@ -296,11 +306,7 @@ public sealed class SqliteJsonResourceStore :
             if (resource.DefinitionVersion is null)
                 continue;
 
-            var definition = allDefinitions.FirstOrDefault(candidate =>
-                string.Equals(candidate.DefinitionId, resource.DefinitionId, StringComparison.Ordinal)
-                && candidate.Version == resource.DefinitionVersion.Value);
-
-            if (definition is not null)
+            if (allDefinitionsByVersion.TryGetValue((resource.DefinitionId, resource.DefinitionVersion.Value), out var definition))
                 definitions[(definition.DefinitionId, definition.Version)] = definition;
         }
 
@@ -336,9 +342,38 @@ public sealed class SqliteJsonResourceStore :
         return await ReadPayloadsAsync<ActivationState>(command, cancellationToken);
     }
 
-    private static List<Resource> SelectResources(
+    private async Task<List<Resource>> ReadScopedResourceVersionsAsync(
         PortableSnapshotExportRequest request,
-        IReadOnlyCollection<Resource> allResources)
+        CancellationToken cancellationToken)
+    {
+        var (columnName, ids) = request.ScopeMode switch
+        {
+            PortableExportScopeMode.DefinitionWithResources => ("definition_id", request.DefinitionIds),
+            PortableExportScopeMode.SelectedResources => ("resource_id", request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
+                ? request.SpecificResourceVersions.Select(static reference => reference.ResourceId).ToHashSet(StringComparer.Ordinal)
+                : request.ResourceIds),
+            _ => ("resource_id", []),
+        };
+
+        if (ids.Count == 0)
+            return [];
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        var parameterNames = AddTextParameters(command, "id", ids);
+        command.CommandText = $"""
+            SELECT payload
+            FROM resource_versions
+            WHERE {columnName} IN ({string.Join(", ", parameterNames)})
+            ORDER BY resource_id, version;
+            """;
+
+        return await ReadPayloadsAsync<Resource>(command, cancellationToken);
+    }
+
+    private static List<Resource> SelectResourceVersions(
+        PortableSnapshotExportRequest request,
+        IReadOnlyCollection<Resource> scopedResources)
     {
         var resourceIds = request.ScopeMode switch
         {
@@ -346,7 +381,7 @@ public sealed class SqliteJsonResourceStore :
             PortableExportScopeMode.SelectedResources => request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
                 ? request.SpecificResourceVersions.Select(static reference => reference.ResourceId).ToHashSet(StringComparer.Ordinal)
                 : request.ResourceIds,
-            PortableExportScopeMode.DefinitionWithResources => allResources
+            PortableExportScopeMode.DefinitionWithResources => scopedResources
                 .Where(resource => request.DefinitionIds.Contains(resource.DefinitionId))
                 .Select(static resource => resource.ResourceId)
                 .ToHashSet(StringComparer.Ordinal),
@@ -355,7 +390,7 @@ public sealed class SqliteJsonResourceStore :
 
         var specificVersions = request.SpecificResourceVersions.ToHashSet();
 
-        return allResources
+        return scopedResources
             .Where(resource => resourceIds.Contains(resource.ResourceId))
             .GroupBy(static resource => resource.ResourceId, StringComparer.Ordinal)
             .SelectMany(group => SelectVersions(
@@ -427,6 +462,24 @@ public sealed class SqliteJsonResourceStore :
                 })),
             _ => [],
         };
+
+    private static List<string> AddTextParameters(
+        SqliteCommand command,
+        string parameterPrefix,
+        IEnumerable<string> values)
+    {
+        var parameterNames = new List<string>();
+        var index = 0;
+
+        foreach (var value in values.Order(StringComparer.Ordinal))
+        {
+            var parameterName = $"${parameterPrefix}{index++}";
+            command.Parameters.AddWithValue(parameterName, value);
+            parameterNames.Add(parameterName);
+        }
+
+        return parameterNames;
+    }
 
     private async Task<IEnumerable<Resource>> ReadActiveVersionsAsync(
         string? channel,

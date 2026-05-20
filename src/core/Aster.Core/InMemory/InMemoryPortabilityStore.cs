@@ -137,30 +137,31 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         var activationStates = new List<ActivationState>();
         var skippedEntries = new List<SkippedActivationEntry>();
 
-        foreach (var (resourceId, channelActivations) in resourceStore.Activations)
+        foreach (var (resourceId, resourceActivationStates) in resourceStore.ActivationStates.OrderBy(static item => item.Key, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!includedVersions.TryGetValue(resourceId, out var includedResourceVersions))
                 continue;
 
-            Dictionary<string, HashSet<int>> channels;
-            lock (channelActivations)
-                channels = channelActivations.ToDictionary(static item => item.Key, static item => item.Value.ToHashSet(), StringComparer.Ordinal);
+            var states = resourceActivationStates
+                .OrderBy(static item => item.Key, StringComparer.Ordinal)
+                .Select(static item => item.Value)
+                .ToList();
 
-            foreach (var (channel, activeVersions) in channels.OrderBy(static item => item.Key, StringComparer.Ordinal))
+            foreach (var state in states)
             {
-                var includedActiveVersions = activeVersions
+                var includedActiveVersions = state.ActiveVersions
                     .Where(includedResourceVersions.Contains)
                     .Order()
                     .ToList();
 
-                foreach (var skippedVersion in activeVersions.Except(includedActiveVersions).Order())
+                foreach (var skippedVersion in state.ActiveVersions.Except(includedActiveVersions).Order())
                 {
                     skippedEntries.Add(new SkippedActivationEntry
                     {
                         ResourceId = resourceId,
-                        Channel = channel,
+                        Channel = state.Channel,
                         Version = skippedVersion,
                         Reason = SkippedActivationReason.ExcludedByResourceVersionScope,
                     });
@@ -169,13 +170,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
                 if (includedActiveVersions.Count == 0)
                     continue;
 
-                activationStates.Add(new ActivationState
-                {
-                    ResourceId = resourceId,
-                    Channel = channel,
-                    ActiveVersions = includedActiveVersions,
-                    LastUpdated = DateTime.UtcNow,
-                });
+                activationStates.Add(state with { ActiveVersions = includedActiveVersions });
             }
         }
 

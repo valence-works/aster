@@ -27,6 +27,12 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Last persisted activation state keyed by <c>ResourceId</c> → channel name.
+    /// </summary>
+    internal readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ActivationState>> ActivationStates =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Returns the ordered version list for a resource, or <see langword="null"/> if it does not exist.
     /// The caller must <c>lock</c> the returned list when reading or mutating.
     /// </summary>
@@ -86,6 +92,11 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         var channelActivations = GetOrAddActivations(resourceId);
         lock (channelActivations)
             channelActivations[channel] = state.ActiveVersions.ToHashSet();
+
+        var states = ActivationStates.GetOrAdd(
+            resourceId,
+            _ => new ConcurrentDictionary<string, ActivationState>(StringComparer.Ordinal));
+        states[channel] = state;
 
         return ValueTask.FromResult(state);
     }

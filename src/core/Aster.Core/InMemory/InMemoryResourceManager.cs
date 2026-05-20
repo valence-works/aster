@@ -334,9 +334,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         ArgumentNullException.ThrowIfNull(state);
 
-        // Activation state is already updated in memory by ActivateAsync / DeactivateAsync;
-        // this method exists as the provider-agnostic persistence hook (no-op for in-memory).
-        return ValueTask.FromResult(state);
+        return store.UpdateActivationAsync(resourceId, channel, state, cancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
