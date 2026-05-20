@@ -239,18 +239,16 @@ public sealed record PortableIdentityMapping
 
 Required diagnostic codes include:
 
-- `missing-definition`
-- `missing-definition-version`
-- `missing-resource`
-- `missing-resource-version`
+- `invalid-export-scope`
+- `skipped-activation-entry`
+- `unsupported-format-version`
+- `missing-definition-reference`
+- `missing-resource-reference`
 - `duplicate-snapshot-identity`
-- `unresolved-definition-reference`
-- `unresolved-resource-reference`
 - `divergent-identity-collision`
 - `invalid-import-options`
-- `unsupported-snapshot-format`
 - `malformed-snapshot`
-- `skipped-activation-entry`
+- `import-apply-failed`
 
 ## Provider-Facing Store Contract
 

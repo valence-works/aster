@@ -93,15 +93,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T031 [P] [US3] Add non-mutating preview tests in `test/Aster.Tests/Portability/PortabilityPreviewTests.cs`
-- [ ] T032 [P] [US3] Add invalid snapshot preview diagnostic tests in `test/Aster.Tests/Portability/PortabilityPreviewTests.cs`
-- [ ] T033 [P] [US3] Add preview identity-map determinism tests in `test/Aster.Tests/Portability/PortabilityPreviewTests.cs`
+- [X] T031 [P] [US3] Add non-mutating preview tests in `test/Aster.Tests/Portability/PortabilityPreviewTests.cs`
+- [X] T032 [P] [US3] Add invalid snapshot preview diagnostic tests in `test/Aster.Tests/Portability/PortabilityPreviewTests.cs`
+- [X] T033 [P] [US3] Add preview identity-map determinism tests in `test/Aster.Tests/Portability/PortabilityPreviewTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Implement snapshot validation in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
-- [ ] T035 [US3] Implement preview planning without provider writes in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
-- [ ] T036 [US3] Share preview planning with write import in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T034 [US3] Implement snapshot validation in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T035 [US3] Implement preview planning without provider writes in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T036 [US3] Share preview planning with write import in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
 
 **Checkpoint**: User Story 3 previews imports without mutation.
 
