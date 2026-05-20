@@ -4,6 +4,7 @@ using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
+using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Portability;
@@ -249,6 +250,20 @@ public sealed class PortabilityImportTests : IDisposable
         Assert.Equal(11, latest.Version);
     }
 
+    [Fact]
+    public async Task ImportAsync_ApplyFailure_ReturnsFailedResultWithDiagnostic()
+    {
+        var service = new ResourcePortabilityService(new ThrowingApplyPortabilityStore());
+
+        var result = await service.ImportAsync(CreateSnapshot());
+
+        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        Assert.Equal(0, result.Counts.Definitions);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.ImportApplyFailed, diagnostic.Code);
+        Assert.Contains("simulated apply race", diagnostic.Message, StringComparison.Ordinal);
+    }
+
     private static PortableSnapshot CreateSnapshot()
     {
         var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
@@ -349,5 +364,23 @@ public sealed class PortabilityImportTests : IDisposable
                 },
             ],
         };
+    }
+
+    private sealed class ThrowingApplyPortabilityStore : IResourcePortabilityStore
+    {
+        public ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
+            PortableStoreReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new PortableStoreSnapshot());
+
+        public ValueTask<PortableTargetState> ReadTargetStateAsync(
+            PortableSnapshot snapshot,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new PortableTargetState());
+
+        public ValueTask ApplyImportAsync(
+            PortableSnapshot plannedSnapshot,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("simulated apply race");
     }
 }

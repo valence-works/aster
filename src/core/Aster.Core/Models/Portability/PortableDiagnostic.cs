@@ -96,4 +96,9 @@ public static class PortableDiagnosticCodes
     /// RemapDivergent import handling is not implemented yet.
     /// </summary>
     public const string RemapDivergentNotImplemented = "remap-divergent-not-implemented";
+
+    /// <summary>
+    /// Planned import writes failed during provider apply.
+    /// </summary>
+    public const string ImportApplyFailed = "import-apply-failed";
 }

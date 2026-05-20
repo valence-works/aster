@@ -123,7 +123,31 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
 
         if (plan.HasWrites)
-            await portabilityStore.ApplyImportAsync(plan.PlannedSnapshot, cancellationToken);
+        {
+            try
+            {
+                await portabilityStore.ApplyImportAsync(plan.PlannedSnapshot, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                return new PortableImportResult
+                {
+                    Status = PortableImportStatus.Failed,
+                    Counts = new PortableActualImportCounts(),
+                    IdentityMap = plan.IdentityMap,
+                    Diagnostics =
+                    [
+                        .. plan.Diagnostics,
+                        new PortableDiagnostic
+                        {
+                            Code = PortableDiagnosticCodes.ImportApplyFailed,
+                            Severity = PortableDiagnosticSeverity.Error,
+                            Message = $"Import apply failed after planning completed: {exception.Message}",
+                        },
+                    ],
+                };
+            }
+        }
 
         return new PortableImportResult
         {
