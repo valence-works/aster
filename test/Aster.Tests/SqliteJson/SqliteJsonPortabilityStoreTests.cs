@@ -116,7 +116,7 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.NotNull(export.Snapshot);
         Assert.Equal(snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)), export.Snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)));
         Assert.Equal(snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)), export.Snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)));
-        Assert.Equal(snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: state.ActiveVersions.ToArray())), export.Snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: state.ActiveVersions.ToArray())));
+        Assert.Equal(snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))), export.Snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))));
     }
 
     private ServiceProvider CreateServiceProvider()

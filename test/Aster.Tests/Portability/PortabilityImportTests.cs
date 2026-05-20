@@ -52,7 +52,7 @@ public sealed class PortabilityImportTests : IDisposable
         Assert.NotNull(exported.Snapshot);
         Assert.Equal(snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)), exported.Snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)));
         Assert.Equal(snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)), exported.Snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)));
-        Assert.Equal(snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: state.ActiveVersions.ToArray())), exported.Snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: state.ActiveVersions.ToArray())));
+        Assert.Equal(snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))), exported.Snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))));
     }
 
     [Fact]
