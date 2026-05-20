@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, and explicit provider-declared index projections.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, and explicit definition schema upgrade behavior.
 
-The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The next useful slice is definition schema versioning and explicit upgrade behavior, still without introducing migrations, planner behavior, runtime scanning, provider registries, public SQL, or `IQueryable<Resource>`.
+The active workstream is moving into **Phase 4: Portability & Integration Hooks**. The next useful slice is portability primitives for deterministic export/import of definitions and resources, still without introducing recipes, lifecycle hooks, live sync, migrations, planner behavior, runtime scanning, provider registries, public SQL, or `IQueryable<Resource>`.
 
 ## Landed Slices
 
@@ -25,18 +25,9 @@ The active workstream is **Phase 3: Query Capabilities & Typed Querying**. The n
 | `009-portable-operators` | Landed | Portable `NotEquals`, `In`, `StartsWith`, and facet `Exists` operators with provider capabilities, validation, built-in execution, typed helpers, and conformance coverage. |
 | `010-sqlite-date-ranges` | Landed | SQLite date-like facet ranges for accepted JSON string date/time values with capability, validation, conformance, and docs coverage. |
 | `011-explicit-indexing-model` | Landed | Provider-declared index projection contracts, validation, evaluation, capability discovery, and provider-authoring docs without physical indexes or query planning. |
+| `012-definition-schema-upgrades` | Landed | Explicit resource definition lineage, schema status inspection, append-only schema upgrades, and carried-forward data diagnostics. |
 
 ## Near-Term Roadmap
-
-### 012 — Definition Schema Versions & Upgrade Flow
-
-**Goal:** Make the definition-version story explicit enough for long-lived resources.
-
-Candidate scope:
-
-- Model `ResourceDefinitionVersion` references on resources.
-- Define upgrade behavior from older definition versions.
-- Add validation and tests for resources that span schema versions.
 
 ### 013 — Portability Primitives
 
