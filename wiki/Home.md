@@ -4,7 +4,7 @@ Welcome to the Aster documentation wiki.
 
 **Aster** is a .NET SDK for defining, versioning, and querying composable resources using a **Resource → Aspect → Facet** model. It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities to any resource type.
 
-> **Current Status:** Phase 3 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, and typed query helpers are available.
+> **Current Status:** Phase 4 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider authoring/conformance support, explicit index projections, schema upgrades, and portability primitives are available.
 
 ---
 

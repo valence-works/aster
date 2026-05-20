@@ -36,12 +36,14 @@ builder.Services.AddAsterCore();
 |---|---|
 | `InMemoryResourceDefinitionStore` | `IResourceDefinitionStore` |
 | `InMemoryResourceStore` | `IResourceVersionReader`, `IResourceVersionWriter` |
+| `InMemoryPortabilityStore` | `IResourcePortabilityStore` |
 | `DefaultResourceManager` | `IResourceManager` |
 | `InMemoryQueryService` | `IResourceQueryService` |
 | `InMemoryQueryService` | `IResourceQueryProviderIdentity` |
 | `InMemoryQueryCapabilitiesProvider` | `IResourceQueryCapabilitiesProvider` |
 | `ResourceQueryValidator` | `IResourceQueryValidator` |
 | `ResourceSchemaVersionService` | `IResourceSchemaVersionService` |
+| `ResourcePortabilityService` | `IResourcePortabilityService` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
 | `SystemTextJsonFacetBinder` | `ITypedFacetBinder` |
@@ -221,6 +223,43 @@ Invalid upgrade targets throw `ResourceSchemaUpgradeException` with a stable `Co
 
 ---
 
+### 8. Export, preview, and import portable snapshots
+
+`IResourcePortabilityService` exports selected definitions, resources, resource versions, and activation state into an SDK-native `PortableSnapshot`. The service also validates snapshots, previews import plans without writing, and performs all-or-nothing imports.
+
+```csharp
+var portability = serviceProvider.GetRequiredService<IResourcePortabilityService>();
+
+var export = await portability.ExportAsync(new PortableSnapshotExportRequest
+{
+    ScopeMode = PortableExportScopeMode.SelectedResources,
+    ResourceIds = ["product-1"],
+    ResourceVersionScope = PortableResourceVersionScope.AllVersions,
+});
+
+if (export.Snapshot is null)
+{
+    foreach (var diagnostic in export.Diagnostics)
+        Console.WriteLine($"{diagnostic.Code}: {diagnostic.Message}");
+
+    return;
+}
+
+var preview = await portability.PreviewImportAsync(export.Snapshot);
+
+if (preview.CanImport)
+{
+    var result = await portability.ImportAsync(export.Snapshot);
+    Console.WriteLine(result.Status);
+}
+```
+
+Import is strict by default. Existing identical content is reused, divergent collisions fail before writing, and explicit `PortableImportCollisionMode.RemapDivergent` produces deterministic replacement identifiers while rewriting imported definition/resource references consistently. Preview and import return planned/actual counts, identity mappings, and diagnostics such as `duplicate-snapshot-identity`, `malformed-snapshot`, `missing-definition-reference`, `missing-resource-reference`, and `divergent-identity-collision`.
+
+`IResourcePortabilityStore` is provider-facing infrastructure. Application code should normally use `IResourcePortabilityService`; providers implement `IResourcePortabilityStore` when they need exact snapshot reads and atomic import writes.
+
+---
+
 ## Architecture overview
 
 ```
@@ -228,6 +267,8 @@ IResourceDefinitionStore      — stores versioned ResourceDefinition schemas
 IResourceManager              — provider-backed create / update / activate orchestration
 IResourceVersionWriter           — low-level version/activation persistence hook
 IResourceVersionReader           — low-level read hook for query candidate version sets
+IResourcePortabilityService  — exports, validates, previews, and imports portable snapshots
+IResourcePortabilityStore    — provider-facing exact snapshot read and atomic import contract
 IResourceQueryService         — portable query service; default is LINQ-based in-memory
 IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support

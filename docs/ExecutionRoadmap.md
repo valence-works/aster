@@ -1,14 +1,14 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-05-18
+Last updated: 2026-05-21
 
 This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, and explicit definition schema upgrade behavior.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, and deterministic portability primitives.
 
-The active workstream is moving into **Phase 4: Portability & Integration Hooks**. The next useful slice is portability primitives for deterministic export/import of definitions and resources, still without introducing recipes, lifecycle hooks, live sync, migrations, planner behavior, runtime scanning, provider registries, public SQL, or `IQueryable<Resource>`.
+The active workstream is in **Phase 4: Portability & Integration Hooks**. The next useful slice is explicit host lifecycle hooks around save, activation, deactivation, and import/export, still without introducing recipes, live sync, migrations, planner behavior, runtime scanning, provider registries, public SQL, or `IQueryable<Resource>`.
 
 ## Landed Slices
 
@@ -26,24 +26,24 @@ The active workstream is moving into **Phase 4: Portability & Integration Hooks*
 | `010-sqlite-date-ranges` | Landed | SQLite date-like facet ranges for accepted JSON string date/time values with capability, validation, conformance, and docs coverage. |
 | `011-explicit-indexing-model` | Landed | Provider-declared index projection contracts, validation, evaluation, capability discovery, and provider-authoring docs without physical indexes or query planning. |
 | `012-definition-schema-upgrades` | Landed | Explicit resource definition lineage, schema status inspection, append-only schema upgrades, and carried-forward data diagnostics. |
+| `013-portability-primitives` | Landed | Deterministic export/import primitives for definitions, resources, resource versions, activation state, strict validation, previews, identity mapping, remapping, and provider-backed atomic writes. |
 
 ## Near-Term Roadmap
 
-### 013 — Portability Primitives
+### 014 — Host Lifecycle Hooks
 
-**Goal:** Start Phase 4 with deterministic export/import primitives for definitions and resources.
+**Goal:** Add explicit integration hooks around resource lifecycle and portability operations without hidden discovery or a recipe framework.
 
 Candidate scope:
 
-- Export definition and resource snapshots with stable references.
-- Import with deterministic ID remapping and collision diagnostics.
-- Keep recipes and host lifecycle hooks separate follow-up slices.
+- Before/after hooks for save, activation, deactivation, export, preview import, and write import.
+- Clear ordering, cancellation, failure semantics, and diagnostics.
+- Keep recipes, runtime scanning, live sync, and background job orchestration separate follow-up slices.
 
 ## Later Roadmap
 
 | Area | Intent |
 |---|---|
-| Portability | Export/import definitions and resources with deterministic ID remapping. |
 | Host hooks | Lifecycle hooks around save, activation, deactivation, and import/export. |
 | Multi-tenancy | Tenant-aware definition scope and query boundaries. |
 | Policies | Retention, archival, soft-delete, and pruning policies. |

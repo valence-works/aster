@@ -111,12 +111,12 @@
 
 **Purpose**: Verify the complete portability slice and update public guidance.
 
-- [ ] T037 [P] Update `src/core/Aster.Core/README.md` with portability service usage
-- [ ] T038 [P] Update `src/persistence/Aster.Persistence.SqliteJson/README.md` with provider portability support notes
-- [ ] T039 Validate quickstart scenarios against implemented APIs in `specs/013-portability-primitives/quickstart.md`
-- [ ] T040 Run `dotnet test Aster.sln` and fix portability regressions
-- [ ] T041 Run `dotnet build Aster.sln /m:1`
-- [ ] T042 Run `git diff --check`
+- [X] T037 [P] Update `src/core/Aster.Core/README.md` with portability service usage
+- [X] T038 [P] Update `src/persistence/Aster.Persistence.SqliteJson/README.md` with provider portability support notes
+- [X] T039 Validate quickstart scenarios against implemented APIs in `specs/013-portability-primitives/quickstart.md`
+- [X] T040 Run `dotnet test Aster.sln` and fix portability regressions
+- [X] T041 Run `dotnet build Aster.sln /m:1`
+- [X] T042 Run `git diff --check`
 
 ---
 
