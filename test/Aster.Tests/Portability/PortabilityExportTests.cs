@@ -28,6 +28,22 @@ public sealed class PortabilityExportTests : IDisposable
     public void Dispose() => provider.Dispose();
 
     [Fact]
+    public async Task ExportAsync_DefinitionWithResourcesSpecificVersionsWithoutVersions_ReturnsInvalidScopeDiagnostic()
+    {
+        var result = await portability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.DefinitionWithResources,
+            DefinitionIds = ["Product"],
+            ResourceVersionScope = PortableResourceVersionScope.SpecificVersions,
+        });
+
+        Assert.Null(result.Snapshot);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidExportScope, diagnostic.Code);
+        Assert.Equal("specificResourceVersions", diagnostic.Path);
+    }
+
+    [Fact]
     public async Task ExportAsync_DefinitionsOnly_IncludesAllSelectedDefinitionVersions()
     {
         await RegisterDefinitionVersionsAsync("Product", count: 2);

@@ -141,6 +141,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             diagnostics.Add(InvalidExportScope("resourceVersionScope", "Resource version scope must be a defined value."));
         }
 
+        if (request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
+            && request.ScopeMode != PortableExportScopeMode.DefinitionsOnly
+            && request.SpecificResourceVersions.Count == 0)
+        {
+            diagnostics.Add(InvalidExportScope(
+                "specificResourceVersions",
+                "Specific resource version exports require at least one resource/version reference."));
+        }
+
         switch (request.ScopeMode)
         {
             case PortableExportScopeMode.DefinitionsOnly:
@@ -155,16 +164,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 break;
 
             case PortableExportScopeMode.SelectedResources:
-                if (request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions)
-                {
-                    if (request.SpecificResourceVersions.Count == 0)
-                    {
-                        diagnostics.Add(InvalidExportScope(
-                            "specificResourceVersions",
-                            "Specific resource version exports require at least one resource/version reference."));
-                    }
-                }
-                else if (request.ResourceIds.Count == 0)
+                if (request.ResourceVersionScope != PortableResourceVersionScope.SpecificVersions
+                    && request.ResourceIds.Count == 0)
                 {
                     diagnostics.Add(InvalidExportScope(
                         "resourceIds",
