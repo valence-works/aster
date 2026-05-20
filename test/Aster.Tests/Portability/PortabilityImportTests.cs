@@ -144,6 +144,7 @@ public sealed class PortabilityImportTests : IDisposable
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(PortableDiagnosticCodes.DivergentIdentityCollision, diagnostic.Code);
         Assert.Equal(PortableDiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("""["Product__imported",1]""", diagnostic.Message, StringComparison.Ordinal);
         var mapping = Assert.Single(
             result.IdentityMap,
             static mapping => mapping.Reason == PortableIdentityMappingReason.RemappedDivergent);
@@ -202,6 +203,19 @@ public sealed class PortabilityImportTests : IDisposable
         Assert.Null(remappedResource.Owner);
         var activeVersion = Assert.Single(activeRemappedVersions);
         Assert.Equal(1, activeVersion.Version);
+    }
+
+    [Fact]
+    public async Task PreviewImportAsync_UndefinedCollisionMode_FailsWithInvalidImportOptionsDiagnostic()
+    {
+        var result = await portability.PreviewImportAsync(
+            CreateSnapshot(),
+            new PortableImportOptions { CollisionMode = (PortableImportCollisionMode)999 });
+
+        Assert.False(result.CanImport);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidImportOptions, diagnostic.Code);
+        Assert.Equal("collisionMode", diagnostic.Path);
     }
 
     [Fact]

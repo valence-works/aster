@@ -88,6 +88,11 @@ public static class PortableDiagnosticCodes
     public const string DivergentIdentityCollision = "divergent-identity-collision";
 
     /// <summary>
+    /// Import options are invalid or unsupported.
+    /// </summary>
+    public const string InvalidImportOptions = "invalid-import-options";
+
+    /// <summary>
     /// Import behavior is not implemented yet.
     /// </summary>
     public const string ImportNotImplemented = "import-not-implemented";

@@ -156,6 +156,7 @@ Structured diagnostic emitted by export, validation, preview, and import.
 - `unresolved-definition-reference`
 - `unresolved-resource-reference`
 - `divergent-identity-collision`
+- `invalid-import-options`
 - `unsupported-snapshot-format`
 - `malformed-snapshot`
 - `skipped-activation-entry`

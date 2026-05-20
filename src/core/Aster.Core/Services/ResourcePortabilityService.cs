@@ -167,6 +167,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
         var diagnostics = ValidateSnapshot(snapshot);
         diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(snapshot));
+        diagnostics.AddRange(ValidateImportOptions(options));
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics);
 
@@ -200,6 +201,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
                 PortableEntityKind.DefinitionVersion,
                 definition.DefinitionId,
+                definition.Version,
+                null,
                 $"definitions/{definition.DefinitionId}/{definition.Version}",
                 $"Definition '{definition.DefinitionId}' version {definition.Version} already exists with different content."));
         }
@@ -233,6 +236,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
                 PortableEntityKind.ResourceVersion,
                 resource.ResourceId,
+                resource.Version,
+                null,
                 $"resources/{resource.ResourceId}/{resource.Version}",
                 $"Resource '{resource.ResourceId}' version {resource.Version} already exists with different content."));
         }
@@ -258,6 +263,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
                 PortableEntityKind.ActivationEntry,
                 state.ResourceId,
+                null,
+                state.Channel,
                 $"activationStates/{state.ResourceId}/{state.Channel}",
                 $"Activation state for resource '{state.ResourceId}' channel '{state.Channel}' already exists with different content."));
         }
@@ -279,9 +286,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             RemappedCollision(
                 diagnostic.Path,
                 diagnostic.Message,
-                diagnostic.EntityKind == PortableEntityKind.DefinitionVersion
-                    ? definitionIdMap[diagnostic.SourceLogicalId]
-                    : resourceIdMap[diagnostic.SourceLogicalId])));
+                RemappedCollisionTargetId(diagnostic, definitionIdMap, resourceIdMap))));
 
         var plannedDefinitions = new List<ResourceDefinition>();
         var plannedResources = new List<Resource>();
@@ -459,6 +464,24 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         return diagnostics;
     }
 
+    private static List<PortableDiagnostic> ValidateImportOptions(PortableImportOptions options)
+    {
+        var diagnostics = new List<PortableDiagnostic>();
+
+        if (!Enum.IsDefined(options.CollisionMode))
+        {
+            diagnostics.Add(new PortableDiagnostic
+            {
+                Code = PortableDiagnosticCodes.InvalidImportOptions,
+                Severity = PortableDiagnosticSeverity.Error,
+                Path = "collisionMode",
+                Message = "Import collision mode must be a defined value.",
+            });
+        }
+
+        return diagnostics;
+    }
+
     private static List<PortableDiagnostic> ValidateSnapshot(PortableSnapshot snapshot)
     {
         var diagnostics = new List<PortableDiagnostic>();
@@ -612,6 +635,24 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         return candidate;
     }
 
+    private static string RemappedCollisionTargetId(
+        RemappedCollisionDiagnostic diagnostic,
+        IReadOnlyDictionary<string, string> definitionIdMap,
+        IReadOnlyDictionary<string, string> resourceIdMap) =>
+        diagnostic.EntityKind switch
+        {
+            PortableEntityKind.DefinitionVersion => JsonSerializer.Serialize(
+                new object[] { definitionIdMap[diagnostic.SourceLogicalId], diagnostic.Version!.Value },
+                JsonOptions),
+            PortableEntityKind.ResourceVersion => JsonSerializer.Serialize(
+                new object[] { resourceIdMap[diagnostic.SourceLogicalId], diagnostic.Version!.Value },
+                JsonOptions),
+            PortableEntityKind.ActivationEntry => JsonSerializer.Serialize(
+                new object[] { resourceIdMap[diagnostic.SourceLogicalId], diagnostic.Channel! },
+                JsonOptions),
+            _ => throw new InvalidOperationException($"Unsupported remapped collision entity kind '{diagnostic.EntityKind}'."),
+        };
+
     private static PortableDiagnostic InvalidExportScope(string path, string message) =>
         new()
         {
@@ -739,6 +780,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     private sealed record RemappedCollisionDiagnostic(
         PortableEntityKind EntityKind,
         string SourceLogicalId,
+        int? Version,
+        string? Channel,
         string Path,
         string Message);
 
