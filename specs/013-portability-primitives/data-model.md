@@ -10,7 +10,6 @@ A self-contained SDK snapshot for moving definitions, resources, resource versio
 - `Definitions`: definition version snapshots.
 - `Resources`: resource version snapshots.
 - `ActivationStates`: activation entries for exported resource versions.
-- `SkippedActivations`: activation entries omitted because their resource versions were not exported.
 
 **Validation rules**:
 
@@ -19,7 +18,22 @@ A self-contained SDK snapshot for moving definitions, resources, resource versio
 - Resource entries must have unique `(ResourceId, Version)` pairs and unique version-specific `Id` values.
 - Every resource with known definition lineage must reference a definition version present in the snapshot.
 - Activation entries must reference resource versions present in the snapshot.
-- Skipped activation entries are diagnostics and are not imported.
+- Skipped activation entries are reported on export results and are not part of imported snapshot content.
+
+## Export Result
+
+The outcome of an export request.
+
+**Fields**:
+
+- `Snapshot`: portable snapshot when export succeeds.
+- `Diagnostics`: export diagnostics, including skipped activation entries and missing scope data.
+- `SkippedActivationEntries`: activation entries omitted because their resource versions were not exported.
+
+**Validation rules**:
+
+- A completed export returns either a valid snapshot or error diagnostics.
+- Skipped activation entries are observable export metadata and are not imported.
 
 ## Export Request
 

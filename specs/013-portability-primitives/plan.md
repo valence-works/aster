@@ -50,7 +50,6 @@ specs/013-portability-primitives/
 +-- quickstart.md
 +-- contracts/
 |   +-- portability-primitives.md
-+-- tasks.md
 ```
 
 ### Source Code (repository root)

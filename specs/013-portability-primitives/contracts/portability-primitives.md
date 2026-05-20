@@ -48,6 +48,12 @@ public sealed class PortableSnapshotExportRequest
     public HashSet<ResourceVersionReference> SpecificResourceVersions { get; set; } = [];
 }
 
+public sealed record ResourceVersionReference
+{
+    public required string ResourceId { get; init; }
+    public required int Version { get; init; }
+}
+
 public enum PortableExportScopeMode
 {
     DefinitionsOnly,
@@ -131,12 +137,73 @@ public enum PortableDiagnosticSeverity
     Error,
 }
 
+public sealed record PortableSnapshotExportResult
+{
+    public PortableSnapshot? Snapshot { get; init; }
+    public IReadOnlyList<PortableDiagnostic> Diagnostics { get; init; } = [];
+    public IReadOnlyList<SkippedActivationEntry> SkippedActivationEntries { get; init; } = [];
+}
+
+public sealed record PortableSnapshotValidationResult
+{
+    public required bool IsValid { get; init; }
+    public IReadOnlyList<PortableDiagnostic> Diagnostics { get; init; } = [];
+}
+
+public sealed record PortableImportPreview
+{
+    public required bool CanImport { get; init; }
+    public required PortableImportCounts Counts { get; init; }
+    public IReadOnlyList<PortableIdentityMapping> IdentityMap { get; init; } = [];
+    public IReadOnlyList<PortableDiagnostic> Diagnostics { get; init; } = [];
+}
+
+public sealed record PortableImportResult
+{
+    public required PortableImportStatus Status { get; init; }
+    public required PortableImportCounts Counts { get; init; }
+    public IReadOnlyList<PortableIdentityMapping> IdentityMap { get; init; } = [];
+    public IReadOnlyList<PortableDiagnostic> Diagnostics { get; init; } = [];
+}
+
+public enum PortableImportStatus
+{
+    Imported,
+    NoOp,
+    Failed,
+}
+
+public sealed record PortableImportCounts
+{
+    public int Definitions { get; init; }
+    public int Resources { get; init; }
+    public int ResourceVersions { get; init; }
+    public int ActivationEntries { get; init; }
+    public int ReusedIdenticalItems { get; init; }
+    public int RemappedItems { get; init; }
+}
+
+public sealed record SkippedActivationEntry
+{
+    public required string ResourceId { get; init; }
+    public required string Channel { get; init; }
+    public required int Version { get; init; }
+    public required string Reason { get; init; }
+}
+
+public enum PortableIdentityMappingReason
+{
+    Preserved,
+    ReusedIdentical,
+    RemappedCollision,
+}
+
 public sealed record PortableIdentityMapping
 {
     public required string EntityKind { get; init; }
     public required string OriginalId { get; init; }
     public required string ImportedId { get; init; }
-    public required string Reason { get; init; }
+    public required PortableIdentityMappingReason Reason { get; init; }
 }
 ```
 
@@ -172,6 +239,24 @@ public interface IResourcePortabilityStore
     ValueTask ApplyImportAsync(
         PortableSnapshot plannedSnapshot,
         CancellationToken cancellationToken = default);
+}
+
+public sealed record PortableStoreReadRequest
+{
+    public required PortableSnapshotExportRequest ExportRequest { get; init; }
+}
+
+public sealed record PortableStoreSnapshot
+{
+    public required PortableSnapshot Snapshot { get; init; }
+    public IReadOnlyList<SkippedActivationEntry> SkippedActivationEntries { get; init; } = [];
+}
+
+public sealed record PortableTargetState
+{
+    public IReadOnlyList<ResourceDefinition> ExistingDefinitions { get; init; } = [];
+    public IReadOnlyList<Resource> ExistingResources { get; init; } = [];
+    public IReadOnlyList<ActivationState> ExistingActivationStates { get; init; } = [];
 }
 ```
 
