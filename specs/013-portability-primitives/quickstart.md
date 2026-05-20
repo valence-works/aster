@@ -49,6 +49,9 @@ var preview = await portability.PreviewImportAsync(snapshot);
 foreach (var diagnostic in preview.Diagnostics)
     Console.WriteLine($"{diagnostic.Severity} {diagnostic.Code}: {diagnostic.Message}");
 
+if (!preview.CanImport)
+    return;
+
 foreach (var mapping in preview.IdentityMap)
     Console.WriteLine($"{mapping.EntityKind}: {mapping.OriginalId} -> {mapping.ImportedId} ({mapping.Reason})");
 ```

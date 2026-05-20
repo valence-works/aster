@@ -44,10 +44,14 @@ Start Phase 4 with explicit SDK portability primitives for exporting and importi
 
 ```text
 specs/013-portability-primitives/
++-- spec.md
 +-- plan.md
 +-- research.md
 +-- data-model.md
 +-- quickstart.md
++-- tasks.md
++-- checklists/
+|   +-- requirements.md
 +-- contracts/
 |   +-- portability-primitives.md
 ```

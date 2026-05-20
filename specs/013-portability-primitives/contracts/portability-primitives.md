@@ -185,10 +185,10 @@ public sealed record PortablePlannedImportCounts
 
 public sealed record PortableActualImportCounts
 {
-    public int DefinitionsWritten { get; init; }
-    public int ResourcesWritten { get; init; }
-    public int ResourceVersionsWritten { get; init; }
-    public int ActivationEntriesWritten { get; init; }
+    public int Definitions { get; init; }
+    public int Resources { get; init; }
+    public int ResourceVersions { get; init; }
+    public int ActivationEntries { get; init; }
     public int ReusedIdenticalItems { get; init; }
     public int RemappedItems { get; init; }
 }
