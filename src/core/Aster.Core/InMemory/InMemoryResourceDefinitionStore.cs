@@ -120,6 +120,18 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
             return versions.FirstOrDefault(definition => definition.Version == version);
     }
 
+    /// <summary>
+    /// Imports an exact definition version.
+    /// </summary>
+    internal void ImportDefinitionVersion(ResourceDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        var versions = definitions.GetOrAdd(definition.DefinitionId, _ => []);
+        lock (versions)
+            versions.Add(definition);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Structured log methods (source generated)
     // ──────────────────────────────────────────────────────────────────────────

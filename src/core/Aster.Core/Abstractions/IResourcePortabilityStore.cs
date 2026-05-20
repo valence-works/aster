@@ -13,4 +13,18 @@ public interface IResourcePortabilityStore
     ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
         PortableStoreReadRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads existing target content that could collide with a snapshot import.
+    /// </summary>
+    ValueTask<PortableTargetState> ReadTargetStateAsync(
+        PortableSnapshot snapshot,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Applies a planned import snapshot atomically.
+    /// </summary>
+    ValueTask ApplyImportAsync(
+        PortableSnapshot plannedSnapshot,
+        CancellationToken cancellationToken = default);
 }

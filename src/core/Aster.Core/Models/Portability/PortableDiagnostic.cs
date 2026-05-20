@@ -78,6 +78,16 @@ public static class PortableDiagnosticCodes
     public const string MissingResourceReference = "missing-resource-reference";
 
     /// <summary>
+    /// Snapshot contains duplicate identities.
+    /// </summary>
+    public const string DuplicateSnapshotIdentity = "duplicate-snapshot-identity";
+
+    /// <summary>
+    /// Snapshot content collides with divergent target content.
+    /// </summary>
+    public const string DivergentIdentityCollision = "divergent-identity-collision";
+
+    /// <summary>
     /// Import behavior is not implemented yet.
     /// </summary>
     public const string ImportNotImplemented = "import-not-implemented";

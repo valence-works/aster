@@ -90,7 +90,7 @@ public sealed class SqliteJsonResourceStore :
         ArgumentNullException.ThrowIfNull(definition);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
 
         var nextVersion = await GetNextDefinitionVersionAsync(connection, definition.DefinitionId, cancellationToken);
         var versionedDefinition = definition with { Version = nextVersion };
@@ -256,6 +256,72 @@ public sealed class SqliteJsonResourceStore :
         };
     }
 
+    /// <inheritdoc />
+    public async ValueTask<PortableTargetState> ReadTargetStateAsync(
+        PortableSnapshot snapshot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        var definitions = await ReadTargetDefinitionVersionsAsync(snapshot, cancellationToken);
+        var resources = await ReadSpecificResourceVersionsAsync(
+            snapshot.Resources
+                .Select(static resource => new ResourceVersionReference
+                {
+                    ResourceId = resource.ResourceId,
+                    Version = resource.Version,
+                })
+                .ToHashSet(),
+            cancellationToken);
+        var activationStates = await ReadScopedActivationStatesAsync(
+            snapshot.ActivationStates
+                .Select(static state => state.ResourceId)
+                .ToHashSet(StringComparer.Ordinal),
+            cancellationToken);
+        var activationKeys = snapshot.ActivationStates
+            .Select(static state => (state.ResourceId, state.Channel))
+            .ToHashSet();
+
+        return new PortableTargetState
+        {
+            Definitions = definitions,
+            Resources = resources,
+            ActivationStates = activationStates
+                .Where(state => activationKeys.Contains((state.ResourceId, state.Channel)))
+                .ToList(),
+        };
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ApplyImportAsync(
+        PortableSnapshot plannedSnapshot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plannedSnapshot);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            foreach (var definition in plannedSnapshot.Definitions)
+                await InsertDefinitionAsync(connection, transaction, definition, cancellationToken);
+
+            foreach (var resource in plannedSnapshot.Resources)
+                await InsertResourceAsync(connection, transaction, resource, cancellationToken);
+
+            foreach (var state in plannedSnapshot.ActivationStates)
+                await InsertActivationStateAsync(connection, transaction, state, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
     private async Task<IEnumerable<Resource>> ReadLatestVersionsAsync(CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -349,6 +415,33 @@ public sealed class SqliteJsonResourceStore :
                 || referencedDefinitionVersions.Contains((definition.DefinitionId, definition.Version)))
             .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
             .ThenBy(static definition => definition.Version)
+            .ToList();
+    }
+
+    private async Task<List<ResourceDefinition>> ReadTargetDefinitionVersionsAsync(
+        PortableSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        var definitionIds = snapshot.Definitions
+            .Select(static definition => definition.DefinitionId)
+            .Concat(snapshot.Resources.Select(static resource => resource.DefinitionId))
+            .ToHashSet(StringComparer.Ordinal);
+        var definitionVersions = snapshot.Definitions
+            .Select(static definition => (definition.DefinitionId, definition.Version))
+            .Concat(snapshot.Resources
+                .Where(static resource => resource.DefinitionVersion is not null)
+                .Select(static resource => (resource.DefinitionId, resource.DefinitionVersion!.Value)))
+            .ToHashSet();
+
+        var definitions = await ReadPayloadsByTextIdsAsync<ResourceDefinition>(
+            tableName: "resource_definitions",
+            columnName: "definition_id",
+            ids: definitionIds,
+            orderBy: "definition_id, version",
+            cancellationToken);
+
+        return definitions
+            .Where(definition => definitionVersions.Contains((definition.DefinitionId, definition.Version)))
             .ToList();
     }
 
@@ -643,6 +736,90 @@ public sealed class SqliteJsonResourceStore :
         }
 
         return active;
+    }
+
+    private async Task InsertDefinitionAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        ResourceDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO resource_definitions (definition_id, version, id, payload)
+            VALUES ($definitionId, $version, $id, $payload);
+            """;
+        command.Parameters.AddWithValue("$definitionId", definition.DefinitionId);
+        command.Parameters.AddWithValue("$version", definition.Version);
+        command.Parameters.AddWithValue("$id", definition.Id);
+        command.Parameters.AddWithValue("$payload", Serialize(definition));
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task InsertResourceAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Resource resource,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO resource_versions (
+                resource_id,
+                version,
+                id,
+                definition_id,
+                definition_version,
+                created,
+                owner,
+                hash,
+                payload
+            )
+            VALUES (
+                $resourceId,
+                $version,
+                $id,
+                $definitionId,
+                $definitionVersion,
+                $created,
+                $owner,
+                $hash,
+                $payload
+            );
+            """;
+        command.Parameters.AddWithValue("$resourceId", resource.ResourceId);
+        command.Parameters.AddWithValue("$version", resource.Version);
+        command.Parameters.AddWithValue("$id", resource.Id);
+        command.Parameters.AddWithValue("$definitionId", resource.DefinitionId);
+        command.Parameters.AddWithValue("$definitionVersion", (object?)resource.DefinitionVersion ?? DBNull.Value);
+        command.Parameters.AddWithValue("$created", resource.Created.ToUniversalTime().ToString("O"));
+        command.Parameters.AddWithValue("$owner", (object?)resource.Owner ?? DBNull.Value);
+        command.Parameters.AddWithValue("$hash", (object?)resource.Hash ?? DBNull.Value);
+        command.Parameters.AddWithValue("$payload", Serialize(resource));
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task InsertActivationStateAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        ActivationState state,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO activation_states (resource_id, channel, payload)
+            VALUES ($resourceId, $channel, $payload);
+            """;
+        command.Parameters.AddWithValue("$resourceId", state.ResourceId);
+        command.Parameters.AddWithValue("$channel", state.Channel);
+        command.Parameters.AddWithValue("$payload", Serialize(state));
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
