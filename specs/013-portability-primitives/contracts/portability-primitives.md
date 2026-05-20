@@ -219,7 +219,8 @@ public enum PortableIdentityMappingReason
 {
     Preserved,
     ReusedIdentical,
-    RemappedCollision,
+    RemappedDivergent,
+    CollidedDivergent,
 }
 
 public sealed record PortableIdentityMapping

@@ -171,6 +171,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 continue;
             }
 
+            identityMap.Add(Collided(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
             diagnostics.Add(DivergentCollision(
                 $"definitions/{definition.DefinitionId}/{definition.Version}",
                 $"Definition '{definition.DefinitionId}' version {definition.Version} already exists with different content.",
@@ -195,6 +196,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 continue;
             }
 
+            identityMap.Add(Collided(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
             diagnostics.Add(DivergentCollision(
                 $"resources/{resource.ResourceId}/{resource.Version}",
                 $"Resource '{resource.ResourceId}' version {resource.Version} already exists with different content.",
@@ -219,6 +221,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 continue;
             }
 
+            identityMap.Add(Collided(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
             diagnostics.Add(DivergentCollision(
                 $"activationStates/{state.ResourceId}/{state.Channel}",
                 $"Activation state for resource '{state.ResourceId}' channel '{state.Channel}' already exists with different content.",
@@ -515,6 +518,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             SourceId = id,
             TargetId = id,
             Reason = PortableIdentityMappingReason.ReusedIdentical,
+        };
+
+    private static PortableIdentityMapping Collided(PortableEntityKind entityKind, string id) =>
+        new()
+        {
+            EntityKind = entityKind,
+            SourceId = id,
+            TargetId = id,
+            Reason = PortableIdentityMappingReason.CollidedDivergent,
         };
 
     private static string DefinitionVersionId(ResourceDefinition definition) =>
