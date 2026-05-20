@@ -93,11 +93,6 @@ public static class PortableDiagnosticCodes
     public const string ImportNotImplemented = "import-not-implemented";
 
     /// <summary>
-    /// RemapDivergent import handling is unavailable for a portability operation.
-    /// </summary>
-    public const string RemapDivergentNotImplemented = "remap-divergent-not-implemented";
-
-    /// <summary>
     /// Planned import writes failed during provider apply.
     /// </summary>
     public const string ImportApplyFailed = "import-apply-failed";
