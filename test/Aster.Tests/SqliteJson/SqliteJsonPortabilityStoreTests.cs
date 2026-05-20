@@ -93,12 +93,19 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
     [Fact]
     public async Task ImportAsync_WithSqlite_PersistsSnapshotForLaterExport()
     {
-        await using var provider = CreateServiceProvider();
-        var portability = provider.GetRequiredService<IResourcePortabilityService>();
         var snapshot = CreateSnapshot();
+        PortableImportResult import;
 
-        var import = await portability.ImportAsync(snapshot);
-        var export = await portability.ExportAsync(new PortableSnapshotExportRequest
+        await using (var importProvider = CreateServiceProvider())
+        {
+            var portability = importProvider.GetRequiredService<IResourcePortabilityService>();
+            import = await portability.ImportAsync(snapshot);
+        }
+
+        await using var exportProvider = CreateServiceProvider();
+        var exportPortability = exportProvider.GetRequiredService<IResourcePortabilityService>();
+
+        var export = await exportPortability.ExportAsync(new PortableSnapshotExportRequest
         {
             ScopeMode = PortableExportScopeMode.SelectedResources,
             ResourceIds = ["sqlite-product-1"],
