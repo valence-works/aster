@@ -71,6 +71,36 @@ public sealed class PortabilityImportTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportAsync_IdenticalActivationStateWithDifferentVersionOrder_ReturnsNoOp()
+    {
+        var snapshot = CreateSnapshotWithTwoActiveVersions([1, 2]);
+        await portability.ImportAsync(snapshot);
+
+        var result = await portability.ImportAsync(CreateSnapshotWithTwoActiveVersions([2, 1]));
+
+        Assert.Equal(PortableImportStatus.NoOp, result.Status);
+        Assert.Equal(0, result.Counts.Definitions);
+        Assert.Equal(0, result.Counts.ResourceVersions);
+        Assert.Equal(0, result.Counts.ActivationEntries);
+        Assert.Equal(4, result.Counts.ReusedIdenticalItems);
+    }
+
+    [Fact]
+    public async Task ImportAsync_InMemoryStoreImportsVersionsOutOfOrder_PreservesLatestVersionInvariant()
+    {
+        await portability.ImportAsync(CreateVersionedSnapshot(definitionVersion: 2, resourceVersion: 2));
+        await portability.ImportAsync(CreateVersionedSnapshot(definitionVersion: 1, resourceVersion: 1));
+
+        var latestDefinition = await definitionStore.GetDefinitionAsync("Product");
+        var latestResource = await manager.GetLatestVersionAsync("product-ordered");
+
+        Assert.NotNull(latestDefinition);
+        Assert.Equal(2, latestDefinition.Version);
+        Assert.NotNull(latestResource);
+        Assert.Equal(2, latestResource.Version);
+    }
+
+    [Fact]
     public async Task ImportAsync_StrictDivergentDefinitionCollision_FailsWithoutWritingResources()
     {
         await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
@@ -84,6 +114,23 @@ public sealed class PortabilityImportTests : IDisposable
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(PortableDiagnosticCodes.DivergentIdentityCollision, diagnostic.Code);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
+    }
+
+    [Fact]
+    public async Task ImportAsync_RemapDivergentDefinitionCollision_UsesDedicatedDeferredDiagnostic()
+    {
+        await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+            .WithDefinitionId("Product")
+            .Build());
+        var snapshot = CreateSnapshot();
+
+        var result = await portability.ImportAsync(
+            snapshot,
+            new PortableImportOptions { CollisionMode = PortableImportCollisionMode.RemapDivergent });
+
+        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.RemapDivergentNotImplemented, diagnostic.Code);
     }
 
     private static PortableSnapshot CreateSnapshot()
@@ -122,6 +169,67 @@ public sealed class PortabilityImportTests : IDisposable
                     Channel = "Published",
                     ActiveVersions = [1],
                     LastUpdated = created.AddMinutes(1),
+                },
+            ],
+        };
+    }
+
+    private static PortableSnapshot CreateSnapshotWithTwoActiveVersions(IReadOnlyList<int> activeVersions)
+    {
+        var snapshot = CreateSnapshot();
+        var v2Created = new DateTime(2026, 1, 3, 3, 4, 5, DateTimeKind.Utc);
+
+        return snapshot with
+        {
+            Resources =
+            [
+                snapshot.Resources[0],
+                new Resource
+                {
+                    ResourceId = "product-1",
+                    Id = "product-1-v2",
+                    DefinitionId = "Product",
+                    DefinitionVersion = 1,
+                    Version = 2,
+                    Created = v2Created,
+                },
+            ],
+            ActivationStates =
+            [
+                snapshot.ActivationStates[0] with
+                {
+                    ActiveVersions = activeVersions,
+                },
+            ],
+        };
+    }
+
+    private static PortableSnapshot CreateVersionedSnapshot(int definitionVersion, int resourceVersion)
+    {
+        var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc).AddDays(resourceVersion);
+
+        return new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            Definitions =
+            [
+                new ResourceDefinition
+                {
+                    DefinitionId = "Product",
+                    Id = $"product-definition-v{definitionVersion}",
+                    Version = definitionVersion,
+                },
+            ],
+            Resources =
+            [
+                new Resource
+                {
+                    ResourceId = "product-ordered",
+                    Id = $"product-ordered-v{resourceVersion}",
+                    DefinitionId = "Product",
+                    DefinitionVersion = definitionVersion,
+                    Version = resourceVersion,
+                    Created = created,
                 },
             ],
         };

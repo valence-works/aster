@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
@@ -423,7 +424,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
             : new PortableDiagnostic
             {
-                Code = PortableDiagnosticCodes.ImportNotImplemented,
+                Code = PortableDiagnosticCodes.RemapDivergentNotImplemented,
                 Severity = PortableDiagnosticSeverity.Error,
                 Path = path,
                 Message = $"{message} RemapDivergent import is planned for the next import slice.",
@@ -439,10 +440,64 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         };
 
     private static bool ContentEquals<T>(T left, T right) =>
-        string.Equals(
-            JsonSerializer.Serialize(left, JsonOptions),
-            JsonSerializer.Serialize(right, JsonOptions),
-            StringComparison.Ordinal);
+        (left, right) switch
+        {
+            (ResourceDefinition leftDefinition, ResourceDefinition rightDefinition) => ContentEquals(leftDefinition, rightDefinition),
+            (Resource leftResource, Resource rightResource) => ContentEquals(leftResource, rightResource),
+            (ActivationState leftState, ActivationState rightState) => ContentEquals(leftState, rightState),
+            _ => JsonContentEquals(left, right),
+        };
+
+    private static bool ContentEquals(ResourceDefinition left, ResourceDefinition right) =>
+        string.Equals(left.DefinitionId, right.DefinitionId, StringComparison.Ordinal)
+        && string.Equals(left.Id, right.Id, StringComparison.Ordinal)
+        && left.Version == right.Version
+        && left.IsSingleton == right.IsSingleton
+        && DictionaryContentEquals(left.AspectDefinitions, right.AspectDefinitions);
+
+    private static bool ContentEquals(Resource left, Resource right) =>
+        string.Equals(left.ResourceId, right.ResourceId, StringComparison.Ordinal)
+        && string.Equals(left.Id, right.Id, StringComparison.Ordinal)
+        && string.Equals(left.DefinitionId, right.DefinitionId, StringComparison.Ordinal)
+        && left.DefinitionVersion == right.DefinitionVersion
+        && left.Version == right.Version
+        && left.Created == right.Created
+        && string.Equals(left.Owner, right.Owner, StringComparison.Ordinal)
+        && string.Equals(left.Hash, right.Hash, StringComparison.Ordinal)
+        && DictionaryContentEquals(left.Aspects, right.Aspects);
+
+    private static bool ContentEquals(ActivationState left, ActivationState right) =>
+        string.Equals(left.ResourceId, right.ResourceId, StringComparison.Ordinal)
+        && string.Equals(left.Channel, right.Channel, StringComparison.Ordinal)
+        && left.LastUpdated == right.LastUpdated
+        && left.ActiveVersions.Order().SequenceEqual(right.ActiveVersions.Order());
+
+    private static bool DictionaryContentEquals<TValue>(
+        IReadOnlyDictionary<string, TValue> left,
+        IReadOnlyDictionary<string, TValue> right)
+    {
+        if (left.Count != right.Count)
+            return false;
+
+        foreach (var (key, leftValue) in left.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (!right.TryGetValue(key, out var rightValue))
+                return false;
+
+            if (!JsonContentEquals(leftValue, rightValue))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool JsonContentEquals<T>(T left, T right)
+    {
+        var leftNode = JsonSerializer.SerializeToNode(left, JsonOptions);
+        var rightNode = JsonSerializer.SerializeToNode(right, JsonOptions);
+
+        return JsonNode.DeepEquals(leftNode, rightNode);
+    }
 
     private static PortableIdentityMapping Preserved(PortableEntityKind entityKind, string id) =>
         new()

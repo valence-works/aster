@@ -45,6 +45,27 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
     internal ConcurrentDictionary<string, HashSet<int>> GetOrAddActivations(string resourceId) =>
         Activations.GetOrAdd(resourceId, _ => new ConcurrentDictionary<string, HashSet<int>>(StringComparer.Ordinal));
 
+    /// <summary>
+    /// Imports an exact resource version while preserving version ordering.
+    /// </summary>
+    internal void ImportVersion(Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+
+        var versions = Versions.GetOrAdd(resource.ResourceId, _ => []);
+        lock (versions)
+        {
+            var insertIndex = versions.FindIndex(existing => existing.Version >= resource.Version);
+            if (insertIndex >= 0 && versions[insertIndex].Version == resource.Version)
+                throw new InvalidOperationException($"Resource '{resource.ResourceId}' version {resource.Version} already exists.");
+
+            if (insertIndex < 0)
+                versions.Add(resource);
+            else
+                versions.Insert(insertIndex, resource);
+        }
+    }
+
     /// <inheritdoc />
     public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
         ResourceVersionReadRequest request,

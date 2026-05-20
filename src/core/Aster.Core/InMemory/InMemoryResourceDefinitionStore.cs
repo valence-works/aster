@@ -129,7 +129,16 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
 
         var versions = definitions.GetOrAdd(definition.DefinitionId, _ => []);
         lock (versions)
-            versions.Add(definition);
+        {
+            var insertIndex = versions.FindIndex(existing => existing.Version >= definition.Version);
+            if (insertIndex >= 0 && versions[insertIndex].Version == definition.Version)
+                throw new InvalidOperationException($"Definition '{definition.DefinitionId}' version {definition.Version} already exists.");
+
+            if (insertIndex < 0)
+                versions.Add(definition);
+            else
+                versions.Insert(insertIndex, definition);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────────

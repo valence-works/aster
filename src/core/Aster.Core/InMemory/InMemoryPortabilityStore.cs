@@ -113,6 +113,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
             .ThenBy(static definition => definition.Version))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             definitionStore.ImportDefinitionVersion(definition);
         }
 
@@ -120,14 +121,16 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
             .ThenBy(static resource => resource.Version))
         {
-            await resourceStore.SaveVersionAsync(resource, CancellationToken.None);
+            cancellationToken.ThrowIfCancellationRequested();
+            resourceStore.ImportVersion(resource);
         }
 
         foreach (var state in plannedSnapshot.ActivationStates
             .OrderBy(static state => state.ResourceId, StringComparer.Ordinal)
             .ThenBy(static state => state.Channel, StringComparer.Ordinal))
         {
-            await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, CancellationToken.None);
+            cancellationToken.ThrowIfCancellationRequested();
+            await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, cancellationToken);
         }
     }
 
