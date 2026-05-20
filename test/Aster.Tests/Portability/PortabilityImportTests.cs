@@ -117,10 +117,25 @@ public sealed class PortabilityImportTests : IDisposable
         var mapping = Assert.Single(
             result.IdentityMap,
             static mapping => mapping.Reason == PortableIdentityMappingReason.CollidedDivergent);
+        Assert.Equal(3, result.IdentityMap.Count);
         Assert.Equal(PortableEntityKind.DefinitionVersion, mapping.EntityKind);
         Assert.Equal("""["Product",1]""", mapping.SourceId);
         Assert.Equal("""["Product",1]""", mapping.TargetId);
         Assert.Equal(PortableIdentityMappingReason.CollidedDivergent, mapping.Reason);
+        Assert.Contains(
+            result.IdentityMap,
+            static mapping =>
+                mapping.EntityKind == PortableEntityKind.ResourceVersion
+                && mapping.SourceId == """["product-1",1]"""
+                && mapping.TargetId == """["product-1",1]"""
+                && mapping.Reason == PortableIdentityMappingReason.Preserved);
+        Assert.Contains(
+            result.IdentityMap,
+            static mapping =>
+                mapping.EntityKind == PortableEntityKind.ActivationEntry
+                && mapping.SourceId == """["product-1","Published"]"""
+                && mapping.TargetId == """["product-1","Published"]"""
+                && mapping.Reason == PortableIdentityMappingReason.Preserved);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
     }
 
