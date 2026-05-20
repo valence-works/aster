@@ -73,6 +73,11 @@ public static class PortableDiagnosticCodes
     public const string MissingDefinitionReference = "missing-definition-reference";
 
     /// <summary>
+    /// Snapshot references a missing resource version.
+    /// </summary>
+    public const string MissingResourceReference = "missing-resource-reference";
+
+    /// <summary>
     /// Import behavior is not implemented yet.
     /// </summary>
     public const string ImportNotImplemented = "import-not-implemented";

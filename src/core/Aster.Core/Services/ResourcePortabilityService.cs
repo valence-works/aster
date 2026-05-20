@@ -213,6 +213,27 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
         }
 
+        var resourceVersions = snapshot.Resources
+            .Select(static resource => (resource.ResourceId, resource.Version))
+            .ToHashSet();
+
+        foreach (var activationState in snapshot.ActivationStates)
+        {
+            foreach (var version in activationState.ActiveVersions)
+            {
+                if (resourceVersions.Contains((activationState.ResourceId, version)))
+                    continue;
+
+                diagnostics.Add(new PortableDiagnostic
+                {
+                    Code = PortableDiagnosticCodes.MissingResourceReference,
+                    Severity = PortableDiagnosticSeverity.Error,
+                    Path = $"activationStates/{activationState.ResourceId}/{activationState.Channel}/{version}",
+                    Message = $"Activation entry for resource '{activationState.ResourceId}' version {version} in channel '{activationState.Channel}' references a missing resource version.",
+                });
+            }
+        }
+
         return diagnostics;
     }
 
