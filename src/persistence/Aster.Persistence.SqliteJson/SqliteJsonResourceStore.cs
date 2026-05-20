@@ -17,6 +17,8 @@ public sealed class SqliteJsonResourceStore :
     IResourceVersionWriter,
     IResourcePortabilityStore
 {
+    private const int MaxSqliteParametersPerQuery = 500;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly string connectionString;
@@ -240,7 +242,9 @@ public sealed class SqliteJsonResourceStore :
             request.ExportRequest,
             await ReadScopedResourceVersionsAsync(request.ExportRequest, cancellationToken));
         var definitions = await SelectDefinitionsAsync(request.ExportRequest, resources, cancellationToken);
-        var activationStates = await ReadAllActivationStatesAsync(cancellationToken);
+        var activationStates = await ReadScopedActivationStatesAsync(
+            resources.Select(static resource => resource.ResourceId).ToHashSet(StringComparer.Ordinal),
+            cancellationToken);
         var (includedActivationStates, skippedActivationEntries) = SelectActivationStates(resources, activationStates);
 
         return new PortableStoreSnapshot
@@ -290,14 +294,14 @@ public sealed class SqliteJsonResourceStore :
         IReadOnlyCollection<Resource> resources,
         CancellationToken cancellationToken)
     {
-        var allDefinitions = await ReadAllDefinitionVersionsAsync(cancellationToken);
-        var allDefinitionsByVersion = allDefinitions.ToDictionary(
+        var scopedDefinitions = await ReadScopedDefinitionVersionsAsync(request, resources, cancellationToken);
+        var scopedDefinitionsByVersion = scopedDefinitions.ToDictionary(
             static definition => (definition.DefinitionId, definition.Version));
         var definitions = new Dictionary<(string DefinitionId, int Version), ResourceDefinition>();
 
         if (request.ScopeMode is PortableExportScopeMode.DefinitionsOnly or PortableExportScopeMode.DefinitionWithResources)
         {
-            foreach (var definition in allDefinitions.Where(definition => request.DefinitionIds.Contains(definition.DefinitionId)))
+            foreach (var definition in scopedDefinitions.Where(definition => request.DefinitionIds.Contains(definition.DefinitionId)))
                 definitions[(definition.DefinitionId, definition.Version)] = definition;
         }
 
@@ -306,7 +310,7 @@ public sealed class SqliteJsonResourceStore :
             if (resource.DefinitionVersion is null)
                 continue;
 
-            if (allDefinitionsByVersion.TryGetValue((resource.DefinitionId, resource.DefinitionVersion.Value), out var definition))
+            if (scopedDefinitionsByVersion.TryGetValue((resource.DefinitionId, resource.DefinitionVersion.Value), out var definition))
                 definitions[(definition.DefinitionId, definition.Version)] = definition;
         }
 
@@ -316,31 +320,47 @@ public sealed class SqliteJsonResourceStore :
             .ToList();
     }
 
-    private async Task<List<ResourceDefinition>> ReadAllDefinitionVersionsAsync(CancellationToken cancellationToken)
+    private async Task<List<ResourceDefinition>> ReadScopedDefinitionVersionsAsync(
+        PortableSnapshotExportRequest request,
+        IReadOnlyCollection<Resource> resources,
+        CancellationToken cancellationToken)
     {
-        await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT payload
-            FROM resource_definitions
-            ORDER BY definition_id, version;
-            """;
+        var fullDefinitionIds = request.ScopeMode is PortableExportScopeMode.DefinitionsOnly or PortableExportScopeMode.DefinitionWithResources
+            ? request.DefinitionIds
+            : [];
+        var referencedDefinitionVersions = resources
+            .Where(static resource => resource.DefinitionVersion is not null)
+            .Select(static resource => (resource.DefinitionId, Version: resource.DefinitionVersion!.Value))
+            .ToHashSet();
+        var definitionIds = fullDefinitionIds
+            .Concat(referencedDefinitionVersions.Select(static reference => reference.DefinitionId))
+            .ToHashSet(StringComparer.Ordinal);
 
-        return await ReadPayloadsAsync<ResourceDefinition>(command, cancellationToken);
+        var definitions = await ReadPayloadsByTextIdsAsync<ResourceDefinition>(
+            tableName: "resource_definitions",
+            columnName: "definition_id",
+            ids: definitionIds,
+            orderBy: "definition_id, version",
+            cancellationToken);
+
+        return definitions
+            .Where(definition =>
+                fullDefinitionIds.Contains(definition.DefinitionId)
+                || referencedDefinitionVersions.Contains((definition.DefinitionId, definition.Version)))
+            .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
+            .ThenBy(static definition => definition.Version)
+            .ToList();
     }
 
-    private async Task<List<ActivationState>> ReadAllActivationStatesAsync(CancellationToken cancellationToken)
-    {
-        await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT payload
-            FROM activation_states
-            ORDER BY resource_id, channel;
-            """;
-
-        return await ReadPayloadsAsync<ActivationState>(command, cancellationToken);
-    }
+    private async Task<List<ActivationState>> ReadScopedActivationStatesAsync(
+        IReadOnlyCollection<string> resourceIds,
+        CancellationToken cancellationToken) =>
+        await ReadPayloadsByTextIdsAsync<ActivationState>(
+            tableName: "activation_states",
+            columnName: "resource_id",
+            ids: resourceIds,
+            orderBy: "resource_id, channel",
+            cancellationToken);
 
     private async Task<List<Resource>> ReadScopedResourceVersionsAsync(
         PortableSnapshotExportRequest request,
@@ -358,17 +378,17 @@ public sealed class SqliteJsonResourceStore :
         if (ids.Count == 0)
             return [];
 
-        await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        var parameterNames = AddTextParameters(command, "id", ids);
-        command.CommandText = $"""
-            SELECT payload
-            FROM resource_versions
-            WHERE {columnName} IN ({string.Join(", ", parameterNames)})
-            ORDER BY resource_id, version;
-            """;
+        var resources = await ReadPayloadsByTextIdsAsync<Resource>(
+            tableName: "resource_versions",
+            columnName,
+            ids,
+            orderBy: "resource_id, version",
+            cancellationToken);
 
-        return await ReadPayloadsAsync<Resource>(command, cancellationToken);
+        return resources
+            .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static resource => resource.Version)
+            .ToList();
     }
 
     private static List<Resource> SelectResourceVersions(
@@ -479,6 +499,35 @@ public sealed class SqliteJsonResourceStore :
         }
 
         return parameterNames;
+    }
+
+    private async Task<List<T>> ReadPayloadsByTextIdsAsync<T>(
+        string tableName,
+        string columnName,
+        IReadOnlyCollection<string> ids,
+        string orderBy,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<T>();
+        if (ids.Count == 0)
+            return results;
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in ids.Order(StringComparer.Ordinal).Chunk(MaxSqliteParametersPerQuery))
+        {
+            await using var command = connection.CreateCommand();
+            var parameterNames = AddTextParameters(command, "id", batch);
+            command.CommandText = $"""
+                SELECT payload
+                FROM {tableName}
+                WHERE {columnName} IN ({string.Join(", ", parameterNames)})
+                ORDER BY {orderBy};
+                """;
+
+            results.AddRange(await ReadPayloadsAsync<T>(command, cancellationToken));
+        }
+
+        return results;
     }
 
     private async Task<IEnumerable<Resource>> ReadActiveVersionsAsync(
