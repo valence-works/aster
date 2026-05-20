@@ -117,15 +117,30 @@ public sealed class PortabilityImportTests : IDisposable
         var mapping = Assert.Single(
             result.IdentityMap,
             static mapping => mapping.Reason == PortableIdentityMappingReason.CollidedDivergent);
+        Assert.Equal(3, result.IdentityMap.Count);
         Assert.Equal(PortableEntityKind.DefinitionVersion, mapping.EntityKind);
         Assert.Equal("""["Product",1]""", mapping.SourceId);
         Assert.Equal("""["Product",1]""", mapping.TargetId);
         Assert.Equal(PortableIdentityMappingReason.CollidedDivergent, mapping.Reason);
+        Assert.Contains(
+            result.IdentityMap,
+            static mapping =>
+                mapping.EntityKind == PortableEntityKind.ResourceVersion
+                && mapping.SourceId == """["product-1",1]"""
+                && mapping.TargetId == """["product-1",1]"""
+                && mapping.Reason == PortableIdentityMappingReason.Preserved);
+        Assert.Contains(
+            result.IdentityMap,
+            static mapping =>
+                mapping.EntityKind == PortableEntityKind.ActivationEntry
+                && mapping.SourceId == """["product-1","Published"]"""
+                && mapping.TargetId == """["product-1","Published"]"""
+                && mapping.Reason == PortableIdentityMappingReason.Preserved);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
     }
 
     [Fact]
-    public async Task ImportAsync_RemapDivergentDefinitionCollision_UsesDedicatedDeferredDiagnostic()
+    public async Task ImportAsync_RemapDivergentDefinitionCollision_RewritesDefinitionLineage()
     {
         await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
@@ -136,9 +151,102 @@ public sealed class PortabilityImportTests : IDisposable
             snapshot,
             new PortableImportOptions { CollisionMode = PortableImportCollisionMode.RemapDivergent });
 
-        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        Assert.Equal(PortableImportStatus.Imported, result.Status);
+        Assert.Equal(1, result.Counts.Definitions);
+        Assert.Equal(1, result.Counts.ResourceVersions);
+        Assert.Equal(1, result.Counts.ActivationEntries);
+        Assert.Equal(1, result.Counts.RemappedItems);
         var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal(PortableDiagnosticCodes.RemapDivergentNotImplemented, diagnostic.Code);
+        Assert.Equal(PortableDiagnosticCodes.DivergentIdentityCollision, diagnostic.Code);
+        Assert.Equal(PortableDiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("""["Product__imported",1]""", diagnostic.Message, StringComparison.Ordinal);
+        var mapping = Assert.Single(
+            result.IdentityMap,
+            static mapping => mapping.Reason == PortableIdentityMappingReason.RemappedDivergent);
+        Assert.Equal(PortableEntityKind.DefinitionVersion, mapping.EntityKind);
+        Assert.Equal("""["Product",1]""", mapping.SourceId);
+        Assert.Equal("""["Product__imported",1]""", mapping.TargetId);
+
+        var remappedDefinition = await definitionStore.GetDefinitionAsync("Product__imported");
+        var importedResource = await manager.GetLatestVersionAsync("product-1");
+
+        Assert.NotNull(remappedDefinition);
+        Assert.Equal(1, remappedDefinition.Version);
+        Assert.NotNull(importedResource);
+        Assert.Equal("Product__imported", importedResource.DefinitionId);
+    }
+
+    [Fact]
+    public async Task ImportAsync_RemapDivergentResourceCollision_RewritesResourceAndActivationState()
+    {
+        var targetSnapshot = CreateSnapshotWithResourceOwner("target-owner");
+        await portability.ImportAsync(targetSnapshot);
+        var snapshot = CreateSnapshot();
+
+        var result = await portability.ImportAsync(
+            snapshot,
+            new PortableImportOptions { CollisionMode = PortableImportCollisionMode.RemapDivergent });
+
+        Assert.Equal(PortableImportStatus.Imported, result.Status);
+        Assert.Equal(0, result.Counts.Definitions);
+        Assert.Equal(1, result.Counts.ResourceVersions);
+        Assert.Equal(1, result.Counts.ActivationEntries);
+        Assert.Equal(1, result.Counts.ReusedIdenticalItems);
+        Assert.Equal(2, result.Counts.RemappedItems);
+        Assert.Contains(
+            result.IdentityMap,
+            static mapping =>
+                mapping.EntityKind == PortableEntityKind.ResourceVersion
+                && mapping.SourceId == """["product-1",1]"""
+                && mapping.TargetId == """["product-1__imported",1]"""
+                && mapping.Reason == PortableIdentityMappingReason.RemappedDivergent);
+        Assert.Contains(
+            result.IdentityMap,
+            static mapping =>
+                mapping.EntityKind == PortableEntityKind.ActivationEntry
+                && mapping.SourceId == """["product-1","Published"]"""
+                && mapping.TargetId == """["product-1__imported","Published"]"""
+                && mapping.Reason == PortableIdentityMappingReason.RemappedDivergent);
+
+        var originalResource = await manager.GetLatestVersionAsync("product-1");
+        var remappedResource = await manager.GetLatestVersionAsync("product-1__imported");
+        var activeRemappedVersions = (await manager.GetActiveVersionsAsync("product-1__imported", "Published")).ToList();
+
+        Assert.NotNull(originalResource);
+        Assert.Equal("target-owner", originalResource.Owner);
+        Assert.NotNull(remappedResource);
+        Assert.Null(remappedResource.Owner);
+        var activeVersion = Assert.Single(activeRemappedVersions);
+        Assert.Equal(1, activeVersion.Version);
+    }
+
+    [Fact]
+    public async Task PreviewImportAsync_UndefinedCollisionMode_FailsWithInvalidImportOptionsDiagnostic()
+    {
+        var result = await portability.PreviewImportAsync(
+            CreateSnapshot(),
+            new PortableImportOptions { CollisionMode = (PortableImportCollisionMode)999 });
+
+        Assert.False(result.CanImport);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidImportOptions, diagnostic.Code);
+        Assert.Equal("collisionMode", diagnostic.Path);
+    }
+
+    [Fact]
+    public async Task PreviewImportAsync_RemapDivergentCollision_ProducesDeterministicIdentityMap()
+    {
+        await portability.ImportAsync(CreateSnapshotWithResourceOwner("target-owner"));
+        var snapshot = CreateSnapshot();
+        var options = new PortableImportOptions { CollisionMode = PortableImportCollisionMode.RemapDivergent };
+
+        var first = await portability.PreviewImportAsync(snapshot, options);
+        var second = await portability.PreviewImportAsync(snapshot, options);
+
+        Assert.True(first.CanImport);
+        Assert.Equal(
+            first.IdentityMap.Select(static mapping => (mapping.EntityKind, mapping.SourceId, mapping.TargetId, mapping.Reason)),
+            second.IdentityMap.Select(static mapping => (mapping.EntityKind, mapping.SourceId, mapping.TargetId, mapping.Reason)));
     }
 
     [Fact]
@@ -370,6 +478,19 @@ public sealed class PortabilityImportTests : IDisposable
                 {
                     ActiveVersions = activeVersions,
                 },
+            ],
+        };
+    }
+
+    private static PortableSnapshot CreateSnapshotWithResourceOwner(string owner)
+    {
+        var snapshot = CreateSnapshot();
+
+        return snapshot with
+        {
+            Resources =
+            [
+                snapshot.Resources[0] with { Owner = owner },
             ],
         };
     }

@@ -167,17 +167,20 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
         var diagnostics = ValidateSnapshot(snapshot);
         diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(snapshot));
+        diagnostics.AddRange(ValidateImportOptions(options));
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics);
 
         var targetState = await portabilityStore.ReadTargetStateAsync(snapshot, cancellationToken);
-        var plannedDefinitions = new List<ResourceDefinition>();
-        var plannedResources = new List<Resource>();
-        var plannedActivationStates = new List<ActivationState>();
         var identityMap = new List<PortableIdentityMapping>();
-        var reusedIdenticalItems = 0;
-
+        var strictFailureIdentityMap = new List<PortableIdentityMapping>();
         var existingDefinitions = targetState.Definitions.ToDictionary(static definition => (definition.DefinitionId, definition.Version));
+        var existingResources = targetState.Resources.ToDictionary(static resource => (resource.ResourceId, resource.Version));
+        var existingActivationStates = targetState.ActivationStates.ToDictionary(static state => (state.ResourceId, state.Channel));
+        var definitionIdsToRemap = new HashSet<string>(StringComparer.Ordinal);
+        var resourceIdsToRemap = new HashSet<string>(StringComparer.Ordinal);
+        var remappedCollisionDiagnostics = new List<RemappedCollisionDiagnostic>();
+
         foreach (var definition in snapshot.Definitions)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -185,26 +188,39 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             var key = (definition.DefinitionId, definition.Version);
             if (!existingDefinitions.TryGetValue(key, out var existing))
             {
-                plannedDefinitions.Add(definition);
-                identityMap.Add(Preserved(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Preserved(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+
                 continue;
             }
 
             if (ContentEquals(definition, existing))
             {
-                reusedIdenticalItems++;
-                identityMap.Add(Reused(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Reused(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+
                 continue;
             }
 
-            identityMap.Add(Collided(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
-            diagnostics.Add(DivergentCollision(
+            if (options.CollisionMode == PortableImportCollisionMode.Strict)
+            {
+                strictFailureIdentityMap.Add(Collided(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+                diagnostics.Add(DivergentCollision(
+                    $"definitions/{definition.DefinitionId}/{definition.Version}",
+                    $"Definition '{definition.DefinitionId}' version {definition.Version} already exists with different content."));
+                continue;
+            }
+
+            definitionIdsToRemap.Add(definition.DefinitionId);
+            remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
+                PortableEntityKind.DefinitionVersion,
+                definition.DefinitionId,
+                definition.Version,
+                null,
                 $"definitions/{definition.DefinitionId}/{definition.Version}",
-                $"Definition '{definition.DefinitionId}' version {definition.Version} already exists with different content.",
-                options.CollisionMode));
+                $"Definition '{definition.DefinitionId}' version {definition.Version} already exists with different content."));
         }
 
-        var existingResources = targetState.Resources.ToDictionary(static resource => (resource.ResourceId, resource.Version));
         foreach (var resource in snapshot.Resources)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -212,26 +228,42 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             var key = (resource.ResourceId, resource.Version);
             if (!existingResources.TryGetValue(key, out var existing))
             {
-                plannedResources.Add(resource);
-                identityMap.Add(Preserved(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Preserved(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+
                 continue;
             }
 
             if (ContentEquals(resource, existing))
             {
-                reusedIdenticalItems++;
-                identityMap.Add(Reused(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Reused(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+
+                if (definitionIdsToRemap.Contains(resource.DefinitionId))
+                    resourceIdsToRemap.Add(resource.ResourceId);
+
                 continue;
             }
 
-            identityMap.Add(Collided(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
-            diagnostics.Add(DivergentCollision(
+            if (options.CollisionMode == PortableImportCollisionMode.Strict)
+            {
+                strictFailureIdentityMap.Add(Collided(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+                diagnostics.Add(DivergentCollision(
+                    $"resources/{resource.ResourceId}/{resource.Version}",
+                    $"Resource '{resource.ResourceId}' version {resource.Version} already exists with different content."));
+                continue;
+            }
+
+            resourceIdsToRemap.Add(resource.ResourceId);
+            remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
+                PortableEntityKind.ResourceVersion,
+                resource.ResourceId,
+                resource.Version,
+                null,
                 $"resources/{resource.ResourceId}/{resource.Version}",
-                $"Resource '{resource.ResourceId}' version {resource.Version} already exists with different content.",
-                options.CollisionMode));
+                $"Resource '{resource.ResourceId}' version {resource.Version} already exists with different content."));
         }
 
-        var existingActivationStates = targetState.ActivationStates.ToDictionary(static state => (state.ResourceId, state.Channel));
         foreach (var state in snapshot.ActivationStates)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -239,27 +271,148 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             var key = (state.ResourceId, state.Channel);
             if (!existingActivationStates.TryGetValue(key, out var existing))
             {
-                plannedActivationStates.Add(state);
-                identityMap.Add(Preserved(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Preserved(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+
                 continue;
             }
 
             if (ContentEquals(state, existing))
             {
-                reusedIdenticalItems++;
-                identityMap.Add(Reused(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Reused(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+
                 continue;
             }
 
-            identityMap.Add(Collided(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
-            diagnostics.Add(DivergentCollision(
+            if (options.CollisionMode == PortableImportCollisionMode.Strict)
+            {
+                strictFailureIdentityMap.Add(Collided(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+                diagnostics.Add(DivergentCollision(
+                    $"activationStates/{state.ResourceId}/{state.Channel}",
+                    $"Activation state for resource '{state.ResourceId}' channel '{state.Channel}' already exists with different content."));
+                continue;
+            }
+
+            resourceIdsToRemap.Add(state.ResourceId);
+            remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
+                PortableEntityKind.ActivationEntry,
+                state.ResourceId,
+                null,
+                state.Channel,
                 $"activationStates/{state.ResourceId}/{state.Channel}",
-                $"Activation state for resource '{state.ResourceId}' channel '{state.Channel}' already exists with different content.",
-                options.CollisionMode));
+                $"Activation state for resource '{state.ResourceId}' channel '{state.Channel}' already exists with different content."));
         }
 
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
-            return ImportPlan.Failed(diagnostics, identityMap);
+            return ImportPlan.Failed(diagnostics, strictFailureIdentityMap);
+
+        var definitionIdMap = BuildRemappedIdMap(
+            definitionIdsToRemap,
+            targetState.Definitions.Select(static definition => definition.DefinitionId),
+            snapshot.Definitions.Select(static definition => definition.DefinitionId));
+        var resourceIdMap = BuildRemappedIdMap(
+            resourceIdsToRemap,
+            targetState.Resources.Select(static resource => resource.ResourceId)
+                .Concat(targetState.ActivationStates.Select(static state => state.ResourceId)),
+            snapshot.Resources.Select(static resource => resource.ResourceId));
+
+        diagnostics.AddRange(remappedCollisionDiagnostics.Select(diagnostic =>
+            RemappedCollision(
+                diagnostic.Path,
+                diagnostic.Message,
+                RemappedCollisionTargetId(diagnostic, definitionIdMap, resourceIdMap))));
+
+        var plannedDefinitions = new List<ResourceDefinition>();
+        var plannedResources = new List<Resource>();
+        var plannedActivationStates = new List<ActivationState>();
+        var reusedIdenticalItems = 0;
+
+        foreach (var definition in snapshot.Definitions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (definitionIdMap.TryGetValue(definition.DefinitionId, out var targetDefinitionId))
+            {
+                var remappedDefinition = definition with { DefinitionId = targetDefinitionId };
+                plannedDefinitions.Add(remappedDefinition);
+                identityMap.Add(Remapped(
+                    PortableEntityKind.DefinitionVersion,
+                    DefinitionVersionId(definition),
+                    DefinitionVersionId(remappedDefinition)));
+                continue;
+            }
+
+            var key = (definition.DefinitionId, definition.Version);
+            if (!existingDefinitions.TryGetValue(key, out _))
+            {
+                plannedDefinitions.Add(definition);
+                identityMap.Add(Preserved(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+                continue;
+            }
+
+            reusedIdenticalItems++;
+            identityMap.Add(Reused(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
+        }
+
+        foreach (var resource in snapshot.Resources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var remappedResource = resource with
+            {
+                ResourceId = resourceIdMap.GetValueOrDefault(resource.ResourceId, resource.ResourceId),
+                DefinitionId = definitionIdMap.GetValueOrDefault(resource.DefinitionId, resource.DefinitionId),
+            };
+
+            if (resourceIdMap.ContainsKey(resource.ResourceId))
+            {
+                plannedResources.Add(remappedResource);
+                identityMap.Add(Remapped(
+                    PortableEntityKind.ResourceVersion,
+                    ResourceVersionId(resource),
+                    ResourceVersionId(remappedResource)));
+                continue;
+            }
+
+            var key = (resource.ResourceId, resource.Version);
+            if (!existingResources.TryGetValue(key, out _))
+            {
+                plannedResources.Add(remappedResource);
+                identityMap.Add(Preserved(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+                continue;
+            }
+
+            reusedIdenticalItems++;
+            identityMap.Add(Reused(PortableEntityKind.ResourceVersion, ResourceVersionId(resource)));
+        }
+
+        foreach (var state in snapshot.ActivationStates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (resourceIdMap.TryGetValue(state.ResourceId, out var targetResourceId))
+            {
+                var remappedState = state with { ResourceId = targetResourceId };
+                plannedActivationStates.Add(remappedState);
+                identityMap.Add(Remapped(
+                    PortableEntityKind.ActivationEntry,
+                    ActivationEntryId(state),
+                    ActivationEntryId(remappedState)));
+                continue;
+            }
+
+            var key = (state.ResourceId, state.Channel);
+            if (!existingActivationStates.TryGetValue(key, out _))
+            {
+                plannedActivationStates.Add(state);
+                identityMap.Add(Preserved(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+                continue;
+            }
+
+            reusedIdenticalItems++;
+            identityMap.Add(Reused(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
+        }
 
         var plannedSnapshot = new PortableSnapshot
         {
@@ -275,6 +428,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             ResourceVersions = plannedResources.Count,
             ActivationEntries = plannedActivationStates.Count,
             ReusedIdenticalItems = reusedIdenticalItems,
+            RemappedItems = identityMap.Count(static mapping => mapping.Reason == PortableIdentityMappingReason.RemappedDivergent),
         };
         var actualCounts = new PortableActualImportCounts
         {
@@ -283,6 +437,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             ResourceVersions = plannedCounts.ResourceVersions,
             ActivationEntries = plannedCounts.ActivationEntries,
             ReusedIdenticalItems = plannedCounts.ReusedIdenticalItems,
+            RemappedItems = plannedCounts.RemappedItems,
         };
 
         return new ImportPlan(
@@ -339,6 +494,24 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 }
 
                 break;
+        }
+
+        return diagnostics;
+    }
+
+    private static List<PortableDiagnostic> ValidateImportOptions(PortableImportOptions options)
+    {
+        var diagnostics = new List<PortableDiagnostic>();
+
+        if (!Enum.IsDefined(options.CollisionMode))
+        {
+            diagnostics.Add(new PortableDiagnostic
+            {
+                Code = PortableDiagnosticCodes.InvalidImportOptions,
+                Severity = PortableDiagnosticSeverity.Error,
+                Path = "collisionMode",
+                Message = "Import collision mode must be a defined value.",
+            });
         }
 
         return diagnostics;
@@ -443,25 +616,77 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 Message = $"{message} Duplicate key: '{group.Key}'.",
             });
 
-    private static PortableDiagnostic DivergentCollision(
-        string path,
-        string message,
-        PortableImportCollisionMode collisionMode) =>
-        collisionMode == PortableImportCollisionMode.Strict
-            ? new PortableDiagnostic
-            {
-                Code = PortableDiagnosticCodes.DivergentIdentityCollision,
-                Severity = PortableDiagnosticSeverity.Error,
-                Path = path,
-                Message = message,
-            }
-            : new PortableDiagnostic
-            {
-                Code = PortableDiagnosticCodes.RemapDivergentNotImplemented,
-                Severity = PortableDiagnosticSeverity.Error,
-                Path = path,
-                Message = $"{message} RemapDivergent import is planned for the next import slice.",
-            };
+    private static PortableDiagnostic DivergentCollision(string path, string message) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.DivergentIdentityCollision,
+            Severity = PortableDiagnosticSeverity.Error,
+            Path = path,
+            Message = message,
+        };
+
+    private static PortableDiagnostic RemappedCollision(string path, string message, string targetId) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.DivergentIdentityCollision,
+            Severity = PortableDiagnosticSeverity.Warning,
+            Path = path,
+            Message = $"{message} Incoming content will be remapped to '{targetId}'.",
+        };
+
+    private static IReadOnlyDictionary<string, string> BuildRemappedIdMap(
+        IEnumerable<string> sourceIds,
+        IEnumerable<string> targetReservedIds,
+        IEnumerable<string> snapshotReservedIds)
+    {
+        var sourceSet = sourceIds.ToHashSet(StringComparer.Ordinal);
+        var reservedIds = targetReservedIds
+            .Concat(snapshotReservedIds.Where(id => !sourceSet.Contains(id)))
+            .ToHashSet(StringComparer.Ordinal);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var sourceId in sourceSet.OrderBy(static id => id, StringComparer.Ordinal))
+        {
+            var targetId = CreateRemappedId(sourceId, reservedIds);
+            reservedIds.Add(targetId);
+            map[sourceId] = targetId;
+        }
+
+        return map;
+    }
+
+    private static string CreateRemappedId(string sourceId, ISet<string> reservedIds)
+    {
+        var baseId = $"{sourceId}__imported";
+        var candidate = baseId;
+        var suffix = 2;
+
+        while (reservedIds.Contains(candidate))
+        {
+            candidate = $"{baseId}{suffix}";
+            suffix++;
+        }
+
+        return candidate;
+    }
+
+    private static string RemappedCollisionTargetId(
+        RemappedCollisionDiagnostic diagnostic,
+        IReadOnlyDictionary<string, string> definitionIdMap,
+        IReadOnlyDictionary<string, string> resourceIdMap) =>
+        diagnostic.EntityKind switch
+        {
+            PortableEntityKind.DefinitionVersion => JsonSerializer.Serialize(
+                new object[] { definitionIdMap[diagnostic.SourceLogicalId], diagnostic.Version!.Value },
+                JsonOptions),
+            PortableEntityKind.ResourceVersion => JsonSerializer.Serialize(
+                new object[] { resourceIdMap[diagnostic.SourceLogicalId], diagnostic.Version!.Value },
+                JsonOptions),
+            PortableEntityKind.ActivationEntry => JsonSerializer.Serialize(
+                new object[] { resourceIdMap[diagnostic.SourceLogicalId], diagnostic.Channel! },
+                JsonOptions),
+            _ => throw new InvalidOperationException($"Unsupported remapped collision entity kind '{diagnostic.EntityKind}'."),
+        };
 
     private static PortableDiagnostic InvalidExportScope(string path, string message) =>
         new()
@@ -569,6 +794,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Reason = PortableIdentityMappingReason.CollidedDivergent,
         };
 
+    private static PortableIdentityMapping Remapped(PortableEntityKind entityKind, string sourceId, string targetId) =>
+        new()
+        {
+            EntityKind = entityKind,
+            SourceId = sourceId,
+            TargetId = targetId,
+            Reason = PortableIdentityMappingReason.RemappedDivergent,
+        };
+
     private static string DefinitionVersionId(ResourceDefinition definition) =>
         JsonSerializer.Serialize(new object[] { definition.DefinitionId, definition.Version }, JsonOptions);
 
@@ -577,6 +811,14 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
     private static string ActivationEntryId(ActivationState state) =>
         JsonSerializer.Serialize(new object[] { state.ResourceId, state.Channel }, JsonOptions);
+
+    private sealed record RemappedCollisionDiagnostic(
+        PortableEntityKind EntityKind,
+        string SourceLogicalId,
+        int? Version,
+        string? Channel,
+        string Path,
+        string Message);
 
     private sealed record ImportPlan(
         PortableSnapshot PlannedSnapshot,

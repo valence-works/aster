@@ -53,7 +53,7 @@ if (!preview.CanImport)
     return;
 
 foreach (var mapping in preview.IdentityMap)
-    Console.WriteLine($"{mapping.EntityKind}: {mapping.OriginalId} -> {mapping.ImportedId} ({mapping.Reason})");
+    Console.WriteLine($"{mapping.EntityKind}: {mapping.SourceId} -> {mapping.TargetId} ({mapping.Reason})");
 ```
 
 Default import behavior is strict. Identical existing content is treated as already satisfied. Divergent collisions fail before writing unless remap mode is selected.
@@ -70,6 +70,7 @@ var remapPreview = await portability.PreviewImportAsync(
 ```
 
 The same snapshot and target state produce the same identity map during preview and write import.
+Definition remaps update imported resource lineage references. Resource remaps update imported resource versions and activation entries together.
 
 ## Write Import
 

@@ -109,9 +109,9 @@ Original-to-imported identifier relationship.
 **Fields**:
 
 - `EntityKind`: `Definition`, `DefinitionVersion`, `Resource`, `ResourceVersion`, or `ActivationEntry`.
-- `OriginalId`: identifier from the snapshot.
-- `ImportedId`: identifier used in the target store.
-- `Reason`: `Preserved`, `ReusedIdentical`, or `RemappedCollision`.
+- `SourceId`: identifier from the snapshot.
+- `TargetId`: identifier used in the target store.
+- `Reason`: `Preserved`, `ReusedIdentical`, `RemappedDivergent`, or `CollidedDivergent`.
 
 **Validation rules**:
 
@@ -156,6 +156,7 @@ Structured diagnostic emitted by export, validation, preview, and import.
 - `unresolved-definition-reference`
 - `unresolved-resource-reference`
 - `divergent-identity-collision`
+- `invalid-import-options`
 - `unsupported-snapshot-format`
 - `malformed-snapshot`
 - `skipped-activation-entry`
