@@ -66,7 +66,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
 
         lock (versions)
         {
-            int nextVersion = versions.Count + 1;
+            int nextVersion = versions.Count > 0 ? versions[^1].Version + 1 : 1;
             var versionedDefinition = definition with { Version = nextVersion };
             versions.Add(versionedDefinition);
             LogDefinitionRegistered(definition.DefinitionId, nextVersion);
@@ -118,6 +118,43 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
 
         lock (versions)
             return versions.FirstOrDefault(definition => definition.Version == version);
+    }
+
+    /// <summary>
+    /// Imports an exact definition version.
+    /// </summary>
+    internal void ImportDefinitionVersion(ResourceDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        var versions = definitions.GetOrAdd(definition.DefinitionId, _ => []);
+        lock (versions)
+        {
+            var insertIndex = versions.FindIndex(existing => existing.Version >= definition.Version);
+            if (insertIndex >= 0 && versions[insertIndex].Version == definition.Version)
+                throw new InvalidOperationException($"Definition '{definition.DefinitionId}' version {definition.Version} already exists.");
+
+            if (insertIndex < 0)
+                versions.Add(definition);
+            else
+                versions.Insert(insertIndex, definition);
+        }
+    }
+
+    /// <summary>
+    /// Removes an imported definition version during rollback.
+    /// </summary>
+    internal void RemoveImportedDefinitionVersion(ResourceDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        if (!definitions.TryGetValue(definition.DefinitionId, out var versions))
+            return;
+
+        lock (versions)
+            versions.RemoveAll(existing =>
+                existing.Version == definition.Version
+                && string.Equals(existing.Id, definition.Id, StringComparison.Ordinal));
     }
 
     // ──────────────────────────────────────────────────────────────────────────

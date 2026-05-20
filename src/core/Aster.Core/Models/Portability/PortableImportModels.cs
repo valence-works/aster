@@ -135,6 +135,9 @@ public enum PortableIdentityMappingReason
 
     /// <summary>Identity was remapped to avoid a divergent collision.</summary>
     RemappedDivergent,
+
+    /// <summary>Identity collided with existing divergent content.</summary>
+    CollidedDivergent,
 }
 
 /// <summary>

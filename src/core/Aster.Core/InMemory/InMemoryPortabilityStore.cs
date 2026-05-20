@@ -47,6 +47,124 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         });
     }
 
+    /// <inheritdoc />
+    public ValueTask<PortableTargetState> ReadTargetStateAsync(
+        PortableSnapshot snapshot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        var definitions = new List<ResourceDefinition>();
+        foreach (var definition in snapshot.Definitions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var existing = definitionStore.GetDefinitionVersion(definition.DefinitionId, definition.Version);
+            if (existing is not null)
+                definitions.Add(existing);
+        }
+
+        var resources = new List<Resource>();
+        foreach (var resource in snapshot.Resources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var versions = resourceStore.TryGetVersions(resource.ResourceId);
+            if (versions is null)
+                continue;
+
+            lock (versions)
+            {
+                var existing = versions.FirstOrDefault(candidate => candidate.Version == resource.Version);
+                if (existing is not null)
+                    resources.Add(existing);
+            }
+        }
+
+        var activationStates = new List<ActivationState>();
+        foreach (var state in snapshot.ActivationStates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (resourceStore.ActivationStates.TryGetValue(state.ResourceId, out var states)
+                && states.TryGetValue(state.Channel, out var existing))
+            {
+                activationStates.Add(existing);
+            }
+        }
+
+        return ValueTask.FromResult(new PortableTargetState
+        {
+            Definitions = definitions,
+            Resources = resources,
+            ActivationStates = activationStates,
+        });
+    }
+
+    /// <inheritdoc />
+    public async ValueTask ApplyImportAsync(
+        PortableSnapshot plannedSnapshot,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plannedSnapshot);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var appliedDefinitions = new List<ResourceDefinition>();
+        var appliedResources = new List<Resource>();
+        var appliedActivationStates = new List<(ActivationState State, ActivationState? PreviousState)>();
+
+        try
+        {
+            foreach (var definition in plannedSnapshot.Definitions
+                .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
+                .ThenBy(static definition => definition.Version))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                definitionStore.ImportDefinitionVersion(definition);
+                appliedDefinitions.Add(definition);
+            }
+
+            foreach (var resource in plannedSnapshot.Resources
+                .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+                .ThenBy(static resource => resource.Version))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                resourceStore.ImportVersion(resource);
+                appliedResources.Add(resource);
+            }
+
+            foreach (var state in plannedSnapshot.ActivationStates
+                .OrderBy(static state => state.ResourceId, StringComparer.Ordinal)
+                .ThenBy(static state => state.Channel, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var previous = resourceStore.GetActivationState(state.ResourceId, state.Channel);
+                await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, cancellationToken);
+                appliedActivationStates.Add((state, previous));
+            }
+        }
+        catch
+        {
+            RollBackAppliedChanges(appliedDefinitions, appliedResources, appliedActivationStates);
+            throw;
+        }
+    }
+
+    private void RollBackAppliedChanges(
+        IReadOnlyList<ResourceDefinition> appliedDefinitions,
+        IReadOnlyList<Resource> appliedResources,
+        IReadOnlyList<(ActivationState State, ActivationState? PreviousState)> appliedActivationStates)
+    {
+        foreach (var (state, previousState) in appliedActivationStates.Reverse())
+            resourceStore.RestoreActivationState(state.ResourceId, state.Channel, previousState);
+
+        foreach (var resource in appliedResources.Reverse())
+            resourceStore.RemoveImportedVersion(resource);
+
+        foreach (var definition in appliedDefinitions.Reverse())
+            definitionStore.RemoveImportedDefinitionVersion(definition);
+    }
+
     private List<ResourceDefinition> SelectDefinitions(
         PortableSnapshotExportRequest request,
         IReadOnlyCollection<Resource> resources,

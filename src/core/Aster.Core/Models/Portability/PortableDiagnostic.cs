@@ -78,7 +78,27 @@ public static class PortableDiagnosticCodes
     public const string MissingResourceReference = "missing-resource-reference";
 
     /// <summary>
+    /// Snapshot contains duplicate identities.
+    /// </summary>
+    public const string DuplicateSnapshotIdentity = "duplicate-snapshot-identity";
+
+    /// <summary>
+    /// Snapshot content collides with divergent target content.
+    /// </summary>
+    public const string DivergentIdentityCollision = "divergent-identity-collision";
+
+    /// <summary>
     /// Import behavior is not implemented yet.
     /// </summary>
     public const string ImportNotImplemented = "import-not-implemented";
+
+    /// <summary>
+    /// RemapDivergent import handling is not implemented yet.
+    /// </summary>
+    public const string RemapDivergentNotImplemented = "remap-divergent-not-implemented";
+
+    /// <summary>
+    /// Planned import writes failed during provider apply.
+    /// </summary>
+    public const string ImportApplyFailed = "import-apply-failed";
 }

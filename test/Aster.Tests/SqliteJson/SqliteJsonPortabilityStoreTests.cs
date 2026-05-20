@@ -90,6 +90,35 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.Equal(v1.Version, resource.Version);
     }
 
+    [Fact]
+    public async Task ImportAsync_WithSqlite_PersistsSnapshotForLaterExport()
+    {
+        var snapshot = CreateSnapshot();
+        PortableImportResult import;
+
+        await using (var importProvider = CreateServiceProvider())
+        {
+            var portability = importProvider.GetRequiredService<IResourcePortabilityService>();
+            import = await portability.ImportAsync(snapshot);
+        }
+
+        await using var exportProvider = CreateServiceProvider();
+        var exportPortability = exportProvider.GetRequiredService<IResourcePortabilityService>();
+
+        var export = await exportPortability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceIds = ["sqlite-product-1"],
+            ResourceVersionScope = PortableResourceVersionScope.AllVersions,
+        });
+
+        Assert.Equal(PortableImportStatus.Imported, import.Status);
+        Assert.NotNull(export.Snapshot);
+        Assert.Equal(snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)), export.Snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)));
+        Assert.Equal(snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)), export.Snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)));
+        Assert.Equal(snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))), export.Snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))));
+    }
+
     private ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
@@ -115,6 +144,47 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
             ActiveVersions = versions,
             LastUpdated = DateTime.UtcNow,
         });
+    }
+
+    private static PortableSnapshot CreateSnapshot()
+    {
+        var created = new DateTime(2026, 2, 3, 4, 5, 6, DateTimeKind.Utc);
+
+        return new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            Definitions =
+            [
+                new()
+                {
+                    DefinitionId = "SqliteProduct",
+                    Id = "sqlite-product-definition-v1",
+                    Version = 1,
+                },
+            ],
+            Resources =
+            [
+                new()
+                {
+                    ResourceId = "sqlite-product-1",
+                    Id = "sqlite-product-1-v1",
+                    DefinitionId = "SqliteProduct",
+                    DefinitionVersion = 1,
+                    Version = 1,
+                    Created = created,
+                },
+            ],
+            ActivationStates =
+            [
+                new()
+                {
+                    ResourceId = "sqlite-product-1",
+                    Channel = "Published",
+                    ActiveVersions = [1],
+                    LastUpdated = created.AddMinutes(1),
+                },
+            ],
+        };
     }
 
     private static void TryDelete(string path)
