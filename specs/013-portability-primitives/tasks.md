@@ -11,11 +11,11 @@
 
 **Purpose**: Establish the portability model and service locations without changing provider behavior.
 
-- [ ] T001 Create portability model folder in `src/core/Aster.Core/Models/Portability/`
-- [ ] T002 Create portability test folder in `test/Aster.Tests/Portability/`
-- [ ] T003 [P] Add public `IResourcePortabilityService` interface in `src/core/Aster.Core/Abstractions/IResourcePortabilityService.cs`
-- [ ] T004 [P] Add provider-facing `IResourcePortabilityStore` interface in `src/core/Aster.Core/Abstractions/IResourcePortabilityStore.cs`
-- [ ] T005 Confirm no new package dependencies are required in `src/core/Aster.Core/Aster.Core.csproj`, `src/persistence/Aster.Persistence.SqliteJson/Aster.Persistence.SqliteJson.csproj`, and `test/Aster.Tests/Aster.Tests.csproj`
+- [X] T001 Create portability model folder in `src/core/Aster.Core/Models/Portability/`
+- [X] T002 Create portability test folder in `test/Aster.Tests/Portability/`
+- [X] T003 [P] Add public `IResourcePortabilityService` interface in `src/core/Aster.Core/Abstractions/IResourcePortabilityService.cs`
+- [X] T004 [P] Add provider-facing `IResourcePortabilityStore` interface in `src/core/Aster.Core/Abstractions/IResourcePortabilityStore.cs`
+- [X] T005 Confirm no new package dependencies are required in `src/core/Aster.Core/Aster.Core.csproj`, `src/persistence/Aster.Persistence.SqliteJson/Aster.Persistence.SqliteJson.csproj`, and `test/Aster.Tests/Aster.Tests.csproj`
 
 ---
 
@@ -23,12 +23,12 @@
 
 **Purpose**: Define shared contracts, diagnostics, and registration used by every portability story.
 
-- [ ] T006 Add `PortableSnapshot`, `PortableSnapshotExportRequest`, and export scope enums in `src/core/Aster.Core/Models/Portability/PortableSnapshot.cs`
-- [ ] T007 Add `PortableDiagnostic`, `PortableDiagnosticSeverity`, and diagnostic code constants in `src/core/Aster.Core/Models/Portability/PortableDiagnostic.cs`
-- [ ] T008 Add `PortableImportOptions`, `PortableImportCollisionMode`, planned/actual import counts, `PortableIdentityMapping`, `PortableEntityKind`, `PortableIdentityMappingReason`, and `PortableImportStatus` in `src/core/Aster.Core/Models/Portability/PortableImportModels.cs`
-- [ ] T009 Add `PortableSnapshotExportResult`, `PortableSnapshotValidationResult`, `PortableImportPreview`, and `PortableImportResult` in `src/core/Aster.Core/Models/Portability/PortableResults.cs`
-- [ ] T010 Add `PortableStoreReadRequest`, `PortableStoreSnapshot`, and `PortableTargetState` in `src/core/Aster.Core/Models/Portability/PortableStoreModels.cs`
-- [ ] T011 Register the default portability service in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
+- [X] T006 Add `PortableSnapshot`, `PortableSnapshotExportRequest`, and export scope enums in `src/core/Aster.Core/Models/Portability/PortableSnapshot.cs`
+- [X] T007 Add `PortableDiagnostic`, `PortableDiagnosticSeverity`, and diagnostic code constants in `src/core/Aster.Core/Models/Portability/PortableDiagnostic.cs`
+- [X] T008 Add `PortableImportOptions`, `PortableImportCollisionMode`, planned/actual import counts, `PortableIdentityMapping`, `PortableEntityKind`, `PortableIdentityMappingReason`, and `PortableImportStatus` in `src/core/Aster.Core/Models/Portability/PortableImportModels.cs`
+- [X] T009 Add `PortableSnapshotExportResult`, `PortableSnapshotValidationResult`, `PortableImportPreview`, and `PortableImportResult` in `src/core/Aster.Core/Models/Portability/PortableResults.cs`
+- [X] T010 Add `PortableStoreReadRequest`, `PortableStoreSnapshot`, and `PortableTargetState` in `src/core/Aster.Core/Models/Portability/PortableStoreModels.cs`
+- [X] T011 Register the default portability service in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
 
 **Checkpoint**: Shared contracts compile and user story work can begin.
 
@@ -42,18 +42,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Add definition-only export tests in `test/Aster.Tests/Portability/PortabilityExportTests.cs`
-- [ ] T013 [P] [US1] Add selected-resource version scope export tests in `test/Aster.Tests/Portability/PortabilityExportTests.cs`
-- [ ] T014 [P] [US1] Add skipped activation diagnostic export tests in `test/Aster.Tests/Portability/PortabilityExportTests.cs`
-- [ ] T015 [P] [US1] Add SQLite JSON export round-trip tests in `test/Aster.Tests/SqliteJson/SqliteJsonPortabilityStoreTests.cs`
+- [X] T012 [P] [US1] Add definition-only export tests in `test/Aster.Tests/Portability/PortabilityExportTests.cs`
+- [X] T013 [P] [US1] Add selected-resource version scope export tests in `test/Aster.Tests/Portability/PortabilityExportTests.cs`
+- [X] T014 [P] [US1] Add skipped activation diagnostic export tests in `test/Aster.Tests/Portability/PortabilityExportTests.cs`
+- [X] T015 [P] [US1] Add SQLite JSON export round-trip tests in `test/Aster.Tests/SqliteJson/SqliteJsonPortabilityStoreTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Implement export scope validation in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
-- [ ] T017 [US1] Implement snapshot export orchestration in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
-- [ ] T018 [US1] Implement in-memory snapshot reads in `src/core/Aster.Core/InMemory/InMemoryResourceStore.cs`
-- [ ] T019 [US1] Implement SQLite JSON snapshot reads in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
-- [ ] T020 [US1] Emit `skipped-activation-entry` diagnostics from export in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T016 [US1] Implement export scope validation in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T017 [US1] Implement snapshot export orchestration in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T018 [US1] Implement in-memory snapshot reads in `src/core/Aster.Core/InMemory/InMemoryResourceStore.cs`
+- [X] T019 [US1] Implement SQLite JSON snapshot reads in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
+- [X] T020 [US1] Emit `skipped-activation-entry` diagnostics from export in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
 
 **Checkpoint**: User Story 1 exports valid snapshots and diagnostics independently.
 

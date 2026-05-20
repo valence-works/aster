@@ -2,6 +2,7 @@ using System.Text.Json;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Portability;
 using Aster.Core.Models.Querying;
 using Microsoft.Data.Sqlite;
 
@@ -13,7 +14,8 @@ namespace Aster.Persistence.SqliteJson;
 public sealed class SqliteJsonResourceStore :
     IResourceDefinitionStore,
     IResourceVersionReader,
-    IResourceVersionWriter
+    IResourceVersionWriter,
+    IResourcePortabilityStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -219,6 +221,29 @@ public sealed class SqliteJsonResourceStore :
         };
     }
 
+    /// <inheritdoc />
+    public async ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
+        PortableStoreReadRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var resources = SelectResources(
+            request.ExportRequest,
+            (await ReadAllVersionsAsync(cancellationToken)).ToList());
+        var definitions = await SelectDefinitionsAsync(request.ExportRequest, resources, cancellationToken);
+        var activationStates = await ReadAllActivationStatesAsync(cancellationToken);
+        var (includedActivationStates, skippedActivationEntries) = SelectActivationStates(resources, activationStates);
+
+        return new PortableStoreSnapshot
+        {
+            Definitions = definitions,
+            Resources = resources,
+            ActivationStates = includedActivationStates,
+            SkippedActivationEntries = skippedActivationEntries,
+        };
+    }
+
     private async Task<IEnumerable<Resource>> ReadLatestVersionsAsync(CancellationToken cancellationToken)
     {
         await using var connection = await OpenConnectionAsync(cancellationToken);
@@ -251,6 +276,157 @@ public sealed class SqliteJsonResourceStore :
 
         return await ReadPayloadsAsync<Resource>(command, cancellationToken);
     }
+
+    private async Task<List<ResourceDefinition>> SelectDefinitionsAsync(
+        PortableSnapshotExportRequest request,
+        IReadOnlyCollection<Resource> resources,
+        CancellationToken cancellationToken)
+    {
+        var allDefinitions = await ReadAllDefinitionVersionsAsync(cancellationToken);
+        var definitions = new Dictionary<(string DefinitionId, int Version), ResourceDefinition>();
+
+        if (request.ScopeMode is PortableExportScopeMode.DefinitionsOnly or PortableExportScopeMode.DefinitionWithResources)
+        {
+            foreach (var definition in allDefinitions.Where(definition => request.DefinitionIds.Contains(definition.DefinitionId)))
+                definitions[(definition.DefinitionId, definition.Version)] = definition;
+        }
+
+        foreach (var resource in resources)
+        {
+            if (resource.DefinitionVersion is null)
+                continue;
+
+            var definition = allDefinitions.FirstOrDefault(candidate =>
+                string.Equals(candidate.DefinitionId, resource.DefinitionId, StringComparison.Ordinal)
+                && candidate.Version == resource.DefinitionVersion.Value);
+
+            if (definition is not null)
+                definitions[(definition.DefinitionId, definition.Version)] = definition;
+        }
+
+        return definitions.Values
+            .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
+            .ThenBy(static definition => definition.Version)
+            .ToList();
+    }
+
+    private async Task<List<ResourceDefinition>> ReadAllDefinitionVersionsAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT payload
+            FROM resource_definitions
+            ORDER BY definition_id, version;
+            """;
+
+        return await ReadPayloadsAsync<ResourceDefinition>(command, cancellationToken);
+    }
+
+    private async Task<List<ActivationState>> ReadAllActivationStatesAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT payload
+            FROM activation_states
+            ORDER BY resource_id, channel;
+            """;
+
+        return await ReadPayloadsAsync<ActivationState>(command, cancellationToken);
+    }
+
+    private static List<Resource> SelectResources(
+        PortableSnapshotExportRequest request,
+        IReadOnlyCollection<Resource> allResources)
+    {
+        var resourceIds = request.ScopeMode switch
+        {
+            PortableExportScopeMode.DefinitionsOnly => [],
+            PortableExportScopeMode.SelectedResources => request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
+                ? request.SpecificResourceVersions.Select(static reference => reference.ResourceId).ToHashSet(StringComparer.Ordinal)
+                : request.ResourceIds,
+            PortableExportScopeMode.DefinitionWithResources => allResources
+                .Where(resource => request.DefinitionIds.Contains(resource.DefinitionId))
+                .Select(static resource => resource.ResourceId)
+                .ToHashSet(StringComparer.Ordinal),
+            _ => [],
+        };
+
+        var specificVersions = request.SpecificResourceVersions.ToHashSet();
+
+        return allResources
+            .Where(resource => resourceIds.Contains(resource.ResourceId))
+            .GroupBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+            .SelectMany(group => SelectVersions(
+                group.OrderBy(static resource => resource.Version).ToList(),
+                request.ResourceVersionScope,
+                specificVersions))
+            .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static resource => resource.Version)
+            .ToList();
+    }
+
+    private static (List<ActivationState> ActivationStates, List<SkippedActivationEntry> SkippedActivationEntries) SelectActivationStates(
+        IReadOnlyCollection<Resource> resources,
+        IReadOnlyCollection<ActivationState> activationStates)
+    {
+        var includedVersions = resources
+            .GroupBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Select(static resource => resource.Version).ToHashSet(),
+                StringComparer.Ordinal);
+
+        var includedStates = new List<ActivationState>();
+        var skippedEntries = new List<SkippedActivationEntry>();
+
+        foreach (var state in activationStates)
+        {
+            if (!includedVersions.TryGetValue(state.ResourceId, out var includedResourceVersions))
+                continue;
+
+            var includedActiveVersions = state.ActiveVersions
+                .Where(includedResourceVersions.Contains)
+                .Order()
+                .ToList();
+
+            foreach (var skippedVersion in state.ActiveVersions.Except(includedActiveVersions).Order())
+            {
+                skippedEntries.Add(new SkippedActivationEntry
+                {
+                    ResourceId = state.ResourceId,
+                    Channel = state.Channel,
+                    Version = skippedVersion,
+                    Reason = SkippedActivationReason.ExcludedByResourceVersionScope,
+                });
+            }
+
+            if (includedActiveVersions.Count == 0)
+                continue;
+
+            includedStates.Add(state with { ActiveVersions = includedActiveVersions });
+        }
+
+        return (includedStates, skippedEntries);
+    }
+
+    private static IEnumerable<Resource> SelectVersions(
+        IReadOnlyList<Resource> versions,
+        PortableResourceVersionScope versionScope,
+        IReadOnlySet<ResourceVersionReference> specificVersions) =>
+        versionScope switch
+        {
+            PortableResourceVersionScope.AllVersions => versions,
+            PortableResourceVersionScope.LatestOnly => versions.Count > 0 ? [versions[^1]] : [],
+            PortableResourceVersionScope.SpecificVersions => versions
+                .Where(version => specificVersions.Contains(new ResourceVersionReference
+                {
+                    ResourceId = version.ResourceId,
+                    Version = version.Version,
+                })),
+            _ => [],
+        };
 
     private async Task<IEnumerable<Resource>> ReadActiveVersionsAsync(
         string? channel,
