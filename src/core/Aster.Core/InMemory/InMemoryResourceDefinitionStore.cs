@@ -92,6 +92,34 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         return ValueTask.FromResult<IEnumerable<ResourceDefinition>>(latest);
     }
 
+    /// <summary>
+    /// Returns all versions for a definition.
+    /// </summary>
+    internal IReadOnlyList<ResourceDefinition> GetDefinitionVersions(string definitionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
+
+        if (!definitions.TryGetValue(definitionId, out var versions))
+            return [];
+
+        lock (versions)
+            return [.. versions];
+    }
+
+    /// <summary>
+    /// Returns a specific definition version.
+    /// </summary>
+    internal ResourceDefinition? GetDefinitionVersion(string definitionId, int version)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
+
+        if (!definitions.TryGetValue(definitionId, out var versions))
+            return null;
+
+        lock (versions)
+            return versions.FirstOrDefault(definition => definition.Version == version);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Structured log methods (source generated)
     // ──────────────────────────────────────────────────────────────────────────
