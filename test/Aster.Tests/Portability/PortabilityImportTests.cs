@@ -142,6 +142,32 @@ public sealed class PortabilityImportTests : IDisposable
     }
 
     [Fact]
+    public async Task PreviewImportAsync_UnsupportedJsonAspectValue_FailsWithDivergentCollisionDiagnostic()
+    {
+        var snapshot = CreateSnapshot();
+        await portability.ImportAsync(snapshot);
+        var unsupportedSnapshot = snapshot with
+        {
+            Resources =
+            [
+                snapshot.Resources[0] with
+                {
+                    Aspects = new Dictionary<string, object>
+                    {
+                        ["unsupported"] = new UnsupportedJsonAspect { Handle = new IntPtr(1) },
+                    },
+                },
+            ],
+        };
+
+        var result = await portability.PreviewImportAsync(unsupportedSnapshot);
+
+        Assert.False(result.CanImport);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.DivergentIdentityCollision, diagnostic.Code);
+    }
+
+    [Fact]
     public async Task PreviewImportAsync_DuplicateVersionSpecificResourceIds_UsesExplicitIdPath()
     {
         var snapshot = CreateSnapshot() with
@@ -382,5 +408,10 @@ public sealed class PortabilityImportTests : IDisposable
             PortableSnapshot plannedSnapshot,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("simulated apply race");
+    }
+
+    private sealed class UnsupportedJsonAspect
+    {
+        public IntPtr Handle { get; init; }
     }
 }

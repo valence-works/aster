@@ -526,8 +526,18 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
     private static bool JsonContentEquals<T>(T left, T right)
     {
-        var leftNode = JsonSerializer.SerializeToNode(left, JsonOptions);
-        var rightNode = JsonSerializer.SerializeToNode(right, JsonOptions);
+        JsonNode? leftNode;
+        JsonNode? rightNode;
+
+        try
+        {
+            leftNode = JsonSerializer.SerializeToNode(left, JsonOptions);
+            rightNode = JsonSerializer.SerializeToNode(right, JsonOptions);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            return false;
+        }
 
         return JsonNode.DeepEquals(leftNode, rightNode);
     }
