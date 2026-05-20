@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
+using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,5 +36,70 @@ public sealed class PortabilityValidationTests
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(PortableDiagnosticCodes.MissingResourceReference, diagnostic.Code);
         Assert.Equal(PortableDiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_DuplicateDefinitionVersion_ReturnsDuplicateIdentityError()
+    {
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .BuildServiceProvider();
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+
+        var result = await portability.ValidateAsync(new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            Definitions =
+            [
+                new ResourceDefinition
+                {
+                    DefinitionId = "Product",
+                    Id = "product-definition-v1",
+                    Version = 1,
+                },
+                new ResourceDefinition
+                {
+                    DefinitionId = "Product",
+                    Id = "product-definition-v1-copy",
+                    Version = 1,
+                },
+            ],
+        });
+
+        Assert.False(result.IsValid);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.DuplicateSnapshotIdentity, diagnostic.Code);
+        Assert.Equal("""definitions/["Product",1]""", diagnostic.Path);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_MalformedResource_ReturnsMalformedSnapshotError()
+    {
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .BuildServiceProvider();
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+
+        var result = await portability.ValidateAsync(new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            Resources =
+            [
+                new Resource
+                {
+                    ResourceId = "",
+                    Id = "product-1-v1",
+                    DefinitionId = "Product",
+                    DefinitionVersion = 1,
+                    Version = 1,
+                    Created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+                },
+            ],
+        });
+
+        Assert.False(result.IsValid);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.MalformedSnapshot, diagnostic.Code);
+        Assert.Equal("resources/0/resourceId", diagnostic.Path);
     }
 }

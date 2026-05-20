@@ -166,7 +166,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         cancellationToken.ThrowIfCancellationRequested();
 
         var diagnostics = ValidateSnapshot(snapshot);
-        diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(snapshot));
         diagnostics.AddRange(ValidateImportOptions(options));
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics);
@@ -520,6 +519,9 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     private static List<PortableDiagnostic> ValidateSnapshot(PortableSnapshot snapshot)
     {
         var diagnostics = new List<PortableDiagnostic>();
+        var validDefinitions = new List<ResourceDefinition>();
+        var validResources = new List<Resource>();
+        var validActivationStates = new List<ActivationState>();
 
         if (snapshot.FormatVersion != PortableSnapshot.CurrentFormatVersion)
         {
@@ -532,11 +534,160 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             });
         }
 
-        var definitionVersions = snapshot.Definitions
+        var definitions = snapshot.Definitions;
+        var resources = snapshot.Resources;
+        var activationStates = snapshot.ActivationStates;
+
+        if (definitions is null)
+        {
+            diagnostics.Add(MalformedSnapshot("definitions", "Snapshot definitions collection cannot be null."));
+            definitions = [];
+        }
+
+        if (resources is null)
+        {
+            diagnostics.Add(MalformedSnapshot("resources", "Snapshot resources collection cannot be null."));
+            resources = [];
+        }
+
+        if (activationStates is null)
+        {
+            diagnostics.Add(MalformedSnapshot("activationStates", "Snapshot activation states collection cannot be null."));
+            activationStates = [];
+        }
+
+        for (var i = 0; i < definitions.Count; i++)
+        {
+            var definition = definitions[i];
+            if (definition is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"definitions/{i}", "Snapshot definition entry cannot be null."));
+                continue;
+            }
+
+            var isMalformed = false;
+            if (string.IsNullOrWhiteSpace(definition.DefinitionId))
+            {
+                diagnostics.Add(MalformedSnapshot($"definitions/{i}/definitionId", "Snapshot definition ID is required."));
+                isMalformed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(definition.Id))
+            {
+                diagnostics.Add(MalformedSnapshot($"definitions/{i}/id", "Snapshot definition version ID is required."));
+                isMalformed = true;
+            }
+
+            if (definition.Version <= 0)
+            {
+                diagnostics.Add(MalformedSnapshot($"definitions/{i}/version", "Snapshot definition version must be greater than zero."));
+                isMalformed = true;
+            }
+
+            if (definition.AspectDefinitions is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"definitions/{i}/aspectDefinitions", "Snapshot definition aspect definitions collection cannot be null."));
+                isMalformed = true;
+            }
+
+            if (!isMalformed)
+                validDefinitions.Add(definition);
+        }
+
+        for (var i = 0; i < resources.Count; i++)
+        {
+            var resource = resources[i];
+            if (resource is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}", "Snapshot resource entry cannot be null."));
+                continue;
+            }
+
+            var isMalformed = false;
+            if (string.IsNullOrWhiteSpace(resource.ResourceId))
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}/resourceId", "Snapshot resource ID is required."));
+                isMalformed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(resource.Id))
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}/id", "Snapshot resource version ID is required."));
+                isMalformed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(resource.DefinitionId))
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}/definitionId", "Snapshot resource definition ID is required."));
+                isMalformed = true;
+            }
+
+            if (resource.DefinitionVersion <= 0)
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}/definitionVersion", "Snapshot resource definition version must be greater than zero when present."));
+                isMalformed = true;
+            }
+
+            if (resource.Version <= 0)
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}/version", "Snapshot resource version must be greater than zero."));
+                isMalformed = true;
+            }
+
+            if (resource.Aspects is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"resources/{i}/aspects", "Snapshot resource aspects collection cannot be null."));
+                isMalformed = true;
+            }
+
+            if (!isMalformed)
+                validResources.Add(resource);
+        }
+
+        for (var i = 0; i < activationStates.Count; i++)
+        {
+            var activationState = activationStates[i];
+            if (activationState is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"activationStates/{i}", "Snapshot activation state entry cannot be null."));
+                continue;
+            }
+
+            var isMalformed = false;
+            if (string.IsNullOrWhiteSpace(activationState.ResourceId))
+            {
+                diagnostics.Add(MalformedSnapshot($"activationStates/{i}/resourceId", "Snapshot activation state resource ID is required."));
+                isMalformed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(activationState.Channel))
+            {
+                diagnostics.Add(MalformedSnapshot($"activationStates/{i}/channel", "Snapshot activation state channel is required."));
+                isMalformed = true;
+            }
+
+            if (activationState.ActiveVersions is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"activationStates/{i}/activeVersions", "Snapshot activation state active versions collection cannot be null."));
+                isMalformed = true;
+            }
+            else if (activationState.ActiveVersions.Any(static version => version <= 0))
+            {
+                diagnostics.Add(MalformedSnapshot($"activationStates/{i}/activeVersions", "Snapshot activation state active versions must be greater than zero."));
+                isMalformed = true;
+            }
+
+            if (!isMalformed)
+                validActivationStates.Add(activationState);
+        }
+
+        diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(validDefinitions, validResources, validActivationStates));
+
+        var definitionVersions = validDefinitions
             .Select(static definition => (definition.DefinitionId, definition.Version))
             .ToHashSet();
 
-        foreach (var resource in snapshot.Resources)
+        foreach (var resource in validResources)
         {
             if (resource.DefinitionVersion is null)
                 continue;
@@ -553,11 +704,11 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
         }
 
-        var resourceVersions = snapshot.Resources
+        var resourceVersions = validResources
             .Select(static resource => (resource.ResourceId, resource.Version))
             .ToHashSet();
 
-        foreach (var activationState in snapshot.ActivationStates)
+        foreach (var activationState in validActivationStates)
         {
             foreach (var version in activationState.ActiveVersions)
             {
@@ -577,24 +728,27 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         return diagnostics;
     }
 
-    private static List<PortableDiagnostic> ValidateSnapshotIdentityUniqueness(PortableSnapshot snapshot)
+    private static List<PortableDiagnostic> ValidateSnapshotIdentityUniqueness(
+        IReadOnlyList<ResourceDefinition> definitions,
+        IReadOnlyList<Resource> resources,
+        IReadOnlyList<ActivationState> activationStates)
     {
         var diagnostics = new List<PortableDiagnostic>();
 
         diagnostics.AddRange(FindDuplicateKeys(
-            snapshot.Definitions.Select(static definition => DefinitionVersionId(definition)),
+            definitions.Select(static definition => DefinitionVersionId(definition)),
             "definitions",
             "Snapshot contains duplicate definition version identities."));
         diagnostics.AddRange(FindDuplicateKeys(
-            snapshot.Resources.Select(static resource => ResourceVersionId(resource)),
+            resources.Select(static resource => ResourceVersionId(resource)),
             "resources",
             "Snapshot contains duplicate resource version identities."));
         diagnostics.AddRange(FindDuplicateKeys(
-            snapshot.Resources.Select(static resource => resource.Id),
+            resources.Select(static resource => resource.Id),
             "resources/id",
             "Snapshot contains duplicate version-specific resource IDs."));
         diagnostics.AddRange(FindDuplicateKeys(
-            snapshot.ActivationStates.Select(static state => ActivationEntryId(state)),
+            activationStates.Select(static state => ActivationEntryId(state)),
             "activationStates",
             "Snapshot contains duplicate activation state identities."));
 
@@ -692,6 +846,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         new()
         {
             Code = PortableDiagnosticCodes.InvalidExportScope,
+            Severity = PortableDiagnosticSeverity.Error,
+            Path = path,
+            Message = message,
+        };
+
+    private static PortableDiagnostic MalformedSnapshot(string path, string message) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.MalformedSnapshot,
             Severity = PortableDiagnosticSeverity.Error,
             Path = path,
             Message = message,

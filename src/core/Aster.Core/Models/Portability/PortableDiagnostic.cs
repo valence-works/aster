@@ -93,6 +93,11 @@ public static class PortableDiagnosticCodes
     public const string InvalidImportOptions = "invalid-import-options";
 
     /// <summary>
+    /// Snapshot shape is malformed before reference or collision validation can safely proceed.
+    /// </summary>
+    public const string MalformedSnapshot = "malformed-snapshot";
+
+    /// <summary>
     /// Import behavior is not implemented yet.
     /// </summary>
     public const string ImportNotImplemented = "import-not-implemented";
