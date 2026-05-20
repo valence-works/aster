@@ -144,7 +144,20 @@ public sealed class PortabilityImportTests : IDisposable
     [Fact]
     public async Task PreviewImportAsync_UnsupportedJsonAspectValue_FailsWithDivergentCollisionDiagnostic()
     {
-        var snapshot = CreateSnapshot();
+        var baseSnapshot = CreateSnapshot();
+        var snapshot = baseSnapshot with
+        {
+            Resources =
+            [
+                baseSnapshot.Resources[0] with
+                {
+                    Aspects = new Dictionary<string, object>
+                    {
+                        ["unsupported"] = "ok",
+                    },
+                },
+            ],
+        };
         await portability.ImportAsync(snapshot);
         var unsupportedSnapshot = snapshot with
         {
