@@ -133,6 +133,42 @@ public sealed class PortabilityImportTests : IDisposable
         Assert.Equal(PortableDiagnosticCodes.RemapDivergentNotImplemented, diagnostic.Code);
     }
 
+    [Fact]
+    public async Task PreviewImportAsync_DuplicateVersionSpecificResourceIds_UsesExplicitIdPath()
+    {
+        var snapshot = CreateSnapshot() with
+        {
+            Resources =
+            [
+                new Resource
+                {
+                    ResourceId = "product-1",
+                    Id = "duplicate-version-id",
+                    DefinitionId = "Product",
+                    DefinitionVersion = 1,
+                    Version = 1,
+                    Created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+                },
+                new Resource
+                {
+                    ResourceId = "product-2",
+                    Id = "duplicate-version-id",
+                    DefinitionId = "Product",
+                    DefinitionVersion = 1,
+                    Version = 1,
+                    Created = new DateTime(2026, 1, 3, 3, 4, 5, DateTimeKind.Utc),
+                },
+            ],
+            ActivationStates = [],
+        };
+
+        var result = await portability.PreviewImportAsync(snapshot);
+
+        Assert.False(result.CanImport);
+        var diagnostic = Assert.Single(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.DuplicateSnapshotIdentity);
+        Assert.Equal("resources/id/duplicate-version-id", diagnostic.Path);
+    }
+
     private static PortableSnapshot CreateSnapshot()
     {
         var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

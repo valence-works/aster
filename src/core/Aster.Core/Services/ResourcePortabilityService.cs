@@ -385,7 +385,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             "Snapshot contains duplicate resource version identities."));
         diagnostics.AddRange(FindDuplicateKeys(
             snapshot.Resources.Select(static resource => resource.Id),
-            "resources",
+            "resources/id",
             "Snapshot contains duplicate version-specific resource IDs."));
         diagnostics.AddRange(FindDuplicateKeys(
             snapshot.ActivationStates.Select(static state => ActivationEntryId(state)),
