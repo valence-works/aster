@@ -70,14 +70,14 @@
 - [X] T021 [P] [US2] Add empty-store import tests in `test/Aster.Tests/Portability/PortabilityImportTests.cs`
 - [X] T022 [P] [US2] Add identical-content no-op import tests in `test/Aster.Tests/Portability/PortabilityImportTests.cs`
 - [X] T023 [P] [US2] Add strict divergent collision failure tests in `test/Aster.Tests/Portability/PortabilityImportTests.cs`
-- [ ] T024 [P] [US2] Add deterministic remap import tests in `test/Aster.Tests/Portability/PortabilityImportTests.cs`
+- [X] T024 [P] [US2] Add deterministic remap import tests in `test/Aster.Tests/Portability/PortabilityImportTests.cs`
 - [X] T025 [P] [US2] Add SQLite JSON atomic import tests in `test/Aster.Tests/SqliteJson/SqliteJsonPortabilityStoreTests.cs`
 
 ### Implementation for User Story 2
 
 - [X] T026 [US2] Implement target-state comparison in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
-- [ ] T027 [US2] Implement deterministic identity remapping in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
-- [ ] T028 [US2] Implement relationship rewrites for remapped definitions, resources, resource versions, and activation state in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T027 [US2] Implement deterministic identity remapping in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
+- [X] T028 [US2] Implement relationship rewrites for remapped definitions, resources, resource versions, and activation state in `src/core/Aster.Core/Services/ResourcePortabilityService.cs`
 - [X] T029 [US2] Implement in-memory atomic import apply in `src/core/Aster.Core/InMemory/InMemoryResourceStore.cs`
 - [X] T030 [US2] Implement SQLite JSON atomic import apply in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
 

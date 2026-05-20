@@ -116,6 +116,9 @@ Rules:
 - Divergent existing content is a collision.
 - Strict mode fails before writing when divergent collisions exist.
 - Remap mode maps divergent collisions to deterministic replacement identifiers.
+- Remap mode reports divergent collisions as warnings and writes remapped content when no error diagnostics remain.
+- Remapping a definition updates imported resource lineage references.
+- Remapping a resource updates imported resource versions and activation entries together.
 - Preview import is non-mutating.
 - Write import is all-or-nothing.
 
@@ -226,8 +229,8 @@ public enum PortableIdentityMappingReason
 public sealed record PortableIdentityMapping
 {
     public required PortableEntityKind EntityKind { get; init; }
-    public required string OriginalId { get; init; }
-    public required string ImportedId { get; init; }
+    public required string SourceId { get; init; }
+    public required string TargetId { get; init; }
     public required PortableIdentityMappingReason Reason { get; init; }
 }
 ```
