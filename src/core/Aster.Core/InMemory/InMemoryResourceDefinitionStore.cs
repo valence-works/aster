@@ -141,6 +141,22 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         }
     }
 
+    /// <summary>
+    /// Removes an imported definition version during rollback.
+    /// </summary>
+    internal void RemoveImportedDefinitionVersion(ResourceDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        if (!definitions.TryGetValue(definition.DefinitionId, out var versions))
+            return;
+
+        lock (versions)
+            versions.RemoveAll(existing =>
+                existing.Version == definition.Version
+                && string.Equals(existing.Id, definition.Id, StringComparison.Ordinal));
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Structured log methods (source generated)
     // ──────────────────────────────────────────────────────────────────────────

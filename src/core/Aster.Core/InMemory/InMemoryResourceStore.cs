@@ -66,6 +66,58 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         }
     }
 
+    /// <summary>
+    /// Removes an imported resource version during rollback.
+    /// </summary>
+    internal void RemoveImportedVersion(Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+
+        if (!Versions.TryGetValue(resource.ResourceId, out var versions))
+            return;
+
+        lock (versions)
+            versions.RemoveAll(existing =>
+                existing.Version == resource.Version
+                && string.Equals(existing.Id, resource.Id, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Returns the persisted activation state for a resource/channel pair.
+    /// </summary>
+    internal ActivationState? GetActivationState(string resourceId, string channel) =>
+        ActivationStates.TryGetValue(resourceId, out var states)
+        && states.TryGetValue(channel, out var state)
+            ? state
+            : null;
+
+    /// <summary>
+    /// Restores a persisted activation state, or removes it when <paramref name="state"/> is <see langword="null"/>.
+    /// </summary>
+    internal void RestoreActivationState(string resourceId, string channel, ActivationState? state)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+
+        var channelActivations = GetOrAddActivations(resourceId);
+        lock (channelActivations)
+        {
+            if (state is null)
+                channelActivations.TryRemove(channel, out _);
+            else
+                channelActivations[channel] = state.ActiveVersions.ToHashSet();
+        }
+
+        var states = ActivationStates.GetOrAdd(
+            resourceId,
+            _ => new ConcurrentDictionary<string, ActivationState>(StringComparer.Ordinal));
+
+        if (state is null)
+            states.Remove(channel, out _);
+        else
+            states[channel] = state;
+    }
+
     /// <inheritdoc />
     public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
         ResourceVersionReadRequest request,

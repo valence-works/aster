@@ -109,29 +109,60 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         ArgumentNullException.ThrowIfNull(plannedSnapshot);
         cancellationToken.ThrowIfCancellationRequested();
 
-        foreach (var definition in plannedSnapshot.Definitions
-            .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
-            .ThenBy(static definition => definition.Version))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            definitionStore.ImportDefinitionVersion(definition);
-        }
+        var appliedDefinitions = new List<ResourceDefinition>();
+        var appliedResources = new List<Resource>();
+        var appliedActivationStates = new List<(ActivationState State, ActivationState? PreviousState)>();
 
-        foreach (var resource in plannedSnapshot.Resources
-            .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
-            .ThenBy(static resource => resource.Version))
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            resourceStore.ImportVersion(resource);
-        }
+            foreach (var definition in plannedSnapshot.Definitions
+                .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
+                .ThenBy(static definition => definition.Version))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                definitionStore.ImportDefinitionVersion(definition);
+                appliedDefinitions.Add(definition);
+            }
 
-        foreach (var state in plannedSnapshot.ActivationStates
-            .OrderBy(static state => state.ResourceId, StringComparer.Ordinal)
-            .ThenBy(static state => state.Channel, StringComparer.Ordinal))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, cancellationToken);
+            foreach (var resource in plannedSnapshot.Resources
+                .OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+                .ThenBy(static resource => resource.Version))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                resourceStore.ImportVersion(resource);
+                appliedResources.Add(resource);
+            }
+
+            foreach (var state in plannedSnapshot.ActivationStates
+                .OrderBy(static state => state.ResourceId, StringComparer.Ordinal)
+                .ThenBy(static state => state.Channel, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var previous = resourceStore.GetActivationState(state.ResourceId, state.Channel);
+                await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, CancellationToken.None);
+                appliedActivationStates.Add((state, previous));
+            }
         }
+        catch
+        {
+            RollBackAppliedChanges(appliedDefinitions, appliedResources, appliedActivationStates);
+            throw;
+        }
+    }
+
+    private void RollBackAppliedChanges(
+        IReadOnlyList<ResourceDefinition> appliedDefinitions,
+        IReadOnlyList<Resource> appliedResources,
+        IReadOnlyList<(ActivationState State, ActivationState? PreviousState)> appliedActivationStates)
+    {
+        foreach (var (state, previousState) in appliedActivationStates.Reverse())
+            resourceStore.RestoreActivationState(state.ResourceId, state.Channel, previousState);
+
+        foreach (var resource in appliedResources.Reverse())
+            resourceStore.RemoveImportedVersion(resource);
+
+        foreach (var definition in appliedDefinitions.Reverse())
+            definitionStore.RemoveImportedDefinitionVersion(definition);
     }
 
     private List<ResourceDefinition> SelectDefinitions(

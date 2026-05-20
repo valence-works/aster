@@ -169,6 +169,51 @@ public sealed class PortabilityImportTests : IDisposable
         Assert.Equal("resources/id/duplicate-version-id", diagnostic.Path);
     }
 
+    [Fact]
+    public async Task ApplyImportAsync_InMemoryFailure_RollsBackPreviouslyAppliedItems()
+    {
+        var store = provider.GetRequiredService<IResourcePortabilityStore>();
+        var snapshot = new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            Definitions =
+            [
+                new ResourceDefinition
+                {
+                    DefinitionId = "RollbackProduct",
+                    Id = "rollback-product-definition-v1",
+                    Version = 1,
+                },
+            ],
+            Resources =
+            [
+                new Resource
+                {
+                    ResourceId = "rollback-product-1",
+                    Id = "rollback-product-1-v1",
+                    DefinitionId = "RollbackProduct",
+                    DefinitionVersion = 1,
+                    Version = 1,
+                    Created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+                },
+                new Resource
+                {
+                    ResourceId = "rollback-product-1",
+                    Id = "rollback-product-1-v1-duplicate",
+                    DefinitionId = "RollbackProduct",
+                    DefinitionVersion = 1,
+                    Version = 1,
+                    Created = new DateTime(2026, 1, 3, 3, 4, 5, DateTimeKind.Utc),
+                },
+            ],
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.ApplyImportAsync(snapshot).AsTask());
+
+        Assert.Null(await definitionStore.GetDefinitionAsync("RollbackProduct"));
+        Assert.Null(await manager.GetLatestVersionAsync("rollback-product-1"));
+    }
+
     private static PortableSnapshot CreateSnapshot()
     {
         var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
