@@ -180,6 +180,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var existingDefinitions = targetState.Definitions.ToDictionary(static definition => (definition.DefinitionId, definition.Version));
         foreach (var definition in snapshot.Definitions)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var key = (definition.DefinitionId, definition.Version);
             if (!existingDefinitions.TryGetValue(key, out var existing))
             {
@@ -205,6 +207,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var existingResources = targetState.Resources.ToDictionary(static resource => (resource.ResourceId, resource.Version));
         foreach (var resource in snapshot.Resources)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var key = (resource.ResourceId, resource.Version);
             if (!existingResources.TryGetValue(key, out var existing))
             {
@@ -230,6 +234,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var existingActivationStates = targetState.ActivationStates.ToDictionary(static state => (state.ResourceId, state.Channel));
         foreach (var state in snapshot.ActivationStates)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var key = (state.ResourceId, state.Channel);
             if (!existingActivationStates.TryGetValue(key, out var existing))
             {
@@ -554,13 +560,13 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         };
 
     private static string DefinitionVersionId(ResourceDefinition definition) =>
-        $"{definition.DefinitionId}:{definition.Version}";
+        JsonSerializer.Serialize(new object[] { definition.DefinitionId, definition.Version }, JsonOptions);
 
     private static string ResourceVersionId(Resource resource) =>
-        $"{resource.ResourceId}:{resource.Version}";
+        JsonSerializer.Serialize(new object[] { resource.ResourceId, resource.Version }, JsonOptions);
 
     private static string ActivationEntryId(ActivationState state) =>
-        $"{state.ResourceId}:{state.Channel}";
+        JsonSerializer.Serialize(new object[] { state.ResourceId, state.Channel }, JsonOptions);
 
     private sealed record ImportPlan(
         PortableSnapshot PlannedSnapshot,

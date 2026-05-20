@@ -118,8 +118,8 @@ public sealed class PortabilityImportTests : IDisposable
             result.IdentityMap,
             static mapping => mapping.Reason == PortableIdentityMappingReason.CollidedDivergent);
         Assert.Equal(PortableEntityKind.DefinitionVersion, mapping.EntityKind);
-        Assert.Equal("Product:1", mapping.SourceId);
-        Assert.Equal("Product:1", mapping.TargetId);
+        Assert.Equal("""["Product",1]""", mapping.SourceId);
+        Assert.Equal("""["Product",1]""", mapping.TargetId);
         Assert.Equal(PortableIdentityMappingReason.CollidedDivergent, mapping.Reason);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
     }

@@ -273,22 +273,13 @@ public sealed class SqliteJsonResourceStore :
                 })
                 .ToHashSet(),
             cancellationToken);
-        var activationStates = await ReadScopedActivationStatesAsync(
-            snapshot.ActivationStates
-                .Select(static state => state.ResourceId)
-                .ToHashSet(StringComparer.Ordinal),
-            cancellationToken);
-        var activationKeys = snapshot.ActivationStates
-            .Select(static state => (state.ResourceId, state.Channel))
-            .ToHashSet();
+        var activationStates = await ReadSpecificActivationStatesAsync(snapshot.ActivationStates, cancellationToken);
 
         return new PortableTargetState
         {
             Definitions = definitions,
             Resources = resources,
-            ActivationStates = activationStates
-                .Where(state => activationKeys.Contains((state.ResourceId, state.Channel)))
-                .ToList(),
+            ActivationStates = activationStates,
         };
     }
 
@@ -422,26 +413,72 @@ public sealed class SqliteJsonResourceStore :
         PortableSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        var definitionIds = snapshot.Definitions
-            .Select(static definition => definition.DefinitionId)
-            .Concat(snapshot.Resources.Select(static resource => resource.DefinitionId))
-            .ToHashSet(StringComparer.Ordinal);
         var definitionVersions = snapshot.Definitions
-            .Select(static definition => (definition.DefinitionId, definition.Version))
+            .Select(static definition => (definition.DefinitionId, Version: definition.Version))
             .Concat(snapshot.Resources
                 .Where(static resource => resource.DefinitionVersion is not null)
-                .Select(static resource => (resource.DefinitionId, resource.DefinitionVersion!.Value)))
+                .Select(static resource => (resource.DefinitionId, Version: resource.DefinitionVersion!.Value)))
             .ToHashSet();
 
-        var definitions = await ReadPayloadsByTextIdsAsync<ResourceDefinition>(
-            tableName: "resource_definitions",
-            columnName: "definition_id",
-            ids: definitionIds,
-            orderBy: "definition_id, version",
-            cancellationToken);
+        if (definitionVersions.Count == 0)
+            return [];
 
-        return definitions
-            .Where(definition => definitionVersions.Contains((definition.DefinitionId, definition.Version)))
+        var results = new List<ResourceDefinition>();
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in definitionVersions
+            .OrderBy(static reference => reference.DefinitionId, StringComparer.Ordinal)
+            .ThenBy(static reference => reference.Version)
+            .Chunk(MaxSqliteParametersPerQuery / 2))
+        {
+            await using var command = connection.CreateCommand();
+            var predicates = AddDefinitionVersionPredicates(command, batch);
+            command.CommandText = $"""
+                SELECT payload
+                FROM resource_definitions
+                WHERE {string.Join(" OR ", predicates)}
+                ORDER BY definition_id, version;
+                """;
+
+            results.AddRange(await ReadPayloadsAsync<ResourceDefinition>(command, cancellationToken));
+        }
+
+        return results
+            .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
+            .ThenBy(static definition => definition.Version)
+            .ToList();
+    }
+
+    private async Task<List<ActivationState>> ReadSpecificActivationStatesAsync(
+        IReadOnlyCollection<ActivationState> activationStates,
+        CancellationToken cancellationToken)
+    {
+        if (activationStates.Count == 0)
+            return [];
+
+        var results = new List<ActivationState>();
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in activationStates
+            .Select(static state => (state.ResourceId, state.Channel))
+            .Distinct()
+            .OrderBy(static reference => reference.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static reference => reference.Channel, StringComparer.Ordinal)
+            .Chunk(MaxSqliteParametersPerQuery / 2))
+        {
+            await using var command = connection.CreateCommand();
+            var predicates = AddActivationStatePredicates(command, batch);
+            command.CommandText = $"""
+                SELECT payload
+                FROM activation_states
+                WHERE {string.Join(" OR ", predicates)}
+                ORDER BY resource_id, channel;
+                """;
+
+            results.AddRange(await ReadPayloadsAsync<ActivationState>(command, cancellationToken));
+        }
+
+        return results
+            .OrderBy(static state => state.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static state => state.Channel, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -645,6 +682,42 @@ public sealed class SqliteJsonResourceStore :
             command.Parameters.AddWithValue(resourceIdParameter, references[index].ResourceId);
             command.Parameters.AddWithValue(versionParameter, references[index].Version);
             predicates.Add($"(resource_id = {resourceIdParameter} AND version = {versionParameter})");
+        }
+
+        return predicates;
+    }
+
+    private static List<string> AddDefinitionVersionPredicates(
+        SqliteCommand command,
+        IReadOnlyList<(string DefinitionId, int Version)> references)
+    {
+        var predicates = new List<string>();
+
+        for (var index = 0; index < references.Count; index++)
+        {
+            var definitionIdParameter = $"$definitionId{index}";
+            var versionParameter = $"$definitionVersion{index}";
+            command.Parameters.AddWithValue(definitionIdParameter, references[index].DefinitionId);
+            command.Parameters.AddWithValue(versionParameter, references[index].Version);
+            predicates.Add($"(definition_id = {definitionIdParameter} AND version = {versionParameter})");
+        }
+
+        return predicates;
+    }
+
+    private static List<string> AddActivationStatePredicates(
+        SqliteCommand command,
+        IReadOnlyList<(string ResourceId, string Channel)> references)
+    {
+        var predicates = new List<string>();
+
+        for (var index = 0; index < references.Count; index++)
+        {
+            var resourceIdParameter = $"$activationResourceId{index}";
+            var channelParameter = $"$activationChannel{index}";
+            command.Parameters.AddWithValue(resourceIdParameter, references[index].ResourceId);
+            command.Parameters.AddWithValue(channelParameter, references[index].Channel);
+            predicates.Add($"(resource_id = {resourceIdParameter} AND channel = {channelParameter})");
         }
 
         return predicates;
