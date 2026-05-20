@@ -75,7 +75,7 @@ Non-mutating result describing what a write import would do.
 
 **Fields**:
 
-- `Counts`: planned counts for definitions, resources, resource versions, and activation entries.
+- `Counts`: planned counts for definitions, resources, resource versions, activation entries, reused identical items, and remapped items.
 - `IdentityMap`: original-to-imported identity mappings.
 - `Diagnostics`: validation, collision, and remap diagnostics.
 - `CanImport`: true only when no error diagnostics remain.
@@ -91,14 +91,14 @@ Write import outcome.
 
 **Fields**:
 
-- `Counts`: imported or reused counts.
+- `Counts`: actual write counts, reused identical item counts, and remapped item counts.
 - `IdentityMap`: original-to-imported identity mappings used for writes.
 - `Diagnostics`: warnings and informational diagnostics.
 - `Status`: `Imported`, `NoOp`, or `Failed`.
 
 **Validation rules**:
 
-- Failed imports leave no partial definitions, resources, resource versions, or activation entries.
+- Failed imports leave no partial definitions, resources, resource versions, or activation entries and report zero actual write counts.
 - No-op import is valid when all snapshot content already exists with identical content.
 - Successful import preserves snapshot relationships after remapping.
 
@@ -108,7 +108,7 @@ Original-to-imported identifier relationship.
 
 **Fields**:
 
-- `EntityKind`: definition, definition version, resource, resource version, or activation entry.
+- `EntityKind`: `Definition`, `DefinitionVersion`, `Resource`, `ResourceVersion`, or `ActivationEntry`.
 - `OriginalId`: identifier from the snapshot.
 - `ImportedId`: identifier used in the target store.
 - `Reason`: `Preserved`, `ReusedIdentical`, or `RemappedCollision`.
@@ -118,6 +118,22 @@ Original-to-imported identifier relationship.
 - Remapped definition identifiers update resource `DefinitionId` and lineage references.
 - Remapped resource identifiers update resource versions and activation entries.
 - Mapping output is deterministic for the same snapshot and target-store state.
+
+## Skipped Activation Entry
+
+An activation entry omitted from export metadata because its resource version was outside the selected resource version scope.
+
+**Fields**:
+
+- `ResourceId`: logical resource identifier.
+- `Channel`: activation channel name.
+- `Version`: omitted active resource version.
+- `Reason`: `ExcludedByResourceVersionScope`.
+
+**Validation rules**:
+
+- Skipped activation entries are reported by export results and are not imported.
+- Skipped activation reasons are a closed set so callers can handle them exhaustively.
 
 ## Portability Diagnostic
 

@@ -25,7 +25,7 @@
 
 - [ ] T006 Add `PortableSnapshot`, `PortableSnapshotExportRequest`, and export scope enums in `src/core/Aster.Core/Models/Portability/PortableSnapshot.cs`
 - [ ] T007 Add `PortableDiagnostic`, `PortableDiagnosticSeverity`, and diagnostic code constants in `src/core/Aster.Core/Models/Portability/PortableDiagnostic.cs`
-- [ ] T008 Add `PortableImportOptions`, `PortableImportCollisionMode`, `PortableImportCounts`, `PortableIdentityMapping`, `PortableIdentityMappingReason`, and `PortableImportStatus` in `src/core/Aster.Core/Models/Portability/PortableImportModels.cs`
+- [ ] T008 Add `PortableImportOptions`, `PortableImportCollisionMode`, planned/actual import counts, `PortableIdentityMapping`, `PortableEntityKind`, `PortableIdentityMappingReason`, and `PortableImportStatus` in `src/core/Aster.Core/Models/Portability/PortableImportModels.cs`
 - [ ] T009 Add `PortableSnapshotExportResult`, `PortableSnapshotValidationResult`, `PortableImportPreview`, and `PortableImportResult` in `src/core/Aster.Core/Models/Portability/PortableResults.cs`
 - [ ] T010 Add `PortableStoreReadRequest`, `PortableStoreSnapshot`, and `PortableTargetState` in `src/core/Aster.Core/Models/Portability/PortableStoreModels.cs`
 - [ ] T011 Register the default portability service in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`

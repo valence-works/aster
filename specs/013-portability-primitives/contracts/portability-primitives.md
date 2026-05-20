@@ -153,7 +153,7 @@ public sealed record PortableSnapshotValidationResult
 public sealed record PortableImportPreview
 {
     public required bool CanImport { get; init; }
-    public required PortableImportCounts Counts { get; init; }
+    public required PortablePlannedImportCounts Counts { get; init; }
     public IReadOnlyList<PortableIdentityMapping> IdentityMap { get; init; } = [];
     public IReadOnlyList<PortableDiagnostic> Diagnostics { get; init; } = [];
 }
@@ -161,7 +161,7 @@ public sealed record PortableImportPreview
 public sealed record PortableImportResult
 {
     public required PortableImportStatus Status { get; init; }
-    public required PortableImportCounts Counts { get; init; }
+    public required PortableActualImportCounts Counts { get; init; }
     public IReadOnlyList<PortableIdentityMapping> IdentityMap { get; init; } = [];
     public IReadOnlyList<PortableDiagnostic> Diagnostics { get; init; } = [];
 }
@@ -173,7 +173,7 @@ public enum PortableImportStatus
     Failed,
 }
 
-public sealed record PortableImportCounts
+public sealed record PortablePlannedImportCounts
 {
     public int Definitions { get; init; }
     public int Resources { get; init; }
@@ -183,12 +183,36 @@ public sealed record PortableImportCounts
     public int RemappedItems { get; init; }
 }
 
+public sealed record PortableActualImportCounts
+{
+    public int DefinitionsWritten { get; init; }
+    public int ResourcesWritten { get; init; }
+    public int ResourceVersionsWritten { get; init; }
+    public int ActivationEntriesWritten { get; init; }
+    public int ReusedIdenticalItems { get; init; }
+    public int RemappedItems { get; init; }
+}
+
+public enum SkippedActivationReason
+{
+    ExcludedByResourceVersionScope,
+}
+
 public sealed record SkippedActivationEntry
 {
     public required string ResourceId { get; init; }
     public required string Channel { get; init; }
     public required int Version { get; init; }
-    public required string Reason { get; init; }
+    public required SkippedActivationReason Reason { get; init; }
+}
+
+public enum PortableEntityKind
+{
+    Definition,
+    DefinitionVersion,
+    Resource,
+    ResourceVersion,
+    ActivationEntry,
 }
 
 public enum PortableIdentityMappingReason
@@ -200,12 +224,14 @@ public enum PortableIdentityMappingReason
 
 public sealed record PortableIdentityMapping
 {
-    public required string EntityKind { get; init; }
+    public required PortableEntityKind EntityKind { get; init; }
     public required string OriginalId { get; init; }
     public required string ImportedId { get; init; }
     public required PortableIdentityMappingReason Reason { get; init; }
 }
 ```
+
+`PortableImportResult.Counts` reports actual writes. For `Failed`, all write counts are zero; diagnostics carry the failure details. For `NoOp`, write counts are zero and `ReusedIdenticalItems` reports already-satisfied content. For `Imported`, write counts report committed items after remapping.
 
 Required diagnostic codes include:
 
