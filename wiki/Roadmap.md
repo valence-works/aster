@@ -2,7 +2,7 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 4 starting — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, explicit index projection contracts, and explicit definition schema upgrade behavior are available.
+> **Current status:** Phase 4 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, explicit index projection contracts, explicit definition schema upgrade behavior, and portability primitives are available.
 >
 > For the current implementation trail and next Spec Kit slices, see [`docs/ExecutionRoadmap.md`](../docs/ExecutionRoadmap.md).
 
@@ -28,7 +28,8 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 | **010 SQLite Date-Like Facet Ranges** | Landed | Close the remaining SQLite date-like range capability gap with explicit serialization rules. |
 | **011 Explicit Indexing Model** | Landed | Introduce intentional index projection contracts without a hidden planner or runtime scanning. |
 | **012 Definition Schema Versions & Upgrade Flow** | Landed | Make long-lived resource schema versioning and upgrade behavior explicit. |
-| **013 Portability Primitives** | Next | Add deterministic export/import primitives for definitions and resources. |
+| **013 Portability Primitives** | Landed | Add deterministic export/import primitives for definitions and resources. |
+| **014 Host Lifecycle Hooks** | Next | Add explicit hooks around save, activation, deactivation, and import/export without hidden runtime scanning. |
 
 ---
 

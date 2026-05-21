@@ -36,7 +36,7 @@ if (export.Diagnostics.Any(d => d.Severity == PortableDiagnosticSeverity.Error))
     return;
 }
 
-var snapshot = export.Snapshot;
+var snapshot = export.Snapshot ?? throw new InvalidOperationException("Export failed without an error diagnostic.");
 ```
 
 The snapshot includes selected resource versions, referenced definition versions, and activation entries for exported versions. If an active version is omitted by scope, the export reports `skipped-activation-entry`.

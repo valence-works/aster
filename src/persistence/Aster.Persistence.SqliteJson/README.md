@@ -9,11 +9,13 @@ This package currently provides:
 - `IResourceDefinitionStore`
 - `IResourceVersionReader`
 - `IResourceVersionWriter`
+- `IResourcePortabilityStore`
 - `IResourceQueryService`
 - `IResourceQueryCapabilitiesProvider`
 
 It persists resource definitions, resource version snapshots, and activation state using SQLite tables with JSON payload columns.
 Query execution is provider-backed: `ResourceQuery` ASTs are translated to parameterized SQLite SQL and JSON1 expressions instead of materializing the full store in memory.
+Portability support is provider-backed too: the SQLite JSON resource store implements exact snapshot reads, target-state comparison reads, and atomic import apply for `IResourcePortabilityService`.
 
 ```csharp
 services.AddAsterSqliteJson(options =>
@@ -23,6 +25,26 @@ services.AddAsterSqliteJson(options =>
 ```
 
 Use this after `AddAsterCore()` to replace the default in-memory definition, version, and query primitives while keeping the provider-backed `DefaultResourceManager`.
+
+Portability service registration remains in core. After `AddAsterSqliteJson(...)`, that same service uses the SQLite-backed `IResourcePortabilityStore`:
+
+```csharp
+var portability = serviceProvider.GetRequiredService<IResourcePortabilityService>();
+
+var export = await portability.ExportAsync(new PortableSnapshotExportRequest
+{
+    ScopeMode = PortableExportScopeMode.SelectedResources,
+    ResourceIds = ["product-1"],
+    ResourceVersionScope = PortableResourceVersionScope.AllVersions,
+});
+
+if (export.Snapshot is null)
+    return; // export failed; inspect export.Diagnostics
+
+var preview = await portability.PreviewImportAsync(export.Snapshot);
+```
+
+SQLite import apply is all-or-nothing for a planned snapshot. Strict imports fail before writing on divergent identity collisions; explicit `RemapDivergent` mode writes deterministic remapped identifiers and keeps definition lineage, resource versions, and activation entries consistent. No SQLite schema migration or physical indexing is introduced by portability primitives.
 
 Supported query shapes:
 
