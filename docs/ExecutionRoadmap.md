@@ -1,6 +1,6 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-05-21
+Last updated: 2026-05-20
 
 This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
 

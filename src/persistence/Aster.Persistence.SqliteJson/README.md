@@ -38,7 +38,10 @@ var export = await portability.ExportAsync(new PortableSnapshotExportRequest
     ResourceVersionScope = PortableResourceVersionScope.AllVersions,
 });
 
-var preview = await portability.PreviewImportAsync(export.Snapshot!);
+if (export.Snapshot is null)
+    return; // export failed; inspect export.Diagnostics
+
+var preview = await portability.PreviewImportAsync(export.Snapshot);
 ```
 
 SQLite import apply is all-or-nothing for a planned snapshot. Strict imports fail before writing on divergent identity collisions; explicit `RemapDivergent` mode writes deterministic remapped identifiers and keeps definition lineage, resource versions, and activation entries consistent. No SQLite schema migration or physical indexing is introduced by portability primitives.
