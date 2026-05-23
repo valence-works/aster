@@ -111,6 +111,25 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
         Assert.Equal(2, hook.Invocations);
     }
 
+    [Fact]
+    public async Task AddResourceLifecycleHook_OverridesExistingConcreteHookLifetime()
+    {
+        await using var scopedProvider = new ServiceCollection()
+            .AddScoped<PreRegisteredHook>()
+            .AddAsterCore()
+            .AddResourceLifecycleHook<PreRegisteredHook>()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var manager = scopedProvider.GetRequiredService<IResourceManager>();
+
+        await manager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+
+        Assert.True(scopedProvider.GetRequiredService<PreRegisteredHook>().WasInvoked);
+    }
+
 
     private sealed class ManagerDependentHook(
         IResourceManager manager,
@@ -163,6 +182,19 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
             CancellationToken cancellationToken = default)
         {
             Invocations++;
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+    }
+
+    private sealed class PreRegisteredHook : ResourceLifecycleHook
+    {
+        public bool WasInvoked { get; private set; }
+
+        public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
+            ResourceSaveLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            WasInvoked = true;
             return ValueTask.FromResult(LifecycleHookOutcome.Continue());
         }
     }
