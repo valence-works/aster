@@ -235,6 +235,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
             store,
             store,
             new GuidIdentityGenerator(),
+            new ResourceLifecycleHookDispatcher([]),
             NullLogger<DefaultResourceManager>.Instance);
 
     private static string GetTitle(Resource resource)

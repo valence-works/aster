@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
 
 namespace Aster.Core.Services;
@@ -15,14 +17,20 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IResourcePortabilityStore portabilityStore;
+    private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
     /// </summary>
-    public ResourcePortabilityService(IResourcePortabilityStore portabilityStore)
+    public ResourcePortabilityService(
+        IResourcePortabilityStore portabilityStore,
+        IResourceLifecycleHookDispatcher lifecycleHooks)
     {
         ArgumentNullException.ThrowIfNull(portabilityStore);
+        ArgumentNullException.ThrowIfNull(lifecycleHooks);
+
         this.portabilityStore = portabilityStore;
+        this.lifecycleHooks = lifecycleHooks;
     }
 
     /// <inheritdoc />
@@ -35,6 +43,22 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var diagnostics = ValidateExportRequest(request);
         if (diagnostics.Any(static d => d.Severity == PortableDiagnosticSeverity.Error))
             return new PortableSnapshotExportResult { Diagnostics = diagnostics };
+
+        var operationId = Guid.NewGuid();
+        try
+        {
+            await lifecycleHooks.InvokeBeforeExportAsync(new ResourceExportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.BeforeExport,
+                CancellationToken = cancellationToken,
+                ExportRequest = request,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            return new PortableSnapshotExportResult { Diagnostics = [ToPortableDiagnostic(exception)] };
+        }
 
         var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
             new PortableStoreReadRequest { ExportRequest = request },
@@ -58,12 +82,31 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             ActivationStates = storeSnapshot.ActivationStates,
         };
 
-        return new PortableSnapshotExportResult
+        var result = new PortableSnapshotExportResult
         {
             Snapshot = snapshot,
             Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
             SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
         };
+
+        try
+        {
+            await lifecycleHooks.InvokeAfterExportAsync(new ResourceExportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.AfterExport,
+                CancellationToken = cancellationToken,
+                ExportRequest = request,
+                Snapshot = snapshot,
+                ExportResult = result,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            result = result with { Diagnostics = [.. result.Diagnostics, ToPortableDiagnostic(exception)] };
+        }
+
+        return result;
     }
 
     /// <inheritdoc />
@@ -91,14 +134,54 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         ArgumentNullException.ThrowIfNull(snapshot);
         options ??= new PortableImportOptions();
 
+        var operationId = Guid.NewGuid();
+        try
+        {
+            await lifecycleHooks.InvokeBeforePreviewImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.BeforePreviewImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = options,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            return FailedPreview(ToPortableDiagnostic(exception));
+        }
+
         var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
-        return new PortableImportPreview
+        var preview = new PortableImportPreview
         {
             CanImport = plan.Diagnostics.All(static diagnostic => diagnostic.Severity != PortableDiagnosticSeverity.Error),
             Counts = plan.PlannedCounts,
             IdentityMap = plan.IdentityMap,
             Diagnostics = plan.Diagnostics,
         };
+
+        try
+        {
+            await lifecycleHooks.InvokeAfterPreviewImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.AfterPreviewImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = options,
+                Preview = preview,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            preview = preview with
+            {
+                CanImport = false,
+                Diagnostics = [.. preview.Diagnostics, ToPortableDiagnostic(exception)],
+            };
+        }
+
+        return preview;
     }
 
     /// <inheritdoc />
@@ -109,6 +192,23 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         options ??= new PortableImportOptions();
+
+        var operationId = Guid.NewGuid();
+        try
+        {
+            await lifecycleHooks.InvokeBeforeImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.BeforeImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = options,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            return FailedImport(ToPortableDiagnostic(exception));
+        }
 
         var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
         if (plan.Diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
@@ -149,14 +249,64 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
         }
 
-        return new PortableImportResult
+        var result = new PortableImportResult
         {
             Status = plan.HasWrites ? PortableImportStatus.Imported : PortableImportStatus.NoOp,
             Counts = plan.ActualCounts,
             IdentityMap = plan.IdentityMap,
             Diagnostics = plan.Diagnostics,
         };
+
+        try
+        {
+            await lifecycleHooks.InvokeAfterImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.AfterImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = options,
+                ImportResult = result,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            result = result with { Diagnostics = [.. result.Diagnostics, ToPortableDiagnostic(exception)] };
+        }
+
+        return result;
     }
+
+    private static PortableImportPreview FailedPreview(PortableDiagnostic diagnostic) =>
+        new()
+        {
+            CanImport = false,
+            Counts = new PortablePlannedImportCounts(),
+            Diagnostics = [diagnostic],
+        };
+
+    private static PortableImportResult FailedImport(PortableDiagnostic diagnostic) =>
+        new()
+        {
+            Status = PortableImportStatus.Failed,
+            Counts = new PortableActualImportCounts(),
+            Diagnostics = [diagnostic],
+        };
+
+    private static PortableDiagnostic ToPortableDiagnostic(LifecycleHookException exception) =>
+        new()
+        {
+            Code = exception.Code switch
+            {
+                LifecycleHookException.RejectedCode => PortableDiagnosticCodes.LifecycleHookRejected,
+                LifecycleHookException.FailedCode => PortableDiagnosticCodes.LifecycleHookFailed,
+                LifecycleHookException.CanceledCode => PortableDiagnosticCodes.LifecycleHookCanceled,
+                _ => exception.Code,
+            },
+            Severity = PortableDiagnosticSeverity.Error,
+            Path = $"lifecycle/{exception.LifecyclePoint}",
+            Message = exception.Message,
+        };
 
     private async ValueTask<ImportPlan> BuildImportPlanAsync(
         PortableSnapshot snapshot,

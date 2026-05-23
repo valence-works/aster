@@ -1,6 +1,7 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Querying;
 using Microsoft.Extensions.Logging;
 
@@ -16,6 +17,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceVersionWriter versionWriter;
     private readonly IIdentityGenerator identityGenerator;
+    private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
     private readonly ILogger<DefaultResourceManager> logger;
 
     /// <summary>
@@ -26,18 +28,21 @@ public sealed partial class DefaultResourceManager : IResourceManager
         IResourceVersionReader versionReader,
         IResourceVersionWriter versionWriter,
         IIdentityGenerator identityGenerator,
+        IResourceLifecycleHookDispatcher lifecycleHooks,
         ILogger<DefaultResourceManager> logger)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(versionWriter);
         ArgumentNullException.ThrowIfNull(identityGenerator);
+        ArgumentNullException.ThrowIfNull(lifecycleHooks);
         ArgumentNullException.ThrowIfNull(logger);
 
         this.definitionStore = definitionStore;
         this.versionReader = versionReader;
         this.versionWriter = versionWriter;
         this.identityGenerator = identityGenerator;
+        this.lifecycleHooks = lifecycleHooks;
         this.logger = logger;
     }
 
@@ -78,7 +83,30 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Aspects = new Dictionary<string, object>(request.InitialAspects),
         };
 
+        var operationId = Guid.NewGuid();
+        await lifecycleHooks.InvokeBeforeSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.BeforeSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.Create,
+            DefinitionId = definitionId,
+            ResourceId = resourceId,
+            Resource = resource,
+        }, cancellationToken);
+
         var persisted = await versionWriter.SaveVersionAsync(resource, cancellationToken);
+        await lifecycleHooks.InvokeAfterSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.AfterSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.Create,
+            DefinitionId = definitionId,
+            ResourceId = persisted.ResourceId,
+            Resource = persisted,
+        }, cancellationToken);
+
         LogResourceSaved(persisted.ResourceId, persisted.Version, persisted.Id);
         return persisted;
     }
@@ -111,7 +139,32 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Aspects = mergedAspects,
         };
 
+        var operationId = Guid.NewGuid();
+        await lifecycleHooks.InvokeBeforeSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.BeforeSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.Update,
+            DefinitionId = updated.DefinitionId,
+            ResourceId = resourceId,
+            BaseVersion = request.BaseVersion,
+            Resource = updated,
+        }, cancellationToken);
+
         var persisted = await versionWriter.SaveVersionAsync(updated, cancellationToken);
+        await lifecycleHooks.InvokeAfterSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.AfterSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.Update,
+            DefinitionId = persisted.DefinitionId,
+            ResourceId = persisted.ResourceId,
+            BaseVersion = request.BaseVersion,
+            Resource = persisted,
+        }, cancellationToken);
+
         LogResourceSaved(persisted.ResourceId, persisted.Version, persisted.Id);
         return persisted;
     }
@@ -174,8 +227,33 @@ public sealed partial class DefaultResourceManager : IResourceManager
             : [];
 
         activeVersions.Add(version);
+        var resultingActiveVersions = activeVersions.Order().ToList();
+        var operationId = Guid.NewGuid();
+        await lifecycleHooks.InvokeBeforeActivateAsync(new ResourceActivationLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.BeforeActivate,
+            CancellationToken = cancellationToken,
+            ResourceId = resourceId,
+            Version = version,
+            Channel = channel,
+            AllowMultipleActive = allowMultipleActive,
+            ActiveVersions = resultingActiveVersions,
+        }, cancellationToken);
 
-        await WriteActivationStateAsync(resourceId, channel, activeVersions, cancellationToken);
+        await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
+        await lifecycleHooks.InvokeAfterActivateAsync(new ResourceActivationLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.AfterActivate,
+            CancellationToken = cancellationToken,
+            ResourceId = resourceId,
+            Version = version,
+            Channel = channel,
+            AllowMultipleActive = allowMultipleActive,
+            ActiveVersions = resultingActiveVersions,
+        }, cancellationToken);
+
         LogResourceActivated(resourceId, version, channel);
     }
 
@@ -194,7 +272,31 @@ public sealed partial class DefaultResourceManager : IResourceManager
             .ToHashSet();
 
         activeVersions.Remove(version);
-        await WriteActivationStateAsync(resourceId, channel, activeVersions, cancellationToken);
+        var resultingActiveVersions = activeVersions.Order().ToList();
+        var operationId = Guid.NewGuid();
+        await lifecycleHooks.InvokeBeforeDeactivateAsync(new ResourceActivationLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.BeforeDeactivate,
+            CancellationToken = cancellationToken,
+            ResourceId = resourceId,
+            Version = version,
+            Channel = channel,
+            ActiveVersions = resultingActiveVersions,
+        }, cancellationToken);
+
+        await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
+        await lifecycleHooks.InvokeAfterDeactivateAsync(new ResourceActivationLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.AfterDeactivate,
+            CancellationToken = cancellationToken,
+            ResourceId = resourceId,
+            Version = version,
+            Channel = channel,
+            ActiveVersions = resultingActiveVersions,
+        }, cancellationToken);
+
         LogResourceDeactivated(resourceId, version, channel);
     }
 
@@ -237,7 +339,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
     private async Task WriteActivationStateAsync(
         string resourceId,
         string channel,
-        IReadOnlySet<int> activeVersions,
+        IReadOnlyCollection<int> activeVersions,
         CancellationToken cancellationToken)
     {
         var state = new ActivationState

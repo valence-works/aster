@@ -3,6 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Lifecycle;
 
 namespace Aster.Core.Services;
 
@@ -15,6 +16,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
     private readonly IResourceManager resourceManager;
     private readonly IIdentityGenerator identityGenerator;
     private readonly IResourceVersionWriter versionWriter;
+    private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ResourceSchemaVersionService"/> class.
@@ -23,21 +25,25 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
     /// <param name="resourceManager">The resource lifecycle manager.</param>
     /// <param name="identityGenerator">The identity generator used for new version IDs.</param>
     /// <param name="versionWriter">The resource version writer used to append upgraded versions.</param>
+    /// <param name="lifecycleHooks">The lifecycle hook dispatcher.</param>
     public ResourceSchemaVersionService(
         IResourceDefinitionStore definitionStore,
         IResourceManager resourceManager,
         IIdentityGenerator identityGenerator,
-        IResourceVersionWriter versionWriter)
+        IResourceVersionWriter versionWriter,
+        IResourceLifecycleHookDispatcher lifecycleHooks)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(resourceManager);
         ArgumentNullException.ThrowIfNull(identityGenerator);
         ArgumentNullException.ThrowIfNull(versionWriter);
+        ArgumentNullException.ThrowIfNull(lifecycleHooks);
 
         this.definitionStore = definitionStore;
         this.resourceManager = resourceManager;
         this.identityGenerator = identityGenerator;
         this.versionWriter = versionWriter;
+        this.lifecycleHooks = lifecycleHooks;
     }
 
     /// <inheritdoc />
@@ -171,7 +177,33 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             Aspects = mergedAspects,
         };
 
-        return await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
+        var operationId = Guid.NewGuid();
+        await lifecycleHooks.InvokeBeforeSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.BeforeSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.SchemaUpgrade,
+            DefinitionId = upgraded.DefinitionId,
+            ResourceId = upgraded.ResourceId,
+            BaseVersion = latestResource.Version,
+            Resource = upgraded,
+        }, cancellationToken);
+
+        var persisted = await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
+        await lifecycleHooks.InvokeAfterSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.AfterSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.SchemaUpgrade,
+            DefinitionId = persisted.DefinitionId,
+            ResourceId = persisted.ResourceId,
+            BaseVersion = latestResource.Version,
+            Resource = persisted,
+        }, cancellationToken);
+
+        return persisted;
     }
 
     private static List<string> GetCarriedForwardAspectKeys(

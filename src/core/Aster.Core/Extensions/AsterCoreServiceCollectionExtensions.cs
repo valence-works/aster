@@ -14,6 +14,23 @@ namespace Aster.Core.Extensions;
 public static class AsterCoreServiceCollectionExtensions
 {
     /// <summary>
+    /// Registers a resource lifecycle hook in deterministic service registration order.
+    /// </summary>
+    /// <typeparam name="THook">The concrete lifecycle hook type.</typeparam>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <returns>The <paramref name="services"/> for chaining.</returns>
+    public static IServiceCollection AddResourceLifecycleHook<THook>(this IServiceCollection services)
+        where THook : class, IResourceLifecycleHook
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<THook>();
+        services.AddSingleton<IResourceLifecycleHook>(sp => sp.GetRequiredService<THook>());
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers a custom resource query provider and its matching capability declaration.
     /// </summary>
     /// <typeparam name="TQueryService">The concrete query service type.</typeparam>
@@ -68,6 +85,8 @@ public static class AsterCoreServiceCollectionExtensions
 
         // Resource manager
         services.AddSingleton<InMemoryResourceManager>();
+        services.AddSingleton<ResourceLifecycleHookDispatcher>();
+        services.AddSingleton<IResourceLifecycleHookDispatcher>(sp => sp.GetRequiredService<ResourceLifecycleHookDispatcher>());
         services.AddSingleton<DefaultResourceManager>();
         services.AddSingleton<IResourceManager>(sp => sp.GetRequiredService<DefaultResourceManager>());
         services.AddSingleton<IResourceSchemaVersionService, ResourceSchemaVersionService>();

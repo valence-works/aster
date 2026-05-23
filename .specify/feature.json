@@ -1,3 +1,4 @@
 {
-  "featureDir": "specs/013-portability-primitives"
+  "featureDir": "specs/014-host-lifecycle-hooks",
+  "feature_directory": "specs/014-host-lifecycle-hooks"
 }

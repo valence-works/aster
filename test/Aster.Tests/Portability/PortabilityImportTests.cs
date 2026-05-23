@@ -400,7 +400,9 @@ public sealed class PortabilityImportTests : IDisposable
     [Fact]
     public async Task ImportAsync_ApplyFailure_ReturnsFailedResultWithDiagnostic()
     {
-        var service = new ResourcePortabilityService(new ThrowingApplyPortabilityStore());
+        var service = new ResourcePortabilityService(
+            new ThrowingApplyPortabilityStore(),
+            new ResourceLifecycleHookDispatcher([]));
 
         var result = await service.ImportAsync(CreateSnapshot());
 
