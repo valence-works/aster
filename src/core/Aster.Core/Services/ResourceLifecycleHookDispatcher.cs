@@ -142,17 +142,18 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
 
             case LifecycleHookOutcomeStatus.Rejected:
                 throw new LifecycleHookException(
-                    LifecycleHookException.RejectedCode,
+                    OutcomeCode(outcome, LifecycleHookException.RejectedCode),
                     HookMessage(outcome, lifecyclePoint, hookType, "rejected"),
                     lifecyclePoint,
                     hookType,
                     outcome.Diagnostics);
 
             case LifecycleHookOutcomeStatus.Failed:
-                throw Failed(
+                throw new LifecycleHookException(
+                    OutcomeCode(outcome, LifecycleHookException.FailedCode),
+                    HookMessage(outcome, lifecyclePoint, hookType, "failed"),
                     lifecyclePoint,
                     hookType,
-                    HookMessage(outcome, lifecyclePoint, hookType, "failed"),
                     outcome.Diagnostics);
 
             default:
@@ -195,4 +196,7 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
 
         return $"Lifecycle hook '{hookType.FullName}' {action} at '{lifecyclePoint}'.";
     }
+
+    private static string OutcomeCode(LifecycleHookOutcome outcome, string fallbackCode) =>
+        string.IsNullOrWhiteSpace(outcome.Code) ? fallbackCode : outcome.Code!;
 }

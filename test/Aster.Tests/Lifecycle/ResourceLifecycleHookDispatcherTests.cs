@@ -28,10 +28,23 @@ public sealed class ResourceLifecycleHookDispatcherTests
         var exception = await Assert.ThrowsAsync<LifecycleHookException>(() =>
             dispatcher.InvokeBeforeSaveAsync(CreateSaveContext(LifecyclePoint.BeforeSave)).AsTask());
 
-        Assert.Equal(LifecycleHookException.RejectedCode, exception.Code);
+        Assert.Equal("test-rejected", exception.Code);
         Assert.Equal(LifecyclePoint.BeforeSave, exception.LifecyclePoint);
         var onlyEvent = Assert.Single(recorder.Events);
         Assert.Equal("first", onlyEvent.HookName);
+    }
+
+    [Fact]
+    public async Task InvokeBeforeSaveAsync_FailedOutcomePreservesHookCode()
+    {
+        var recorder = new LifecycleHookRecorder { FailAt = LifecyclePoint.BeforeSave };
+        var dispatcher = new ResourceLifecycleHookDispatcher([new FirstRecordingHook(recorder)]);
+
+        var exception = await Assert.ThrowsAsync<LifecycleHookException>(() =>
+            dispatcher.InvokeBeforeSaveAsync(CreateSaveContext(LifecyclePoint.BeforeSave)).AsTask());
+
+        Assert.Equal("test-failed", exception.Code);
+        Assert.Equal(LifecyclePoint.BeforeSave, exception.LifecyclePoint);
     }
 
     [Fact]
