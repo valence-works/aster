@@ -92,7 +92,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             SaveKind = ResourceSaveKind.Create,
             DefinitionId = definitionId,
             ResourceId = resourceId,
-            Resource = resource,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(resource),
         }, cancellationToken);
 
         var persisted = await versionWriter.SaveVersionAsync(resource, cancellationToken);
@@ -104,7 +104,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             SaveKind = ResourceSaveKind.Create,
             DefinitionId = definitionId,
             ResourceId = persisted.ResourceId,
-            Resource = persisted,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
 
         LogResourceSaved(persisted.ResourceId, persisted.Version, persisted.Id);
@@ -149,7 +149,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             DefinitionId = updated.DefinitionId,
             ResourceId = resourceId,
             BaseVersion = request.BaseVersion,
-            Resource = updated,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(updated),
         }, cancellationToken);
 
         var persisted = await versionWriter.SaveVersionAsync(updated, cancellationToken);
@@ -162,7 +162,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             DefinitionId = persisted.DefinitionId,
             ResourceId = persisted.ResourceId,
             BaseVersion = request.BaseVersion,
-            Resource = persisted,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
 
         LogResourceSaved(persisted.ResourceId, persisted.Version, persisted.Id);
@@ -228,6 +228,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
 
         activeVersions.Add(version);
         var resultingActiveVersions = activeVersions.Order().ToList();
+        var hookActiveVersions = ResourceLifecycleHookContextSnapshots.Snapshot(resultingActiveVersions);
         var operationId = Guid.NewGuid();
         await lifecycleHooks.InvokeBeforeActivateAsync(new ResourceActivationLifecycleContext
         {
@@ -238,7 +239,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Version = version,
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
-            ActiveVersions = resultingActiveVersions,
+            ActiveVersions = hookActiveVersions,
         }, cancellationToken);
 
         await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
@@ -251,7 +252,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Version = version,
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
-            ActiveVersions = resultingActiveVersions,
+            ActiveVersions = hookActiveVersions,
         }, cancellationToken);
 
         LogResourceActivated(resourceId, version, channel);
@@ -273,6 +274,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
 
         activeVersions.Remove(version);
         var resultingActiveVersions = activeVersions.Order().ToList();
+        var hookActiveVersions = ResourceLifecycleHookContextSnapshots.Snapshot(resultingActiveVersions);
         var operationId = Guid.NewGuid();
         await lifecycleHooks.InvokeBeforeDeactivateAsync(new ResourceActivationLifecycleContext
         {
@@ -282,7 +284,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ResourceId = resourceId,
             Version = version,
             Channel = channel,
-            ActiveVersions = resultingActiveVersions,
+            ActiveVersions = hookActiveVersions,
         }, cancellationToken);
 
         await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
@@ -294,7 +296,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ResourceId = resourceId,
             Version = version,
             Channel = channel,
-            ActiveVersions = resultingActiveVersions,
+            ActiveVersions = hookActiveVersions,
         }, cancellationToken);
 
         LogResourceDeactivated(resourceId, version, channel);

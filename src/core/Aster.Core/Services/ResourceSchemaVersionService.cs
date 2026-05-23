@@ -187,7 +187,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             DefinitionId = upgraded.DefinitionId,
             ResourceId = upgraded.ResourceId,
             BaseVersion = latestResource.Version,
-            Resource = upgraded,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(upgraded),
         }, cancellationToken);
 
         var persisted = await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
@@ -200,7 +200,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             DefinitionId = persisted.DefinitionId,
             ResourceId = persisted.ResourceId,
             BaseVersion = latestResource.Version,
-            Resource = persisted,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
 
         return persisted;

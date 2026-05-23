@@ -158,6 +158,52 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task ImportAsync_PlanFailureRunsAfterImportHook()
+    {
+        await portability.ImportAsync(CreateSnapshotWithOwner("target-owner"));
+        recorder.Events.Clear();
+
+        var result = await portability.ImportAsync(
+            CreateSnapshotWithOwner("incoming-owner"),
+            new PortableImportOptions { CollisionMode = PortableImportCollisionMode.Strict });
+
+        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        Assert.Equal(
+            [
+                ("first", LifecyclePoint.BeforeImport),
+                ("second", LifecyclePoint.BeforeImport),
+                ("first", LifecyclePoint.AfterImport),
+                ("second", LifecyclePoint.AfterImport),
+            ],
+            recorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+
+        var after = Assert.IsType<ResourceImportLifecycleContext>(recorder.Events[2].Context);
+        Assert.Same(result, after.ImportResult);
+    }
+
+    [Fact]
+    public static async Task ImportAsync_ApplyFailureRunsAfterImportHook()
+    {
+        await using var scopedProvider = BuildThrowingApplyHookProvider();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+
+        var result = await scopedPortability.ImportAsync(CreateSnapshot());
+
+        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        Assert.Equal(
+            [
+                ("first", LifecyclePoint.BeforeImport),
+                ("first", LifecyclePoint.AfterImport),
+            ],
+            scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+
+        var after = Assert.IsType<ResourceImportLifecycleContext>(scopedRecorder.Events[1].Context);
+        Assert.Same(result, after.ImportResult);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ImportApplyFailed);
+    }
+
+    [Fact]
     public async Task ExportAsync_HookCannotMutateExportRequestUsedByOperation()
     {
         await using var scopedProvider = BuildMutatingHookProvider();
@@ -277,6 +323,14 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             .AddResourceLifecycleHook<MutatingPortabilityHook>()
             .BuildServiceProvider();
 
+    private static ServiceProvider BuildThrowingApplyHookProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<IResourcePortabilityStore, ThrowingApplyPortabilityStore>()
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
+
     private sealed class MutatingPortabilityHook : ResourceLifecycleHook
     {
         public override ValueTask<LifecycleHookOutcome> OnBeforeExportAsync(
@@ -303,5 +357,23 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             context.ImportOptions.CollisionMode = PortableImportCollisionMode.RemapDivergent;
             return ValueTask.FromResult(LifecycleHookOutcome.Continue());
         }
+    }
+
+    private sealed class ThrowingApplyPortabilityStore : IResourcePortabilityStore
+    {
+        public ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
+            PortableStoreReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new PortableStoreSnapshot());
+
+        public ValueTask<PortableTargetState> ReadTargetStateAsync(
+            PortableSnapshot snapshot,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new PortableTargetState());
+
+        public ValueTask ApplyImportAsync(
+            PortableSnapshot plannedSnapshot,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("simulated apply race");
     }
 }

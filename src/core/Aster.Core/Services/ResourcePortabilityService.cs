@@ -214,9 +214,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
 
         var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
+        PortableImportResult result;
         if (plan.Diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
         {
-            return new PortableImportResult
+            result = new PortableImportResult
             {
                 Status = PortableImportStatus.Failed,
                 Counts = new PortableActualImportCounts(),
@@ -224,16 +225,22 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 Diagnostics = plan.Diagnostics,
             };
         }
-
-        if (plan.HasWrites)
+        else if (plan.HasWrites)
         {
             try
             {
                 await portabilityStore.ApplyImportAsync(plan.PlannedSnapshot, cancellationToken);
+                result = new PortableImportResult
+                {
+                    Status = PortableImportStatus.Imported,
+                    Counts = plan.ActualCounts,
+                    IdentityMap = plan.IdentityMap,
+                    Diagnostics = plan.Diagnostics,
+                };
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                return new PortableImportResult
+                result = new PortableImportResult
                 {
                     Status = PortableImportStatus.Failed,
                     Counts = new PortableActualImportCounts(),
@@ -251,14 +258,16 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 };
             }
         }
-
-        var result = new PortableImportResult
+        else
         {
-            Status = plan.HasWrites ? PortableImportStatus.Imported : PortableImportStatus.NoOp,
-            Counts = plan.ActualCounts,
-            IdentityMap = plan.IdentityMap,
-            Diagnostics = plan.Diagnostics,
-        };
+            result = new PortableImportResult
+            {
+                Status = PortableImportStatus.NoOp,
+                Counts = plan.ActualCounts,
+                IdentityMap = plan.IdentityMap,
+                Diagnostics = plan.Diagnostics,
+            };
+        }
 
         try
         {

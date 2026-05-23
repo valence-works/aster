@@ -221,3 +221,86 @@ public sealed class FirstRecordingHook(LifecycleHookRecorder recorder)
 
 public sealed class SecondRecordingHook(LifecycleHookRecorder recorder)
     : RecordingResourceLifecycleHook("second", recorder);
+
+public sealed class MutatingSaveResourceHook : ResourceLifecycleHook
+{
+    public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
+        ResourceSaveLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        TryMutateAspects(context.Resource);
+        return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+    }
+
+    public override ValueTask OnAfterSaveAsync(
+        ResourceSaveLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        TryMutateAspects(context.Resource);
+        return ValueTask.CompletedTask;
+    }
+
+    private static void TryMutateAspects(Resource? resource)
+    {
+        if (resource?.Aspects is not IDictionary<string, object> aspects)
+            return;
+
+        try
+        {
+            aspects["title"] = "Mutated by hook";
+        }
+        catch (NotSupportedException)
+        {
+        }
+    }
+}
+
+public sealed class MutatingActivationVersionsHook : ResourceLifecycleHook
+{
+    public override ValueTask<LifecycleHookOutcome> OnBeforeActivateAsync(
+        ResourceActivationLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        TryMutateActiveVersions(context);
+        return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+    }
+
+    public override ValueTask OnAfterActivateAsync(
+        ResourceActivationLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        TryMutateActiveVersions(context);
+        return ValueTask.CompletedTask;
+    }
+
+    public override ValueTask<LifecycleHookOutcome> OnBeforeDeactivateAsync(
+        ResourceActivationLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        TryMutateActiveVersions(context);
+        return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+    }
+
+    public override ValueTask OnAfterDeactivateAsync(
+        ResourceActivationLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        TryMutateActiveVersions(context);
+        return ValueTask.CompletedTask;
+    }
+
+    private static void TryMutateActiveVersions(ResourceActivationLifecycleContext context)
+    {
+        if (context.ActiveVersions is not IList<int> activeVersions)
+            return;
+
+        try
+        {
+            activeVersions.Clear();
+            activeVersions.Add(999);
+        }
+        catch (NotSupportedException)
+        {
+        }
+    }
+}

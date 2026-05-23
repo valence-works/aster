@@ -62,6 +62,28 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
         Assert.Single(versions);
     }
 
+    [Fact]
+    public static async Task UpgradeAsync_HooksCannotMutatePersistedResourceAspects()
+    {
+        await using var scopedProvider = LifecycleHookTestFixtures.BuildServices(typeof(MutatingSaveResourceHook));
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedSchemaVersions = scopedProvider.GetRequiredService<IResourceSchemaVersionService>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var created = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider, version: 2);
+
+        var result = await scopedSchemaVersions.UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest
+        {
+            BaseVersion = created.Version,
+        });
+        var upgraded = result.Resource!;
+
+        Assert.Equal("Initial", upgraded.Aspects["title"]);
+        Assert.Equal("Initial", (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Aspects["title"]);
+    }
+
     private async ValueTask<Resource> CreateUpgradeableResourceAsync()
     {
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);

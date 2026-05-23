@@ -108,4 +108,23 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal(LifecycleHookException.FailedCode, exception.Code);
         Assert.NotNull(await manager.GetLatestVersionAsync(LifecycleHookTestFixtures.ResourceId));
     }
+
+    [Fact]
+    public static async Task SaveHooks_CannotMutatePersistedResourceAspects()
+    {
+        await using var scopedProvider = LifecycleHookTestFixtures.BuildServices(typeof(MutatingSaveResourceHook));
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+
+        var created = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        var updated = await scopedManager.UpdateAsync(
+            created.ResourceId,
+            LifecycleHookTestFixtures.UpdateRequest(created.Version));
+
+        Assert.Equal("Initial", created.Aspects["title"]);
+        Assert.Equal("Updated", updated.Aspects["title"]);
+        Assert.Equal("Updated", (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Aspects["title"]);
+    }
 }

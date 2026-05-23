@@ -62,6 +62,22 @@ public sealed class LifecycleDeactivationHookTests : IAsyncDisposable
         Assert.Equal(resource.Version, activeResource.Version);
     }
 
+    [Fact]
+    public static async Task DeactivateAsync_HooksCannotMutatePersistedActiveVersions()
+    {
+        await using var scopedProvider = LifecycleHookTestFixtures.BuildServices(typeof(MutatingActivationVersionsHook));
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var resource = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        await scopedManager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel);
+
+        await scopedManager.DeactivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel);
+
+        Assert.Empty(await scopedManager.GetActiveVersionsAsync(resource.ResourceId, LifecycleHookTestFixtures.Channel));
+    }
+
     private async ValueTask<Resource> CreateActiveResourceAsync()
     {
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);
