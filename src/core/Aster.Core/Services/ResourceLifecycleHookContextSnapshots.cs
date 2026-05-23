@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
@@ -25,10 +26,15 @@ internal static class ResourceLifecycleHookContextSnapshots
             ResourceExportLifecycleContext export => (TContext)(ResourceLifecycleContext)(export with
             {
                 ExportRequest = Snapshot(export.ExportRequest),
+                Snapshot = export.Snapshot is null ? null : Snapshot(export.Snapshot),
+                ExportResult = export.ExportResult is null ? null : Snapshot(export.ExportResult),
             }),
             ResourceImportLifecycleContext import => (TContext)(ResourceLifecycleContext)(import with
             {
+                Snapshot = Snapshot(import.Snapshot),
                 ImportOptions = Snapshot(import.ImportOptions),
+                Preview = import.Preview is null ? null : Snapshot(import.Preview),
+                ImportResult = import.ImportResult is null ? null : Snapshot(import.ImportResult),
             }),
             _ => context,
         };
@@ -42,6 +48,33 @@ internal static class ResourceLifecycleHookContextSnapshots
 
     public static IReadOnlyList<int> Snapshot(IReadOnlyList<int> activeVersions) =>
         new ReadOnlyCollection<int>(activeVersions.ToArray());
+
+    public static PortableSnapshot Snapshot(PortableSnapshot snapshot) =>
+        snapshot with
+        {
+            Definitions = ReadOnly(snapshot.Definitions.Select(Snapshot)),
+            Resources = ReadOnly(snapshot.Resources.Select(Snapshot)),
+            ActivationStates = ReadOnly(snapshot.ActivationStates.Select(Snapshot)),
+        };
+
+    public static ResourceDefinition Snapshot(ResourceDefinition definition) =>
+        definition with
+        {
+            AspectDefinitions = new ReadOnlyDictionary<string, AspectDefinition>(
+                definition.AspectDefinitions.ToDictionary(static pair => pair.Key, static pair => Snapshot(pair.Value), StringComparer.Ordinal)),
+        };
+
+    public static AspectDefinition Snapshot(AspectDefinition definition) =>
+        definition with
+        {
+            FacetDefinitions = ReadOnly(definition.FacetDefinitions),
+        };
+
+    public static ActivationState Snapshot(ActivationState state) =>
+        state with
+        {
+            ActiveVersions = Snapshot(state.ActiveVersions),
+        };
 
     public static PortableSnapshotExportRequest Snapshot(PortableSnapshotExportRequest request) =>
         new()
@@ -57,6 +90,28 @@ internal static class ResourceLifecycleHookContextSnapshots
         new()
         {
             CollisionMode = options.CollisionMode,
+        };
+
+    public static PortableSnapshotExportResult Snapshot(PortableSnapshotExportResult result) =>
+        result with
+        {
+            Snapshot = result.Snapshot is null ? null : Snapshot(result.Snapshot),
+            Diagnostics = ReadOnly(result.Diagnostics),
+            SkippedActivationEntries = ReadOnly(result.SkippedActivationEntries),
+        };
+
+    public static PortableImportPreview Snapshot(PortableImportPreview preview) =>
+        preview with
+        {
+            IdentityMap = ReadOnly(preview.IdentityMap),
+            Diagnostics = ReadOnly(preview.Diagnostics),
+        };
+
+    public static PortableImportResult Snapshot(PortableImportResult result) =>
+        result with
+        {
+            IdentityMap = ReadOnly(result.IdentityMap),
+            Diagnostics = ReadOnly(result.Diagnostics),
         };
 
     private static object SnapshotAspectValue(object? value) =>
@@ -98,4 +153,7 @@ internal static class ResourceLifecycleHookContextSnapshots
 
         return new ReadOnlyDictionary<object, object?>(copy);
     }
+
+    private static IReadOnlyList<T> ReadOnly<T>(IEnumerable<T> values) =>
+        new ReadOnlyCollection<T>(values.ToArray());
 }

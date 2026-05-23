@@ -60,8 +60,12 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
 
         var before = Assert.IsType<ResourceExportLifecycleContext>(recorder.Events[0].Context);
         var after = Assert.IsType<ResourceExportLifecycleContext>(recorder.Events[2].Context);
-        Assert.Same(result.Snapshot, after.Snapshot);
-        Assert.Same(result, after.ExportResult);
+        Assert.NotSame(result.Snapshot, after.Snapshot);
+        Assert.NotSame(result, after.ExportResult);
+        Assert.Equal(result.Snapshot!.FormatVersion, after.Snapshot!.FormatVersion);
+        Assert.Equal(result.Snapshot.Resources.Select(static resource => resource.ResourceId),
+            after.Snapshot.Resources.Select(static resource => resource.ResourceId));
+        Assert.Equal(result.Diagnostics, after.ExportResult!.Diagnostics);
         Assert.Equal(before.OperationId, after.OperationId);
     }
 
@@ -103,7 +107,9 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             recorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
 
         var after = Assert.IsType<ResourceImportLifecycleContext>(recorder.Events[2].Context);
-        Assert.Same(preview, after.Preview);
+        Assert.NotSame(preview, after.Preview);
+        Assert.Equal(preview.CanImport, after.Preview!.CanImport);
+        Assert.Equal(preview.Diagnostics, after.Preview.Diagnostics);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
     }
 
@@ -125,7 +131,9 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             recorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
 
         var after = Assert.IsType<ResourceImportLifecycleContext>(recorder.Events[2].Context);
-        Assert.Same(result, after.ImportResult);
+        Assert.NotSame(result, after.ImportResult);
+        Assert.Equal(result.Status, after.ImportResult!.Status);
+        Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
         Assert.NotNull(await manager.GetLatestVersionAsync("product-1"));
     }
 
@@ -178,7 +186,9 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             recorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
 
         var after = Assert.IsType<ResourceImportLifecycleContext>(recorder.Events[2].Context);
-        Assert.Same(result, after.ImportResult);
+        Assert.NotSame(result, after.ImportResult);
+        Assert.Equal(result.Status, after.ImportResult!.Status);
+        Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
     }
 
     [Fact]
@@ -199,7 +209,9 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
 
         var after = Assert.IsType<ResourceImportLifecycleContext>(scopedRecorder.Events[1].Context);
-        Assert.Same(result, after.ImportResult);
+        Assert.NotSame(result, after.ImportResult);
+        Assert.Equal(result.Status, after.ImportResult!.Status);
+        Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ImportApplyFailed);
     }
 
