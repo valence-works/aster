@@ -136,7 +136,13 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
         Type hookType)
     {
         if (outcome is null)
-            throw Failed(lifecyclePoint, hookType, "Lifecycle hook returned a null outcome.", []);
+        {
+            throw Failed(
+                lifecyclePoint,
+                hookType,
+                $"Lifecycle hook '{hookType.FullName}' returned a null outcome at '{lifecyclePoint}'.",
+                []);
+        }
 
         switch (outcome.Status)
         {

@@ -24,8 +24,8 @@ public static class AsterCoreServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<THook>();
-        services.AddSingleton<IResourceLifecycleHook>(sp => sp.GetRequiredService<THook>());
+        services.TryAddSingleton<THook>();
+        services.AddSingleton<IResourceLifecycleHook, THook>();
 
         return services;
     }

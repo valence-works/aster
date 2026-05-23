@@ -55,6 +55,7 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
     public async Task AddAsterCore_HookMayDependOnResourceManager()
     {
         await using var scopedProvider = new ServiceCollection()
+            .AddSingleton<ManagerHookRecorder>()
             .AddAsterCore()
             .AddResourceLifecycleHook<ManagerDependentHook>()
             .BuildServiceProvider();
@@ -66,8 +67,7 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
             LifecycleHookTestFixtures.DefinitionId,
             LifecycleHookTestFixtures.CreateRequest());
 
-        var hook = scopedProvider.GetRequiredService<ManagerDependentHook>();
-        Assert.True(hook.WasInvoked);
+        Assert.True(scopedProvider.GetRequiredService<ManagerHookRecorder>().WasInvoked);
     }
 
     [Fact]
@@ -91,18 +91,46 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
         Assert.True(scopedProvider.GetRequiredService<ScopedHookRecorder>().WasInvoked);
     }
 
-    private sealed class ManagerDependentHook(IResourceManager manager) : ResourceLifecycleHook
+    [Fact]
+    public async Task AddResourceLifecycleHook_DuplicateRegistrationsUseDistinctHookInstances()
     {
-        public bool WasInvoked { get; private set; }
+        await using var scopedProvider = new ServiceCollection()
+            .AddSingleton<DuplicateHookRecorder>()
+            .AddAsterCore()
+            .AddResourceLifecycleHook<DuplicateRegistrationHook>()
+            .AddResourceLifecycleHook<DuplicateRegistrationHook>()
+            .BuildServiceProvider();
 
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var manager = scopedProvider.GetRequiredService<IResourceManager>();
+
+        await manager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+
+        var hookIds = scopedProvider.GetRequiredService<DuplicateHookRecorder>().HookIds;
+        Assert.Equal(2, hookIds.Count);
+        Assert.Equal(2, hookIds.Distinct().Count());
+    }
+
+
+    private sealed class ManagerDependentHook(
+        IResourceManager manager,
+        ManagerHookRecorder recorder) : ResourceLifecycleHook
+    {
         public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
             ResourceSaveLifecycleContext context,
             CancellationToken cancellationToken = default)
         {
             Assert.NotNull(manager);
-            WasInvoked = true;
+            recorder.WasInvoked = true;
             return ValueTask.FromResult(LifecycleHookOutcome.Continue());
         }
+    }
+
+    private sealed class ManagerHookRecorder
+    {
+        public bool WasInvoked { get; set; }
     }
 
     private sealed class ScopedManagerDependentHook(
@@ -126,5 +154,21 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
     private sealed class ScopedHookRecorder
     {
         public bool WasInvoked { get; set; }
+    }
+
+    private sealed class DuplicateRegistrationHook(DuplicateHookRecorder recorder) : ResourceLifecycleHook
+    {
+        public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
+            ResourceSaveLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            recorder.HookIds.Add(GetHashCode());
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+    }
+
+    private sealed class DuplicateHookRecorder
+    {
+        public List<int> HookIds { get; } = [];
     }
 }

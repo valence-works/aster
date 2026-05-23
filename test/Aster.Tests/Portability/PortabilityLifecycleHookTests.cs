@@ -157,6 +157,55 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.NotNull(await manager.GetLatestVersionAsync("product-1"));
     }
 
+    [Fact]
+    public async Task ExportAsync_HookCannotMutateExportRequestUsedByOperation()
+    {
+        await using var scopedProvider = BuildMutatingHookProvider();
+        var scopedDefinitionStore = scopedProvider.GetRequiredService<IResourceDefinitionStore>();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+
+        await scopedDefinitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+            .WithDefinitionId("Product")
+            .Build());
+        var resource = await scopedManager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "product-1",
+        });
+        var request = new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceIds = [resource.ResourceId],
+        };
+
+        var result = await scopedPortability.ExportAsync(request);
+
+        Assert.Equal(PortableExportScopeMode.SelectedResources, request.ScopeMode);
+        Assert.Equal([resource.ResourceId], request.ResourceIds);
+        var exported = Assert.Single(result.Snapshot!.Resources);
+        Assert.Equal(resource.ResourceId, exported.ResourceId);
+    }
+
+    [Fact]
+    public async Task PreviewAndImport_HookCannotMutateImportOptionsUsedByPlanning()
+    {
+        await using var scopedProvider = BuildMutatingHookProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+        await scopedPortability.ImportAsync(CreateSnapshotWithOwner("target-owner"));
+        var options = new PortableImportOptions { CollisionMode = PortableImportCollisionMode.Strict };
+        var incoming = CreateSnapshotWithOwner("incoming-owner");
+
+        var preview = await scopedPortability.PreviewImportAsync(incoming, options);
+        var result = await scopedPortability.ImportAsync(incoming, options);
+
+        Assert.Equal(PortableImportCollisionMode.Strict, options.CollisionMode);
+        Assert.False(preview.CanImport);
+        Assert.Contains(preview.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.DivergentIdentityCollision);
+        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        Assert.Null(await scopedManager.GetLatestVersionAsync("product-1__imported"));
+    }
+
     private async ValueTask<Resource> CreateResourceAsync()
     {
         await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
@@ -208,5 +257,51 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
                 },
             ],
         };
+    }
+
+    private static PortableSnapshot CreateSnapshotWithOwner(string owner)
+    {
+        var snapshot = CreateSnapshot();
+        return snapshot with
+        {
+            Resources =
+            [
+                snapshot.Resources[0] with { Owner = owner },
+            ],
+        };
+    }
+
+    private static ServiceProvider BuildMutatingHookProvider() =>
+        new ServiceCollection()
+            .AddAsterCore()
+            .AddResourceLifecycleHook<MutatingPortabilityHook>()
+            .BuildServiceProvider();
+
+    private sealed class MutatingPortabilityHook : ResourceLifecycleHook
+    {
+        public override ValueTask<LifecycleHookOutcome> OnBeforeExportAsync(
+            ResourceExportLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            context.ExportRequest.ScopeMode = PortableExportScopeMode.DefinitionsOnly;
+            context.ExportRequest.ResourceIds.Clear();
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+
+        public override ValueTask<LifecycleHookOutcome> OnBeforePreviewImportAsync(
+            ResourceImportLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            context.ImportOptions.CollisionMode = PortableImportCollisionMode.RemapDivergent;
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+
+        public override ValueTask<LifecycleHookOutcome> OnBeforeImportAsync(
+            ResourceImportLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            context.ImportOptions.CollisionMode = PortableImportCollisionMode.RemapDivergent;
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
     }
 }

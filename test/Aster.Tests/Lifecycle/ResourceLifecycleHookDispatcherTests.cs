@@ -48,6 +48,18 @@ public sealed class ResourceLifecycleHookDispatcherTests
     }
 
     [Fact]
+    public async Task InvokeBeforeSaveAsync_NullOutcomeNamesHookAndLifecyclePoint()
+    {
+        var dispatcher = CreateDispatcher(new NullOutcomeHook());
+
+        var exception = await Assert.ThrowsAsync<LifecycleHookException>(() =>
+            dispatcher.InvokeBeforeSaveAsync(CreateSaveContext(LifecyclePoint.BeforeSave)).AsTask());
+
+        Assert.Contains(nameof(NullOutcomeHook), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(LifecyclePoint.BeforeSave), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task InvokeAfterSaveAsync_WrapsHookFailures()
     {
         var recorder = new LifecycleHookRecorder { ThrowAt = LifecyclePoint.AfterSave };
@@ -89,5 +101,13 @@ public sealed class ResourceLifecycleHookDispatcherTests
             services.AddSingleton(hook);
 
         return new ResourceLifecycleHookDispatcher(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+    }
+
+    private sealed class NullOutcomeHook : ResourceLifecycleHook
+    {
+        public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
+            ResourceSaveLifecycleContext context,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<LifecycleHookOutcome>(null!);
     }
 }
