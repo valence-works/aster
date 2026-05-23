@@ -90,6 +90,35 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
     }
 
     [Fact]
+    public static async Task ExportAsync_ReadFailureRunsAfterExportHook()
+    {
+        await using var scopedProvider = BuildThrowingReadHookProvider();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+
+        var result = await scopedPortability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceIds = ["product-1"],
+        });
+
+        Assert.Null(result.Snapshot);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ExportReadFailed);
+        Assert.Equal(
+            [
+                ("first", LifecyclePoint.BeforeExport),
+                ("first", LifecyclePoint.AfterExport),
+            ],
+            scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+
+        var after = Assert.IsType<ResourceExportLifecycleContext>(scopedRecorder.Events[1].Context);
+        Assert.Null(after.Snapshot);
+        Assert.NotSame(result, after.ExportResult);
+        Assert.Equal(result.Diagnostics, after.ExportResult!.Diagnostics);
+    }
+
+
+    [Fact]
     public async Task PreviewImportAsync_RunsHooksAndDoesNotMutateStore()
     {
         var snapshot = CreateSnapshot();
@@ -381,6 +410,14 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             .AddResourceLifecycleHook<FirstRecordingHook>()
             .BuildServiceProvider();
 
+    private static ServiceProvider BuildThrowingReadHookProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<IResourcePortabilityStore, ThrowingReadPortabilityStore>()
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
+
     private sealed class MutatingPortabilityHook : ResourceLifecycleHook
     {
         public override ValueTask<LifecycleHookOutcome> OnBeforeExportAsync(
@@ -451,5 +488,23 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             PortableSnapshot plannedSnapshot,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("simulated apply race");
+    }
+
+    private sealed class ThrowingReadPortabilityStore : IResourcePortabilityStore
+    {
+        public ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
+            PortableStoreReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("simulated export race");
+
+        public ValueTask<PortableTargetState> ReadTargetStateAsync(
+            PortableSnapshot snapshot,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new PortableTargetState());
+
+        public ValueTask ApplyImportAsync(
+            PortableSnapshot plannedSnapshot,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.CompletedTask;
     }
 }

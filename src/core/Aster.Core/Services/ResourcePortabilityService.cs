@@ -60,34 +60,55 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             return new PortableSnapshotExportResult { Diagnostics = [ToPortableDiagnostic(exception)] };
         }
 
-        var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
-            new PortableStoreReadRequest { ExportRequest = request },
-            cancellationToken);
+        PortableSnapshot? snapshot = null;
+        PortableSnapshotExportResult result;
+        try
+        {
+            var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
+                new PortableStoreReadRequest { ExportRequest = request },
+                cancellationToken);
 
-        var skippedActivationDiagnostics = storeSnapshot.SkippedActivationEntries
-            .Select(static entry => new PortableDiagnostic
+            var skippedActivationDiagnostics = storeSnapshot.SkippedActivationEntries
+                .Select(static entry => new PortableDiagnostic
+                {
+                    Code = PortableDiagnosticCodes.SkippedActivationEntry,
+                    Severity = PortableDiagnosticSeverity.Warning,
+                    Path = $"activationStates/{entry.ResourceId}/{entry.Channel}/{entry.Version}",
+                    Message = $"Activation entry for resource '{entry.ResourceId}' version {entry.Version} in channel '{entry.Channel}' was skipped because that resource version is outside the export scope.",
+                })
+                .ToList();
+
+            snapshot = new PortableSnapshot
             {
-                Code = PortableDiagnosticCodes.SkippedActivationEntry,
-                Severity = PortableDiagnosticSeverity.Warning,
-                Path = $"activationStates/{entry.ResourceId}/{entry.Channel}/{entry.Version}",
-                Message = $"Activation entry for resource '{entry.ResourceId}' version {entry.Version} in channel '{entry.Channel}' was skipped because that resource version is outside the export scope.",
-            })
-            .ToList();
+                FormatVersion = PortableSnapshot.CurrentFormatVersion,
+                Definitions = storeSnapshot.Definitions,
+                Resources = storeSnapshot.Resources,
+                ActivationStates = storeSnapshot.ActivationStates,
+            };
 
-        var snapshot = new PortableSnapshot
+            result = new PortableSnapshotExportResult
+            {
+                Snapshot = snapshot,
+                Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
+                SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            FormatVersion = PortableSnapshot.CurrentFormatVersion,
-            Definitions = storeSnapshot.Definitions,
-            Resources = storeSnapshot.Resources,
-            ActivationStates = storeSnapshot.ActivationStates,
-        };
-
-        var result = new PortableSnapshotExportResult
-        {
-            Snapshot = snapshot,
-            Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
-            SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
-        };
+            result = new PortableSnapshotExportResult
+            {
+                Diagnostics =
+                [
+                    .. diagnostics,
+                    new PortableDiagnostic
+                    {
+                        Code = PortableDiagnosticCodes.ExportReadFailed,
+                        Severity = PortableDiagnosticSeverity.Error,
+                        Message = $"Export read failed after validation completed: {exception.Message}",
+                    },
+                ],
+            };
+        }
 
         try
         {

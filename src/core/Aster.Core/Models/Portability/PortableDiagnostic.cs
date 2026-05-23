@@ -108,6 +108,11 @@ public static class PortableDiagnosticCodes
     public const string ImportApplyFailed = "import-apply-failed";
 
     /// <summary>
+    /// Export snapshot read failed after validation completed.
+    /// </summary>
+    public const string ExportReadFailed = "export-read-failed";
+
+    /// <summary>
     /// Lifecycle hook rejected an operation before mutation.
     /// </summary>
     public const string LifecycleHookRejected = "lifecycle-hook-rejected";
