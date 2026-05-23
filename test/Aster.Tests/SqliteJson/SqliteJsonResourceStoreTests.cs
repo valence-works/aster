@@ -5,6 +5,7 @@ using Aster.Core.Extensions;
 using Aster.Core.Services;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Tests.Lifecycle;
 using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -235,7 +236,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
             store,
             store,
             new GuidIdentityGenerator(),
-            new ResourceLifecycleHookDispatcher(new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()),
+            new NoopResourceLifecycleHookDispatcher(),
             NullLogger<DefaultResourceManager>.Instance);
 
     private static string GetTitle(Resource resource)
