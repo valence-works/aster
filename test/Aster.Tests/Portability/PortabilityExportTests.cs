@@ -55,6 +55,7 @@ public sealed class PortabilityExportTests : IDisposable
         });
 
         Assert.Null(result.Snapshot);
+        Assert.Equal(3, result.Diagnostics.Count);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Path == "definitionIds");
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Path == "resourceIds");
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Path == "specificResourceVersions");

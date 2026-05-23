@@ -92,10 +92,9 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task AddResourceLifecycleHook_DuplicateRegistrationsUseDistinctHookInstances()
+    public async Task AddResourceLifecycleHook_DuplicateRegistrationsInvokeResolvableHookInstance()
     {
         await using var scopedProvider = new ServiceCollection()
-            .AddSingleton<DuplicateHookRecorder>()
             .AddAsterCore()
             .AddResourceLifecycleHook<DuplicateRegistrationHook>()
             .AddResourceLifecycleHook<DuplicateRegistrationHook>()
@@ -108,9 +107,8 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
             LifecycleHookTestFixtures.DefinitionId,
             LifecycleHookTestFixtures.CreateRequest());
 
-        var hookIds = scopedProvider.GetRequiredService<DuplicateHookRecorder>().HookIds;
-        Assert.Equal(2, hookIds.Count);
-        Assert.Equal(2, hookIds.Distinct().Count());
+        var hook = scopedProvider.GetRequiredService<DuplicateRegistrationHook>();
+        Assert.Equal(2, hook.Invocations);
     }
 
 
@@ -156,19 +154,16 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
         public bool WasInvoked { get; set; }
     }
 
-    private sealed class DuplicateRegistrationHook(DuplicateHookRecorder recorder) : ResourceLifecycleHook
+    private sealed class DuplicateRegistrationHook : ResourceLifecycleHook
     {
+        public int Invocations { get; private set; }
+
         public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
             ResourceSaveLifecycleContext context,
             CancellationToken cancellationToken = default)
         {
-            recorder.HookIds.Add(GetHashCode());
+            Invocations++;
             return ValueTask.FromResult(LifecycleHookOutcome.Continue());
         }
-    }
-
-    private sealed class DuplicateHookRecorder
-    {
-        public List<int> HookIds { get; } = [];
     }
 }

@@ -635,24 +635,29 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             diagnostics.Add(InvalidExportScope("resourceVersionScope", "Resource version scope must be a defined value."));
         }
 
-        if (request.DefinitionIds is null)
+        var definitionIdsNull = request.DefinitionIds is null;
+        var resourceIdsNull = request.ResourceIds is null;
+        var specificResourceVersionsNull = request.SpecificResourceVersions is null;
+
+        if (definitionIdsNull)
         {
             diagnostics.Add(InvalidExportScope("definitionIds", "Export definition IDs collection cannot be null."));
         }
 
-        if (request.ResourceIds is null)
+        if (resourceIdsNull)
         {
             diagnostics.Add(InvalidExportScope("resourceIds", "Export resource IDs collection cannot be null."));
         }
 
-        if (request.SpecificResourceVersions is null)
+        if (specificResourceVersionsNull)
         {
             diagnostics.Add(InvalidExportScope("specificResourceVersions", "Specific resource versions collection cannot be null."));
         }
 
         if (request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
             && request.ScopeMode != PortableExportScopeMode.DefinitionsOnly
-            && (request.SpecificResourceVersions?.Count ?? 0) == 0)
+            && !specificResourceVersionsNull
+            && request.SpecificResourceVersions!.Count == 0)
         {
             diagnostics.Add(InvalidExportScope(
                 "specificResourceVersions",
@@ -663,7 +668,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             case PortableExportScopeMode.DefinitionsOnly:
             case PortableExportScopeMode.DefinitionWithResources:
-                if ((request.DefinitionIds?.Count ?? 0) == 0)
+                if (!definitionIdsNull && request.DefinitionIds!.Count == 0)
                 {
                     diagnostics.Add(InvalidExportScope(
                         "definitionIds",
@@ -674,7 +679,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
             case PortableExportScopeMode.SelectedResources:
                 if (request.ResourceVersionScope != PortableResourceVersionScope.SpecificVersions
-                    && (request.ResourceIds?.Count ?? 0) == 0)
+                    && !resourceIdsNull
+                    && request.ResourceIds!.Count == 0)
                 {
                     diagnostics.Add(InvalidExportScope(
                         "resourceIds",

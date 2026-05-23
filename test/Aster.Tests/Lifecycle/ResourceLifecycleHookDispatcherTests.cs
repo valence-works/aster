@@ -6,8 +6,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Lifecycle;
 
-public sealed class ResourceLifecycleHookDispatcherTests
+public sealed class ResourceLifecycleHookDispatcherTests : IAsyncDisposable
 {
+    private readonly List<ServiceProvider> providers = [];
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var provider in providers)
+            await provider.DisposeAsync();
+    }
+
     [Fact]
     public async Task InvokeBeforeSaveAsync_RunsHooksInRegistrationOrder()
     {
@@ -94,13 +102,15 @@ public sealed class ResourceLifecycleHookDispatcherTests
             ResourceId = LifecycleHookTestFixtures.ResourceId,
         };
 
-    private static ResourceLifecycleHookDispatcher CreateDispatcher(params IResourceLifecycleHook[] hooks)
+    private ResourceLifecycleHookDispatcher CreateDispatcher(params IResourceLifecycleHook[] hooks)
     {
         var services = new ServiceCollection();
         foreach (var hook in hooks)
             services.AddSingleton(hook);
 
-        return new ResourceLifecycleHookDispatcher(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+        var provider = services.BuildServiceProvider();
+        providers.Add(provider);
+        return new ResourceLifecycleHookDispatcher(provider.GetRequiredService<IServiceScopeFactory>());
     }
 
     private sealed class NullOutcomeHook : ResourceLifecycleHook
