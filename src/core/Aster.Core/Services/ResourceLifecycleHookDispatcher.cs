@@ -10,15 +10,15 @@ namespace Aster.Core.Services;
 /// </summary>
 public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDispatcher
 {
-    private readonly IServiceProvider serviceProvider;
+    private readonly IServiceScopeFactory scopeFactory;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourceLifecycleHookDispatcher"/>.
     /// </summary>
-    public ResourceLifecycleHookDispatcher(IServiceProvider serviceProvider)
+    public ResourceLifecycleHookDispatcher(IServiceScopeFactory scopeFactory)
     {
-        ArgumentNullException.ThrowIfNull(serviceProvider);
-        this.serviceProvider = serviceProvider;
+        ArgumentNullException.ThrowIfNull(scopeFactory);
+        this.scopeFactory = scopeFactory;
     }
 
     /// <inheritdoc />
@@ -77,7 +77,8 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        foreach (var hook in serviceProvider.GetServices<IResourceLifecycleHook>())
+        using var scope = scopeFactory.CreateScope();
+        foreach (var hook in scope.ServiceProvider.GetServices<IResourceLifecycleHook>())
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -108,7 +109,8 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        foreach (var hook in serviceProvider.GetServices<IResourceLifecycleHook>())
+        using var scope = scopeFactory.CreateScope();
+        foreach (var hook in scope.ServiceProvider.GetServices<IResourceLifecycleHook>())
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.CancellationToken.ThrowIfCancellationRequested();

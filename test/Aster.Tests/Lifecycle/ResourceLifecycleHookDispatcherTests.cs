@@ -88,6 +88,6 @@ public sealed class ResourceLifecycleHookDispatcherTests
         foreach (var hook in hooks)
             services.AddSingleton(hook);
 
-        return new ResourceLifecycleHookDispatcher(services.BuildServiceProvider());
+        return new ResourceLifecycleHookDispatcher(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
     }
 }

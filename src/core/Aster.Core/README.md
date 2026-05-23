@@ -286,7 +286,7 @@ public sealed class AuditLifecycleHook : ResourceLifecycleHook
 }
 ```
 
-Hook registration is ordinary DI registration. Aster does not scan assemblies, use attributes, introduce a provider registry, or require storage providers to implement hook-specific behavior.
+Hook registration is ordinary DI registration. `AddResourceLifecycleHook<T>()` registers hooks as singletons for the common case; advanced hosts can manually register hooks with other DI lifetimes, and the dispatcher resolves hooks from an invocation scope. Aster does not scan assemblies, use attributes, introduce a provider registry, or require storage providers to implement hook-specific behavior.
 
 ---
 

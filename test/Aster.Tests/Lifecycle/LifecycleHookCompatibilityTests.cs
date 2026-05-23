@@ -70,6 +70,27 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
         Assert.True(hook.WasInvoked);
     }
 
+    [Fact]
+    public async Task AddAsterCore_ManualScopedHookResolvesFromInvocationScope()
+    {
+        await using var scopedProvider = new ServiceCollection()
+            .AddSingleton<ScopedHookRecorder>()
+            .AddScoped<ScopedDependency>()
+            .AddAsterCore()
+            .AddScoped<ScopedManagerDependentHook>()
+            .AddScoped<IResourceLifecycleHook>(sp => sp.GetRequiredService<ScopedManagerDependentHook>())
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var manager = scopedProvider.GetRequiredService<IResourceManager>();
+
+        await manager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+
+        Assert.True(scopedProvider.GetRequiredService<ScopedHookRecorder>().WasInvoked);
+    }
+
     private sealed class ManagerDependentHook(IResourceManager manager) : ResourceLifecycleHook
     {
         public bool WasInvoked { get; private set; }
@@ -82,5 +103,28 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
             WasInvoked = true;
             return ValueTask.FromResult(LifecycleHookOutcome.Continue());
         }
+    }
+
+    private sealed class ScopedManagerDependentHook(
+        ScopedDependency dependency,
+        IResourceManager manager,
+        ScopedHookRecorder recorder) : ResourceLifecycleHook
+    {
+        public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
+            ResourceSaveLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.NotNull(dependency);
+            Assert.NotNull(manager);
+            recorder.WasInvoked = true;
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+    }
+
+    private sealed class ScopedDependency;
+
+    private sealed class ScopedHookRecorder
+    {
+        public bool WasInvoked { get; set; }
     }
 }
