@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +79,29 @@ public sealed class LifecycleDeactivationHookTests : IAsyncDisposable
         Assert.Empty(await scopedManager.GetActiveVersionsAsync(resource.ResourceId, LifecycleHookTestFixtures.Channel));
     }
 
+    [Fact]
+    public static async Task ActivationWriteFailure_RunsAfterDeactivateHook()
+    {
+        await using var scopedProvider = BuildThrowingWriterProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var resource = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        await scopedManager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel);
+        scopedRecorder.Events.Clear();
+        writer.ThrowActivationUpdate = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedManager.DeactivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel).AsTask());
+
+        Assert.Equal(
+            [LifecyclePoint.BeforeDeactivate, LifecyclePoint.AfterDeactivate],
+            scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+    }
+
     private async ValueTask<Resource> CreateActiveResourceAsync()
     {
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);
@@ -87,4 +111,13 @@ public sealed class LifecycleDeactivationHookTests : IAsyncDisposable
         await manager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel);
         return resource;
     }
+
+    private static ServiceProvider BuildThrowingWriterProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<SwitchableResourceVersionWriter>()
+            .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
 }

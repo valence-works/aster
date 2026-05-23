@@ -114,14 +114,30 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(resource),
         }, cancellationToken);
 
-        var persisted = await versionWriter.SaveVersionAsync(resource, cancellationToken);
-        await lifecycleHooks.InvokeAfterSaveAsync(new ResourceSaveLifecycleContext
+        var afterContext = new ResourceSaveLifecycleContext
         {
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterSave,
             CancellationToken = cancellationToken,
             SaveKind = ResourceSaveKind.Create,
             DefinitionId = definitionId,
+            ResourceId = resourceId,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(resource),
+        };
+
+        Resource persisted;
+        try
+        {
+            persisted = await versionWriter.SaveVersionAsync(resource, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            throw;
+        }
+
+        await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
+        {
             ResourceId = persisted.ResourceId,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
@@ -171,16 +187,33 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(updated),
         }, cancellationToken);
 
-        var persisted = await versionWriter.SaveVersionAsync(updated, cancellationToken);
-        await lifecycleHooks.InvokeAfterSaveAsync(new ResourceSaveLifecycleContext
+        var afterContext = new ResourceSaveLifecycleContext
         {
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterSave,
             CancellationToken = cancellationToken,
             SaveKind = ResourceSaveKind.Update,
+            DefinitionId = updated.DefinitionId,
+            ResourceId = updated.ResourceId,
+            BaseVersion = request.BaseVersion,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(updated),
+        };
+
+        Resource persisted;
+        try
+        {
+            persisted = await versionWriter.SaveVersionAsync(updated, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            throw;
+        }
+
+        await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
+        {
             DefinitionId = persisted.DefinitionId,
             ResourceId = persisted.ResourceId,
-            BaseVersion = request.BaseVersion,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
 
@@ -261,8 +294,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ActiveVersions = hookActiveVersions,
         }, cancellationToken);
 
-        await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
-        await lifecycleHooks.InvokeAfterActivateAsync(new ResourceActivationLifecycleContext
+        var afterContext = new ResourceActivationLifecycleContext
         {
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterActivate,
@@ -272,7 +304,19 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
             ActiveVersions = hookActiveVersions,
-        }, cancellationToken);
+        };
+
+        try
+        {
+            await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await TryInvokeAfterActivateAsync(afterContext, cancellationToken);
+            throw;
+        }
+
+        await lifecycleHooks.InvokeAfterActivateAsync(afterContext, cancellationToken);
 
         LogResourceActivated(resourceId, version, channel);
     }
@@ -306,8 +350,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ActiveVersions = hookActiveVersions,
         }, cancellationToken);
 
-        await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
-        await lifecycleHooks.InvokeAfterDeactivateAsync(new ResourceActivationLifecycleContext
+        var afterContext = new ResourceActivationLifecycleContext
         {
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterDeactivate,
@@ -316,7 +359,19 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Version = version,
             Channel = channel,
             ActiveVersions = hookActiveVersions,
-        }, cancellationToken);
+        };
+
+        try
+        {
+            await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await TryInvokeAfterDeactivateAsync(afterContext, cancellationToken);
+            throw;
+        }
+
+        await lifecycleHooks.InvokeAfterDeactivateAsync(afterContext, cancellationToken);
 
         LogResourceDeactivated(resourceId, version, channel);
     }
@@ -372,6 +427,45 @@ public sealed partial class DefaultResourceManager : IResourceManager
         };
 
         await versionWriter.UpdateActivationAsync(resourceId, channel, state, cancellationToken);
+    }
+
+    private async ValueTask TryInvokeAfterSaveAsync(
+        ResourceSaveLifecycleContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await lifecycleHooks.InvokeAfterSaveAsync(context, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+        }
+    }
+
+    private async ValueTask TryInvokeAfterActivateAsync(
+        ResourceActivationLifecycleContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await lifecycleHooks.InvokeAfterActivateAsync(context, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+        }
+    }
+
+    private async ValueTask TryInvokeAfterDeactivateAsync(
+        ResourceActivationLifecycleContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await lifecycleHooks.InvokeAfterDeactivateAsync(context, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+        }
     }
 
     [LoggerMessage(EventId = 1000, Level = LogLevel.Information,

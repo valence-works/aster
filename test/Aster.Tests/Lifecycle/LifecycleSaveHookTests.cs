@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
@@ -143,4 +144,50 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal("Updated", updated.Aspects["title"]);
         Assert.Equal("Updated", (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Aspects["title"]);
     }
+
+    [Fact]
+    public static async Task SaveVersionFailure_RunsAfterSaveHook()
+    {
+        await using var scopedProvider = BuildThrowingWriterProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+
+        writer.ThrowSave = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedManager.CreateAsync(
+                LifecycleHookTestFixtures.DefinitionId,
+                LifecycleHookTestFixtures.CreateRequest()).AsTask());
+
+        Assert.Equal(
+            [LifecyclePoint.BeforeSave, LifecyclePoint.AfterSave],
+            scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+
+        writer.ThrowSave = false;
+        scopedRecorder.Events.Clear();
+        var created = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        scopedRecorder.Events.Clear();
+        writer.ThrowSave = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedManager.UpdateAsync(
+                created.ResourceId,
+                LifecycleHookTestFixtures.UpdateRequest(created.Version)).AsTask());
+
+        Assert.Equal(
+            [LifecyclePoint.BeforeSave, LifecyclePoint.AfterSave],
+            scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+    }
+
+    private static ServiceProvider BuildThrowingWriterProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<SwitchableResourceVersionWriter>()
+            .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
 }

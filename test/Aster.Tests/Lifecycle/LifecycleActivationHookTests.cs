@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,6 +86,28 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
         Assert.Equal(resource.Version, activeResource.Version);
     }
 
+    [Fact]
+    public static async Task ActivationWriteFailure_RunsAfterActivateHook()
+    {
+        await using var scopedProvider = BuildThrowingWriterProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var resource = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        scopedRecorder.Events.Clear();
+        writer.ThrowActivationUpdate = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedManager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel).AsTask());
+
+        Assert.Equal(
+            [LifecyclePoint.BeforeActivate, LifecyclePoint.AfterActivate],
+            scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+    }
+
     private async ValueTask<Resource> CreateTwoVersionResourceWithFirstVersionActiveAsync()
     {
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);
@@ -94,4 +117,13 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
         await manager.ActivateAsync(v1.ResourceId, v1.Version, LifecycleHookTestFixtures.Channel);
         return await manager.UpdateAsync(v1.ResourceId, LifecycleHookTestFixtures.UpdateRequest(v1.Version));
     }
+
+    private static ServiceProvider BuildThrowingWriterProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<SwitchableResourceVersionWriter>()
+            .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
 }

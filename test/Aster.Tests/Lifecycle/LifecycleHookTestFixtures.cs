@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
+using Aster.Core.InMemory;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
@@ -313,5 +314,34 @@ public sealed class MutatingActivationVersionsHook : ResourceLifecycleHook
         catch (NotSupportedException)
         {
         }
+    }
+}
+
+public sealed class SwitchableResourceVersionWriter(InMemoryResourceStore inner) : IResourceVersionWriter
+{
+    public bool ThrowSave { get; set; }
+
+    public bool ThrowActivationUpdate { get; set; }
+
+    public ValueTask<Resource> SaveVersionAsync(
+        Resource resource,
+        CancellationToken cancellationToken = default)
+    {
+        if (ThrowSave)
+            throw new InvalidOperationException("simulated save failure");
+
+        return inner.SaveVersionAsync(resource, cancellationToken);
+    }
+
+    public ValueTask<ActivationState> UpdateActivationAsync(
+        string resourceId,
+        string channel,
+        ActivationState state,
+        CancellationToken cancellationToken = default)
+    {
+        if (ThrowActivationUpdate)
+            throw new InvalidOperationException("simulated activation failure");
+
+        return inner.UpdateActivationAsync(resourceId, channel, state, cancellationToken);
     }
 }
