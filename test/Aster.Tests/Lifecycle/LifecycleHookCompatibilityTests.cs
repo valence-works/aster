@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
+using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,5 +49,38 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
 
         var import = await portability.ImportAsync(export.Snapshot);
         Assert.Equal(PortableImportStatus.NoOp, import.Status);
+    }
+
+    [Fact]
+    public async Task AddAsterCore_HookMayDependOnResourceManager()
+    {
+        await using var scopedProvider = new ServiceCollection()
+            .AddAsterCore()
+            .AddResourceLifecycleHook<ManagerDependentHook>()
+            .BuildServiceProvider();
+
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var manager = scopedProvider.GetRequiredService<IResourceManager>();
+
+        await manager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+
+        var hook = scopedProvider.GetRequiredService<ManagerDependentHook>();
+        Assert.True(hook.WasInvoked);
+    }
+
+    private sealed class ManagerDependentHook(IResourceManager manager) : ResourceLifecycleHook
+    {
+        public bool WasInvoked { get; private set; }
+
+        public override ValueTask<LifecycleHookOutcome> OnBeforeSaveAsync(
+            ResourceSaveLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.NotNull(manager);
+            WasInvoked = true;
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
     }
 }

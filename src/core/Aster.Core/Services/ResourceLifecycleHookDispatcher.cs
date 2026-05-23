@@ -1,6 +1,7 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Lifecycle;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Core.Services;
 
@@ -9,15 +10,15 @@ namespace Aster.Core.Services;
 /// </summary>
 public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDispatcher
 {
-    private readonly IReadOnlyList<IResourceLifecycleHook> hooks;
+    private readonly IServiceProvider serviceProvider;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourceLifecycleHookDispatcher"/>.
     /// </summary>
-    public ResourceLifecycleHookDispatcher(IEnumerable<IResourceLifecycleHook> hooks)
+    public ResourceLifecycleHookDispatcher(IServiceProvider serviceProvider)
     {
-        ArgumentNullException.ThrowIfNull(hooks);
-        this.hooks = hooks.ToArray();
+        ArgumentNullException.ThrowIfNull(serviceProvider);
+        this.serviceProvider = serviceProvider;
     }
 
     /// <inheritdoc />
@@ -76,7 +77,7 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        foreach (var hook in hooks)
+        foreach (var hook in serviceProvider.GetServices<IResourceLifecycleHook>())
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -107,7 +108,7 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        foreach (var hook in hooks)
+        foreach (var hook in serviceProvider.GetServices<IResourceLifecycleHook>())
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.CancellationToken.ThrowIfCancellationRequested();

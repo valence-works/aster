@@ -402,7 +402,7 @@ public sealed class PortabilityImportTests : IDisposable
     {
         var service = new ResourcePortabilityService(
             new ThrowingApplyPortabilityStore(),
-            new ResourceLifecycleHookDispatcher([]));
+            new ResourceLifecycleHookDispatcher(new ServiceCollection().BuildServiceProvider()));
 
         var result = await service.ImportAsync(CreateSnapshot());
 
