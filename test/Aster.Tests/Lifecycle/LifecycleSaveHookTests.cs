@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -118,12 +119,25 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
 
         var created = await scopedManager.CreateAsync(
             LifecycleHookTestFixtures.DefinitionId,
-            LifecycleHookTestFixtures.CreateRequest());
+            new CreateResourceRequest
+            {
+                ResourceId = LifecycleHookTestFixtures.ResourceId,
+                InitialAspects = new Dictionary<string, object>
+                {
+                    ["title"] = "Initial",
+                    ["details"] = new Dictionary<string, object>
+                    {
+                        ["name"] = "Original nested value",
+                    },
+                },
+            });
         var updated = await scopedManager.UpdateAsync(
             created.ResourceId,
             LifecycleHookTestFixtures.UpdateRequest(created.Version));
 
         Assert.Equal("Initial", created.Aspects["title"]);
+        var details = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object>>(created.Aspects["details"]);
+        Assert.Equal("Original nested value", details["name"]);
         Assert.Equal("Updated", updated.Aspects["title"]);
         Assert.Equal("Updated", (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Aspects["title"]);
     }

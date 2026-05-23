@@ -248,6 +248,11 @@ public sealed class MutatingSaveResourceHook : ResourceLifecycleHook
         try
         {
             aspects["title"] = "Mutated by hook";
+            if (aspects.TryGetValue("details", out var details)
+                && details is IDictionary<string, object> detailsDictionary)
+            {
+                detailsDictionary["name"] = "Nested mutation by hook";
+            }
         }
         catch (NotSupportedException)
         {

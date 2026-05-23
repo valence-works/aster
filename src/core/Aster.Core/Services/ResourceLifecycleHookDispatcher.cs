@@ -82,11 +82,12 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.CancellationToken.ThrowIfCancellationRequested();
+            var hookContext = ResourceLifecycleHookContextSnapshots.Snapshot(context);
 
             LifecycleHookOutcome outcome;
             try
             {
-                outcome = await invoke(hook, context, cancellationToken);
+                outcome = await invoke(hook, hookContext, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -114,10 +115,11 @@ public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDisp
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.CancellationToken.ThrowIfCancellationRequested();
+            var hookContext = ResourceLifecycleHookContextSnapshots.Snapshot(context);
 
             try
             {
-                await invoke(hook, context, cancellationToken);
+                await invoke(hook, hookContext, cancellationToken);
             }
             catch (OperationCanceledException)
             {

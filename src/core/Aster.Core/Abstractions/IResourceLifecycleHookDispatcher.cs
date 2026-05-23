@@ -5,6 +5,12 @@ namespace Aster.Core.Abstractions;
 /// <summary>
 /// Coordinates deterministic lifecycle hook invocation.
 /// </summary>
+/// <remarks>
+/// The default dispatcher resolves hooks from a fresh dependency-injection scope for each before or after dispatch call.
+/// Hooks registered with <c>AddResourceLifecycleHook&lt;THook&gt;()</c> are singletons and preserve instance state across
+/// paired before/after calls. Manually registered scoped or transient hooks MUST use <c>OperationId</c> or external state
+/// for correlation rather than relying on the same hook instance being reused.
+/// </remarks>
 public interface IResourceLifecycleHookDispatcher
 {
     /// <summary>

@@ -45,7 +45,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             return new PortableSnapshotExportResult { Diagnostics = diagnostics };
 
         var operationId = Guid.NewGuid();
-        var hookRequest = CopyExportRequest(request);
         try
         {
             await lifecycleHooks.InvokeBeforeExportAsync(new ResourceExportLifecycleContext
@@ -53,7 +52,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.BeforeExport,
                 CancellationToken = cancellationToken,
-                ExportRequest = hookRequest,
+                ExportRequest = ResourceLifecycleHookContextSnapshots.Snapshot(request),
             }, cancellationToken);
         }
         catch (LifecycleHookException exception)
@@ -97,7 +96,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterExport,
                 CancellationToken = cancellationToken,
-                ExportRequest = CopyExportRequest(request),
+                ExportRequest = ResourceLifecycleHookContextSnapshots.Snapshot(request),
                 Snapshot = snapshot,
                 ExportResult = result,
             }, cancellationToken);
@@ -136,7 +135,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         options ??= new PortableImportOptions();
 
         var operationId = Guid.NewGuid();
-        var hookOptions = CopyImportOptions(options);
         try
         {
             await lifecycleHooks.InvokeBeforePreviewImportAsync(new ResourceImportLifecycleContext
@@ -145,7 +143,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 LifecyclePoint = LifecyclePoint.BeforePreviewImport,
                 CancellationToken = cancellationToken,
                 Snapshot = snapshot,
-                ImportOptions = hookOptions,
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
             }, cancellationToken);
         }
         catch (LifecycleHookException exception)
@@ -170,7 +168,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 LifecyclePoint = LifecyclePoint.AfterPreviewImport,
                 CancellationToken = cancellationToken,
                 Snapshot = snapshot,
-                ImportOptions = CopyImportOptions(options),
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
                 Preview = preview,
             }, cancellationToken);
         }
@@ -196,7 +194,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         options ??= new PortableImportOptions();
 
         var operationId = Guid.NewGuid();
-        var hookOptions = CopyImportOptions(options);
         try
         {
             await lifecycleHooks.InvokeBeforeImportAsync(new ResourceImportLifecycleContext
@@ -205,7 +202,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 LifecyclePoint = LifecyclePoint.BeforeImport,
                 CancellationToken = cancellationToken,
                 Snapshot = snapshot,
-                ImportOptions = hookOptions,
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
             }, cancellationToken);
         }
         catch (LifecycleHookException exception)
@@ -277,7 +274,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 LifecyclePoint = LifecyclePoint.AfterImport,
                 CancellationToken = cancellationToken,
                 Snapshot = snapshot,
-                ImportOptions = CopyImportOptions(options),
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
                 ImportResult = result,
             }, cancellationToken);
         }
@@ -303,22 +300,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Status = PortableImportStatus.Failed,
             Counts = new PortableActualImportCounts(),
             Diagnostics = [diagnostic],
-        };
-
-    private static PortableSnapshotExportRequest CopyExportRequest(PortableSnapshotExportRequest request) =>
-        new()
-        {
-            ScopeMode = request.ScopeMode,
-            DefinitionIds = new HashSet<string>(request.DefinitionIds ?? [], StringComparer.Ordinal),
-            ResourceIds = new HashSet<string>(request.ResourceIds ?? [], StringComparer.Ordinal),
-            ResourceVersionScope = request.ResourceVersionScope,
-            SpecificResourceVersions = new HashSet<ResourceVersionReference>(request.SpecificResourceVersions ?? []),
-        };
-
-    private static PortableImportOptions CopyImportOptions(PortableImportOptions options) =>
-        new()
-        {
-            CollisionMode = options.CollisionMode,
         };
 
     private static PortableDiagnostic ToPortableDiagnostic(LifecycleHookException exception) =>

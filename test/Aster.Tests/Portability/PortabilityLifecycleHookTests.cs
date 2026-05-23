@@ -252,6 +252,36 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Null(await scopedManager.GetLatestVersionAsync("product-1__imported"));
     }
 
+    [Fact]
+    public static async Task PortabilityHooks_DoNotObservePriorHookRequestMutationsInSamePhase()
+    {
+        await using var scopedProvider = BuildMutatingThenObservingHookProvider();
+        var scopedDefinitionStore = scopedProvider.GetRequiredService<IResourceDefinitionStore>();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+        var observation = scopedProvider.GetRequiredService<PortabilityHookObservation>();
+
+        await scopedDefinitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+            .WithDefinitionId("Product")
+            .Build());
+        var resource = await scopedManager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "product-1",
+        });
+
+        await scopedPortability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceIds = [resource.ResourceId],
+        });
+        await scopedPortability.PreviewImportAsync(
+            CreateSnapshotWithOwner("incoming-owner"),
+            new PortableImportOptions { CollisionMode = PortableImportCollisionMode.Strict });
+
+        Assert.Equal([resource.ResourceId], observation.ObservedExportResourceIds);
+        Assert.Equal(PortableImportCollisionMode.Strict, observation.ObservedPreviewImportCollisionMode);
+    }
+
     private async ValueTask<Resource> CreateResourceAsync()
     {
         await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
@@ -323,6 +353,14 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             .AddResourceLifecycleHook<MutatingPortabilityHook>()
             .BuildServiceProvider();
 
+    private static ServiceProvider BuildMutatingThenObservingHookProvider() =>
+        new ServiceCollection()
+            .AddSingleton<PortabilityHookObservation>()
+            .AddAsterCore()
+            .AddResourceLifecycleHook<MutatingPortabilityHook>()
+            .AddResourceLifecycleHook<ObservingPortabilityHook>()
+            .BuildServiceProvider();
+
     private static ServiceProvider BuildThrowingApplyHookProvider() =>
         new ServiceCollection()
             .AddSingleton<LifecycleHookRecorder>()
@@ -357,6 +395,32 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             context.ImportOptions.CollisionMode = PortableImportCollisionMode.RemapDivergent;
             return ValueTask.FromResult(LifecycleHookOutcome.Continue());
         }
+    }
+
+    private sealed class ObservingPortabilityHook(PortabilityHookObservation observation) : ResourceLifecycleHook
+    {
+        public override ValueTask<LifecycleHookOutcome> OnBeforeExportAsync(
+            ResourceExportLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            observation.ObservedExportResourceIds = context.ExportRequest.ResourceIds.Order(StringComparer.Ordinal).ToList();
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+
+        public override ValueTask<LifecycleHookOutcome> OnBeforePreviewImportAsync(
+            ResourceImportLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            observation.ObservedPreviewImportCollisionMode = context.ImportOptions.CollisionMode;
+            return ValueTask.FromResult(LifecycleHookOutcome.Continue());
+        }
+    }
+
+    private sealed class PortabilityHookObservation
+    {
+        public IReadOnlyList<string> ObservedExportResourceIds { get; set; } = [];
+
+        public PortableImportCollisionMode? ObservedPreviewImportCollisionMode { get; set; }
     }
 
     private sealed class ThrowingApplyPortabilityStore : IResourcePortabilityStore
