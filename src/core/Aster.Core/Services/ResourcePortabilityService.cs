@@ -172,14 +172,22 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             return FailedPreview(ToPortableDiagnostic(exception));
         }
 
-        var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
-        var preview = new PortableImportPreview
+        PortableImportPreview preview;
+        try
         {
-            CanImport = plan.Diagnostics.All(static diagnostic => diagnostic.Severity != PortableDiagnosticSeverity.Error),
-            Counts = plan.PlannedCounts,
-            IdentityMap = plan.IdentityMap,
-            Diagnostics = plan.Diagnostics,
-        };
+            var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
+            preview = new PortableImportPreview
+            {
+                CanImport = plan.Diagnostics.All(static diagnostic => diagnostic.Severity != PortableDiagnosticSeverity.Error),
+                Counts = plan.PlannedCounts,
+                IdentityMap = plan.IdentityMap,
+                Diagnostics = plan.Diagnostics,
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            preview = FailedPreview(ToImportPlanningFailedDiagnostic(exception));
+        }
 
         try
         {
@@ -231,8 +239,18 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             return FailedImport(ToPortableDiagnostic(exception));
         }
 
-        var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
         PortableImportResult result;
+        ImportPlan plan;
+        try
+        {
+            plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            result = FailedImport(ToImportPlanningFailedDiagnostic(exception));
+            return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
+        }
+
         if (plan.Diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
         {
             result = new PortableImportResult
@@ -287,6 +305,16 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             };
         }
 
+        return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
+    }
+
+    private async ValueTask<PortableImportResult> InvokeAfterImportAsync(
+        Guid operationId,
+        PortableSnapshot snapshot,
+        PortableImportOptions options,
+        PortableImportResult result,
+        CancellationToken cancellationToken)
+    {
         try
         {
             await lifecycleHooks.InvokeAfterImportAsync(new ResourceImportLifecycleContext
@@ -321,6 +349,14 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Status = PortableImportStatus.Failed,
             Counts = new PortableActualImportCounts(),
             Diagnostics = [diagnostic],
+        };
+
+    private static PortableDiagnostic ToImportPlanningFailedDiagnostic(Exception exception) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.ImportPlanningFailed,
+            Severity = PortableDiagnosticSeverity.Error,
+            Message = $"Import planning failed after validation completed: {exception.Message}",
         };
 
     private static PortableDiagnostic ToPortableDiagnostic(LifecycleHookException exception) =>

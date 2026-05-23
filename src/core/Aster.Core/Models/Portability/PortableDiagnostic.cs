@@ -93,6 +93,11 @@ public static class PortableDiagnosticCodes
     public const string InvalidImportOptions = "invalid-import-options";
 
     /// <summary>
+    /// Import planning failed after validation completed.
+    /// </summary>
+    public const string ImportPlanningFailed = "import-planning-failed";
+
+    /// <summary>
     /// Snapshot shape is malformed before reference or collision validation can safely proceed.
     /// </summary>
     public const string MalformedSnapshot = "malformed-snapshot";

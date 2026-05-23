@@ -143,6 +143,25 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
     }
 
     [Fact]
+    public static async Task PreviewImportAsync_TargetStateFailureRunsAfterPreviewImportHook()
+    {
+        await using var scopedProvider = BuildThrowingTargetStateHookProvider();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+
+        var preview = await scopedPortability.PreviewImportAsync(CreateSnapshot());
+
+        Assert.False(preview.CanImport);
+        Assert.Contains(preview.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ImportPlanningFailed);
+        Assert.Equal(
+            [
+                ("first", LifecyclePoint.BeforePreviewImport),
+                ("first", LifecyclePoint.AfterPreviewImport),
+            ],
+            scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+    }
+
+    [Fact]
     public async Task ImportAsync_RunsHooksAndAppliesSnapshot()
     {
         var snapshot = CreateSnapshot();
@@ -243,6 +262,26 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ImportApplyFailed);
     }
+
+    [Fact]
+    public static async Task ImportAsync_TargetStateFailureRunsAfterImportHook()
+    {
+        await using var scopedProvider = BuildThrowingTargetStateHookProvider();
+        var scopedPortability = scopedProvider.GetRequiredService<IResourcePortabilityService>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+
+        var result = await scopedPortability.ImportAsync(CreateSnapshot());
+
+        Assert.Equal(PortableImportStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ImportPlanningFailed);
+        Assert.Equal(
+            [
+                ("first", LifecyclePoint.BeforeImport),
+                ("first", LifecyclePoint.AfterImport),
+            ],
+            scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+    }
+
 
     [Fact]
     public async Task ExportAsync_HookCannotMutateExportRequestUsedByOperation()
@@ -418,6 +457,14 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             .AddResourceLifecycleHook<FirstRecordingHook>()
             .BuildServiceProvider();
 
+    private static ServiceProvider BuildThrowingTargetStateHookProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<IResourcePortabilityStore, ThrowingTargetStatePortabilityStore>()
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
+
     private sealed class MutatingPortabilityHook : ResourceLifecycleHook
     {
         public override ValueTask<LifecycleHookOutcome> OnBeforeExportAsync(
@@ -501,6 +548,24 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             PortableSnapshot snapshot,
             CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(new PortableTargetState());
+
+        public ValueTask ApplyImportAsync(
+            PortableSnapshot plannedSnapshot,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.CompletedTask;
+    }
+
+    private sealed class ThrowingTargetStatePortabilityStore : IResourcePortabilityStore
+    {
+        public ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
+            PortableStoreReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new PortableStoreSnapshot());
+
+        public ValueTask<PortableTargetState> ReadTargetStateAsync(
+            PortableSnapshot snapshot,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("simulated target state race");
 
         public ValueTask ApplyImportAsync(
             PortableSnapshot plannedSnapshot,
