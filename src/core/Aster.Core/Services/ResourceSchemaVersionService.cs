@@ -211,20 +211,50 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(upgraded),
         }, cancellationToken);
 
-        var persisted = await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
-        await lifecycleHooks.InvokeAfterSaveAsync(new ResourceSaveLifecycleContext
+        var afterContext = new ResourceSaveLifecycleContext
         {
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterSave,
             CancellationToken = cancellationToken,
             SaveKind = ResourceSaveKind.SchemaUpgrade,
+            DefinitionId = upgraded.DefinitionId,
+            ResourceId = upgraded.ResourceId,
+            BaseVersion = latestResource.Version,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(upgraded),
+        };
+
+        Resource persisted;
+        try
+        {
+            persisted = await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            throw;
+        }
+
+        await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
+        {
             DefinitionId = persisted.DefinitionId,
             ResourceId = persisted.ResourceId,
-            BaseVersion = latestResource.Version,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
 
         return persisted;
+    }
+
+    private async ValueTask TryInvokeAfterSaveAsync(
+        ResourceSaveLifecycleContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await lifecycleHooks.InvokeAfterSaveAsync(context, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+        }
     }
 
     private static List<string> GetCarriedForwardAspectKeys(

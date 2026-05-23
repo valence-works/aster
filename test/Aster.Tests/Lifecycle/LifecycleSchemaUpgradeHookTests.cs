@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +85,33 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
         Assert.Equal("Initial", (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Aspects["title"]);
     }
 
+    [Fact]
+    public static async Task UpgradeAsync_SaveVersionFailureRunsAfterSaveHook()
+    {
+        await using var scopedProvider = BuildThrowingWriterProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedSchemaVersions = scopedProvider.GetRequiredService<IResourceSchemaVersionService>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var created = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider, version: 2);
+        scopedRecorder.Events.Clear();
+        writer.ThrowSave = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedSchemaVersions.UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest
+            {
+                BaseVersion = created.Version,
+            }).AsTask());
+
+        Assert.Equal(
+            [LifecyclePoint.BeforeSave, LifecyclePoint.AfterSave],
+            scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+    }
+
     private async ValueTask<Resource> CreateUpgradeableResourceAsync()
     {
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);
@@ -93,4 +121,13 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider, version: 2);
         return created;
     }
+
+    private static ServiceProvider BuildThrowingWriterProvider() =>
+        new ServiceCollection()
+            .AddSingleton<LifecycleHookRecorder>()
+            .AddAsterCore()
+            .AddSingleton<SwitchableResourceVersionWriter>()
+            .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
+            .AddResourceLifecycleHook<FirstRecordingHook>()
+            .BuildServiceProvider();
 }
