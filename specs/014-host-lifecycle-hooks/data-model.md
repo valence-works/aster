@@ -107,7 +107,7 @@ Structured failure presented to the caller when hook invocation blocks or fails 
 
 **Fields**:
 
-- `Code`: stable failure code such as `lifecycle-hook-rejected`, `lifecycle-hook-failed`, or `lifecycle-hook-canceled`.
+- `Code`: stable failure code such as `lifecycle-hook-rejected` or `lifecycle-hook-failed`.
 - `LifecyclePoint`: hook point where the failure occurred.
 - `HookType`: hook type or display name when available.
 - `Message`: human-readable failure detail.
@@ -117,7 +117,7 @@ Structured failure presented to the caller when hook invocation blocks or fails 
 
 - Save, activation, and deactivation hook failures SHOULD surface through structured exceptions because those operations currently fail with exceptions.
 - Export, preview import, and write import hook failures SHOULD surface as portability diagnostics because those operations already return diagnostics.
-- Cancellation MUST preserve normal cancellation semantics.
+- Cancellation MUST preserve normal cancellation semantics through `OperationCanceledException`.
 
 ## State Transitions
 

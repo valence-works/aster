@@ -18,11 +18,6 @@ public sealed class LifecycleHookException : InvalidOperationException
     public const string FailedCode = "lifecycle-hook-failed";
 
     /// <summary>
-    /// Stable code used when a hook operation is canceled.
-    /// </summary>
-    public const string CanceledCode = "lifecycle-hook-canceled";
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="LifecycleHookException"/> class.
     /// </summary>
     public LifecycleHookException(

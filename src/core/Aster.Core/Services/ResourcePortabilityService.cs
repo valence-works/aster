@@ -300,13 +300,18 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             {
                 LifecycleHookException.RejectedCode => PortableDiagnosticCodes.LifecycleHookRejected,
                 LifecycleHookException.FailedCode => PortableDiagnosticCodes.LifecycleHookFailed,
-                LifecycleHookException.CanceledCode => PortableDiagnosticCodes.LifecycleHookCanceled,
                 _ => exception.Code,
             },
             Severity = PortableDiagnosticSeverity.Error,
-            Path = $"lifecycle/{exception.LifecyclePoint}",
+            Path = $"lifecycle/{LifecyclePointPath(exception.LifecyclePoint)}",
             Message = exception.Message,
         };
+
+    private static string LifecyclePointPath(LifecyclePoint lifecyclePoint)
+    {
+        var name = lifecyclePoint.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
+    }
 
     private async ValueTask<ImportPlan> BuildImportPlanAsync(
         PortableSnapshot snapshot,

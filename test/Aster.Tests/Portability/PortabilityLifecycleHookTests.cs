@@ -82,6 +82,7 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("test-rejected", diagnostic.Code);
         Assert.Equal(PortableDiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("lifecycle/beforeExport", diagnostic.Path);
     }
 
     [Fact]
@@ -138,6 +139,7 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Equal(PortableImportStatus.Failed, result.Status);
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("test-rejected", diagnostic.Code);
+        Assert.Equal("lifecycle/beforeImport", diagnostic.Path);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
     }
 
@@ -151,6 +153,7 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Equal(PortableImportStatus.Imported, result.Status);
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(PortableDiagnosticCodes.LifecycleHookFailed, diagnostic.Code);
+        Assert.Equal("lifecycle/afterImport", diagnostic.Path);
         Assert.NotNull(await manager.GetLatestVersionAsync("product-1"));
     }
 

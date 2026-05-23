@@ -117,8 +117,4 @@ public static class PortableDiagnosticCodes
     /// </summary>
     public const string LifecycleHookFailed = "lifecycle-hook-failed";
 
-    /// <summary>
-    /// Lifecycle hook operation was canceled.
-    /// </summary>
-    public const string LifecycleHookCanceled = "lifecycle-hook-canceled";
 }

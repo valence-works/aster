@@ -151,7 +151,8 @@ Stable failure/diagnostic codes should include:
 
 - `lifecycle-hook-rejected`
 - `lifecycle-hook-failed`
-- `lifecycle-hook-canceled`
+
+Cancellation uses normal cancellation semantics and is not converted into a lifecycle failure code.
 
 ## Compatibility Contract
 
