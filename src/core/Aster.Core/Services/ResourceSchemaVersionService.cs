@@ -25,6 +25,27 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
     /// <param name="resourceManager">The resource lifecycle manager.</param>
     /// <param name="identityGenerator">The identity generator used for new version IDs.</param>
     /// <param name="versionWriter">The resource version writer used to append upgraded versions.</param>
+    public ResourceSchemaVersionService(
+        IResourceDefinitionStore definitionStore,
+        IResourceManager resourceManager,
+        IIdentityGenerator identityGenerator,
+        IResourceVersionWriter versionWriter)
+        : this(
+            definitionStore,
+            resourceManager,
+            identityGenerator,
+            versionWriter,
+            NoopResourceLifecycleHookDispatcher.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceSchemaVersionService"/> class.
+    /// </summary>
+    /// <param name="definitionStore">The resource definition version store.</param>
+    /// <param name="resourceManager">The resource lifecycle manager.</param>
+    /// <param name="identityGenerator">The identity generator used for new version IDs.</param>
+    /// <param name="versionWriter">The resource version writer used to append upgraded versions.</param>
     /// <param name="lifecycleHooks">The lifecycle hook dispatcher.</param>
     public ResourceSchemaVersionService(
         IResourceDefinitionStore definitionStore,

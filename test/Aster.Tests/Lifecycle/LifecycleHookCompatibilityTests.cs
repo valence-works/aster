@@ -2,7 +2,9 @@ using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
+using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Aster.Tests.Lifecycle;
 
@@ -128,6 +130,27 @@ public sealed class LifecycleHookCompatibilityTests : IAsyncDisposable
             LifecycleHookTestFixtures.CreateRequest());
 
         Assert.True(scopedProvider.GetRequiredService<PreRegisteredHook>().WasInvoked);
+    }
+
+    [Fact]
+    public void CoreServices_PreserveDirectConstructionOverloads()
+    {
+        Assert.NotNull(typeof(DefaultResourceManager).GetConstructor(
+        [
+            typeof(IResourceDefinitionStore),
+            typeof(IResourceVersionReader),
+            typeof(IResourceVersionWriter),
+            typeof(IIdentityGenerator),
+            typeof(ILogger<DefaultResourceManager>),
+        ]));
+        Assert.NotNull(typeof(ResourcePortabilityService).GetConstructor([typeof(IResourcePortabilityStore)]));
+        Assert.NotNull(typeof(ResourceSchemaVersionService).GetConstructor(
+        [
+            typeof(IResourceDefinitionStore),
+            typeof(IResourceManager),
+            typeof(IIdentityGenerator),
+            typeof(IResourceVersionWriter),
+        ]));
     }
 
 

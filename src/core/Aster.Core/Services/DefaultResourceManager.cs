@@ -28,6 +28,25 @@ public sealed partial class DefaultResourceManager : IResourceManager
         IResourceVersionReader versionReader,
         IResourceVersionWriter versionWriter,
         IIdentityGenerator identityGenerator,
+        ILogger<DefaultResourceManager> logger)
+        : this(
+            definitionStore,
+            versionReader,
+            versionWriter,
+            identityGenerator,
+            NoopResourceLifecycleHookDispatcher.Instance,
+            logger)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="DefaultResourceManager"/>.
+    /// </summary>
+    public DefaultResourceManager(
+        IResourceDefinitionStore definitionStore,
+        IResourceVersionReader versionReader,
+        IResourceVersionWriter versionWriter,
+        IIdentityGenerator identityGenerator,
         IResourceLifecycleHookDispatcher lifecycleHooks,
         ILogger<DefaultResourceManager> logger)
     {

@@ -22,6 +22,14 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     /// <summary>
     /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
     /// </summary>
+    public ResourcePortabilityService(IResourcePortabilityStore portabilityStore)
+        : this(portabilityStore, NoopResourceLifecycleHookDispatcher.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
+    /// </summary>
     public ResourcePortabilityService(
         IResourcePortabilityStore portabilityStore,
         IResourceLifecycleHookDispatcher lifecycleHooks)
