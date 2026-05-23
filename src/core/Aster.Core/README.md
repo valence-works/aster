@@ -271,7 +271,7 @@ services
     .AddResourceLifecycleHook<PublishPolicyHook>();
 ```
 
-Hooks run in registration order. Before hooks can reject an operation before mutation by returning `LifecycleHookOutcome.Reject(...)`; save, activation, and deactivation rejections surface as `LifecycleHookException`, while portability rejections surface as `PortableDiagnostic` entries. After hooks run only after the underlying operation succeeds. If an after hook fails, the failure is visible to the caller, but the SDK does not claim rollback of the already-completed operation.
+Hooks run in registration order. Before hooks can reject an operation before mutation by returning `LifecycleHookOutcome.Reject(...)`; save, activation, and deactivation rejections surface as `LifecycleHookException`, while portability rejections surface as `PortableDiagnostic` entries. After hooks run after the operation produces a result; for portability preview/import, that includes failed preview or import results produced after a successful before hook. If an after hook fails, the failure is visible to the caller, but the SDK does not claim rollback of the already-completed operation.
 
 ```csharp
 public sealed class AuditLifecycleHook : ResourceLifecycleHook

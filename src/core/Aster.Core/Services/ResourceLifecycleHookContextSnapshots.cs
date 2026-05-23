@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -68,8 +69,33 @@ internal static class ResourceLifecycleHookContextSnapshots
             JsonElement jsonElement => jsonElement.Clone(),
             IReadOnlyDictionary<string, object> dictionary => new ReadOnlyDictionary<string, object>(
                 dictionary.ToDictionary(static pair => pair.Key, static pair => SnapshotAspectValue(pair.Value), StringComparer.Ordinal)),
+            IDictionary dictionary => SnapshotDictionary(dictionary),
             IList<object> list => new ReadOnlyCollection<object>(list.Select(SnapshotAspectValue).ToArray()),
             IReadOnlyList<object> list => new ReadOnlyCollection<object>(list.Select(SnapshotAspectValue).ToArray()),
+            IList list => new ReadOnlyCollection<object>(list.Cast<object?>().Select(SnapshotAspectValue).ToArray()),
             _ => value,
         };
+
+    private static object SnapshotDictionary(IDictionary dictionary)
+    {
+        var stringKeyed = new Dictionary<string, object>(StringComparer.Ordinal);
+        foreach (DictionaryEntry entry in dictionary)
+        {
+            if (entry.Key is not string key)
+                return SnapshotObjectDictionary(dictionary);
+
+            stringKeyed[key] = SnapshotAspectValue(entry.Value);
+        }
+
+        return new ReadOnlyDictionary<string, object>(stringKeyed);
+    }
+
+    private static ReadOnlyDictionary<object, object?> SnapshotObjectDictionary(IDictionary dictionary)
+    {
+        var copy = new Dictionary<object, object?>();
+        foreach (DictionaryEntry entry in dictionary)
+            copy[entry.Key] = SnapshotAspectValue(entry.Value);
+
+        return new ReadOnlyDictionary<object, object?>(copy);
+    }
 }

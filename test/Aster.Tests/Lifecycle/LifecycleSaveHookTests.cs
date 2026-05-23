@@ -129,6 +129,7 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
                     {
                         ["name"] = "Original nested value",
                     },
+                    ["tags"] = new List<string> { "stable" },
                 },
             });
         var updated = await scopedManager.UpdateAsync(
@@ -138,6 +139,7 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal("Initial", created.Aspects["title"]);
         var details = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object>>(created.Aspects["details"]);
         Assert.Equal("Original nested value", details["name"]);
+        Assert.Equal(["stable"], Assert.IsAssignableFrom<IReadOnlyList<string>>(created.Aspects["tags"]));
         Assert.Equal("Updated", updated.Aspects["title"]);
         Assert.Equal("Updated", (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Aspects["title"]);
     }

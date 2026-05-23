@@ -253,6 +253,12 @@ public sealed class MutatingSaveResourceHook : ResourceLifecycleHook
             {
                 detailsDictionary["name"] = "Nested mutation by hook";
             }
+
+            if (aspects.TryGetValue("tags", out var tags)
+                && tags is System.Collections.IList tagsList)
+            {
+                tagsList.Clear();
+            }
         }
         catch (NotSupportedException)
         {
