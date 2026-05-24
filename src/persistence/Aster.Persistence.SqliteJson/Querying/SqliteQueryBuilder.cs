@@ -30,8 +30,8 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 
     public string Build()
     {
-        var (baseSql, scopePredicates) = BuildScopeSql();
         var tenantId = Parameters.Add(TenantScopeResolver.Resolve(query.TenantScope).TenantId);
+        var (baseSql, scopePredicates) = BuildScopeSql(tenantId);
         var sql = new StringBuilder();
         sql.Append("SELECT ");
         sql.AppendJoin(", ", ["rv.payload", .. projections]);
@@ -85,13 +85,14 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
             ? ["rv.resource_id ASC", "rv.version ASC"]
             : [.. orderings, "rv.resource_id ASC", "rv.version ASC"];
 
-    private (string Sql, IReadOnlyList<string> ScopePredicates) BuildScopeSql() => query.Scope switch
+    private (string Sql, IReadOnlyList<string> ScopePredicates) BuildScopeSql(string tenantId) => query.Scope switch
     {
-        ResourceVersionScope.Latest => ("""
+        ResourceVersionScope.Latest => ($$"""
             FROM resource_versions rv
             INNER JOIN (
                 SELECT tenant_id, resource_id, MAX(version) AS version
                 FROM resource_versions
+                WHERE tenant_id = {{tenantId}}
                 GROUP BY tenant_id, resource_id
             ) latest
                 ON latest.tenant_id = rv.tenant_id

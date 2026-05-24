@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
+using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Tests.Tenancy;
 using Microsoft.Data.Sqlite;
@@ -64,25 +65,57 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
         Assert.Equal("default", result.TenantScope.TenantId);
     }
 
+    [Fact]
+    public async Task ExistingPreTenantTables_AreRebuiltForTenantAwareCollisionsAndUpserts()
+    {
+        await CreateLegacyTablesAsync();
+
+        await using var provider = TenantScopeTestFixtures.CreateSqliteProvider(databasePath);
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        var reader = provider.GetRequiredService<IResourceVersionReader>();
+
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant A", TenantScopeTestFixtures.TenantA));
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant B", TenantScopeTestFixtures.TenantB));
+        await writer.UpdateActivationAsync("shared-product", "Published", new ActivationState
+        {
+            TenantScope = TenantScopeTestFixtures.TenantA,
+            ResourceId = "shared-product",
+            Channel = "Published",
+            ActiveVersions = [1],
+            LastUpdated = DateTime.UtcNow,
+        });
+        await writer.UpdateActivationAsync("shared-product", "Published", new ActivationState
+        {
+            TenantScope = TenantScopeTestFixtures.TenantB,
+            ResourceId = "shared-product",
+            Channel = "Published",
+            ActiveVersions = [1],
+            LastUpdated = DateTime.UtcNow,
+        });
+
+        var tenantAActive = (await reader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            TenantScope = TenantScopeTestFixtures.TenantA,
+            Scope = ResourceVersionScope.Active,
+            ActivationChannel = "Published",
+        })).ToList();
+        var tenantBActive = (await reader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            TenantScope = TenantScopeTestFixtures.TenantB,
+            Scope = ResourceVersionScope.Active,
+            ActivationChannel = "Published",
+        })).ToList();
+
+        Assert.Single(tenantAActive);
+        Assert.Single(tenantBActive);
+    }
+
     private async Task CreateLegacyResourceVersionAsync(Aster.Core.Models.Instances.Resource resource)
     {
-        await using var connection = new SqliteConnection($"Data Source={databasePath}");
-        await connection.OpenAsync();
+        await CreateLegacyTablesAsync();
+        await using var connection = await OpenConnectionAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            CREATE TABLE resource_versions (
-                resource_id TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                id TEXT NOT NULL,
-                definition_id TEXT NOT NULL,
-                definition_version INTEGER NULL,
-                created TEXT NOT NULL,
-                owner TEXT NULL,
-                hash TEXT NULL,
-                payload TEXT NOT NULL,
-                PRIMARY KEY (resource_id, version)
-            );
-
             INSERT INTO resource_versions (
                 resource_id,
                 version,
@@ -117,6 +150,50 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
         command.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(resource, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 
         await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task CreateLegacyTablesAsync()
+    {
+        await using var connection = await OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE IF NOT EXISTS resource_definitions (
+                definition_id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                PRIMARY KEY (definition_id, version)
+            );
+
+            CREATE TABLE IF NOT EXISTS resource_versions (
+                resource_id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                id TEXT NOT NULL,
+                definition_id TEXT NOT NULL,
+                definition_version INTEGER NULL,
+                created TEXT NOT NULL,
+                owner TEXT NULL,
+                hash TEXT NULL,
+                payload TEXT NOT NULL,
+                PRIMARY KEY (resource_id, version)
+            );
+
+            CREATE TABLE IF NOT EXISTS activation_states (
+                resource_id TEXT NOT NULL,
+                channel TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                PRIMARY KEY (resource_id, channel)
+            );
+            """;
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task<SqliteConnection> OpenConnectionAsync()
+    {
+        var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync();
+        return connection;
     }
 
     private static Aster.Core.Models.Definitions.ResourceDefinition CreateDefinition() =>
