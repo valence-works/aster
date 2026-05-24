@@ -204,7 +204,12 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         ArgumentNullException.ThrowIfNull(state);
         cancellationToken.ThrowIfCancellationRequested();
         var tenant = TenantScopeResolver.Resolve(state.TenantScope);
-        var scopedState = state with { TenantScope = tenant };
+        var scopedState = state with
+        {
+            TenantScope = tenant,
+            ResourceId = resourceId,
+            Channel = channel,
+        };
 
         var channelActivations = GetOrAddActivations(resourceId, tenant);
         lock (channelActivations)

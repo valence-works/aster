@@ -236,7 +236,12 @@ public sealed class SqliteJsonResourceStore :
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         ArgumentNullException.ThrowIfNull(state);
         var tenant = TenantScopeResolver.Resolve(state.TenantScope);
-        var scopedState = state with { TenantScope = tenant };
+        var scopedState = state with
+        {
+            TenantScope = tenant,
+            ResourceId = resourceId,
+            Channel = channel,
+        };
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();

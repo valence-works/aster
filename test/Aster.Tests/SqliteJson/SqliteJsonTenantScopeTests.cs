@@ -63,6 +63,35 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateActivationAsync_NormalizesPersistedPayloadIdentityToMethodArguments()
+    {
+        await using var provider = TenantScopeTestFixtures.CreateSqliteProvider(databasePath);
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        var reader = provider.GetRequiredService<IResourceVersionReader>();
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("product-1", "Tenant A", TenantScopeTestFixtures.TenantA));
+
+        var state = await writer.UpdateActivationAsync("product-1", "Published", new ActivationState
+        {
+            TenantScope = TenantScopeTestFixtures.TenantA,
+            ResourceId = "wrong-product",
+            Channel = "Wrong",
+            ActiveVersions = [1],
+            LastUpdated = DateTime.UtcNow,
+        });
+
+        var active = (await reader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            TenantScope = TenantScopeTestFixtures.TenantA,
+            Scope = ResourceVersionScope.Active,
+            ActivationChannel = "Published",
+        })).ToList();
+
+        Assert.Equal("product-1", state.ResourceId);
+        Assert.Equal("Published", state.Channel);
+        Assert.Equal("product-1", active.Single().ResourceId);
+    }
+
+    [Fact]
     public async Task ExistingPreTenantTables_ReadBackAsDefaultTenant()
     {
         var resource = TenantScopeTestFixtures.CreateResource("legacy-product", "Legacy");

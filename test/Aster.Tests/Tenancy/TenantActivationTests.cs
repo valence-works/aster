@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Models.Instances;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Tenancy;
@@ -32,5 +33,24 @@ public sealed class TenantActivationTests : IDisposable
 
         Assert.Equal(2, tenantAActive.Single().Version);
         Assert.Equal(1, tenantBActive.Single().Version);
+    }
+
+    [Fact]
+    public async Task UpdateActivationAsync_NormalizesPayloadIdentityToMethodArguments()
+    {
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+
+        var state = await writer.UpdateActivationAsync("product-1", "Published", new ActivationState
+        {
+            TenantScope = TenantScopeTestFixtures.TenantA,
+            ResourceId = "wrong-product",
+            Channel = "Wrong",
+            ActiveVersions = [1],
+            LastUpdated = DateTime.UtcNow,
+        });
+
+        Assert.Equal(TenantScopeTestFixtures.TenantA, state.TenantScope);
+        Assert.Equal("product-1", state.ResourceId);
+        Assert.Equal("Published", state.Channel);
     }
 }
