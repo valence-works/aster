@@ -29,8 +29,8 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
         var writer = provider.GetRequiredService<IResourceVersionWriter>();
         var reader = provider.GetRequiredService<IResourceVersionReader>();
 
-        await definitions.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantA);
-        await definitions.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantB);
+        await definitions.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantA, CancellationToken.None);
+        await definitions.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantB, CancellationToken.None);
         await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant A", TenantScopeTestFixtures.TenantA));
         await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant B", TenantScopeTestFixtures.TenantB));
 
@@ -43,8 +43,8 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
             TenantScope = TenantScopeTestFixtures.TenantB,
         })).ToList();
 
-        Assert.Equal(1, (await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA))!.Version);
-        Assert.Equal(1, (await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantB))!.Version);
+        Assert.Equal(1, (await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA, CancellationToken.None))!.Version);
+        Assert.Equal(1, (await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantB, CancellationToken.None))!.Version);
         Assert.Equal(TenantScopeTestFixtures.TenantA, tenantAResources.Single().TenantScope);
         Assert.Equal(TenantScopeTestFixtures.TenantB, tenantBResources.Single().TenantScope);
     }
@@ -59,7 +59,7 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
         await definitions.RegisterDefinitionAsync(definition);
 
         Assert.NotNull(await definitions.GetDefinitionAsync("Product"));
-        Assert.Null(await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA));
+        Assert.Null(await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA, CancellationToken.None));
     }
 
     [Fact]

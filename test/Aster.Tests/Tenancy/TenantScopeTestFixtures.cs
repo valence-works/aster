@@ -38,7 +38,7 @@ public static class TenantScopeTestFixtures
         if (tenantScope is null)
             await store.RegisterDefinitionAsync(definition);
         else
-            await store.RegisterDefinitionAsync(definition, tenantScope);
+            await store.RegisterDefinitionAsync(definition, tenantScope, CancellationToken.None);
     }
 
     public static async Task<Resource> CreateProductAsync(

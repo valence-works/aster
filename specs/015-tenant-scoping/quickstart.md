@@ -31,8 +31,8 @@ Hosts that need tenant isolation pass a tenant scope explicitly:
 var tenantA = TenantScope.FromTenantId("tenant-a");
 var tenantB = TenantScope.FromTenantId("tenant-b");
 
-await definitionStore.RegisterDefinitionAsync(productDefinition, tenantA);
-await definitionStore.RegisterDefinitionAsync(productDefinition, tenantB);
+await definitionStore.RegisterDefinitionAsync(productDefinition, tenantA, CancellationToken.None);
+await definitionStore.RegisterDefinitionAsync(productDefinition, tenantB, CancellationToken.None);
 
 var productA = await manager.CreateAsync("Product", new CreateResourceRequest
 {
@@ -73,12 +73,14 @@ await manager.ActivateAsync(
     resourceId: "product-1",
     version: 1,
     channel: "Published",
-    tenantScope: tenantA);
+    tenantScope: tenantA,
+    allowMultipleActive: false);
 
 var active = await manager.GetActiveVersionsAsync(
     resourceId: "product-1",
     channel: "Published",
-    tenantScope: tenantA);
+    tenantScope: tenantA,
+    cancellationToken: CancellationToken.None);
 ```
 
 An activation in `tenant-a` does not affect `tenant-b`, even when resource IDs and channel names match.

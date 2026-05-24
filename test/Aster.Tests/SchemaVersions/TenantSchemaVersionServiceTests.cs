@@ -32,7 +32,7 @@ public sealed class TenantSchemaVersionServiceTests : IDisposable
             BaseVersion = tenantAResource.Version,
         });
 
-        var tenantBLatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantB);
+        var tenantBLatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantB, CancellationToken.None);
         Assert.Equal(ResourceSchemaUpgradeStatus.Upgraded, result.Status);
         Assert.Equal(2, result.Resource!.DefinitionVersion);
         Assert.Equal(TenantScopeTestFixtures.TenantA, result.Resource.TenantScope);
@@ -43,6 +43,6 @@ public sealed class TenantSchemaVersionServiceTests : IDisposable
     {
         await store.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
-            .Build(), tenantScope);
+            .Build(), tenantScope, CancellationToken.None);
     }
 }

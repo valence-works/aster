@@ -26,7 +26,7 @@ public sealed class TenantDefaultScopeCompatibilityTests : IDisposable
         await manager.UpdateAsync("shared-product", new UpdateResourceRequest { BaseVersion = 1 });
 
         var defaultLatest = await manager.GetLatestVersionAsync("shared-product");
-        var tenantALatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantA);
+        var tenantALatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantA, CancellationToken.None);
 
         Assert.Equal(2, defaultLatest!.Version);
         Assert.Equal(1, tenantALatest!.Version);

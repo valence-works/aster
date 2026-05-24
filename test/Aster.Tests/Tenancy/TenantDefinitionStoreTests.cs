@@ -19,13 +19,13 @@ public sealed class TenantDefinitionStoreTests : IDisposable
     [Fact]
     public async Task Definitions_AreVersionedIndependentlyPerTenant()
     {
-        await store.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantA);
-        await store.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantA);
-        await store.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantB);
+        await store.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantA, CancellationToken.None);
+        await store.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantA, CancellationToken.None);
+        await store.RegisterDefinitionAsync(CreateDefinition(), TenantScopeTestFixtures.TenantB, CancellationToken.None);
 
-        var tenantALatest = await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA);
-        var tenantBLatest = await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantB);
-        var tenantBDefinitions = (await store.ListDefinitionsAsync(TenantScopeTestFixtures.TenantB)).ToList();
+        var tenantALatest = await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA, CancellationToken.None);
+        var tenantBLatest = await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantB, CancellationToken.None);
+        var tenantBDefinitions = (await store.ListDefinitionsAsync(TenantScopeTestFixtures.TenantB, CancellationToken.None)).ToList();
 
         Assert.Equal(2, tenantALatest!.Version);
         Assert.Equal(1, tenantBLatest!.Version);
@@ -40,7 +40,7 @@ public sealed class TenantDefinitionStoreTests : IDisposable
         await store.RegisterDefinitionAsync(definition);
 
         Assert.NotNull(await store.GetDefinitionAsync("Product"));
-        Assert.Null(await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA));
+        Assert.Null(await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA, CancellationToken.None));
     }
 
     private static Aster.Core.Models.Definitions.ResourceDefinition CreateDefinition() =>

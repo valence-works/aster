@@ -50,7 +50,7 @@ public sealed class SqliteJsonResourceStore :
     public async ValueTask<ResourceDefinition?> GetDefinitionAsync(
         string definitionId,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -83,7 +83,7 @@ public sealed class SqliteJsonResourceStore :
         string definitionId,
         int version,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -113,7 +113,7 @@ public sealed class SqliteJsonResourceStore :
     public async ValueTask RegisterDefinitionAsync(
         ResourceDefinition definition,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -148,7 +148,7 @@ public sealed class SqliteJsonResourceStore :
     /// <inheritdoc />
     public async ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var tenant = TenantScopeResolver.Resolve(tenantScope);
         await using var connection = await OpenConnectionAsync(cancellationToken);

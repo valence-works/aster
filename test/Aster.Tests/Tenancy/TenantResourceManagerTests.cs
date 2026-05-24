@@ -30,8 +30,8 @@ public sealed class TenantResourceManagerTests : IDisposable
             AspectUpdates = { ["Title"] = new TenantScopeTestFixtures.TitleAspect("Tenant A v2") },
         });
 
-        var tenantALatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantA);
-        var tenantBLatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantB);
+        var tenantALatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantA, CancellationToken.None);
+        var tenantBLatest = await manager.GetLatestVersionAsync("shared-product", TenantScopeTestFixtures.TenantB, CancellationToken.None);
 
         Assert.Equal(2, tenantALatest!.Version);
         Assert.Equal(1, tenantBLatest!.Version);

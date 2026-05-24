@@ -84,7 +84,7 @@ For tenant-aware hosts, pass a `TenantScope` explicitly:
 
 ```csharp
 var tenant = TenantScope.FromTenantId("tenant-a");
-await definitionStore.RegisterDefinitionAsync(definition, tenant);
+await definitionStore.RegisterDefinitionAsync(definition, tenant, CancellationToken.None);
 ```
 
 ### 3. Create a Resource

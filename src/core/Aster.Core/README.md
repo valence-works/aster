@@ -226,7 +226,7 @@ Tenant-aware hosts pass `TenantScope` explicitly on request DTOs or method overl
 ```csharp
 var tenant = TenantScope.FromTenantId("tenant-a");
 
-await definitionStore.RegisterDefinitionAsync(definition, tenant);
+await definitionStore.RegisterDefinitionAsync(definition, tenant, CancellationToken.None);
 
 var resource = await manager.CreateAsync("Product", new CreateResourceRequest
 {

@@ -22,7 +22,7 @@ public interface IResourceDefinitionStore
     /// <param name="definitionId">The logical definition identifier.</param>
     /// <param name="tenantScope">Tenant scope for lookup.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, TenantScope tenantScope, CancellationToken cancellationToken = default);
+    ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
     /// Returns a specific (<c>DefinitionId</c>, <c>Version</c>) snapshot, or <see langword="null"/> if not found.
@@ -39,7 +39,7 @@ public interface IResourceDefinitionStore
     /// <param name="version">The specific version number to retrieve.</param>
     /// <param name="tenantScope">Tenant scope for lookup.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, TenantScope tenantScope, CancellationToken cancellationToken = default);
+    ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
     /// Always appends a new immutable version. Auto-increments <see cref="ResourceDefinition.Version"/>.
@@ -55,7 +55,7 @@ public interface IResourceDefinitionStore
     /// <param name="definition">The definition to register.</param>
     /// <param name="tenantScope">Tenant scope for registration.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    ValueTask RegisterDefinitionAsync(ResourceDefinition definition, TenantScope tenantScope, CancellationToken cancellationToken = default);
+    ValueTask RegisterDefinitionAsync(ResourceDefinition definition, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
     /// Returns the latest version of each distinct definition ID.
@@ -68,5 +68,5 @@ public interface IResourceDefinitionStore
     /// </summary>
     /// <param name="tenantScope">Tenant scope for listing.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(TenantScope tenantScope, CancellationToken cancellationToken = default);
+    ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(TenantScope tenantScope, CancellationToken cancellationToken);
 }

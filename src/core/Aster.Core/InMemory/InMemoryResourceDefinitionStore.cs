@@ -31,7 +31,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         GetDefinitionAsync(definitionId, TenantScope.Default, cancellationToken);
 
     /// <inheritdoc />
-    public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, TenantScope tenantScope, CancellationToken cancellationToken = default)
+    public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, TenantScope tenantScope, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -56,7 +56,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         string definitionId,
         int version,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -81,7 +81,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     public ValueTask RegisterDefinitionAsync(
         ResourceDefinition definition,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -104,7 +104,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         ListDefinitionsAsync(TenantScope.Default, cancellationToken);
 
     /// <inheritdoc />
-    public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(TenantScope tenantScope, CancellationToken cancellationToken = default)
+    public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(TenantScope tenantScope, CancellationToken cancellationToken)
     {
         var tenant = TenantScopeResolver.Resolve(tenantScope);
         var latest = new List<ResourceDefinition>();

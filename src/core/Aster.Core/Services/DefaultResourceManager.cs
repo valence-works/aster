@@ -244,7 +244,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         string resourceId,
         int version,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -304,8 +304,8 @@ public sealed partial class DefaultResourceManager : IResourceManager
         int version,
         string channel,
         TenantScope tenantScope,
-        bool allowMultipleActive = false,
-        CancellationToken cancellationToken = default)
+        bool allowMultipleActive,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
@@ -384,7 +384,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         int version,
         string channel,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
