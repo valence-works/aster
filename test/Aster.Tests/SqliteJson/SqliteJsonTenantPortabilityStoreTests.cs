@@ -41,7 +41,11 @@ public sealed class SqliteJsonTenantPortabilityStoreTests : IDisposable
 
     private static void TryDelete(string path)
     {
-        if (File.Exists(path))
+        try
+        {
             File.Delete(path);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }
