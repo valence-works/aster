@@ -1,5 +1,6 @@
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Abstractions;
 
@@ -25,6 +26,11 @@ public interface IResourceVersionReader
 /// </summary>
 public sealed record ResourceVersionReadRequest
 {
+    /// <summary>
+    /// Tenant scope for the read. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; init; }
+
     /// <summary>
     /// Which resource versions to include. Defaults to latest versions only.
     /// </summary>

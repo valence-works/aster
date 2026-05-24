@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Instances;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Aster.Core.Models.Instances;
 /// </summary>
 public sealed class ResourceSchemaUpgradeRequest
 {
+    /// <summary>
+    /// Tenant scope for the schema upgrade. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; set; }
+
     /// <summary>
     /// Optimistic concurrency token. Must match the current latest resource version.
     /// </summary>

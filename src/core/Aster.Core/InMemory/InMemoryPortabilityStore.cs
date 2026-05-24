@@ -2,6 +2,8 @@ using Aster.Core.Abstractions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
+using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 
 namespace Aster.Core.InMemory;
 
@@ -33,10 +35,11 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var tenant = TenantScopeResolver.Resolve(request.ExportRequest.TenantScope);
 
-        var resources = SelectResources(request.ExportRequest, cancellationToken);
-        var definitions = SelectDefinitions(request.ExportRequest, resources, cancellationToken);
-        var (activationStates, skippedActivationEntries) = SelectActivationStates(resources, cancellationToken);
+        var resources = SelectResources(request.ExportRequest, tenant, cancellationToken);
+        var definitions = SelectDefinitions(request.ExportRequest, tenant, resources, cancellationToken);
+        var (activationStates, skippedActivationEntries) = SelectActivationStates(tenant, resources, cancellationToken);
 
         return ValueTask.FromResult(new PortableStoreSnapshot
         {
@@ -53,13 +56,14 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        var tenant = TenantScopeResolver.Resolve(snapshot.SourceTenantScope);
 
         var definitions = new List<ResourceDefinition>();
         foreach (var definition in snapshot.Definitions)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var existing = definitionStore.GetDefinitionVersion(definition.DefinitionId, definition.Version);
+            var existing = definitionStore.GetDefinitionVersion(definition.DefinitionId, definition.Version, tenant);
             if (existing is not null)
                 definitions.Add(existing);
         }
@@ -69,7 +73,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var versions = resourceStore.TryGetVersions(resource.ResourceId);
+            var versions = resourceStore.TryGetVersions(resource.ResourceId, tenant);
             if (versions is null)
                 continue;
 
@@ -86,7 +90,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (resourceStore.ActivationStates.TryGetValue(state.ResourceId, out var states)
+            if (resourceStore.ActivationStates.TryGetValue((tenant.TenantId, state.ResourceId), out var states)
                 && states.TryGetValue(state.Channel, out var existing))
             {
                 activationStates.Add(existing);
@@ -108,6 +112,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
     {
         ArgumentNullException.ThrowIfNull(plannedSnapshot);
         cancellationToken.ThrowIfCancellationRequested();
+        var tenant = TenantScopeResolver.Resolve(plannedSnapshot.SourceTenantScope);
 
         var appliedDefinitions = new List<ResourceDefinition>();
         var appliedResources = new List<Resource>();
@@ -120,8 +125,9 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
                 .ThenBy(static definition => definition.Version))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                definitionStore.ImportDefinitionVersion(definition);
-                appliedDefinitions.Add(definition);
+                var scopedDefinition = definition with { TenantScope = tenant };
+                definitionStore.ImportDefinitionVersion(scopedDefinition);
+                appliedDefinitions.Add(scopedDefinition);
             }
 
             foreach (var resource in plannedSnapshot.Resources
@@ -129,8 +135,9 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
                 .ThenBy(static resource => resource.Version))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                resourceStore.ImportVersion(resource);
-                appliedResources.Add(resource);
+                var scopedResource = resource with { TenantScope = tenant };
+                resourceStore.ImportVersion(scopedResource);
+                appliedResources.Add(scopedResource);
             }
 
             foreach (var state in plannedSnapshot.ActivationStates
@@ -138,9 +145,10 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
                 .ThenBy(static state => state.Channel, StringComparer.Ordinal))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var previous = resourceStore.GetActivationState(state.ResourceId, state.Channel);
-                await resourceStore.UpdateActivationAsync(state.ResourceId, state.Channel, state, cancellationToken);
-                appliedActivationStates.Add((state, previous));
+                var scopedState = state with { TenantScope = tenant };
+                var previous = resourceStore.GetActivationState(scopedState.ResourceId, scopedState.Channel, tenant);
+                await resourceStore.UpdateActivationAsync(scopedState.ResourceId, scopedState.Channel, scopedState, cancellationToken);
+                appliedActivationStates.Add((scopedState, previous));
             }
         }
         catch
@@ -156,7 +164,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         IReadOnlyList<(ActivationState State, ActivationState? PreviousState)> appliedActivationStates)
     {
         foreach (var (state, previousState) in appliedActivationStates.Reverse())
-            resourceStore.RestoreActivationState(state.ResourceId, state.Channel, previousState);
+            resourceStore.RestoreActivationState(state.ResourceId, state.Channel, state.TenantScope, previousState);
 
         foreach (var resource in appliedResources.Reverse())
             resourceStore.RemoveImportedVersion(resource);
@@ -167,6 +175,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 
     private List<ResourceDefinition> SelectDefinitions(
         PortableSnapshotExportRequest request,
+        TenantScope tenant,
         IReadOnlyCollection<Resource> resources,
         CancellationToken cancellationToken)
     {
@@ -178,7 +187,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                foreach (var definition in definitionStore.GetDefinitionVersions(definitionId))
+                foreach (var definition in definitionStore.GetDefinitionVersions(definitionId, tenant))
                     definitionVersions[(definition.DefinitionId, definition.Version)] = definition;
             }
         }
@@ -190,7 +199,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             if (resource.DefinitionVersion is null)
                 continue;
 
-            var definition = definitionStore.GetDefinitionVersion(resource.DefinitionId, resource.DefinitionVersion.Value);
+            var definition = definitionStore.GetDefinitionVersion(resource.DefinitionId, resource.DefinitionVersion.Value, tenant);
             if (definition is not null)
                 definitionVersions[(definition.DefinitionId, definition.Version)] = definition;
         }
@@ -203,6 +212,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 
     private List<Resource> SelectResources(
         PortableSnapshotExportRequest request,
+        TenantScope tenant,
         CancellationToken cancellationToken)
     {
         var resourceIds = request.ScopeMode switch
@@ -212,7 +222,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
                 ? request.SpecificResourceVersions.Select(static reference => reference.ResourceId).ToHashSet(StringComparer.Ordinal)
                 : request.ResourceIds,
             PortableExportScopeMode.DefinitionWithResources => request.DefinitionIds
-                .SelectMany(resourceStore.GetResourceIdsForDefinition)
+                .SelectMany(definitionId => resourceStore.GetResourceIdsForDefinition(definitionId, tenant))
                 .ToHashSet(StringComparer.Ordinal),
             _ => [],
         };
@@ -224,7 +234,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var versions = resourceStore.TryGetVersions(resourceId);
+            var versions = resourceStore.TryGetVersions(resourceId, tenant);
             if (versions is null)
                 continue;
 
@@ -242,6 +252,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
     }
 
     private (List<ActivationState> ActivationStates, List<SkippedActivationEntry> SkippedActivationEntries) SelectActivationStates(
+        TenantScope tenant,
         IReadOnlyCollection<Resource> resources,
         CancellationToken cancellationToken)
     {
@@ -255,9 +266,11 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         var activationStates = new List<ActivationState>();
         var skippedEntries = new List<SkippedActivationEntry>();
 
-        foreach (var (resourceId, resourceActivationStates) in resourceStore.ActivationStates.OrderBy(static item => item.Key, StringComparer.Ordinal))
+        foreach (var ((tenantId, resourceId), resourceActivationStates) in resourceStore.ActivationStates.OrderBy(static item => item.Key.ResourceId, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+                continue;
 
             if (!includedVersions.TryGetValue(resourceId, out var includedResourceVersions))
                 continue;

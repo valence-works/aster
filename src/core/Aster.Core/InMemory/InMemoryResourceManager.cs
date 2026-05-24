@@ -1,6 +1,8 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Aster.Core.InMemory;
@@ -52,28 +54,30 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         ArgumentNullException.ThrowIfNull(request);
+        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
 
         // Resolve ResourceId
         var resourceId = string.IsNullOrWhiteSpace(request.ResourceId)
             ? identityGenerator.NewId()
             : request.ResourceId;
 
-        // Atomic duplicate ID check — TryAdd is atomic so only one creator can win
-        var versionList = new List<Resource>();
-        if (!store.Versions.TryAdd(resourceId, versionList))
-            throw new DuplicateResourceIdException(resourceId);
-
         // Singleton enforcement
-        var definition = await definitionStore.GetDefinitionAsync(definitionId, cancellationToken);
+        var definition = await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
         if (definition?.IsSingleton == true)
         {
-            var existingIds = store.GetResourceIdsForDefinition(definitionId);
+            var existingIds = store.GetResourceIdsForDefinition(definitionId, tenant);
             if (existingIds.Any())
                 throw new SingletonViolationException(definitionId);
         }
 
+        // Atomic duplicate ID check - TryAdd is atomic so only one creator can win.
+        var versionList = new List<Resource>();
+        if (!store.Versions.TryAdd((tenant.TenantId, resourceId), versionList))
+            throw new DuplicateResourceIdException(resourceId);
+
         var resource = new Resource
         {
+            TenantScope = tenant,
             ResourceId = resourceId,
             Id = identityGenerator.NewId(),
             DefinitionId = definitionId,
@@ -94,8 +98,9 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentNullException.ThrowIfNull(request);
+        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
 
-        var versions = store.TryGetVersions(resourceId)
+        var versions = store.TryGetVersions(resourceId, tenant)
             ?? throw new VersionNotFoundException(resourceId, request.BaseVersion);
 
         Resource latest;
@@ -131,11 +136,20 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     // ──────────────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />
-    public ValueTask<Resource?> GetVersionAsync(string resourceId, int version, CancellationToken cancellationToken = default)
+    public ValueTask<Resource?> GetVersionAsync(string resourceId, int version, CancellationToken cancellationToken = default) =>
+        GetVersionAsync(resourceId, version, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<Resource?> GetVersionAsync(
+        string resourceId,
+        int version,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = store.TryGetVersions(resourceId);
+        var versions = store.TryGetVersions(resourceId, tenant);
         if (versions is null)
             return ValueTask.FromResult<Resource?>(null);
 
@@ -147,11 +161,19 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     }
 
     /// <inheritdoc />
-    public ValueTask<IEnumerable<Resource>> GetVersionsAsync(string resourceId, CancellationToken cancellationToken = default)
+    public ValueTask<IEnumerable<Resource>> GetVersionsAsync(string resourceId, CancellationToken cancellationToken = default) =>
+        GetVersionsAsync(resourceId, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<IEnumerable<Resource>> GetVersionsAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = store.TryGetVersions(resourceId);
+        var versions = store.TryGetVersions(resourceId, tenant);
         if (versions is null)
             return ValueTask.FromResult<IEnumerable<Resource>>([]);
 
@@ -162,11 +184,19 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     }
 
     /// <inheritdoc />
-    public ValueTask<Resource?> GetLatestVersionAsync(string resourceId, CancellationToken cancellationToken = default)
+    public ValueTask<Resource?> GetLatestVersionAsync(string resourceId, CancellationToken cancellationToken = default) =>
+        GetLatestVersionAsync(resourceId, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<Resource?> GetLatestVersionAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = store.TryGetVersions(resourceId);
+        var versions = store.TryGetVersions(resourceId, tenant);
         if (versions is null)
             return ValueTask.FromResult<Resource?>(null);
 
@@ -186,12 +216,23 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         int version,
         string channel,
         bool allowMultipleActive = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await ActivateAsync(resourceId, version, channel, TenantScope.Default, allowMultipleActive, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask ActivateAsync(
+        string resourceId,
+        int version,
+        string channel,
+        TenantScope tenantScope,
+        bool allowMultipleActive,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = store.TryGetVersions(resourceId);
+        var versions = store.TryGetVersions(resourceId, tenant);
         if (versions is null)
             throw new VersionNotFoundException(resourceId, version);
 
@@ -209,7 +250,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         if (version != latest.Version)
             throw new ConcurrencyException(resourceId, version, latest.Version);
 
-        var channelActivations = store.GetOrAddActivations(resourceId);
+        var channelActivations = store.GetOrAddActivations(resourceId, tenant);
         var newActiveVersions = new HashSet<int>();
 
         lock (channelActivations)
@@ -226,6 +267,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
 
         var state = new ActivationState
         {
+            TenantScope = tenant,
             ResourceId = resourceId,
             Channel = channel,
             ActiveVersions = [.. newActiveVersions],
@@ -241,12 +283,22 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         string resourceId,
         int version,
         string channel,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await DeactivateAsync(resourceId, version, channel, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask DeactivateAsync(
+        string resourceId,
+        int version,
+        string channel,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var channelActivations = store.GetOrAddActivations(resourceId);
+        var channelActivations = store.GetOrAddActivations(resourceId, tenant);
 
         lock (channelActivations)
         {
@@ -260,6 +312,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         var remaining = channelActivations.TryGetValue(channel, out var current) ? current : new HashSet<int>();
         var state = new ActivationState
         {
+            TenantScope = tenant,
             ResourceId = resourceId,
             Channel = channel,
             ActiveVersions = [.. remaining],
@@ -274,16 +327,25 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     public ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(
         string resourceId,
         string channel,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        GetActiveVersionsAsync(resourceId, channel, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(
+        string resourceId,
+        string channel,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = store.TryGetVersions(resourceId);
+        var versions = store.TryGetVersions(resourceId, tenant);
         if (versions is null)
             return ValueTask.FromResult<IEnumerable<Resource>>([]);
 
-        if (!store.Activations.TryGetValue(resourceId, out var channelActivations))
+        if (!store.Activations.TryGetValue((tenant.TenantId, resourceId), out var channelActivations))
             return ValueTask.FromResult<IEnumerable<Resource>>([]);
 
         HashSet<int> activeVersionNumbers;
@@ -311,16 +373,18 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     public ValueTask<Resource> SaveVersionAsync(Resource resource, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        var tenant = TenantScopeResolver.Resolve(resource.TenantScope);
+        var scopedResource = resource with { TenantScope = tenant };
 
-        var versions = store.Versions.GetOrAdd(resource.ResourceId, _ => []);
+        var versions = store.Versions.GetOrAdd((tenant.TenantId, scopedResource.ResourceId), _ => []);
         lock (versions)
         {
-            versions.Add(resource);
+            versions.Add(scopedResource);
         }
 
-        LogResourceSaved(resource.ResourceId, resource.Version, resource.Id);
+        LogResourceSaved(scopedResource.ResourceId, scopedResource.Version, scopedResource.Id);
 
-        return ValueTask.FromResult(resource);
+        return ValueTask.FromResult(scopedResource);
     }
 
     /// <inheritdoc />

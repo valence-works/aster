@@ -55,6 +55,7 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
 
         var candidates = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
+            TenantScope = query.TenantScope,
             Scope = query.Scope,
             ActivationChannel = query.ActivationChannel,
         }, cancellationToken);

@@ -221,6 +221,28 @@ if (status.Status == ResourceSchemaStatus.OlderThanLatest)
 
 Invalid upgrade targets throw `ResourceSchemaUpgradeException` with a stable `Code` such as `missing-definition`, `missing-definition-version`, `target-definition-version-too-new`, or `target-definition-version-before-source`. Stale base versions keep using `ConcurrencyException`.
 
+Tenant-aware hosts pass `TenantScope` explicitly on request DTOs or method overloads. Omitted tenant scope resolves to the default single-tenant scope.
+
+```csharp
+var tenant = TenantScope.FromTenantId("tenant-a");
+
+await definitionStore.RegisterDefinitionAsync(definition, tenant, CancellationToken.None);
+
+var resource = await manager.CreateAsync("Product", new CreateResourceRequest
+{
+    TenantScope = tenant,
+    ResourceId = "product-1",
+});
+
+var results = await queryService.QueryAsync(new ResourceQuery
+{
+    TenantScope = tenant,
+    DefinitionId = "Product",
+});
+```
+
+Tenant IDs are opaque exact-match values. `TenantScope.FromTenantId(...)` rejects blank IDs with `ArgumentException` during construction. Operation-boundary resolution, such as malformed scope instances supplied on requests, fails closed through `TenantScopeException` or query/portability diagnostics. Aster does not add tenant registries, ambient tenant context, authorization policy, cross-tenant query, or tenant hierarchy in this slice.
+
 ---
 
 ### 8. Export, preview, and import portable snapshots

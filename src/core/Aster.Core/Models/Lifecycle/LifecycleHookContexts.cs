@@ -1,5 +1,6 @@
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Models.Lifecycle;
 
@@ -8,6 +9,11 @@ namespace Aster.Core.Models.Lifecycle;
 /// </summary>
 public abstract record ResourceLifecycleContext
 {
+    /// <summary>
+    /// Tenant scope used by the underlying operation.
+    /// </summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
     /// <summary>
     /// Per-operation identifier shared by before and after hooks.
     /// </summary>

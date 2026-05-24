@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Portability;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Aster.Core.Models.Portability;
 /// </summary>
 public sealed record PortableSnapshotExportResult
 {
+    /// <summary>
+    /// Source tenant scope used for export.
+    /// </summary>
+    public TenantScope SourceTenantScope { get; init; } = TenantScope.Default;
+
     /// <summary>
     /// Exported snapshot, or <see langword="null"/> when export failed validation.
     /// </summary>
@@ -43,6 +50,16 @@ public sealed record PortableSnapshotValidationResult
 public sealed record PortableImportPreview
 {
     /// <summary>
+    /// Source tenant scope recorded in the snapshot.
+    /// </summary>
+    public TenantScope SourceTenantScope { get; init; } = TenantScope.Default;
+
+    /// <summary>
+    /// Target tenant scope for the planned import.
+    /// </summary>
+    public TenantScope TargetTenantScope { get; init; } = TenantScope.Default;
+
+    /// <summary>
     /// Whether the snapshot can be imported.
     /// </summary>
     public required bool CanImport { get; init; }
@@ -68,6 +85,16 @@ public sealed record PortableImportPreview
 /// </summary>
 public sealed record PortableImportResult
 {
+    /// <summary>
+    /// Source tenant scope recorded in the snapshot.
+    /// </summary>
+    public TenantScope SourceTenantScope { get; init; } = TenantScope.Default;
+
+    /// <summary>
+    /// Target tenant scope for the import.
+    /// </summary>
+    public TenantScope TargetTenantScope { get; init; } = TenantScope.Default;
+
     /// <summary>
     /// Import status.
     /// </summary>

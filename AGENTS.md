@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/014-host-lifecycle-hooks/plan.md`.
+shell commands, and other important information, read `specs/015-tenant-scoping/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -14,8 +14,11 @@ shell commands, and other important information, read `specs/014-host-lifecycle-
 - Existing resource definitions, resource versions, and activation state; no schema migration planned for SQLite JSON or in-memory stores (013-portability-primitives)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, resource manager/store abstractions, resource schema-version service, portability service, SQLite JSON provider, xUnit test stack; no new dependencies (014-host-lifecycle-hooks)
 - Existing resource definitions, resource versions, activation state, and portable snapshots; no schema migration or persisted hook state (014-host-lifecycle-hooks)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, resource manager/store abstractions, query capability/validation stack, portability service, lifecycle hook dispatcher, xUnit test stack; no new dependencies (015-tenant-scoping)
+- Existing resource definitions, resource versions, activation state, and portable snapshots extended with tenant scope metadata; no automatic migration policy or external storage service (015-tenant-scoping)
 
 ## Recent Changes
+- 015-tenant-scoping: Added explicit tenant boundary planning for definitions, resources, activation state, queries, schema upgrades, portability, and lifecycle hooks; no automatic migration policy or tenant registry
 - 014-host-lifecycle-hooks: Added explicit host lifecycle hook planning over save, activation, deactivation, export, preview import, and write import; no schema migration or persisted hook state
 - 013-portability-primitives: Added deterministic export/import portability planning over existing definitions, resources, and activation state; no schema migration planned
 - 012-definition-schema-upgrades: Added definition schema version and explicit upgrade flow planning; no schema migration or automatic data rewrite

@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Definitions;
 
 /// <summary>
@@ -10,6 +12,11 @@ namespace Aster.Core.Models.Definitions;
 /// </remarks>
 public sealed record ResourceDefinition
 {
+    /// <summary>
+    /// Tenant scope that owns this definition version.
+    /// </summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
     /// <summary>
     /// Logical persistent identifier (e.g., "Product"). Shared across all definition versions.
     /// </summary>

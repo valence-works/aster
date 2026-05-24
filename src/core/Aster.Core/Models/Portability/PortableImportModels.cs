@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Portability;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Aster.Core.Models.Portability;
 /// </summary>
 public sealed class PortableImportOptions
 {
+    /// <summary>
+    /// Target tenant scope for preview/import. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TargetTenantScope { get; set; }
+
     /// <summary>
     /// Collision handling mode.
     /// </summary>

@@ -3,6 +3,7 @@ using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
+using Aster.Core.Models.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Portability;
@@ -101,5 +102,55 @@ public sealed class PortabilityValidationTests
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(PortableDiagnosticCodes.MalformedSnapshot, diagnostic.Code);
         Assert.Equal("resources/0/resourceId", diagnostic.Path);
+    }
+
+    [Fact]
+    public async Task PreviewImportAsync_InvalidSourceTenantScope_ReturnsSingleSourceTenantDiagnostic()
+    {
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .BuildServiceProvider();
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+
+        var result = await portability.PreviewImportAsync(new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            SourceTenantScope = new TenantScope { TenantId = " " },
+        });
+
+        Assert.False(result.CanImport);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidTenantScope, diagnostic.Code);
+        Assert.Equal("sourceTenantScope", diagnostic.Path);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_InvalidEntityTenantScope_DoesNotAddMismatchDiagnostic()
+    {
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .BuildServiceProvider();
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+
+        var result = await portability.ValidateAsync(new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            SourceTenantScope = TenantScope.FromTenantId("tenant-a"),
+            Definitions =
+            [
+                new ResourceDefinition
+                {
+                    TenantScope = new TenantScope { TenantId = " " },
+                    DefinitionId = "Product",
+                    Id = "product-definition-v1",
+                    Version = 1,
+                },
+            ],
+        });
+
+        Assert.False(result.IsValid);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidTenantScope, diagnostic.Code);
+        Assert.Equal("definitions/0/tenantScope", diagnostic.Path);
     }
 }

@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Instances;
 
 /// <summary>
@@ -12,6 +14,11 @@ namespace Aster.Core.Models.Instances;
 /// </remarks>
 public sealed record Resource
 {
+    /// <summary>
+    /// Tenant scope that owns this resource version.
+    /// </summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
     /// <summary>
     /// Logical persistent identifier. Shared across all versions. Assigned at V1 by
     /// <see cref="Aster.Core.Abstractions.IIdentityGenerator"/> or supplied by the caller.

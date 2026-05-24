@@ -1,5 +1,6 @@
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Abstractions;
 
@@ -49,6 +50,15 @@ public interface IResourceManager
     ValueTask<Resource?> GetVersionAsync(string resourceId, int version, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns a specific version of a tenant-scoped resource, or <see langword="null"/> if not found.
+    /// </summary>
+    /// <param name="resourceId">Logical resource identifier.</param>
+    /// <param name="version">The version number to retrieve.</param>
+    /// <param name="tenantScope">Tenant scope for lookup.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    ValueTask<Resource?> GetVersionAsync(string resourceId, int version, TenantScope tenantScope, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns all versions of the specified resource.
     /// </summary>
     /// <param name="resourceId">Logical resource identifier.</param>
@@ -56,11 +66,27 @@ public interface IResourceManager
     ValueTask<IEnumerable<Resource>> GetVersionsAsync(string resourceId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns all versions of the tenant-scoped resource.
+    /// </summary>
+    /// <param name="resourceId">Logical resource identifier.</param>
+    /// <param name="tenantScope">Tenant scope for lookup.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    ValueTask<IEnumerable<Resource>> GetVersionsAsync(string resourceId, TenantScope tenantScope, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns the latest version of the specified resource, or <see langword="null"/> if it does not exist.
     /// </summary>
     /// <param name="resourceId">Logical resource identifier.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     ValueTask<Resource?> GetLatestVersionAsync(string resourceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the latest version of the tenant-scoped resource, or <see langword="null"/> if it does not exist.
+    /// </summary>
+    /// <param name="resourceId">Logical resource identifier.</param>
+    /// <param name="tenantScope">Tenant scope for lookup.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    ValueTask<Resource?> GetLatestVersionAsync(string resourceId, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
     /// Activates the given version in the specified channel.
@@ -80,6 +106,17 @@ public interface IResourceManager
     ValueTask ActivateAsync(string resourceId, int version, string channel, bool allowMultipleActive = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Activates the given tenant-scoped resource version in the specified channel.
+    /// </summary>
+    /// <param name="resourceId">Logical resource identifier.</param>
+    /// <param name="version">The version number to activate.</param>
+    /// <param name="channel">The channel name.</param>
+    /// <param name="tenantScope">Tenant scope for activation.</param>
+    /// <param name="allowMultipleActive">Whether to permit multiple active versions in the channel.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    ValueTask ActivateAsync(string resourceId, int version, string channel, TenantScope tenantScope, bool allowMultipleActive, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deactivates the given version in the specified channel.
     /// </summary>
     /// <param name="resourceId">Logical resource identifier.</param>
@@ -89,10 +126,29 @@ public interface IResourceManager
     ValueTask DeactivateAsync(string resourceId, int version, string channel, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deactivates the tenant-scoped resource version in the specified channel.
+    /// </summary>
+    /// <param name="resourceId">Logical resource identifier.</param>
+    /// <param name="version">The version number to deactivate.</param>
+    /// <param name="channel">The channel name.</param>
+    /// <param name="tenantScope">Tenant scope for deactivation.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    ValueTask DeactivateAsync(string resourceId, int version, string channel, TenantScope tenantScope, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns all active resource versions in the specified channel.
     /// </summary>
     /// <param name="resourceId">Logical resource identifier.</param>
     /// <param name="channel">The channel name.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(string resourceId, string channel, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns all active tenant-scoped resource versions in the specified channel.
+    /// </summary>
+    /// <param name="resourceId">Logical resource identifier.</param>
+    /// <param name="channel">The channel name.</param>
+    /// <param name="tenantScope">Tenant scope for lookup.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(string resourceId, string channel, TenantScope tenantScope, CancellationToken cancellationToken);
 }

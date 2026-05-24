@@ -6,7 +6,7 @@
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Phase 4 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider conformance support, portable operators, SQLite date-like ranges, explicit index projection contracts, definition schema upgrades, and portability primitives are available. See [Roadmap](#roadmap) for future phases.
+> **Status:** Phase 5 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider conformance support, portable operators, SQLite date-like ranges, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, and explicit tenant scoping are available. See [Roadmap](#roadmap) for future phases.
 
 ---
 
@@ -36,6 +36,7 @@ It provides a headless, backend-agnostic foundation for attaching reusable, cros
 | **Facet Definition** | A typed field declared inside an Aspect Definition (e.g. `Title: string`, `Amount: decimal`). |
 | **Facet Value** | The actual value of a facet on an aspect instance. |
 | **Activation Channel** | A named delivery context (e.g. `"Published"`, `"Staging"`). A resource version becomes _active_ when placed in a channel. Multiple channels and multiple simultaneously active versions are supported. |
+| **Tenant Scope** | An explicit opaque tenant boundary for definitions, resources, activation state, queries, schema upgrades, portability, and lifecycle hooks. Omitted scope resolves to the default single-tenant scope. |
 
 Resources follow an **append-only versioning model** — versions are never mutated. A version with no activation entry is implicitly a draft.
 
@@ -79,11 +80,19 @@ var definition = new ResourceDefinitionBuilder()
 await definitionStore.RegisterDefinitionAsync(definition);
 ```
 
+For tenant-aware hosts, pass a `TenantScope` explicitly:
+
+```csharp
+var tenant = TenantScope.FromTenantId("tenant-a");
+await definitionStore.RegisterDefinitionAsync(definition, tenant, CancellationToken.None);
+```
+
 ### 3. Create a Resource
 
 ```csharp
 var resource = await manager.CreateAsync("Product", new CreateResourceRequest
 {
+    TenantScope = tenant, // omit for default single-tenant behavior
     InitialAspects = new Dictionary<string, object>
     {
         ["TitleAspect"] = new TitleAspect("Super Gadget"),
@@ -153,6 +162,7 @@ Use `IResourceQueryService` with a portable `ResourceQuery` AST:
 ```csharp
 var query = new ResourceQuery
 {
+    TenantScope = tenant,
     DefinitionId = "Product",
     Filter = new FacetValueFilter("TitleAspect", "Title", "Gadget", ComparisonOperator.Contains),
     Sorts = [new SortExpression("Created", SortDirection.Descending)],
@@ -285,8 +295,8 @@ specs/                       ← Feature specs (001-core-sdk-foundation, …)
 | **1** | Core SDK & In-Memory Engine | ✅ Complete |
 | **2A** | SQLite JSON Persistence & Querying | ✅ Complete |
 | **3** | Query Capabilities & Typed Querying | ✅ Complete |
-| **4** | Portability & Integration Hooks | 🚧 In Progress |
-| **5** | Multi-tenancy, Policies, Advanced Versioning | 📋 Planned |
+| **4** | Portability & Integration Hooks | ✅ Core Complete |
+| **5** | Multi-tenancy, Policies, Advanced Versioning | 🚧 In Progress |
 | **6** | Operational Hardening (concurrency, perf, migrations) | 📋 Planned |
 
 See [`docs/Roadmap.md`](docs/Roadmap.md) and [`wiki/Roadmap.md`](wiki/Roadmap.md) for the full phase breakdown with epics and definitions of done.

@@ -1,5 +1,6 @@
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Models.Portability;
 
@@ -17,6 +18,11 @@ public sealed record PortableSnapshot
     /// Snapshot format version.
     /// </summary>
     public required int FormatVersion { get; init; }
+
+    /// <summary>
+    /// Source tenant scope represented by the snapshot.
+    /// </summary>
+    public TenantScope SourceTenantScope { get; init; } = TenantScope.Default;
 
     /// <summary>
     /// Definition versions included in the snapshot.
@@ -39,6 +45,11 @@ public sealed record PortableSnapshot
 /// </summary>
 public sealed class PortableSnapshotExportRequest
 {
+    /// <summary>
+    /// Tenant scope to export. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; set; }
+
     /// <summary>
     /// Requested export scope.
     /// </summary>

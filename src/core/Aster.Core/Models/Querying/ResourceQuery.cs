@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Querying;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Aster.Core.Models.Querying;
 /// </summary>
 public sealed record ResourceQuery
 {
+    /// <summary>
+    /// Tenant scope for the query. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; init; }
+
     /// <summary>
     /// Which resource versions to query. Defaults to latest versions only.
     /// </summary>
