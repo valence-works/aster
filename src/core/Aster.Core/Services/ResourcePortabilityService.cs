@@ -72,7 +72,11 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
         catch (LifecycleHookException exception)
         {
-            return new PortableSnapshotExportResult { Diagnostics = [ToPortableDiagnostic(exception)] };
+            return new PortableSnapshotExportResult
+            {
+                SourceTenantScope = sourceTenant,
+                Diagnostics = [ToPortableDiagnostic(exception)],
+            };
         }
 
         PortableSnapshot? snapshot = null;
@@ -114,6 +118,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             result = new PortableSnapshotExportResult
             {
+                SourceTenantScope = sourceTenant,
                 Diagnostics =
                 [
                     .. diagnostics,

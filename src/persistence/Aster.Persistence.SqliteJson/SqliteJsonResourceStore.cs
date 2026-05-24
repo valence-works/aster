@@ -107,7 +107,7 @@ public sealed class SqliteJsonResourceStore :
     public async ValueTask RegisterDefinitionAsync(
         ResourceDefinition definition,
         CancellationToken cancellationToken = default) =>
-        await RegisterDefinitionAsync(definition, definition.TenantScope, cancellationToken);
+        await RegisterDefinitionAsync(definition, TenantScope.Default, cancellationToken);
 
     /// <inheritdoc />
     public async ValueTask RegisterDefinitionAsync(

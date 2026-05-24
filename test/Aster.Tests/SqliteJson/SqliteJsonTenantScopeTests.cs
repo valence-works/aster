@@ -50,6 +50,19 @@ public sealed class SqliteJsonTenantScopeTests : IDisposable
     }
 
     [Fact]
+    public async Task RegisterDefinitionAsync_WithoutTenantScope_AlwaysUsesDefaultTenant()
+    {
+        await using var provider = TenantScopeTestFixtures.CreateSqliteProvider(databasePath);
+        var definitions = provider.GetRequiredService<IResourceDefinitionStore>();
+        var definition = CreateDefinition() with { TenantScope = TenantScopeTestFixtures.TenantA };
+
+        await definitions.RegisterDefinitionAsync(definition);
+
+        Assert.NotNull(await definitions.GetDefinitionAsync("Product"));
+        Assert.Null(await definitions.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA));
+    }
+
+    [Fact]
     public async Task ExistingPreTenantTables_ReadBackAsDefaultTenant()
     {
         var resource = TenantScopeTestFixtures.CreateResource("legacy-product", "Legacy");

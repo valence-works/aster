@@ -32,6 +32,17 @@ public sealed class TenantDefinitionStoreTests : IDisposable
         Assert.Single(tenantBDefinitions);
     }
 
+    [Fact]
+    public async Task RegisterDefinitionAsync_WithoutTenantScope_AlwaysUsesDefaultTenant()
+    {
+        var definition = CreateDefinition() with { TenantScope = TenantScopeTestFixtures.TenantA };
+
+        await store.RegisterDefinitionAsync(definition);
+
+        Assert.NotNull(await store.GetDefinitionAsync("Product"));
+        Assert.Null(await store.GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA));
+    }
+
     private static Aster.Core.Models.Definitions.ResourceDefinition CreateDefinition() =>
         new ResourceDefinitionBuilder().WithDefinitionId("Product").Build();
 }

@@ -75,7 +75,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
 
     /// <inheritdoc />
     public ValueTask RegisterDefinitionAsync(ResourceDefinition definition, CancellationToken cancellationToken = default) =>
-        RegisterDefinitionAsync(definition, definition.TenantScope, cancellationToken);
+        RegisterDefinitionAsync(definition, TenantScope.Default, cancellationToken);
 
     /// <inheritdoc />
     public ValueTask RegisterDefinitionAsync(

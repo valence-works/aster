@@ -14,20 +14,20 @@ namespace Aster.Core.InMemory;
 public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter
 {
     /// <summary>
-    /// Resource version history keyed by <c>ResourceId</c>.
+    /// Resource version history keyed by tenant ID and <c>ResourceId</c>.
     /// Each list is ordered from V1 to the latest; access must be synchronised via <c>lock</c>.
     /// </summary>
     internal readonly ConcurrentDictionary<(string TenantId, string ResourceId), List<Resource>> Versions = [];
 
     /// <summary>
-    /// Activation state keyed by <c>ResourceId</c> → channel name → set of active version numbers.
+    /// Activation state keyed by tenant ID and <c>ResourceId</c> → channel name → set of active version numbers.
     /// The inner <see cref="ConcurrentDictionary{TKey,TValue}"/> is used as a lock target for
     /// atomic read-modify-write on the contained <see cref="HashSet{T}"/>.
     /// </summary>
     internal readonly ConcurrentDictionary<(string TenantId, string ResourceId), ConcurrentDictionary<string, HashSet<int>>> Activations = [];
 
     /// <summary>
-    /// Last persisted activation state keyed by <c>ResourceId</c> → channel name.
+    /// Last persisted activation state keyed by tenant ID and <c>ResourceId</c> → channel name.
     /// </summary>
     internal readonly ConcurrentDictionary<(string TenantId, string ResourceId), ConcurrentDictionary<string, ActivationState>> ActivationStates = [];
 
