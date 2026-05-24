@@ -123,4 +123,34 @@ public sealed class PortabilityValidationTests
         Assert.Equal(PortableDiagnosticCodes.InvalidTenantScope, diagnostic.Code);
         Assert.Equal("sourceTenantScope", diagnostic.Path);
     }
+
+    [Fact]
+    public async Task ValidateAsync_InvalidEntityTenantScope_DoesNotAddMismatchDiagnostic()
+    {
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .BuildServiceProvider();
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+
+        var result = await portability.ValidateAsync(new PortableSnapshot
+        {
+            FormatVersion = PortableSnapshot.CurrentFormatVersion,
+            SourceTenantScope = TenantScope.FromTenantId("tenant-a"),
+            Definitions =
+            [
+                new ResourceDefinition
+                {
+                    TenantScope = new TenantScope { TenantId = " " },
+                    DefinitionId = "Product",
+                    Id = "product-definition-v1",
+                    Version = 1,
+                },
+            ],
+        });
+
+        Assert.False(result.IsValid);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidTenantScope, diagnostic.Code);
+        Assert.Equal("definitions/0/tenantScope", diagnostic.Path);
+    }
 }

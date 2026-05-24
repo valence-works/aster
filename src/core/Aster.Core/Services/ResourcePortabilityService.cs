@@ -1208,6 +1208,11 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         ICollection<PortableDiagnostic> diagnostics)
     {
         var entityTenant = ResolveTenantForDiagnostics(entityTenantScope, path, diagnostics);
+        if (diagnostics.Any(d =>
+            string.Equals(d.Path, path, StringComparison.Ordinal)
+            && d.Code == PortableDiagnosticCodes.InvalidTenantScope))
+            return;
+
         if (!string.Equals(entityTenant.TenantId, sourceTenant.TenantId, StringComparison.Ordinal))
         {
             diagnostics.Add(new PortableDiagnostic
