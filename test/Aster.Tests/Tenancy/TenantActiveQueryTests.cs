@@ -26,8 +26,8 @@ public sealed class TenantActiveQueryTests : IDisposable
         await TenantScopeTestFixtures.CreateProductAsync(provider, "shared-product", "Tenant A", TenantScopeTestFixtures.TenantA);
         await TenantScopeTestFixtures.CreateProductAsync(provider, "shared-product", "Tenant B", TenantScopeTestFixtures.TenantB);
         await manager.UpdateAsync("shared-product", new UpdateResourceRequest { TenantScope = TenantScopeTestFixtures.TenantB, BaseVersion = 1 });
-        await manager.ActivateAsync("shared-product", 1, "Published", TenantScopeTestFixtures.TenantA, allowMultipleActive: false);
-        await manager.ActivateAsync("shared-product", 2, "Published", TenantScopeTestFixtures.TenantB, allowMultipleActive: false);
+        await manager.ActivateAsync("shared-product", 1, "Published", TenantScopeTestFixtures.TenantA, allowMultipleActive: false, CancellationToken.None);
+        await manager.ActivateAsync("shared-product", 2, "Published", TenantScopeTestFixtures.TenantB, allowMultipleActive: false, CancellationToken.None);
 
         var results = (await query.QueryAsync(new ResourceQuery
         {

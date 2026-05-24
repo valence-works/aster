@@ -114,7 +114,7 @@ public interface IResourceManager
     /// <param name="tenantScope">Tenant scope for activation.</param>
     /// <param name="allowMultipleActive">Whether to permit multiple active versions in the channel.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    ValueTask ActivateAsync(string resourceId, int version, string channel, TenantScope tenantScope, bool allowMultipleActive, CancellationToken cancellationToken = default);
+    ValueTask ActivateAsync(string resourceId, int version, string channel, TenantScope tenantScope, bool allowMultipleActive, CancellationToken cancellationToken);
 
     /// <summary>
     /// Deactivates the given version in the specified channel.

@@ -25,8 +25,8 @@ public sealed class TenantActivationTests : IDisposable
         await TenantScopeTestFixtures.CreateProductAsync(provider, "shared-product", "Tenant B", TenantScopeTestFixtures.TenantB);
         await manager.UpdateAsync("shared-product", new UpdateResourceRequest { TenantScope = TenantScopeTestFixtures.TenantA, BaseVersion = 1 });
 
-        await manager.ActivateAsync("shared-product", 2, "Published", TenantScopeTestFixtures.TenantA, allowMultipleActive: false);
-        await manager.ActivateAsync("shared-product", 1, "Published", TenantScopeTestFixtures.TenantB, allowMultipleActive: false);
+        await manager.ActivateAsync("shared-product", 2, "Published", TenantScopeTestFixtures.TenantA, allowMultipleActive: false, CancellationToken.None);
+        await manager.ActivateAsync("shared-product", 1, "Published", TenantScopeTestFixtures.TenantB, allowMultipleActive: false, CancellationToken.None);
 
         var tenantAActive = (await manager.GetActiveVersionsAsync("shared-product", "Published", TenantScopeTestFixtures.TenantA, CancellationToken.None)).ToList();
         var tenantBActive = (await manager.GetActiveVersionsAsync("shared-product", "Published", TenantScopeTestFixtures.TenantB, CancellationToken.None)).ToList();
