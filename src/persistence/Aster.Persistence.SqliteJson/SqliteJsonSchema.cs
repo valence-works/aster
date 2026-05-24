@@ -1,12 +1,15 @@
+using Aster.Core.Models.Tenancy;
 using Microsoft.Data.Sqlite;
 
 namespace Aster.Persistence.SqliteJson;
 
 internal static class SqliteJsonSchema
 {
-    private const string CreateResourceDefinitionsSql = """
+    private const string DefaultTenantSqlLiteral = $"'{TenantScope.DefaultTenantId}'";
+
+    private static readonly string CreateResourceDefinitionsSql = $$"""
         CREATE TABLE IF NOT EXISTS resource_definitions (
-            tenant_id TEXT NOT NULL DEFAULT 'default',
+            tenant_id TEXT NOT NULL DEFAULT {{DefaultTenantSqlLiteral}},
             definition_id TEXT NOT NULL,
             version INTEGER NOT NULL,
             id TEXT NOT NULL,
@@ -15,9 +18,9 @@ internal static class SqliteJsonSchema
         );
         """;
 
-    private const string CreateResourceVersionsSql = """
+    private static readonly string CreateResourceVersionsSql = $$"""
         CREATE TABLE IF NOT EXISTS resource_versions (
-            tenant_id TEXT NOT NULL DEFAULT 'default',
+            tenant_id TEXT NOT NULL DEFAULT {{DefaultTenantSqlLiteral}},
             resource_id TEXT NOT NULL,
             version INTEGER NOT NULL,
             id TEXT NOT NULL,
@@ -31,9 +34,9 @@ internal static class SqliteJsonSchema
         );
         """;
 
-    private const string CreateActivationStatesSql = """
+    private static readonly string CreateActivationStatesSql = $$"""
         CREATE TABLE IF NOT EXISTS activation_states (
-            tenant_id TEXT NOT NULL DEFAULT 'default',
+            tenant_id TEXT NOT NULL DEFAULT {{DefaultTenantSqlLiteral}},
             resource_id TEXT NOT NULL,
             channel TEXT NOT NULL,
             payload TEXT NOT NULL,
@@ -116,7 +119,7 @@ internal static class SqliteJsonSchema
             .Select(static column => column.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var selectExpressions = columns
-            .Select(column => legacyColumns.Contains(column) ? column : "'default'")
+            .Select(column => legacyColumns.Contains(column) ? column : DefaultTenantSqlLiteral)
             .ToArray();
 
         ExecuteNonQuery(
