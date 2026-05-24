@@ -241,7 +241,7 @@ var results = await queryService.QueryAsync(new ResourceQuery
 });
 ```
 
-Tenant IDs are opaque exact-match values. Blank tenant IDs fail closed through `TenantScopeException` or query/portability diagnostics. Aster does not add tenant registries, ambient tenant context, authorization policy, cross-tenant query, or tenant hierarchy in this slice.
+Tenant IDs are opaque exact-match values. `TenantScope.FromTenantId(...)` rejects blank IDs with `ArgumentException` during construction. Operation-boundary resolution, such as malformed scope instances supplied on requests, fails closed through `TenantScopeException` or query/portability diagnostics. Aster does not add tenant registries, ambient tenant context, authorization policy, cross-tenant query, or tenant hierarchy in this slice.
 
 ---
 

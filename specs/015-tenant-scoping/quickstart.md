@@ -134,13 +134,13 @@ Hooks do not discover tenant state through ambient context.
 
 ## Failure Cases
 
-Tenant scope fails closed before data is read or written:
+Tenant scope construction rejects blank IDs immediately:
 
 ```csharp
 var invalid = TenantScope.FromTenantId(" ");
 ```
 
-Expected failure codes include:
+This throws `ArgumentException`. Operation-boundary validation still fails closed with stable codes when a malformed scope instance is supplied on a request, query, snapshot, or import option. Expected failure codes include:
 
 - `tenant-scope-invalid`
 - `tenant-scope-mismatch`
