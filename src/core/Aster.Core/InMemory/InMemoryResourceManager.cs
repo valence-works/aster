@@ -170,7 +170,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     public ValueTask<IEnumerable<Resource>> GetVersionsAsync(
         string resourceId,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -193,7 +193,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     public ValueTask<Resource?> GetLatestVersionAsync(
         string resourceId,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -337,7 +337,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         string resourceId,
         string channel,
         TenantScope tenantScope,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
