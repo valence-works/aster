@@ -6,6 +6,7 @@ using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Services;
 
@@ -49,14 +50,20 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         ArgumentNullException.ThrowIfNull(request);
 
         var diagnostics = ValidateExportRequest(request);
+        var sourceTenant = ResolveTenantForDiagnostics(request.TenantScope, "tenantScope", diagnostics);
         if (diagnostics.Any(static d => d.Severity == PortableDiagnosticSeverity.Error))
-            return new PortableSnapshotExportResult { Diagnostics = diagnostics };
+            return new PortableSnapshotExportResult
+            {
+                SourceTenantScope = sourceTenant,
+                Diagnostics = diagnostics,
+            };
 
         var operationId = Guid.NewGuid();
         try
         {
             await lifecycleHooks.InvokeBeforeExportAsync(new ResourceExportLifecycleContext
             {
+                TenantScope = sourceTenant,
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.BeforeExport,
                 CancellationToken = cancellationToken,
@@ -89,13 +96,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             snapshot = new PortableSnapshot
             {
                 FormatVersion = PortableSnapshot.CurrentFormatVersion,
-                Definitions = storeSnapshot.Definitions,
-                Resources = storeSnapshot.Resources,
-                ActivationStates = storeSnapshot.ActivationStates,
+                SourceTenantScope = sourceTenant,
+                Definitions = storeSnapshot.Definitions.Select(definition => definition with { TenantScope = sourceTenant }).ToList(),
+                Resources = storeSnapshot.Resources.Select(resource => resource with { TenantScope = sourceTenant }).ToList(),
+                ActivationStates = storeSnapshot.ActivationStates.Select(state => state with { TenantScope = sourceTenant }).ToList(),
             };
 
             result = new PortableSnapshotExportResult
             {
+                SourceTenantScope = sourceTenant,
                 Snapshot = snapshot,
                 Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
                 SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
@@ -122,6 +131,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             await lifecycleHooks.InvokeAfterExportAsync(new ResourceExportLifecycleContext
             {
+                TenantScope = sourceTenant,
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterExport,
                 CancellationToken = cancellationToken,
@@ -162,12 +172,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         options ??= new PortableImportOptions();
+        var sourceTenant = ResolveTenantOrDefault(snapshot.SourceTenantScope);
+        var targetTenant = ResolveTenantOrDefault(options.TargetTenantScope);
 
         var operationId = Guid.NewGuid();
         try
         {
             await lifecycleHooks.InvokeBeforePreviewImportAsync(new ResourceImportLifecycleContext
             {
+                TenantScope = targetTenant,
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.BeforePreviewImport,
                 CancellationToken = cancellationToken,
@@ -177,7 +190,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
         catch (LifecycleHookException exception)
         {
-            return FailedPreview(ToPortableDiagnostic(exception));
+            return FailedPreview(ToPortableDiagnostic(exception), sourceTenant, targetTenant);
         }
 
         PortableImportPreview preview;
@@ -186,6 +199,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
             preview = new PortableImportPreview
             {
+                SourceTenantScope = sourceTenant,
+                TargetTenantScope = targetTenant,
                 CanImport = plan.Diagnostics.All(static diagnostic => diagnostic.Severity != PortableDiagnosticSeverity.Error),
                 Counts = plan.PlannedCounts,
                 IdentityMap = plan.IdentityMap,
@@ -194,13 +209,14 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            preview = FailedPreview(ToImportPlanningFailedDiagnostic(exception));
+            preview = FailedPreview(ToImportPlanningFailedDiagnostic(exception), sourceTenant, targetTenant);
         }
 
         try
         {
             await lifecycleHooks.InvokeAfterPreviewImportAsync(new ResourceImportLifecycleContext
             {
+                TenantScope = targetTenant,
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterPreviewImport,
                 CancellationToken = cancellationToken,
@@ -229,12 +245,15 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         options ??= new PortableImportOptions();
+        var sourceTenant = ResolveTenantOrDefault(snapshot.SourceTenantScope);
+        var targetTenant = ResolveTenantOrDefault(options.TargetTenantScope);
 
         var operationId = Guid.NewGuid();
         try
         {
             await lifecycleHooks.InvokeBeforeImportAsync(new ResourceImportLifecycleContext
             {
+                TenantScope = targetTenant,
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.BeforeImport,
                 CancellationToken = cancellationToken,
@@ -244,7 +263,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
         catch (LifecycleHookException exception)
         {
-            return FailedImport(ToPortableDiagnostic(exception));
+            return FailedImport(ToPortableDiagnostic(exception), sourceTenant, targetTenant);
         }
 
         PortableImportResult result;
@@ -255,7 +274,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            result = FailedImport(ToImportPlanningFailedDiagnostic(exception));
+            result = FailedImport(ToImportPlanningFailedDiagnostic(exception), sourceTenant, targetTenant);
             return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
         }
 
@@ -263,6 +282,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             result = new PortableImportResult
             {
+                SourceTenantScope = sourceTenant,
+                TargetTenantScope = targetTenant,
                 Status = PortableImportStatus.Failed,
                 Counts = new PortableActualImportCounts(),
                 IdentityMap = plan.IdentityMap,
@@ -276,6 +297,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 await portabilityStore.ApplyImportAsync(plan.PlannedSnapshot, cancellationToken);
                 result = new PortableImportResult
                 {
+                    SourceTenantScope = sourceTenant,
+                    TargetTenantScope = targetTenant,
                     Status = PortableImportStatus.Imported,
                     Counts = plan.ActualCounts,
                     IdentityMap = plan.IdentityMap,
@@ -286,6 +309,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             {
                 result = new PortableImportResult
                 {
+                    SourceTenantScope = sourceTenant,
+                    TargetTenantScope = targetTenant,
                     Status = PortableImportStatus.Failed,
                     Counts = new PortableActualImportCounts(),
                     IdentityMap = plan.IdentityMap,
@@ -306,6 +331,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             result = new PortableImportResult
             {
+                SourceTenantScope = sourceTenant,
+                TargetTenantScope = targetTenant,
                 Status = PortableImportStatus.NoOp,
                 Counts = plan.ActualCounts,
                 IdentityMap = plan.IdentityMap,
@@ -327,6 +354,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             await lifecycleHooks.InvokeAfterImportAsync(new ResourceImportLifecycleContext
             {
+                TenantScope = result.TargetTenantScope,
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterImport,
                 CancellationToken = cancellationToken,
@@ -343,17 +371,27 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         return result;
     }
 
-    private static PortableImportPreview FailedPreview(PortableDiagnostic diagnostic) =>
+    private static PortableImportPreview FailedPreview(
+        PortableDiagnostic diagnostic,
+        TenantScope? sourceTenant = null,
+        TenantScope? targetTenant = null) =>
         new()
         {
+            SourceTenantScope = sourceTenant ?? TenantScope.Default,
+            TargetTenantScope = targetTenant ?? TenantScope.Default,
             CanImport = false,
             Counts = new PortablePlannedImportCounts(),
             Diagnostics = [diagnostic],
         };
 
-    private static PortableImportResult FailedImport(PortableDiagnostic diagnostic) =>
+    private static PortableImportResult FailedImport(
+        PortableDiagnostic diagnostic,
+        TenantScope? sourceTenant = null,
+        TenantScope? targetTenant = null) =>
         new()
         {
+            SourceTenantScope = sourceTenant ?? TenantScope.Default,
+            TargetTenantScope = targetTenant ?? TenantScope.Default,
             Status = PortableImportStatus.Failed,
             Counts = new PortableActualImportCounts(),
             Diagnostics = [diagnostic],
@@ -396,10 +434,13 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
         var diagnostics = ValidateSnapshot(snapshot);
         diagnostics.AddRange(ValidateImportOptions(options));
+        _ = ResolveTenantForDiagnostics(snapshot.SourceTenantScope, "sourceTenantScope", diagnostics);
+        var targetTenant = ResolveTenantForDiagnostics(options.TargetTenantScope, "targetTenantScope", diagnostics);
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics);
 
-        var targetState = await portabilityStore.ReadTargetStateAsync(snapshot, cancellationToken);
+        var targetSnapshot = ScopeSnapshot(snapshot, targetTenant);
+        var targetState = await portabilityStore.ReadTargetStateAsync(targetSnapshot, cancellationToken);
         var identityMap = new List<PortableIdentityMapping>();
         var strictFailureIdentityMap = new List<PortableIdentityMapping>();
         var existingDefinitions = targetState.Definitions.ToDictionary(static definition => (definition.DefinitionId, definition.Version));
@@ -645,9 +686,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var plannedSnapshot = new PortableSnapshot
         {
             FormatVersion = PortableSnapshot.CurrentFormatVersion,
-            Definitions = plannedDefinitions,
-            Resources = plannedResources,
-            ActivationStates = plannedActivationStates,
+            SourceTenantScope = targetTenant,
+            Definitions = plannedDefinitions.Select(definition => definition with { TenantScope = targetTenant }).ToList(),
+            Resources = plannedResources.Select(resource => resource with { TenantScope = targetTenant }).ToList(),
+            ActivationStates = plannedActivationStates.Select(state => state with { TenantScope = targetTenant }).ToList(),
         };
         var plannedCounts = new PortablePlannedImportCounts
         {
@@ -769,6 +811,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     private static List<PortableDiagnostic> ValidateSnapshot(PortableSnapshot snapshot)
     {
         var diagnostics = new List<PortableDiagnostic>();
+        var sourceTenant = ResolveTenantForDiagnostics(snapshot.SourceTenantScope, "sourceTenantScope", diagnostics);
         var validDefinitions = new List<ResourceDefinition>();
         var validResources = new List<Resource>();
         var validActivationStates = new List<ActivationState>();
@@ -841,7 +884,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
 
             if (!isMalformed)
+            {
                 validDefinitions.Add(definition);
+                ValidateEntityTenant(definition.TenantScope, sourceTenant, $"definitions/{i}/tenantScope", diagnostics);
+            }
         }
 
         for (var i = 0; i < resources.Count; i++)
@@ -891,7 +937,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
 
             if (!isMalformed)
+            {
                 validResources.Add(resource);
+                ValidateEntityTenant(resource.TenantScope, sourceTenant, $"resources/{i}/tenantScope", diagnostics);
+            }
         }
 
         for (var i = 0; i < activationStates.Count; i++)
@@ -928,7 +977,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
 
             if (!isMalformed)
+            {
                 validActivationStates.Add(activationState);
+                ValidateEntityTenant(activationState.TenantScope, sourceTenant, $"activationStates/{i}/tenantScope", diagnostics);
+            }
         }
 
         diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(validDefinitions, validResources, validActivationStates));
@@ -1108,6 +1160,72 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Severity = PortableDiagnosticSeverity.Error,
             Path = path,
             Message = message,
+        };
+
+    private static TenantScope ResolveTenant(TenantScope? tenantScope) =>
+        TenantScopeResolver.Resolve(tenantScope);
+
+    private static TenantScope ResolveTenantOrDefault(TenantScope? tenantScope)
+    {
+        try
+        {
+            return TenantScopeResolver.Resolve(tenantScope);
+        }
+        catch (TenantScopeException)
+        {
+            return TenantScope.Default;
+        }
+    }
+
+    private static TenantScope ResolveTenantForDiagnostics(
+        TenantScope? tenantScope,
+        string path,
+        ICollection<PortableDiagnostic> diagnostics)
+    {
+        try
+        {
+            return TenantScopeResolver.Resolve(tenantScope);
+        }
+        catch (TenantScopeException exception)
+        {
+            diagnostics.Add(new PortableDiagnostic
+            {
+                Code = PortableDiagnosticCodes.InvalidTenantScope,
+                Severity = PortableDiagnosticSeverity.Error,
+                Path = path,
+                Message = exception.Message,
+            });
+
+            return TenantScope.Default;
+        }
+    }
+
+    private static void ValidateEntityTenant(
+        TenantScope? entityTenantScope,
+        TenantScope sourceTenant,
+        string path,
+        ICollection<PortableDiagnostic> diagnostics)
+    {
+        var entityTenant = ResolveTenantForDiagnostics(entityTenantScope, path, diagnostics);
+        if (!string.Equals(entityTenant.TenantId, sourceTenant.TenantId, StringComparison.Ordinal))
+        {
+            diagnostics.Add(new PortableDiagnostic
+            {
+                Code = PortableDiagnosticCodes.SourceTenantScopeMismatch,
+                Severity = PortableDiagnosticSeverity.Error,
+                Path = path,
+                Message = $"Snapshot entry tenant '{entityTenant.TenantId}' does not match source tenant '{sourceTenant.TenantId}'.",
+            });
+        }
+    }
+
+    private static PortableSnapshot ScopeSnapshot(PortableSnapshot snapshot, TenantScope tenantScope) =>
+        snapshot with
+        {
+            SourceTenantScope = tenantScope,
+            Definitions = snapshot.Definitions.Select(definition => definition with { TenantScope = tenantScope }).ToList(),
+            Resources = snapshot.Resources.Select(resource => resource with { TenantScope = tenantScope }).ToList(),
+            ActivationStates = snapshot.ActivationStates.Select(state => state with { TenantScope = tenantScope }).ToList(),
         };
 
     private static bool ContentEquals<T>(T left, T right) =>

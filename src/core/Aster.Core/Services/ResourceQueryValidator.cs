@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Collections;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Querying;
 
 namespace Aster.Core.Services;
@@ -69,6 +70,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         }
 
         var failures = new List<QueryValidationFailure>();
+        ValidateTenantScope(query, failures);
         ValidateScope(query, failures);
         ValidatePaging(query, failures);
 
@@ -80,6 +82,22 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         return failures.Count == 0
             ? QueryValidationResult.Success
             : new(failures);
+    }
+
+    private static void ValidateTenantScope(ResourceQuery query, List<QueryValidationFailure> failures)
+    {
+        try
+        {
+            TenantScopeResolver.Resolve(query.TenantScope);
+        }
+        catch (TenantScopeException exception)
+        {
+            failures.Add(Failure(
+                exception.Code,
+                exception.Message,
+                "TenantScope",
+                "tenant scope"));
+        }
     }
 
     private void ValidateScope(ResourceQuery query, List<QueryValidationFailure> failures)

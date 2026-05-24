@@ -4,6 +4,7 @@ using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Services;
 
@@ -73,8 +74,9 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(resource);
+        var tenant = TenantScopeResolver.Resolve(resource.TenantScope);
 
-        var latestDefinition = await definitionStore.GetDefinitionAsync(resource.DefinitionId, cancellationToken);
+        var latestDefinition = await definitionStore.GetDefinitionAsync(resource.DefinitionId, tenant, cancellationToken);
         if (latestDefinition is null)
             return Status(resource, ResourceSchemaStatus.MissingDefinition, latestDefinitionVersion: null,
                 $"Definition '{resource.DefinitionId}' was not found.");
@@ -86,6 +88,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
         var recordedDefinition = await definitionStore.GetDefinitionVersionAsync(
             resource.DefinitionId,
             resource.DefinitionVersion.Value,
+            tenant,
             cancellationToken);
         if (recordedDefinition is null)
             return Status(resource, ResourceSchemaStatus.MissingDefinitionVersion, latestDefinition.Version,
@@ -111,14 +114,15 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentNullException.ThrowIfNull(request);
+        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
 
-        var latestResource = await resourceManager.GetLatestVersionAsync(resourceId, cancellationToken)
+        var latestResource = await resourceManager.GetLatestVersionAsync(resourceId, tenant, cancellationToken)
             ?? throw new VersionNotFoundException(resourceId, request.BaseVersion);
 
         if (latestResource.Version != request.BaseVersion)
             throw new ConcurrencyException(resourceId, request.BaseVersion, latestResource.Version);
 
-        var latestDefinition = await definitionStore.GetDefinitionAsync(latestResource.DefinitionId, cancellationToken)
+        var latestDefinition = await definitionStore.GetDefinitionAsync(latestResource.DefinitionId, tenant, cancellationToken)
             ?? throw UpgradeFailure(
                 "missing-definition",
                 $"Definition '{latestResource.DefinitionId}' was not found.",
@@ -136,6 +140,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
         var targetDefinition = await definitionStore.GetDefinitionVersionAsync(
             latestResource.DefinitionId,
             targetVersion,
+            tenant,
             cancellationToken);
         if (targetDefinition is null)
             throw UpgradeFailure(
@@ -204,6 +209,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.BeforeSave,
             CancellationToken = cancellationToken,
+            TenantScope = latestResource.TenantScope,
             SaveKind = ResourceSaveKind.SchemaUpgrade,
             DefinitionId = upgraded.DefinitionId,
             ResourceId = upgraded.ResourceId,
@@ -216,6 +222,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterSave,
             CancellationToken = cancellationToken,
+            TenantScope = latestResource.TenantScope,
             SaveKind = ResourceSaveKind.SchemaUpgrade,
             DefinitionId = upgraded.DefinitionId,
             ResourceId = upgraded.ResourceId,

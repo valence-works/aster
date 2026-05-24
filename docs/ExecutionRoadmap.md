@@ -1,14 +1,14 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-05-20
+Last updated: 2026-05-24
 
 This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, and deterministic portability primitives.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, and explicit host lifecycle hooks.
 
-The active workstream is in **Phase 4: Portability & Integration Hooks**. The next useful slice is explicit host lifecycle hooks around save, activation, deactivation, and import/export, still without introducing recipes, live sync, migrations, planner behavior, runtime scanning, provider registries, public SQL, or `IQueryable<Resource>`.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**, starting with explicit tenant-aware boundaries before policies or cross-tenant behavior are introduced.
 
 ## Landed Slices
 
@@ -27,25 +27,27 @@ The active workstream is in **Phase 4: Portability & Integration Hooks**. The ne
 | `011-explicit-indexing-model` | Landed | Provider-declared index projection contracts, validation, evaluation, capability discovery, and provider-authoring docs without physical indexes or query planning. |
 | `012-definition-schema-upgrades` | Landed | Explicit resource definition lineage, schema status inspection, append-only schema upgrades, and carried-forward data diagnostics. |
 | `013-portability-primitives` | Landed | Deterministic export/import primitives for definitions, resources, resource versions, activation state, strict validation, previews, identity mapping, remapping, and provider-backed atomic writes. |
+| `014-host-lifecycle-hooks` | Landed | Explicit before/after hooks for save, activation, deactivation, schema upgrades, export, preview import, and write import with deterministic ordering and fail-closed diagnostics. |
 
 ## Near-Term Roadmap
 
-### 014 — Host Lifecycle Hooks
+### 015 — Tenant Scoping
 
-**Goal:** Add explicit integration hooks around resource lifecycle and portability operations without hidden discovery or a recipe framework.
+**Goal:** Add explicit tenant-aware boundaries for definitions, resources, activation state, queries, schema upgrades, portability, and lifecycle hooks while preserving default single-tenant behavior.
 
 Candidate scope:
 
-- Before/after hooks for save, activation, deactivation, export, preview import, and write import.
-- Clear ordering, cancellation, failure semantics, and diagnostics.
-- Keep recipes, runtime scanning, live sync, and background job orchestration separate follow-up slices.
+- Stable tenant identity and default single-tenant scope.
+- Scoped definition/resource lifecycle, activation state, queries, schema upgrades, portability snapshots, and lifecycle hook contexts.
+- Fail-closed diagnostics for missing, invalid, ambiguous, or mismatched tenant scope.
+- Keep shared-definition inheritance, cross-tenant queries, authorization, policy engines, migrations, runtime scanning, provider registries, public SQL, and `IQueryable<Resource>` out of scope.
 
 ## Later Roadmap
 
 | Area | Intent |
 |---|---|
-| Host hooks | Lifecycle hooks around save, activation, deactivation, and import/export. |
-| Multi-tenancy | Tenant-aware definition scope and query boundaries. |
+| Optional recipes | Separate `Aster.Recipes` package for hosts that want recipe execution over portability primitives. |
+| Multi-tenancy extensions | Shared definitions, tenant hierarchy, and cross-tenant administrative workflows after explicit tenant boundaries exist. |
 | Policies | Retention, archival, soft-delete, and pruning policies. |
 | Operational hardening | Benchmarks, migration idempotency, concurrency hardening, and large-data test suites. |
 

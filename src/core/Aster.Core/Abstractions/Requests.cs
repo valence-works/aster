@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Abstractions;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Aster.Core.Abstractions;
 /// </summary>
 public sealed class CreateResourceRequest
 {
+    /// <summary>
+    /// Tenant scope for this create operation. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; set; }
+
     /// <summary>
     /// Optional caller-supplied logical resource ID (<c>ResourceId</c>).
     /// When <see langword="null"/> or empty, the engine delegates to <see cref="IIdentityGenerator"/>.
@@ -27,6 +34,11 @@ public sealed class CreateResourceRequest
 /// </summary>
 public sealed class UpdateResourceRequest
 {
+    /// <summary>
+    /// Tenant scope for this update operation. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; set; }
+
     /// <summary>
     /// Optimistic lock token. Must match the current latest <c>Resource.Version</c>.
     /// </summary>

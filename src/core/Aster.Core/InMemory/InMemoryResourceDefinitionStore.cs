@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Aster.Core.InMemory;
@@ -11,7 +13,7 @@ namespace Aster.Core.InMemory;
 /// </summary>
 public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitionStore
 {
-    private readonly ConcurrentDictionary<string, List<ResourceDefinition>> definitions = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(string TenantId, string DefinitionId), List<ResourceDefinition>> definitions = [];
     private readonly ILogger<InMemoryResourceDefinitionStore> logger;
 
     /// <summary>
@@ -25,11 +27,16 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     }
 
     /// <inheritdoc />
-    public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, CancellationToken cancellationToken = default)
+    public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, CancellationToken cancellationToken = default) =>
+        GetDefinitionAsync(definitionId, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, TenantScope tenantScope, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        if (definitions.TryGetValue(definitionId, out var versions))
+        if (definitions.TryGetValue((tenant.TenantId, definitionId), out var versions))
         {
             lock (versions)
             {
@@ -41,11 +48,20 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     }
 
     /// <inheritdoc />
-    public ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, CancellationToken cancellationToken = default)
+    public ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, CancellationToken cancellationToken = default) =>
+        GetDefinitionVersionAsync(definitionId, version, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(
+        string definitionId,
+        int version,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        if (definitions.TryGetValue(definitionId, out var versions))
+        if (definitions.TryGetValue((tenant.TenantId, definitionId), out var versions))
         {
             lock (versions)
             {
@@ -58,16 +74,24 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     }
 
     /// <inheritdoc />
-    public ValueTask RegisterDefinitionAsync(ResourceDefinition definition, CancellationToken cancellationToken = default)
+    public ValueTask RegisterDefinitionAsync(ResourceDefinition definition, CancellationToken cancellationToken = default) =>
+        RegisterDefinitionAsync(definition, definition.TenantScope, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask RegisterDefinitionAsync(
+        ResourceDefinition definition,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = definitions.GetOrAdd(definition.DefinitionId, _ => []);
+        var versions = definitions.GetOrAdd((tenant.TenantId, definition.DefinitionId), _ => []);
 
         lock (versions)
         {
             int nextVersion = versions.Count > 0 ? versions[^1].Version + 1 : 1;
-            var versionedDefinition = definition with { Version = nextVersion };
+            var versionedDefinition = definition with { TenantScope = tenant, Version = nextVersion };
             versions.Add(versionedDefinition);
             LogDefinitionRegistered(definition.DefinitionId, nextVersion);
         }
@@ -76,12 +100,20 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     }
 
     /// <inheritdoc />
-    public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken = default)
+    public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken = default) =>
+        ListDefinitionsAsync(TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(TenantScope tenantScope, CancellationToken cancellationToken = default)
     {
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
         var latest = new List<ResourceDefinition>();
 
-        foreach (var versions in definitions.Values)
+        foreach (var ((tenantId, _), versions) in definitions)
         {
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+                continue;
+
             lock (versions)
             {
                 if (versions.Count > 0)
@@ -95,11 +127,18 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     /// <summary>
     /// Returns all versions for a definition.
     /// </summary>
-    internal IReadOnlyList<ResourceDefinition> GetDefinitionVersions(string definitionId)
+    internal IReadOnlyList<ResourceDefinition> GetDefinitionVersions(string definitionId) =>
+        GetDefinitionVersions(definitionId, TenantScope.Default);
+
+    /// <summary>
+    /// Returns all versions for a definition in a tenant.
+    /// </summary>
+    internal IReadOnlyList<ResourceDefinition> GetDefinitionVersions(string definitionId, TenantScope tenantScope)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        if (!definitions.TryGetValue(definitionId, out var versions))
+        if (!definitions.TryGetValue((tenant.TenantId, definitionId), out var versions))
             return [];
 
         lock (versions)
@@ -109,11 +148,18 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     /// <summary>
     /// Returns a specific definition version.
     /// </summary>
-    internal ResourceDefinition? GetDefinitionVersion(string definitionId, int version)
+    internal ResourceDefinition? GetDefinitionVersion(string definitionId, int version) =>
+        GetDefinitionVersion(definitionId, version, TenantScope.Default);
+
+    /// <summary>
+    /// Returns a specific definition version in a tenant.
+    /// </summary>
+    internal ResourceDefinition? GetDefinitionVersion(string definitionId, int version, TenantScope tenantScope)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        if (!definitions.TryGetValue(definitionId, out var versions))
+        if (!definitions.TryGetValue((tenant.TenantId, definitionId), out var versions))
             return null;
 
         lock (versions)
@@ -126,8 +172,9 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     internal void ImportDefinitionVersion(ResourceDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        var tenant = TenantScopeResolver.Resolve(definition.TenantScope);
 
-        var versions = definitions.GetOrAdd(definition.DefinitionId, _ => []);
+        var versions = definitions.GetOrAdd((tenant.TenantId, definition.DefinitionId), _ => []);
         lock (versions)
         {
             var insertIndex = versions.FindIndex(existing => existing.Version >= definition.Version);
@@ -147,8 +194,9 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
     internal void RemoveImportedDefinitionVersion(ResourceDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        var tenant = TenantScopeResolver.Resolve(definition.TenantScope);
 
-        if (!definitions.TryGetValue(definition.DefinitionId, out var versions))
+        if (!definitions.TryGetValue((tenant.TenantId, definition.DefinitionId), out var versions))
             return;
 
         lock (versions)

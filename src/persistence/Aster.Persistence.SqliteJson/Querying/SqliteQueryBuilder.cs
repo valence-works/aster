@@ -1,6 +1,7 @@
 using System.Text;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Querying;
+using Aster.Core.Services;
 
 namespace Aster.Persistence.SqliteJson.Querying;
 
@@ -30,11 +31,13 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
     public string Build()
     {
         var (baseSql, scopePredicates) = BuildScopeSql();
+        var tenantId = Parameters.Add(TenantScopeResolver.Resolve(query.TenantScope).TenantId);
         var sql = new StringBuilder();
         sql.Append("SELECT ");
         sql.AppendJoin(", ", ["rv.payload", .. projections]);
         sql.AppendLine();
         sql.Append(baseSql);
+        predicates.Add($"rv.tenant_id = {tenantId}");
         predicates.AddRange(scopePredicates);
 
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
@@ -87,11 +90,12 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
         ResourceVersionScope.Latest => ("""
             FROM resource_versions rv
             INNER JOIN (
-                SELECT resource_id, MAX(version) AS version
+                SELECT tenant_id, resource_id, MAX(version) AS version
                 FROM resource_versions
-                GROUP BY resource_id
+                GROUP BY tenant_id, resource_id
             ) latest
-                ON latest.resource_id = rv.resource_id
+                ON latest.tenant_id = rv.tenant_id
+                AND latest.resource_id = rv.resource_id
                 AND latest.version = rv.version
             """, []),
         ResourceVersionScope.AllVersions => ("""
@@ -105,7 +109,8 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
                     SELECT 1
                     FROM activation_states active_state
                     JOIN json_each(json_extract(active_state.payload, '$.activeVersions')) active_version
-                    WHERE active_state.resource_id = rv.resource_id
+                    WHERE active_state.tenant_id = rv.tenant_id
+                      AND active_state.resource_id = rv.resource_id
                       AND CAST(active_version.value AS INTEGER) = rv.version
                 )
                 """]),
@@ -122,7 +127,8 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
         return ($$"""
             FROM resource_versions rv
             INNER JOIN activation_states active_state
-                ON active_state.resource_id = rv.resource_id
+                ON active_state.tenant_id = rv.tenant_id
+                AND active_state.resource_id = rv.resource_id
                 AND active_state.channel = {{channel}}
             """, ["""
                 EXISTS (

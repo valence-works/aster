@@ -123,6 +123,16 @@ public static class PortableDiagnosticCodes
     public const string LifecycleHookRejected = "lifecycle-hook-rejected";
 
     /// <summary>
+    /// Tenant scope was malformed or unusable.
+    /// </summary>
+    public const string InvalidTenantScope = "invalid-tenant-scope";
+
+    /// <summary>
+    /// Snapshot contains entries from a tenant other than the declared source tenant.
+    /// </summary>
+    public const string SourceTenantScopeMismatch = "source-tenant-scope-mismatch";
+
+    /// <summary>
     /// Lifecycle hook failed while observing or gating an operation.
     /// </summary>
     public const string LifecycleHookFailed = "lifecycle-hook-failed";

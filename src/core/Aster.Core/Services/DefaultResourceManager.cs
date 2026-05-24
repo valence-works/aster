@@ -3,6 +3,7 @@ using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.Tenancy;
 using Microsoft.Extensions.Logging;
 
 namespace Aster.Core.Services;
@@ -73,6 +74,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         ArgumentNullException.ThrowIfNull(request);
+        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
 
         var resourceId = string.IsNullOrWhiteSpace(request.ResourceId)
             ? identityGenerator.NewId()
@@ -81,18 +83,22 @@ public sealed partial class DefaultResourceManager : IResourceManager
         var existingVersions = (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
             Scope = ResourceVersionScope.AllVersions,
+            TenantScope = tenant,
         }, cancellationToken)).ToList();
 
         if (existingVersions.Any(r => string.Equals(r.ResourceId, resourceId, StringComparison.Ordinal)))
             throw new DuplicateResourceIdException(resourceId);
 
-        var definition = await definitionStore.GetDefinitionAsync(definitionId, cancellationToken);
+        var definition = tenant.IsDefault
+            ? await definitionStore.GetDefinitionAsync(definitionId, cancellationToken)
+            : await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
         if (definition?.IsSingleton == true
             && existingVersions.Any(r => string.Equals(r.DefinitionId, definitionId, StringComparison.Ordinal)))
             throw new SingletonViolationException(definitionId);
 
         var resource = new Resource
         {
+            TenantScope = tenant,
             ResourceId = resourceId,
             Id = identityGenerator.NewId(),
             DefinitionId = definitionId,
@@ -108,6 +114,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.BeforeSave,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             SaveKind = ResourceSaveKind.Create,
             DefinitionId = definitionId,
             ResourceId = resourceId,
@@ -119,6 +126,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterSave,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             SaveKind = ResourceSaveKind.Create,
             DefinitionId = definitionId,
             ResourceId = resourceId,
@@ -154,8 +162,9 @@ public sealed partial class DefaultResourceManager : IResourceManager
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentNullException.ThrowIfNull(request);
+        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
 
-        var versions = (await GetResourceVersionsAsync(resourceId, cancellationToken)).ToList();
+        var versions = (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken)).ToList();
         var latest = versions.LastOrDefault()
             ?? throw new VersionNotFoundException(resourceId, request.BaseVersion);
 
@@ -180,6 +189,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.BeforeSave,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             SaveKind = ResourceSaveKind.Update,
             DefinitionId = updated.DefinitionId,
             ResourceId = resourceId,
@@ -192,6 +202,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterSave,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             SaveKind = ResourceSaveKind.Update,
             DefinitionId = updated.DefinitionId,
             ResourceId = updated.ResourceId,
@@ -225,31 +236,56 @@ public sealed partial class DefaultResourceManager : IResourceManager
     public async ValueTask<Resource?> GetVersionAsync(
         string resourceId,
         int version,
+        CancellationToken cancellationToken = default) =>
+        await GetVersionAsync(resourceId, version, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask<Resource?> GetVersionAsync(
+        string resourceId,
+        int version,
+        TenantScope tenantScope,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        return (await GetResourceVersionsAsync(resourceId, cancellationToken))
+        return (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken))
             .FirstOrDefault(r => r.Version == version);
     }
 
     /// <inheritdoc />
     public async ValueTask<IEnumerable<Resource>> GetVersionsAsync(
         string resourceId,
+        CancellationToken cancellationToken = default) =>
+        await GetVersionsAsync(resourceId, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask<IEnumerable<Resource>> GetVersionsAsync(
+        string resourceId,
+        TenantScope tenantScope,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
-        return await GetResourceVersionsAsync(resourceId, cancellationToken);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        return await GetResourceVersionsAsync(resourceId, tenant, cancellationToken);
     }
 
     /// <inheritdoc />
     public async ValueTask<Resource?> GetLatestVersionAsync(
         string resourceId,
+        CancellationToken cancellationToken = default) =>
+        await GetLatestVersionAsync(resourceId, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask<Resource?> GetLatestVersionAsync(
+        string resourceId,
+        TenantScope tenantScope,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        return (await GetResourceVersionsAsync(resourceId, cancellationToken))
+        return (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken))
             .LastOrDefault();
     }
 
@@ -259,12 +295,23 @@ public sealed partial class DefaultResourceManager : IResourceManager
         int version,
         string channel,
         bool allowMultipleActive = false,
+        CancellationToken cancellationToken = default) =>
+        await ActivateAsync(resourceId, version, channel, TenantScope.Default, allowMultipleActive, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask ActivateAsync(
+        string resourceId,
+        int version,
+        string channel,
+        TenantScope tenantScope,
+        bool allowMultipleActive = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = (await GetResourceVersionsAsync(resourceId, cancellationToken)).ToList();
+        var versions = (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken)).ToList();
         if (versions.All(r => r.Version != version))
             throw new VersionNotFoundException(resourceId, version);
 
@@ -273,7 +320,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             throw new ConcurrencyException(resourceId, version, latest.Version);
 
         var activeVersions = allowMultipleActive
-            ? (await GetActiveVersionsAsync(resourceId, channel, cancellationToken))
+            ? (await GetActiveVersionsAsync(resourceId, channel, tenant, cancellationToken))
                 .Select(r => r.Version)
                 .ToHashSet()
             : [];
@@ -287,6 +334,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.BeforeActivate,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             ResourceId = resourceId,
             Version = version,
             Channel = channel,
@@ -299,6 +347,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterActivate,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             ResourceId = resourceId,
             Version = version,
             Channel = channel,
@@ -308,7 +357,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
 
         try
         {
-            await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
+            await WriteActivationStateAsync(resourceId, channel, tenant, resultingActiveVersions, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -326,12 +375,22 @@ public sealed partial class DefaultResourceManager : IResourceManager
         string resourceId,
         int version,
         string channel,
+        CancellationToken cancellationToken = default) =>
+        await DeactivateAsync(resourceId, version, channel, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask DeactivateAsync(
+        string resourceId,
+        int version,
+        string channel,
+        TenantScope tenantScope,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var activeVersions = (await GetActiveVersionsAsync(resourceId, channel, cancellationToken))
+        var activeVersions = (await GetActiveVersionsAsync(resourceId, channel, tenant, cancellationToken))
             .Select(r => r.Version)
             .ToHashSet();
 
@@ -344,6 +403,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.BeforeDeactivate,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             ResourceId = resourceId,
             Version = version,
             Channel = channel,
@@ -355,6 +415,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             OperationId = operationId,
             LifecyclePoint = LifecyclePoint.AfterDeactivate,
             CancellationToken = cancellationToken,
+            TenantScope = tenant,
             ResourceId = resourceId,
             Version = version,
             Channel = channel,
@@ -363,7 +424,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
 
         try
         {
-            await WriteActivationStateAsync(resourceId, channel, resultingActiveVersions, cancellationToken);
+            await WriteActivationStateAsync(resourceId, channel, tenant, resultingActiveVersions, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -380,15 +441,25 @@ public sealed partial class DefaultResourceManager : IResourceManager
     public async ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(
         string resourceId,
         string channel,
+        CancellationToken cancellationToken = default) =>
+        await GetActiveVersionsAsync(resourceId, channel, TenantScope.Default, cancellationToken);
+
+    /// <inheritdoc />
+    public async ValueTask<IEnumerable<Resource>> GetActiveVersionsAsync(
+        string resourceId,
+        string channel,
+        TenantScope tenantScope,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
 
         var active = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
             Scope = ResourceVersionScope.Active,
             ActivationChannel = channel,
+            TenantScope = tenant,
         }, cancellationToken);
 
         return active
@@ -399,11 +470,14 @@ public sealed partial class DefaultResourceManager : IResourceManager
 
     private async Task<IEnumerable<Resource>> GetResourceVersionsAsync(
         string resourceId,
+        TenantScope tenantScope,
         CancellationToken cancellationToken)
     {
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
         var versions = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
             Scope = ResourceVersionScope.AllVersions,
+            TenantScope = tenant,
         }, cancellationToken);
 
         return versions
@@ -415,11 +489,14 @@ public sealed partial class DefaultResourceManager : IResourceManager
     private async Task WriteActivationStateAsync(
         string resourceId,
         string channel,
+        TenantScope tenantScope,
         IReadOnlyCollection<int> activeVersions,
         CancellationToken cancellationToken)
     {
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
         var state = new ActivationState
         {
+            TenantScope = tenant,
             ResourceId = resourceId,
             Channel = channel,
             ActiveVersions = activeVersions.Order().ToList(),

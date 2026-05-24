@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Instances;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Aster.Core.Models.Instances;
 /// </summary>
 public sealed record ActivationState
 {
+    /// <summary>
+    /// Tenant scope that owns this activation state.
+    /// </summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
     /// <summary>
     /// FK to <c>Resource.ResourceId</c> (logical identifier).
     /// </summary>

@@ -1,3 +1,4 @@
 {
-  "featureDir": "specs/014-host-lifecycle-hooks"
+  "featureDir": "specs/015-tenant-scoping",
+  "feature_directory": "specs/015-tenant-scoping"
 }

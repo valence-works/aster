@@ -3,6 +3,65 @@ using Aster.Core.Models.Querying;
 namespace Aster.Core.Exceptions;
 
 /// <summary>
+/// Thrown when tenant scope is invalid or mismatched with a tenant-scoped operation.
+/// </summary>
+public sealed class TenantScopeException : Exception
+{
+    /// <summary>
+    /// Stable code for invalid tenant scope.
+    /// </summary>
+    public const string InvalidCode = "tenant-scope-invalid";
+
+    /// <summary>
+    /// Stable code for required tenant scope.
+    /// </summary>
+    public const string RequiredCode = "tenant-scope-required";
+
+    /// <summary>
+    /// Stable code for tenant scope mismatch.
+    /// </summary>
+    public const string MismatchCode = "tenant-scope-mismatch";
+
+    /// <summary>
+    /// Gets the stable tenant-scope failure code.
+    /// </summary>
+    public string Code { get; }
+
+    /// <summary>
+    /// Gets the tenant identifier associated with the failure, when available.
+    /// </summary>
+    public string? TenantId { get; }
+
+    /// <inheritdoc />
+    public TenantScopeException()
+        : this(InvalidCode, "The tenant scope is invalid.") { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TenantScopeException"/> class.
+    /// </summary>
+    /// <param name="code">Stable tenant-scope failure code.</param>
+    /// <param name="message">Human-readable explanation.</param>
+    /// <param name="tenantId">Optional tenant identifier.</param>
+    public TenantScopeException(string code, string message, string? tenantId = null)
+        : base(message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        Code = code;
+        TenantId = tenantId;
+    }
+
+    /// <inheritdoc />
+    public TenantScopeException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        Code = InvalidCode;
+    }
+}
+
+/// <summary>
 /// Thrown when a specific resource version cannot be found.
 /// </summary>
 public sealed class VersionNotFoundException : Exception

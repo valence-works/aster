@@ -79,6 +79,7 @@ internal static class ResourceLifecycleHookContextSnapshots
     public static PortableSnapshotExportRequest Snapshot(PortableSnapshotExportRequest request) =>
         new()
         {
+            TenantScope = request.TenantScope,
             ScopeMode = request.ScopeMode,
             DefinitionIds = new HashSet<string>(request.DefinitionIds ?? [], StringComparer.Ordinal),
             ResourceIds = new HashSet<string>(request.ResourceIds ?? [], StringComparer.Ordinal),
@@ -89,6 +90,7 @@ internal static class ResourceLifecycleHookContextSnapshots
     public static PortableImportOptions Snapshot(PortableImportOptions options) =>
         new()
         {
+            TargetTenantScope = options.TargetTenantScope,
             CollisionMode = options.CollisionMode,
         };
 
