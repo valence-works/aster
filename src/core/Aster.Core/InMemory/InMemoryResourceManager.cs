@@ -61,21 +61,19 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
             ? identityGenerator.NewId()
             : request.ResourceId;
 
-        // Atomic duplicate ID check — TryAdd is atomic so only one creator can win
-        var versionList = new List<Resource>();
-        if (!store.Versions.TryAdd((tenant.TenantId, resourceId), versionList))
-            throw new DuplicateResourceIdException(resourceId);
-
         // Singleton enforcement
-        var definition = tenant.IsDefault
-            ? await definitionStore.GetDefinitionAsync(definitionId, cancellationToken)
-            : await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
+        var definition = await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
         if (definition?.IsSingleton == true)
         {
             var existingIds = store.GetResourceIdsForDefinition(definitionId, tenant);
             if (existingIds.Any())
                 throw new SingletonViolationException(definitionId);
         }
+
+        // Atomic duplicate ID check - TryAdd is atomic so only one creator can win.
+        var versionList = new List<Resource>();
+        if (!store.Versions.TryAdd((tenant.TenantId, resourceId), versionList))
+            throw new DuplicateResourceIdException(resourceId);
 
         var resource = new Resource
         {

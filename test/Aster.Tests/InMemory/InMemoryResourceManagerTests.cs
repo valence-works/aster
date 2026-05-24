@@ -2,6 +2,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
 using Aster.Core.Exceptions;
 using Aster.Core.InMemory;
+using Aster.Core.Models.Tenancy;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -84,7 +85,7 @@ public sealed class InMemoryResourceManagerTests
         definition = definition with { Version = 1 };
 
         var defStore = Substitute.For<IResourceDefinitionStore>();
-        defStore.GetDefinitionAsync("Config").Returns(definition);
+        defStore.GetDefinitionAsync("Config", Arg.Any<TenantScope>(), Arg.Any<CancellationToken>()).Returns(definition);
 
         var (manager, _) = CreateManager(defStore);
 
@@ -94,6 +95,29 @@ public sealed class InMemoryResourceManagerTests
         // Act & Assert — second instance must throw
         await Assert.ThrowsAsync<SingletonViolationException>(() =>
             manager.CreateAsync("Config", new CreateResourceRequest()).AsTask());
+    }
+
+    [Fact]
+    public async Task CreateAsync_SingletonViolation_DoesNotReserveFailedResourceId()
+    {
+        // Arrange
+        var definition = new ResourceDefinitionBuilder()
+            .WithDefinitionId("Config")
+            .WithSingleton()
+            .Build() with { Version = 1 };
+
+        var defStore = Substitute.For<IResourceDefinitionStore>();
+        defStore.GetDefinitionAsync("Config", Arg.Any<TenantScope>(), Arg.Any<CancellationToken>()).Returns(definition);
+
+        var (manager, _) = CreateManager(defStore);
+        await manager.CreateAsync("Config", new CreateResourceRequest { ResourceId = "config-1" });
+
+        await Assert.ThrowsAsync<SingletonViolationException>(() =>
+            manager.CreateAsync("Config", new CreateResourceRequest { ResourceId = "config-2" }).AsTask());
+
+        // Act & Assert
+        await Assert.ThrowsAsync<SingletonViolationException>(() =>
+            manager.CreateAsync("Config", new CreateResourceRequest { ResourceId = "config-2" }).AsTask());
     }
 
     // ──────────────────────────────────────────────────────────────────────────

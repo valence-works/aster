@@ -439,7 +439,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
         var diagnostics = ValidateSnapshot(snapshot);
         diagnostics.AddRange(ValidateImportOptions(options));
-        _ = ResolveTenantForDiagnostics(snapshot.SourceTenantScope, "sourceTenantScope", diagnostics);
         var targetTenant = ResolveTenantForDiagnostics(options.TargetTenantScope, "targetTenantScope", diagnostics);
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics);

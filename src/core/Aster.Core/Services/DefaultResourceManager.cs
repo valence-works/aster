@@ -89,9 +89,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         if (existingVersions.Any(r => string.Equals(r.ResourceId, resourceId, StringComparison.Ordinal)))
             throw new DuplicateResourceIdException(resourceId);
 
-        var definition = tenant.IsDefault
-            ? await definitionStore.GetDefinitionAsync(definitionId, cancellationToken)
-            : await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
+        var definition = await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
         if (definition?.IsSingleton == true
             && existingVersions.Any(r => string.Equals(r.DefinitionId, definitionId, StringComparison.Ordinal)))
             throw new SingletonViolationException(definitionId);
