@@ -2,7 +2,7 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 5 starting — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, explicit index projection contracts, explicit definition schema upgrade behavior, portability primitives, and host lifecycle hooks are available.
+> **Current status:** Phase 5 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, explicit index projection contracts, explicit definition schema upgrade behavior, portability primitives, host lifecycle hooks, and explicit tenant scoping are available.
 >
 > For the current implementation trail and next Spec Kit slices, see [`docs/ExecutionRoadmap.md`](../docs/ExecutionRoadmap.md).
 
@@ -30,7 +30,8 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 | **012 Definition Schema Versions & Upgrade Flow** | Landed | Make long-lived resource schema versioning and upgrade behavior explicit. |
 | **013 Portability Primitives** | Landed | Add deterministic export/import primitives for definitions and resources. |
 | **014 Host Lifecycle Hooks** | Landed | Add explicit hooks around save, activation, deactivation, and import/export without hidden runtime scanning. |
-| **015 Tenant Scoping** | Next | Add explicit tenant boundaries for definitions, resources, activation, queries, portability, and lifecycle hooks. |
+| **015 Tenant Scoping** | Landed | Add explicit tenant boundaries for definitions, resources, activation, queries, portability, and lifecycle hooks. |
+| **016 Policy Foundations** | Next | Introduce explicit retention, archival, soft-delete, and pruning policy contracts without hidden background processing. |
 
 ---
 

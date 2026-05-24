@@ -6,7 +6,7 @@
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Phase 5 starting — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider conformance support, portable operators, SQLite date-like ranges, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, and explicit tenant scoping are available. See [Roadmap](#roadmap) for future phases.
+> **Status:** Phase 5 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider conformance support, portable operators, SQLite date-like ranges, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, and explicit tenant scoping are available. See [Roadmap](#roadmap) for future phases.
 
 ---
 
@@ -295,7 +295,7 @@ specs/                       ← Feature specs (001-core-sdk-foundation, …)
 | **1** | Core SDK & In-Memory Engine | ✅ Complete |
 | **2A** | SQLite JSON Persistence & Querying | ✅ Complete |
 | **3** | Query Capabilities & Typed Querying | ✅ Complete |
-| **4** | Portability & Integration Hooks | 🚧 In Progress |
+| **4** | Portability & Integration Hooks | ✅ Core Complete |
 | **5** | Multi-tenancy, Policies, Advanced Versioning | 🚧 In Progress |
 | **6** | Operational Hardening (concurrency, perf, migrations) | 📋 Planned |
 

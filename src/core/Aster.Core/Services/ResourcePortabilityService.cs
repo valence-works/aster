@@ -1167,9 +1167,6 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Message = message,
         };
 
-    private static TenantScope ResolveTenant(TenantScope? tenantScope) =>
-        TenantScopeResolver.Resolve(tenantScope);
-
     private static TenantScope ResolveTenantOrDefault(TenantScope? tenantScope)
     {
         try
