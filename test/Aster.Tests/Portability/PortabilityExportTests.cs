@@ -44,6 +44,24 @@ public sealed class PortabilityExportTests : IDisposable
     }
 
     [Fact]
+    public async Task ExportAsync_NullMutableCollections_ReturnsInvalidScopeDiagnostics()
+    {
+        var result = await portability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.DefinitionsOnly,
+            DefinitionIds = null!,
+            ResourceIds = null!,
+            SpecificResourceVersions = null!,
+        });
+
+        Assert.Null(result.Snapshot);
+        Assert.Equal(3, result.Diagnostics.Count);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Path == "definitionIds");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Path == "resourceIds");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Path == "specificResourceVersions");
+    }
+
+    [Fact]
     public async Task ExportAsync_DefinitionsOnly_IncludesAllSelectedDefinitionVersions()
     {
         await RegisterDefinitionVersionsAsync("Product", count: 2);

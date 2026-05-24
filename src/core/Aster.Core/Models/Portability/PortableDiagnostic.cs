@@ -93,6 +93,11 @@ public static class PortableDiagnosticCodes
     public const string InvalidImportOptions = "invalid-import-options";
 
     /// <summary>
+    /// Import planning failed after validation completed.
+    /// </summary>
+    public const string ImportPlanningFailed = "import-planning-failed";
+
+    /// <summary>
     /// Snapshot shape is malformed before reference or collision validation can safely proceed.
     /// </summary>
     public const string MalformedSnapshot = "malformed-snapshot";
@@ -106,4 +111,20 @@ public static class PortableDiagnosticCodes
     /// Planned import writes failed during provider apply.
     /// </summary>
     public const string ImportApplyFailed = "import-apply-failed";
+
+    /// <summary>
+    /// Export snapshot read failed after validation completed.
+    /// </summary>
+    public const string ExportReadFailed = "export-read-failed";
+
+    /// <summary>
+    /// Lifecycle hook rejected an operation before mutation.
+    /// </summary>
+    public const string LifecycleHookRejected = "lifecycle-hook-rejected";
+
+    /// <summary>
+    /// Lifecycle hook failed while observing or gating an operation.
+    /// </summary>
+    public const string LifecycleHookFailed = "lifecycle-hook-failed";
+
 }

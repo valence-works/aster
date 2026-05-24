@@ -3,6 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Lifecycle;
 
 namespace Aster.Core.Services;
 
@@ -15,6 +16,7 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
     private readonly IResourceManager resourceManager;
     private readonly IIdentityGenerator identityGenerator;
     private readonly IResourceVersionWriter versionWriter;
+    private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ResourceSchemaVersionService"/> class.
@@ -28,16 +30,41 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
         IResourceManager resourceManager,
         IIdentityGenerator identityGenerator,
         IResourceVersionWriter versionWriter)
+        : this(
+            definitionStore,
+            resourceManager,
+            identityGenerator,
+            versionWriter,
+            NoopResourceLifecycleHookDispatcher.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceSchemaVersionService"/> class.
+    /// </summary>
+    /// <param name="definitionStore">The resource definition version store.</param>
+    /// <param name="resourceManager">The resource lifecycle manager.</param>
+    /// <param name="identityGenerator">The identity generator used for new version IDs.</param>
+    /// <param name="versionWriter">The resource version writer used to append upgraded versions.</param>
+    /// <param name="lifecycleHooks">The lifecycle hook dispatcher.</param>
+    public ResourceSchemaVersionService(
+        IResourceDefinitionStore definitionStore,
+        IResourceManager resourceManager,
+        IIdentityGenerator identityGenerator,
+        IResourceVersionWriter versionWriter,
+        IResourceLifecycleHookDispatcher lifecycleHooks)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(resourceManager);
         ArgumentNullException.ThrowIfNull(identityGenerator);
         ArgumentNullException.ThrowIfNull(versionWriter);
+        ArgumentNullException.ThrowIfNull(lifecycleHooks);
 
         this.definitionStore = definitionStore;
         this.resourceManager = resourceManager;
         this.identityGenerator = identityGenerator;
         this.versionWriter = versionWriter;
+        this.lifecycleHooks = lifecycleHooks;
     }
 
     /// <inheritdoc />
@@ -171,7 +198,63 @@ public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
             Aspects = mergedAspects,
         };
 
-        return await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
+        var operationId = Guid.NewGuid();
+        await lifecycleHooks.InvokeBeforeSaveAsync(new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.BeforeSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.SchemaUpgrade,
+            DefinitionId = upgraded.DefinitionId,
+            ResourceId = upgraded.ResourceId,
+            BaseVersion = latestResource.Version,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(upgraded),
+        }, cancellationToken);
+
+        var afterContext = new ResourceSaveLifecycleContext
+        {
+            OperationId = operationId,
+            LifecyclePoint = LifecyclePoint.AfterSave,
+            CancellationToken = cancellationToken,
+            SaveKind = ResourceSaveKind.SchemaUpgrade,
+            DefinitionId = upgraded.DefinitionId,
+            ResourceId = upgraded.ResourceId,
+            BaseVersion = latestResource.Version,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(upgraded),
+        };
+
+        Resource persisted;
+        try
+        {
+            persisted = await versionWriter.SaveVersionAsync(upgraded, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            throw;
+        }
+
+        await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
+        {
+            DefinitionId = persisted.DefinitionId,
+            ResourceId = persisted.ResourceId,
+            Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
+        }, cancellationToken);
+
+        return persisted;
+    }
+
+    private async ValueTask TryInvokeAfterSaveAsync(
+        ResourceSaveLifecycleContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await lifecycleHooks.InvokeAfterSaveAsync(context, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+        }
     }
 
     private static List<string> GetCarriedForwardAspectKeys(

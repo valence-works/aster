@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
 
 namespace Aster.Core.Services;
@@ -15,14 +17,28 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IResourcePortabilityStore portabilityStore;
+    private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
     /// </summary>
     public ResourcePortabilityService(IResourcePortabilityStore portabilityStore)
+        : this(portabilityStore, NoopResourceLifecycleHookDispatcher.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
+    /// </summary>
+    public ResourcePortabilityService(
+        IResourcePortabilityStore portabilityStore,
+        IResourceLifecycleHookDispatcher lifecycleHooks)
     {
         ArgumentNullException.ThrowIfNull(portabilityStore);
+        ArgumentNullException.ThrowIfNull(lifecycleHooks);
+
         this.portabilityStore = portabilityStore;
+        this.lifecycleHooks = lifecycleHooks;
     }
 
     /// <inheritdoc />
@@ -36,34 +52,90 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         if (diagnostics.Any(static d => d.Severity == PortableDiagnosticSeverity.Error))
             return new PortableSnapshotExportResult { Diagnostics = diagnostics };
 
-        var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
-            new PortableStoreReadRequest { ExportRequest = request },
-            cancellationToken);
-
-        var skippedActivationDiagnostics = storeSnapshot.SkippedActivationEntries
-            .Select(static entry => new PortableDiagnostic
+        var operationId = Guid.NewGuid();
+        try
+        {
+            await lifecycleHooks.InvokeBeforeExportAsync(new ResourceExportLifecycleContext
             {
-                Code = PortableDiagnosticCodes.SkippedActivationEntry,
-                Severity = PortableDiagnosticSeverity.Warning,
-                Path = $"activationStates/{entry.ResourceId}/{entry.Channel}/{entry.Version}",
-                Message = $"Activation entry for resource '{entry.ResourceId}' version {entry.Version} in channel '{entry.Channel}' was skipped because that resource version is outside the export scope.",
-            })
-            .ToList();
-
-        var snapshot = new PortableSnapshot
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.BeforeExport,
+                CancellationToken = cancellationToken,
+                ExportRequest = ResourceLifecycleHookContextSnapshots.Snapshot(request),
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
         {
-            FormatVersion = PortableSnapshot.CurrentFormatVersion,
-            Definitions = storeSnapshot.Definitions,
-            Resources = storeSnapshot.Resources,
-            ActivationStates = storeSnapshot.ActivationStates,
-        };
+            return new PortableSnapshotExportResult { Diagnostics = [ToPortableDiagnostic(exception)] };
+        }
 
-        return new PortableSnapshotExportResult
+        PortableSnapshot? snapshot = null;
+        PortableSnapshotExportResult result;
+        try
         {
-            Snapshot = snapshot,
-            Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
-            SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
-        };
+            var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
+                new PortableStoreReadRequest { ExportRequest = request },
+                cancellationToken);
+
+            var skippedActivationDiagnostics = storeSnapshot.SkippedActivationEntries
+                .Select(static entry => new PortableDiagnostic
+                {
+                    Code = PortableDiagnosticCodes.SkippedActivationEntry,
+                    Severity = PortableDiagnosticSeverity.Warning,
+                    Path = $"activationStates/{entry.ResourceId}/{entry.Channel}/{entry.Version}",
+                    Message = $"Activation entry for resource '{entry.ResourceId}' version {entry.Version} in channel '{entry.Channel}' was skipped because that resource version is outside the export scope.",
+                })
+                .ToList();
+
+            snapshot = new PortableSnapshot
+            {
+                FormatVersion = PortableSnapshot.CurrentFormatVersion,
+                Definitions = storeSnapshot.Definitions,
+                Resources = storeSnapshot.Resources,
+                ActivationStates = storeSnapshot.ActivationStates,
+            };
+
+            result = new PortableSnapshotExportResult
+            {
+                Snapshot = snapshot,
+                Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
+                SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            result = new PortableSnapshotExportResult
+            {
+                Diagnostics =
+                [
+                    .. diagnostics,
+                    new PortableDiagnostic
+                    {
+                        Code = PortableDiagnosticCodes.ExportReadFailed,
+                        Severity = PortableDiagnosticSeverity.Error,
+                        Message = $"Export read failed after validation completed: {exception.Message}",
+                    },
+                ],
+            };
+        }
+
+        try
+        {
+            await lifecycleHooks.InvokeAfterExportAsync(new ResourceExportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.AfterExport,
+                CancellationToken = cancellationToken,
+                ExportRequest = ResourceLifecycleHookContextSnapshots.Snapshot(request),
+                Snapshot = snapshot,
+                ExportResult = result,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            result = result with { Diagnostics = [.. result.Diagnostics, ToPortableDiagnostic(exception)] };
+        }
+
+        return result;
     }
 
     /// <inheritdoc />
@@ -91,14 +163,62 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         ArgumentNullException.ThrowIfNull(snapshot);
         options ??= new PortableImportOptions();
 
-        var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
-        return new PortableImportPreview
+        var operationId = Guid.NewGuid();
+        try
         {
-            CanImport = plan.Diagnostics.All(static diagnostic => diagnostic.Severity != PortableDiagnosticSeverity.Error),
-            Counts = plan.PlannedCounts,
-            IdentityMap = plan.IdentityMap,
-            Diagnostics = plan.Diagnostics,
-        };
+            await lifecycleHooks.InvokeBeforePreviewImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.BeforePreviewImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            return FailedPreview(ToPortableDiagnostic(exception));
+        }
+
+        PortableImportPreview preview;
+        try
+        {
+            var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
+            preview = new PortableImportPreview
+            {
+                CanImport = plan.Diagnostics.All(static diagnostic => diagnostic.Severity != PortableDiagnosticSeverity.Error),
+                Counts = plan.PlannedCounts,
+                IdentityMap = plan.IdentityMap,
+                Diagnostics = plan.Diagnostics,
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            preview = FailedPreview(ToImportPlanningFailedDiagnostic(exception));
+        }
+
+        try
+        {
+            await lifecycleHooks.InvokeAfterPreviewImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.AfterPreviewImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
+                Preview = preview,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            preview = preview with
+            {
+                CanImport = false,
+                Diagnostics = [.. preview.Diagnostics, ToPortableDiagnostic(exception)],
+            };
+        }
+
+        return preview;
     }
 
     /// <inheritdoc />
@@ -110,10 +230,38 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         ArgumentNullException.ThrowIfNull(snapshot);
         options ??= new PortableImportOptions();
 
-        var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
+        var operationId = Guid.NewGuid();
+        try
+        {
+            await lifecycleHooks.InvokeBeforeImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.BeforeImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            return FailedImport(ToPortableDiagnostic(exception));
+        }
+
+        PortableImportResult result;
+        ImportPlan plan;
+        try
+        {
+            plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            result = FailedImport(ToImportPlanningFailedDiagnostic(exception));
+            return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
+        }
+
         if (plan.Diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
         {
-            return new PortableImportResult
+            result = new PortableImportResult
             {
                 Status = PortableImportStatus.Failed,
                 Counts = new PortableActualImportCounts(),
@@ -121,16 +269,22 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 Diagnostics = plan.Diagnostics,
             };
         }
-
-        if (plan.HasWrites)
+        else if (plan.HasWrites)
         {
             try
             {
                 await portabilityStore.ApplyImportAsync(plan.PlannedSnapshot, cancellationToken);
+                result = new PortableImportResult
+                {
+                    Status = PortableImportStatus.Imported,
+                    Counts = plan.ActualCounts,
+                    IdentityMap = plan.IdentityMap,
+                    Diagnostics = plan.Diagnostics,
+                };
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                return new PortableImportResult
+                result = new PortableImportResult
                 {
                     Status = PortableImportStatus.Failed,
                     Counts = new PortableActualImportCounts(),
@@ -148,14 +302,89 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 };
             }
         }
-
-        return new PortableImportResult
+        else
         {
-            Status = plan.HasWrites ? PortableImportStatus.Imported : PortableImportStatus.NoOp,
-            Counts = plan.ActualCounts,
-            IdentityMap = plan.IdentityMap,
-            Diagnostics = plan.Diagnostics,
+            result = new PortableImportResult
+            {
+                Status = PortableImportStatus.NoOp,
+                Counts = plan.ActualCounts,
+                IdentityMap = plan.IdentityMap,
+                Diagnostics = plan.Diagnostics,
+            };
+        }
+
+        return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
+    }
+
+    private async ValueTask<PortableImportResult> InvokeAfterImportAsync(
+        Guid operationId,
+        PortableSnapshot snapshot,
+        PortableImportOptions options,
+        PortableImportResult result,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await lifecycleHooks.InvokeAfterImportAsync(new ResourceImportLifecycleContext
+            {
+                OperationId = operationId,
+                LifecyclePoint = LifecyclePoint.AfterImport,
+                CancellationToken = cancellationToken,
+                Snapshot = snapshot,
+                ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
+                ImportResult = result,
+            }, cancellationToken);
+        }
+        catch (LifecycleHookException exception)
+        {
+            result = result with { Diagnostics = [.. result.Diagnostics, ToPortableDiagnostic(exception)] };
+        }
+
+        return result;
+    }
+
+    private static PortableImportPreview FailedPreview(PortableDiagnostic diagnostic) =>
+        new()
+        {
+            CanImport = false,
+            Counts = new PortablePlannedImportCounts(),
+            Diagnostics = [diagnostic],
         };
+
+    private static PortableImportResult FailedImport(PortableDiagnostic diagnostic) =>
+        new()
+        {
+            Status = PortableImportStatus.Failed,
+            Counts = new PortableActualImportCounts(),
+            Diagnostics = [diagnostic],
+        };
+
+    private static PortableDiagnostic ToImportPlanningFailedDiagnostic(Exception exception) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.ImportPlanningFailed,
+            Severity = PortableDiagnosticSeverity.Error,
+            Message = $"Import planning failed after validation completed: {exception.Message}",
+        };
+
+    private static PortableDiagnostic ToPortableDiagnostic(LifecycleHookException exception) =>
+        new()
+        {
+            Code = exception.Code switch
+            {
+                LifecycleHookException.RejectedCode => PortableDiagnosticCodes.LifecycleHookRejected,
+                LifecycleHookException.FailedCode => PortableDiagnosticCodes.LifecycleHookFailed,
+                _ => exception.Code,
+            },
+            Severity = PortableDiagnosticSeverity.Error,
+            Path = $"lifecycle/{LifecyclePointPath(exception.LifecyclePoint)}",
+            Message = exception.Message,
+        };
+
+    private static string LifecyclePointPath(LifecyclePoint lifecyclePoint)
+    {
+        var name = lifecyclePoint.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
     }
 
     private async ValueTask<ImportPlan> BuildImportPlanAsync(
@@ -461,9 +690,29 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             diagnostics.Add(InvalidExportScope("resourceVersionScope", "Resource version scope must be a defined value."));
         }
 
+        var definitionIdsNull = request.DefinitionIds is null;
+        var resourceIdsNull = request.ResourceIds is null;
+        var specificResourceVersionsNull = request.SpecificResourceVersions is null;
+
+        if (definitionIdsNull)
+        {
+            diagnostics.Add(InvalidExportScope("definitionIds", "Export definition IDs collection cannot be null."));
+        }
+
+        if (resourceIdsNull)
+        {
+            diagnostics.Add(InvalidExportScope("resourceIds", "Export resource IDs collection cannot be null."));
+        }
+
+        if (specificResourceVersionsNull)
+        {
+            diagnostics.Add(InvalidExportScope("specificResourceVersions", "Specific resource versions collection cannot be null."));
+        }
+
         if (request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
             && request.ScopeMode != PortableExportScopeMode.DefinitionsOnly
-            && request.SpecificResourceVersions.Count == 0)
+            && !specificResourceVersionsNull
+            && request.SpecificResourceVersions!.Count == 0)
         {
             diagnostics.Add(InvalidExportScope(
                 "specificResourceVersions",
@@ -474,7 +723,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             case PortableExportScopeMode.DefinitionsOnly:
             case PortableExportScopeMode.DefinitionWithResources:
-                if (request.DefinitionIds.Count == 0)
+                if (!definitionIdsNull && request.DefinitionIds!.Count == 0)
                 {
                     diagnostics.Add(InvalidExportScope(
                         "definitionIds",
@@ -485,7 +734,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
             case PortableExportScopeMode.SelectedResources:
                 if (request.ResourceVersionScope != PortableResourceVersionScope.SpecificVersions
-                    && request.ResourceIds.Count == 0)
+                    && !resourceIdsNull
+                    && request.ResourceIds!.Count == 0)
                 {
                     diagnostics.Add(InvalidExportScope(
                         "resourceIds",

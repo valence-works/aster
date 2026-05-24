@@ -5,6 +5,7 @@ using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
 using Aster.Core.Services;
+using Aster.Tests.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Portability;
@@ -400,7 +401,9 @@ public sealed class PortabilityImportTests : IDisposable
     [Fact]
     public async Task ImportAsync_ApplyFailure_ReturnsFailedResultWithDiagnostic()
     {
-        var service = new ResourcePortabilityService(new ThrowingApplyPortabilityStore());
+        var service = new ResourcePortabilityService(
+            new ThrowingApplyPortabilityStore(),
+            new NoopResourceLifecycleHookDispatcher());
 
         var result = await service.ImportAsync(CreateSnapshot());
 

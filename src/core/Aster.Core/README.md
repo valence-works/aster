@@ -260,6 +260,36 @@ Import is strict by default. Existing identical content is reused, divergent col
 
 ---
 
+### 9. Register lifecycle hooks
+
+Hosts can register explicit lifecycle hooks around resource saves, activation/deactivation, export, preview import, and write import.
+
+```csharp
+services
+    .AddAsterCore()
+    .AddResourceLifecycleHook<AuditLifecycleHook>()
+    .AddResourceLifecycleHook<PublishPolicyHook>();
+```
+
+Hooks run in registration order. Before hooks can reject an operation before mutation by returning `LifecycleHookOutcome.Reject(...)`; save, activation, and deactivation rejections surface as `LifecycleHookException`, while portability rejections surface as `PortableDiagnostic` entries. After hooks run after the operation produces a result; for portability preview/import, that includes failed preview or import results produced after a successful before hook. If an after hook fails, the failure is visible to the caller, but the SDK does not claim rollback of the already-completed operation.
+
+```csharp
+public sealed class AuditLifecycleHook : ResourceLifecycleHook
+{
+    public override ValueTask OnAfterSaveAsync(
+        ResourceSaveLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine($"{context.SaveKind}: {context.Resource!.ResourceId} v{context.Resource.Version}");
+        return ValueTask.CompletedTask;
+    }
+}
+```
+
+Hook registration is ordinary DI registration. `AddResourceLifecycleHook<T>()` registers hooks as singletons for the common case; advanced hosts can manually register hooks with other DI lifetimes, and the dispatcher resolves hooks from an invocation scope. Aster does not scan assemblies, use attributes, introduce a provider registry, or require storage providers to implement hook-specific behavior.
+
+---
+
 ## Architecture overview
 
 ```
@@ -274,6 +304,8 @@ IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support
 IResourceQueryValidator        — preflights ResourceQuery against provider capabilities
 IResourceSchemaVersionService — inspects and explicitly upgrades resource definition lineage
+IResourceLifecycleHook         — explicit host lifecycle hook contract
+IResourceLifecycleHookDispatcher — deterministic hook invocation coordinator
 ITypedAspectBinder            — serialise/deserialise full aspects (System.Text.Json)
 ITypedFacetBinder             — serialise/deserialise individual facet values
 IIdentityGenerator            — pluggable ID strategy (default: Guid)
