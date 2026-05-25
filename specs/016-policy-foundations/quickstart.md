@@ -195,9 +195,10 @@ Expected diagnostic codes include:
 - `policy-conflict`
 - `policy-evaluation-timestamp-required`
 - `policy-pruning-unsafe`
-- `policy-pruning-preview-only`
 - `lifecycle-marker-conflict`
 - `lifecycle-marker-target-not-found`
+
+`policy-pruning-preview-only` is reserved for a future write-path enforcement surface; this slice has no pruning write API.
 
 ## Exclusions
 

@@ -39,4 +39,29 @@ public sealed class SqliteJsonLifecycleMarkerTests : IDisposable
         var result = Assert.Single(results);
         Assert.Equal("archived", result.ResourceId);
     }
+
+    [Fact]
+    public async Task QueryAsync_LifecycleStateFilterRunsBeforePaging()
+    {
+        await using var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "a-unmarked");
+        await PolicyTestFixtures.SaveResourceAsync(provider, "b-archived");
+        await provider.GetRequiredService<IResourceLifecycleMarkerService>().ApplyAsync(new ResourceLifecycleMarkerRequest
+        {
+            ResourceId = "b-archived",
+            State = ResourceLifecycleMarkerState.Archived,
+            MarkedAt = DateTimeOffset.UtcNow,
+        });
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var results = (await query.QueryAsync(new ResourceQuery
+        {
+            LifecycleState = ResourceLifecycleMarkerState.Archived,
+            Take = 1,
+        })).ToList();
+
+        var result = Assert.Single(results);
+        Assert.Equal("b-archived", result.ResourceId);
+    }
 }

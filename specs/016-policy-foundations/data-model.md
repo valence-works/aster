@@ -206,9 +206,12 @@ Candidate codes:
 - `policy-conflict`
 - `policy-evaluation-timestamp-required`
 - `policy-pruning-unsafe`
-- `policy-pruning-preview-only`
 - `lifecycle-marker-conflict`
 - `lifecycle-marker-target-not-found`
+
+Reserved for future write-path enforcement:
+
+- `policy-pruning-preview-only`
 
 Validation rules:
 

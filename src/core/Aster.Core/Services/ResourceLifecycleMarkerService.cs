@@ -46,7 +46,7 @@ public sealed class ResourceLifecycleMarkerService : IResourceLifecycleMarkerSer
         var resources = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
             TenantScope = tenant,
-            Scope = ResourceVersionScope.AllVersions,
+            Scope = ResourceVersionScope.Latest,
         }, cancellationToken);
 
         if (!resources.Any(resource => string.Equals(resource.ResourceId, request.ResourceId, StringComparison.Ordinal)))
