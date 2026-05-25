@@ -37,8 +37,10 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
         sql.AppendJoin(", ", ["rv.payload", .. projections]);
         sql.AppendLine();
         sql.Append(baseSql);
+        sql.Append(BuildLifecycleMarkerJoin());
         predicates.Add($"rv.tenant_id = {tenantId}");
         predicates.AddRange(scopePredicates);
+        AddLifecycleStatePredicate();
 
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
         {
@@ -78,6 +80,25 @@ internal sealed class SqliteQueryBuilder(ResourceQuery query)
 
         sql.Append(';');
         return sql.ToString();
+    }
+
+    private string BuildLifecycleMarkerJoin() =>
+        query.LifecycleState is null
+            ? string.Empty
+            : """
+
+            LEFT JOIN lifecycle_markers lifecycle_marker
+                ON lifecycle_marker.tenant_id = rv.tenant_id
+                AND lifecycle_marker.resource_id = rv.resource_id
+            """;
+
+    private void AddLifecycleStatePredicate()
+    {
+        if (query.LifecycleState is not { } lifecycleState)
+            return;
+
+        var parameter = Parameters.Add((int)lifecycleState);
+        predicates.Add($"CAST(COALESCE(json_extract(lifecycle_marker.payload, '$.state'), 0) AS INTEGER) = {parameter}");
     }
 
     private IEnumerable<string> Orderings() =>

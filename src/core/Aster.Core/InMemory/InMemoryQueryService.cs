@@ -21,6 +21,7 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IResourceVersionReader versionReader;
+    private readonly IResourceLifecycleMarkerStore? markerStore;
     private readonly ILogger<InMemoryQueryService> logger;
     private readonly ResourceQueryValidator validator;
 
@@ -30,14 +31,17 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
     /// <param name="versionReader">The backing resource version reader.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="capabilityProviders">Registered provider capability declarations.</param>
+    /// <param name="markerStore">Optional lifecycle marker store for explicit lifecycle-state filtering.</param>
     public InMemoryQueryService(
         IResourceVersionReader versionReader,
         ILogger<InMemoryQueryService> logger,
-        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
+        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null,
+        IResourceLifecycleMarkerStore? markerStore = null)
     {
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(logger);
         this.versionReader = versionReader;
+        this.markerStore = markerStore;
         this.logger = logger;
         validator = new ResourceQueryValidator(
             capabilityProviders ?? [new InMemoryQueryCapabilitiesProvider()],
@@ -66,6 +70,9 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
             result = result.Where(r => string.Equals(r.DefinitionId, query.DefinitionId, StringComparison.Ordinal));
 
+        if (query.LifecycleState is not null)
+            result = await ApplyLifecycleStateFilterAsync(result, query, cancellationToken);
+
         // Evaluate the filter expression tree
         if (query.Filter is not null)
             result = result.Where(r => Evaluate(query.Filter, r));
@@ -82,6 +89,31 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
         var materialized = result.ToList();
         LogQueryExecuted(query.DefinitionId ?? "(all)", materialized.Count);
         return materialized;
+    }
+
+    private async ValueTask<IEnumerable<Resource>> ApplyLifecycleStateFilterAsync(
+        IEnumerable<Resource> resources,
+        ResourceQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (markerStore is null)
+            return resources;
+
+        var materialized = resources.ToList();
+        var tenant = TenantScopeResolver.Resolve(query.TenantScope);
+        var markers = await markerStore.GetMarkersAsync(
+            materialized.Select(static resource => resource.ResourceId).Distinct(StringComparer.Ordinal),
+            tenant,
+            cancellationToken);
+        var expected = query.LifecycleState!.Value;
+
+        return materialized.Where(resource =>
+        {
+            var actual = markers.TryGetValue(resource.ResourceId, out var marker)
+                ? marker.State
+                : ResourceLifecycleMarkerState.None;
+            return actual == expected;
+        });
     }
 
     // ──────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Policies;
 
 namespace Aster.Core.Definitions;
 
@@ -19,6 +20,7 @@ public sealed class ResourceDefinitionBuilder
     private string? definitionId;
     private bool isSingleton;
     private readonly List<(string Key, AspectDefinition Definition)> aspectEntries = [];
+    private readonly List<ResourcePolicyDeclaration> policyDeclarations = [];
 
     /// <summary>
     /// Sets the logical persistent definition identifier.
@@ -97,6 +99,18 @@ public sealed class ResourceDefinitionBuilder
     public ResourceDefinitionBuilder WithTypedAspect<T>() => WithAspect<T>();
 
     /// <summary>
+    /// Attaches an explicit policy declaration to the definition.
+    /// </summary>
+    /// <param name="policy">The policy declaration to attach.</param>
+    /// <returns>This builder for chaining.</returns>
+    public ResourceDefinitionBuilder WithPolicy(ResourcePolicyDeclaration policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        policyDeclarations.Add(policy);
+        return this;
+    }
+
+    /// <summary>
     /// Adds a typed <see cref="FacetDefinition"/> to the most recently registered aspect,
     /// using <c>typeof(T).Name</c> as the <c>FacetDefinitionId</c>.
     /// </summary>
@@ -153,6 +167,7 @@ public sealed class ResourceDefinitionBuilder
             Id = Guid.NewGuid().ToString(),
             Version = 0, // auto-incremented by the store
             AspectDefinitions = aspectDict,
+            PolicyDeclarations = [.. policyDeclarations],
             IsSingleton = isSingleton,
         };
     }

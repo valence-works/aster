@@ -1,4 +1,5 @@
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Models.Instances;
 
 namespace Aster.Core.Models.Querying;
 
@@ -27,6 +28,11 @@ public sealed record ResourceQuery
     /// Equivalent to a <see cref="MetadataFilter"/> on the <c>DefinitionId</c> field with <see cref="ComparisonOperator.Equals"/>.
     /// </summary>
     public string? DefinitionId { get; init; }
+
+    /// <summary>
+    /// Optional explicit lifecycle marker state filter. When omitted, lifecycle markers do not affect query results.
+    /// </summary>
+    public ResourceLifecycleMarkerState? LifecycleState { get; init; }
 
     /// <summary>
     /// Optional filter expression tree evaluated against each resource version.

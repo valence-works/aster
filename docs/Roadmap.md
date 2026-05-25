@@ -771,12 +771,19 @@ Define the minimal contracts needed for portable export/import of definitions/re
 
 ## Epic 5.2 — Policies
 **Deliverables**
-- Retention/archival policies
-- Soft delete policy aspect
-- Version pruning strategies
+- Definition-attached policy declarations for retention, archival, soft-delete, and version-pruning intent
+- Stable policy validation diagnostics
+- Deterministic, non-mutating policy evaluation previews
+- Explicit archive and soft-delete lifecycle markers
+- Lifecycle-state query criteria
+- Portability preservation for policy declarations and lifecycle markers
+- Future specs: host-controlled policy application orchestration, restore workflows, and destructive pruning semantics
 
 **DoD**
-- Host can configure policies without custom code per resource type
+- Host can inspect and validate policy intent without hidden execution
+- Host can preview candidate outcomes before applying any write
+- Archive and soft-delete state remains explicit, tenant-scoped, queryable, and portable
+- Background schedulers, authorization policy engines, provider registries, public SQL, and public `IQueryable<Resource>` stay out of core policy foundations
 
 ---
 

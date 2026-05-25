@@ -44,6 +44,15 @@ internal static class SqliteJsonSchema
         );
         """;
 
+    private static readonly string CreateLifecycleMarkersSql = $$"""
+        CREATE TABLE IF NOT EXISTS lifecycle_markers (
+            tenant_id TEXT NOT NULL DEFAULT {{DefaultTenantSqlLiteral}},
+            resource_id TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            PRIMARY KEY (tenant_id, resource_id)
+        );
+        """;
+
     public static void Initialize(string connectionString)
     {
         using var connection = new SqliteConnection(connectionString);
@@ -78,6 +87,13 @@ internal static class SqliteJsonSchema
             CreateActivationStatesSql,
             ["tenant_id", "resource_id", "channel", "payload"],
             ["tenant_id", "resource_id", "channel"]);
+        EnsureTenantAwareTable(
+            connection,
+            transaction,
+            "lifecycle_markers",
+            CreateLifecycleMarkersSql,
+            ["tenant_id", "resource_id", "payload"],
+            ["tenant_id", "resource_id"]);
 
         using var index = connection.CreateCommand();
         index.Transaction = transaction;

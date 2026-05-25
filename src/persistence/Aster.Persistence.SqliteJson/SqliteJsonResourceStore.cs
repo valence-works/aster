@@ -17,7 +17,8 @@ public sealed class SqliteJsonResourceStore :
     IResourceDefinitionStore,
     IResourceVersionReader,
     IResourceVersionWriter,
-    IResourcePortabilityStore
+    IResourcePortabilityStore,
+    IResourceLifecycleMarkerStore
 {
     private const int MaxSqliteParametersPerQuery = 500;
 
@@ -261,6 +262,78 @@ public sealed class SqliteJsonResourceStore :
     }
 
     /// <inheritdoc />
+    public async ValueTask<ResourceLifecycleMarker?> GetMarkerAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT payload
+            FROM lifecycle_markers
+            WHERE tenant_id = $tenantId AND resource_id = $resourceId;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+
+        var payload = await command.ExecuteScalarAsync(cancellationToken) as string;
+        return payload is null ? null : Deserialize<ResourceLifecycleMarker>(payload);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyDictionary<string, ResourceLifecycleMarker>> GetMarkersAsync(
+        IEnumerable<string> resourceIds,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resourceIds);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        var ids = resourceIds
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        var markers = await ReadPayloadsByTextIdsAsync<ResourceLifecycleMarker>(
+            tableName: "lifecycle_markers",
+            columnName: "resource_id",
+            tenant: tenant,
+            ids: ids,
+            orderBy: "resource_id",
+            cancellationToken);
+
+        return markers.ToDictionary(static marker => marker.ResourceId, StringComparer.Ordinal);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ResourceLifecycleMarker> SaveMarkerAsync(
+        ResourceLifecycleMarker marker,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(marker);
+        ArgumentException.ThrowIfNullOrWhiteSpace(marker.ResourceId);
+        var tenant = TenantScopeResolver.Resolve(marker.TenantScope);
+        var scopedMarker = marker with { TenantScope = tenant };
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO lifecycle_markers (tenant_id, resource_id, payload)
+            VALUES ($tenantId, $resourceId, $payload)
+            ON CONFLICT(tenant_id, resource_id)
+            DO UPDATE SET payload = excluded.payload;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", scopedMarker.ResourceId);
+        command.Parameters.AddWithValue("$payload", Serialize(scopedMarker));
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        return scopedMarker;
+    }
+
+    /// <inheritdoc />
     public async ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
         ResourceVersionReadRequest request,
         CancellationToken cancellationToken = default)
@@ -302,6 +375,10 @@ public sealed class SqliteJsonResourceStore :
             tenant,
             resources.Select(static resource => resource.ResourceId).ToHashSet(StringComparer.Ordinal),
             cancellationToken);
+        var lifecycleMarkers = await ReadScopedLifecycleMarkersAsync(
+            tenant,
+            resources.Select(static resource => resource.ResourceId).ToHashSet(StringComparer.Ordinal),
+            cancellationToken);
         var (includedActivationStates, skippedActivationEntries) = SelectActivationStates(resources, activationStates);
 
         return new PortableStoreSnapshot
@@ -309,6 +386,7 @@ public sealed class SqliteJsonResourceStore :
             Definitions = definitions,
             Resources = resources,
             ActivationStates = includedActivationStates,
+            LifecycleMarkers = lifecycleMarkers,
             SkippedActivationEntries = skippedActivationEntries,
         };
     }
@@ -333,12 +411,14 @@ public sealed class SqliteJsonResourceStore :
             tenant,
             cancellationToken);
         var activationStates = await ReadSpecificActivationStatesAsync(snapshot.ActivationStates, tenant, cancellationToken);
+        var lifecycleMarkers = await ReadSpecificLifecycleMarkersAsync(snapshot.LifecycleMarkers, tenant, cancellationToken);
 
         return new PortableTargetState
         {
             Definitions = definitions,
             Resources = resources,
             ActivationStates = activationStates,
+            LifecycleMarkers = lifecycleMarkers,
         };
     }
 
@@ -363,6 +443,9 @@ public sealed class SqliteJsonResourceStore :
 
             foreach (var state in plannedSnapshot.ActivationStates)
                 await InsertActivationStateAsync(connection, transaction, state with { TenantScope = tenant }, cancellationToken);
+
+            foreach (var marker in plannedSnapshot.LifecycleMarkers)
+                await InsertLifecycleMarkerAsync(connection, transaction, marker with { TenantScope = tenant }, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
         }
@@ -570,6 +653,32 @@ public sealed class SqliteJsonResourceStore :
             ids: resourceIds,
             orderBy: "resource_id, channel",
             cancellationToken);
+
+    private async Task<List<ResourceLifecycleMarker>> ReadScopedLifecycleMarkersAsync(
+        TenantScope tenant,
+        IReadOnlyCollection<string> resourceIds,
+        CancellationToken cancellationToken) =>
+        await ReadPayloadsByTextIdsAsync<ResourceLifecycleMarker>(
+            tableName: "lifecycle_markers",
+            columnName: "resource_id",
+            tenant: tenant,
+            ids: resourceIds,
+            orderBy: "resource_id",
+            cancellationToken);
+
+    private async Task<List<ResourceLifecycleMarker>> ReadSpecificLifecycleMarkersAsync(
+        IReadOnlyCollection<ResourceLifecycleMarker> lifecycleMarkers,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        if (lifecycleMarkers.Count == 0)
+            return [];
+
+        return await ReadScopedLifecycleMarkersAsync(
+            tenant,
+            lifecycleMarkers.Select(static marker => marker.ResourceId).ToHashSet(StringComparer.Ordinal),
+            cancellationToken);
+    }
 
     private async Task<List<Resource>> ReadScopedResourceVersionsAsync(
         PortableSnapshotExportRequest request,
@@ -986,6 +1095,27 @@ public sealed class SqliteJsonResourceStore :
         command.Parameters.AddWithValue("$resourceId", state.ResourceId);
         command.Parameters.AddWithValue("$channel", state.Channel);
         command.Parameters.AddWithValue("$payload", Serialize(state));
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task InsertLifecycleMarkerAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        ResourceLifecycleMarker marker,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO lifecycle_markers (tenant_id, resource_id, payload)
+            VALUES ($tenantId, $resourceId, $payload)
+            ON CONFLICT(tenant_id, resource_id)
+            DO UPDATE SET payload = excluded.payload;
+            """;
+        command.Parameters.AddWithValue("$tenantId", TenantScopeResolver.Resolve(marker.TenantScope).TenantId);
+        command.Parameters.AddWithValue("$resourceId", marker.ResourceId);
+        command.Parameters.AddWithValue("$payload", Serialize(marker));
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

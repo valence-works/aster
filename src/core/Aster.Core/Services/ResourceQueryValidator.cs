@@ -71,6 +71,7 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         var failures = new List<QueryValidationFailure>();
         ValidateTenantScope(query, failures);
+        ValidateLifecycleState(query, failures);
         ValidateScope(query, failures);
         ValidatePaging(query, failures);
 
@@ -82,6 +83,31 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
         return failures.Count == 0
             ? QueryValidationResult.Success
             : new(failures);
+    }
+
+    private void ValidateLifecycleState(ResourceQuery query, List<QueryValidationFailure> failures)
+    {
+        if (query.LifecycleState is null)
+            return;
+
+        if (!Enum.IsDefined(query.LifecycleState.Value))
+        {
+            failures.Add(Failure(
+                "unsupported-lifecycle-state",
+                $"Lifecycle state '{query.LifecycleState}' is not supported.",
+                "LifecycleState",
+                "lifecycle state"));
+            return;
+        }
+
+        if (capabilities!.SupportsLifecycleStateFiltering)
+            return;
+
+        failures.Add(Failure(
+            "unsupported-lifecycle-state-filter",
+            $"Lifecycle-state filtering is not supported by {capabilities.ProviderName}.",
+            "LifecycleState",
+            "lifecycle state"));
     }
 
     private static void ValidateTenantScope(ResourceQuery query, List<QueryValidationFailure> failures)

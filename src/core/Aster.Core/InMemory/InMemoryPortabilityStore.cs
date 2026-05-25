@@ -14,23 +14,27 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 {
     private readonly InMemoryResourceDefinitionStore definitionStore;
     private readonly InMemoryResourceStore resourceStore;
+    private readonly InMemoryResourceLifecycleMarkerStore markerStore;
 
     /// <summary>
     /// Initializes a new instance of <see cref="InMemoryPortabilityStore"/>.
     /// </summary>
     public InMemoryPortabilityStore(
         InMemoryResourceDefinitionStore definitionStore,
-        InMemoryResourceStore resourceStore)
+        InMemoryResourceStore resourceStore,
+        InMemoryResourceLifecycleMarkerStore markerStore)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(resourceStore);
+        ArgumentNullException.ThrowIfNull(markerStore);
 
         this.definitionStore = definitionStore;
         this.resourceStore = resourceStore;
+        this.markerStore = markerStore;
     }
 
     /// <inheritdoc />
-    public ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
+    public async ValueTask<PortableStoreSnapshot> ReadSnapshotAsync(
         PortableStoreReadRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -40,18 +44,23 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         var resources = SelectResources(request.ExportRequest, tenant, cancellationToken);
         var definitions = SelectDefinitions(request.ExportRequest, tenant, resources, cancellationToken);
         var (activationStates, skippedActivationEntries) = SelectActivationStates(tenant, resources, cancellationToken);
+        var lifecycleMarkers = (await markerStore.GetMarkersAsync(
+            resources.Select(static resource => resource.ResourceId).Distinct(StringComparer.Ordinal),
+            tenant,
+            cancellationToken)).Values.ToList();
 
-        return ValueTask.FromResult(new PortableStoreSnapshot
+        return new PortableStoreSnapshot
         {
             Definitions = definitions,
             Resources = resources,
             ActivationStates = activationStates,
+            LifecycleMarkers = lifecycleMarkers,
             SkippedActivationEntries = skippedActivationEntries,
-        });
+        };
     }
 
     /// <inheritdoc />
-    public ValueTask<PortableTargetState> ReadTargetStateAsync(
+    public async ValueTask<PortableTargetState> ReadTargetStateAsync(
         PortableSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
@@ -97,12 +106,18 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             }
         }
 
-        return ValueTask.FromResult(new PortableTargetState
+        var lifecycleMarkers = (await markerStore.GetMarkersAsync(
+            snapshot.LifecycleMarkers.Select(static marker => marker.ResourceId).ToHashSet(StringComparer.Ordinal),
+            tenant,
+            cancellationToken)).Values.ToList();
+
+        return new PortableTargetState
         {
             Definitions = definitions,
             Resources = resources,
             ActivationStates = activationStates,
-        });
+            LifecycleMarkers = lifecycleMarkers,
+        };
     }
 
     /// <inheritdoc />
@@ -117,6 +132,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         var appliedDefinitions = new List<ResourceDefinition>();
         var appliedResources = new List<Resource>();
         var appliedActivationStates = new List<(ActivationState State, ActivationState? PreviousState)>();
+        var appliedLifecycleMarkers = new List<(ResourceLifecycleMarker Marker, ResourceLifecycleMarker? PreviousMarker)>();
 
         try
         {
@@ -150,10 +166,20 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
                 await resourceStore.UpdateActivationAsync(scopedState.ResourceId, scopedState.Channel, scopedState, cancellationToken);
                 appliedActivationStates.Add((scopedState, previous));
             }
+
+            foreach (var marker in plannedSnapshot.LifecycleMarkers
+                .OrderBy(static marker => marker.ResourceId, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var scopedMarker = marker with { TenantScope = tenant };
+                var previous = await markerStore.GetMarkerAsync(scopedMarker.ResourceId, tenant, cancellationToken);
+                await markerStore.SaveMarkerAsync(scopedMarker, cancellationToken);
+                appliedLifecycleMarkers.Add((scopedMarker, previous));
+            }
         }
         catch
         {
-            RollBackAppliedChanges(appliedDefinitions, appliedResources, appliedActivationStates);
+            RollBackAppliedChanges(appliedDefinitions, appliedResources, appliedActivationStates, appliedLifecycleMarkers);
             throw;
         }
     }
@@ -161,8 +187,17 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
     private void RollBackAppliedChanges(
         IReadOnlyList<ResourceDefinition> appliedDefinitions,
         IReadOnlyList<Resource> appliedResources,
-        IReadOnlyList<(ActivationState State, ActivationState? PreviousState)> appliedActivationStates)
+        IReadOnlyList<(ActivationState State, ActivationState? PreviousState)> appliedActivationStates,
+        IReadOnlyList<(ResourceLifecycleMarker Marker, ResourceLifecycleMarker? PreviousMarker)> appliedLifecycleMarkers)
     {
+        foreach (var (marker, previousMarker) in appliedLifecycleMarkers.Reverse())
+        {
+            if (previousMarker is null)
+                markerStore.RemoveMarker(marker.TenantScope, marker.ResourceId);
+            else
+                markerStore.RestoreMarker(previousMarker);
+        }
+
         foreach (var (state, previousState) in appliedActivationStates.Reverse())
             resourceStore.RestoreActivationState(state.ResourceId, state.Channel, state.TenantScope, previousState);
 

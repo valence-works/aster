@@ -104,6 +104,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 Definitions = storeSnapshot.Definitions.Select(definition => definition with { TenantScope = sourceTenant }).ToList(),
                 Resources = storeSnapshot.Resources.Select(resource => resource with { TenantScope = sourceTenant }).ToList(),
                 ActivationStates = storeSnapshot.ActivationStates.Select(state => state with { TenantScope = sourceTenant }).ToList(),
+                LifecycleMarkers = storeSnapshot.LifecycleMarkers.Select(marker => marker with { TenantScope = sourceTenant }).ToList(),
             };
 
             result = new PortableSnapshotExportResult
@@ -450,6 +451,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var existingDefinitions = targetState.Definitions.ToDictionary(static definition => (definition.DefinitionId, definition.Version));
         var existingResources = targetState.Resources.ToDictionary(static resource => (resource.ResourceId, resource.Version));
         var existingActivationStates = targetState.ActivationStates.ToDictionary(static state => (state.ResourceId, state.Channel));
+        var existingLifecycleMarkers = targetState.LifecycleMarkers.ToDictionary(static marker => marker.ResourceId, StringComparer.Ordinal);
         var definitionIdsToRemap = new HashSet<string>(StringComparer.Ordinal);
         var resourceIdsToRemap = new HashSet<string>(StringComparer.Ordinal);
         var remappedCollisionDiagnostics = new List<RemappedCollisionDiagnostic>();
@@ -577,6 +579,45 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 $"Activation state for resource '{state.ResourceId}' channel '{state.Channel}' already exists with different content."));
         }
 
+        foreach (var marker in snapshot.LifecycleMarkers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!existingLifecycleMarkers.TryGetValue(marker.ResourceId, out var existing))
+            {
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Preserved(PortableEntityKind.LifecycleMarker, LifecycleMarkerId(marker)));
+
+                continue;
+            }
+
+            if (ContentEquals(marker, existing))
+            {
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Reused(PortableEntityKind.LifecycleMarker, LifecycleMarkerId(marker)));
+
+                continue;
+            }
+
+            if (options.CollisionMode == PortableImportCollisionMode.Strict)
+            {
+                strictFailureIdentityMap.Add(Collided(PortableEntityKind.LifecycleMarker, LifecycleMarkerId(marker)));
+                diagnostics.Add(DivergentCollision(
+                    $"lifecycleMarkers/{marker.ResourceId}",
+                    $"Lifecycle marker for resource '{marker.ResourceId}' already exists with different content."));
+                continue;
+            }
+
+            resourceIdsToRemap.Add(marker.ResourceId);
+            remappedCollisionDiagnostics.Add(new RemappedCollisionDiagnostic(
+                PortableEntityKind.LifecycleMarker,
+                marker.ResourceId,
+                null,
+                null,
+                $"lifecycleMarkers/{marker.ResourceId}",
+                $"Lifecycle marker for resource '{marker.ResourceId}' already exists with different content."));
+        }
+
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics, strictFailureIdentityMap);
 
@@ -587,8 +628,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var resourceIdMap = BuildRemappedIdMap(
             resourceIdsToRemap,
             targetState.Resources.Select(static resource => resource.ResourceId)
-                .Concat(targetState.ActivationStates.Select(static state => state.ResourceId)),
-            snapshot.Resources.Select(static resource => resource.ResourceId));
+                .Concat(targetState.ActivationStates.Select(static state => state.ResourceId))
+                .Concat(targetState.LifecycleMarkers.Select(static marker => marker.ResourceId)),
+            snapshot.Resources.Select(static resource => resource.ResourceId)
+                .Concat(snapshot.LifecycleMarkers.Select(static marker => marker.ResourceId)));
 
         diagnostics.AddRange(remappedCollisionDiagnostics.Select(diagnostic =>
             RemappedCollision(
@@ -599,6 +642,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var plannedDefinitions = new List<ResourceDefinition>();
         var plannedResources = new List<Resource>();
         var plannedActivationStates = new List<ActivationState>();
+        var plannedLifecycleMarkers = new List<ResourceLifecycleMarker>();
         var reusedIdenticalItems = 0;
 
         foreach (var definition in snapshot.Definitions)
@@ -687,6 +731,32 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             identityMap.Add(Reused(PortableEntityKind.ActivationEntry, ActivationEntryId(state)));
         }
 
+        foreach (var marker in snapshot.LifecycleMarkers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (resourceIdMap.TryGetValue(marker.ResourceId, out var targetResourceId))
+            {
+                var remappedMarker = marker with { ResourceId = targetResourceId };
+                plannedLifecycleMarkers.Add(remappedMarker);
+                identityMap.Add(Remapped(
+                    PortableEntityKind.LifecycleMarker,
+                    LifecycleMarkerId(marker),
+                    LifecycleMarkerId(remappedMarker)));
+                continue;
+            }
+
+            if (!existingLifecycleMarkers.TryGetValue(marker.ResourceId, out _))
+            {
+                plannedLifecycleMarkers.Add(marker);
+                identityMap.Add(Preserved(PortableEntityKind.LifecycleMarker, LifecycleMarkerId(marker)));
+                continue;
+            }
+
+            reusedIdenticalItems++;
+            identityMap.Add(Reused(PortableEntityKind.LifecycleMarker, LifecycleMarkerId(marker)));
+        }
+
         var plannedSnapshot = new PortableSnapshot
         {
             FormatVersion = PortableSnapshot.CurrentFormatVersion,
@@ -694,6 +764,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Definitions = plannedDefinitions.Select(definition => definition with { TenantScope = targetTenant }).ToList(),
             Resources = plannedResources.Select(resource => resource with { TenantScope = targetTenant }).ToList(),
             ActivationStates = plannedActivationStates.Select(state => state with { TenantScope = targetTenant }).ToList(),
+            LifecycleMarkers = plannedLifecycleMarkers.Select(marker => marker with { TenantScope = targetTenant }).ToList(),
         };
         var plannedCounts = new PortablePlannedImportCounts
         {
@@ -701,6 +772,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Resources = plannedResources.Select(static resource => resource.ResourceId).Distinct(StringComparer.Ordinal).Count(),
             ResourceVersions = plannedResources.Count,
             ActivationEntries = plannedActivationStates.Count,
+            LifecycleMarkers = plannedLifecycleMarkers.Count,
             ReusedIdenticalItems = reusedIdenticalItems,
             RemappedItems = identityMap.Count(static mapping => mapping.Reason == PortableIdentityMappingReason.RemappedDivergent),
         };
@@ -710,6 +782,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Resources = plannedCounts.Resources,
             ResourceVersions = plannedCounts.ResourceVersions,
             ActivationEntries = plannedCounts.ActivationEntries,
+            LifecycleMarkers = plannedCounts.LifecycleMarkers,
             ReusedIdenticalItems = plannedCounts.ReusedIdenticalItems,
             RemappedItems = plannedCounts.RemappedItems,
         };
@@ -819,6 +892,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var validDefinitions = new List<ResourceDefinition>();
         var validResources = new List<Resource>();
         var validActivationStates = new List<ActivationState>();
+        var validLifecycleMarkers = new List<ResourceLifecycleMarker>();
 
         if (snapshot.FormatVersion != PortableSnapshot.CurrentFormatVersion)
         {
@@ -834,6 +908,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var definitions = snapshot.Definitions;
         var resources = snapshot.Resources;
         var activationStates = snapshot.ActivationStates;
+        var lifecycleMarkers = snapshot.LifecycleMarkers;
 
         if (definitions is null)
         {
@@ -851,6 +926,12 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             diagnostics.Add(MalformedSnapshot("activationStates", "Snapshot activation states collection cannot be null."));
             activationStates = [];
+        }
+
+        if (lifecycleMarkers is null)
+        {
+            diagnostics.Add(MalformedSnapshot("lifecycleMarkers", "Snapshot lifecycle markers collection cannot be null."));
+            lifecycleMarkers = [];
         }
 
         for (var i = 0; i < definitions.Count; i++)
@@ -987,7 +1068,36 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
         }
 
-        diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(validDefinitions, validResources, validActivationStates));
+        for (var i = 0; i < lifecycleMarkers.Count; i++)
+        {
+            var marker = lifecycleMarkers[i];
+            if (marker is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"lifecycleMarkers/{i}", "Snapshot lifecycle marker entry cannot be null."));
+                continue;
+            }
+
+            var isMalformed = false;
+            if (string.IsNullOrWhiteSpace(marker.ResourceId))
+            {
+                diagnostics.Add(MalformedSnapshot($"lifecycleMarkers/{i}/resourceId", "Snapshot lifecycle marker resource ID is required."));
+                isMalformed = true;
+            }
+
+            if (marker.State is ResourceLifecycleMarkerState.None || !Enum.IsDefined(marker.State))
+            {
+                diagnostics.Add(MalformedSnapshot($"lifecycleMarkers/{i}/state", "Snapshot lifecycle marker state must be archived or soft-deleted."));
+                isMalformed = true;
+            }
+
+            if (!isMalformed)
+            {
+                validLifecycleMarkers.Add(marker);
+                ValidateEntityTenant(marker.TenantScope, sourceTenant, $"lifecycleMarkers/{i}/tenantScope", diagnostics);
+            }
+        }
+
+        diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(validDefinitions, validResources, validActivationStates, validLifecycleMarkers));
 
         var definitionVersions = validDefinitions
             .Select(static definition => (definition.DefinitionId, definition.Version))
@@ -1031,13 +1141,32 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             }
         }
 
+        var resourceIds = validResources
+            .Select(static resource => resource.ResourceId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var marker in validLifecycleMarkers)
+        {
+            if (resourceIds.Contains(marker.ResourceId))
+                continue;
+
+            diagnostics.Add(new PortableDiagnostic
+            {
+                Code = PortableDiagnosticCodes.MissingResourceReference,
+                Severity = PortableDiagnosticSeverity.Error,
+                Path = $"lifecycleMarkers/{marker.ResourceId}",
+                Message = $"Lifecycle marker for resource '{marker.ResourceId}' references a missing resource.",
+            });
+        }
+
         return diagnostics;
     }
 
     private static List<PortableDiagnostic> ValidateSnapshotIdentityUniqueness(
         IReadOnlyList<ResourceDefinition> definitions,
         IReadOnlyList<Resource> resources,
-        IReadOnlyList<ActivationState> activationStates)
+        IReadOnlyList<ActivationState> activationStates,
+        IReadOnlyList<ResourceLifecycleMarker> lifecycleMarkers)
     {
         var diagnostics = new List<PortableDiagnostic>();
 
@@ -1057,6 +1186,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             activationStates.Select(static state => ActivationEntryId(state)),
             "activationStates",
             "Snapshot contains duplicate activation state identities."));
+        diagnostics.AddRange(FindDuplicateKeys(
+            lifecycleMarkers.Select(static marker => LifecycleMarkerId(marker)),
+            "lifecycleMarkers",
+            "Snapshot contains duplicate lifecycle marker identities."));
 
         return diagnostics;
     }
@@ -1145,6 +1278,9 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             PortableEntityKind.ActivationEntry => JsonSerializer.Serialize(
                 new object[] { resourceIdMap[diagnostic.SourceLogicalId], diagnostic.Channel! },
                 JsonOptions),
+            PortableEntityKind.LifecycleMarker => JsonSerializer.Serialize(
+                new object[] { resourceIdMap[diagnostic.SourceLogicalId] },
+                JsonOptions),
             _ => throw new InvalidOperationException($"Unsupported remapped collision entity kind '{diagnostic.EntityKind}'."),
         };
 
@@ -1232,6 +1368,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Definitions = snapshot.Definitions.Select(definition => definition with { TenantScope = tenantScope }).ToList(),
             Resources = snapshot.Resources.Select(resource => resource with { TenantScope = tenantScope }).ToList(),
             ActivationStates = snapshot.ActivationStates.Select(state => state with { TenantScope = tenantScope }).ToList(),
+            LifecycleMarkers = snapshot.LifecycleMarkers.Select(marker => marker with { TenantScope = tenantScope }).ToList(),
         };
 
     private static bool ContentEquals<T>(T left, T right) =>
@@ -1240,6 +1377,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             (ResourceDefinition leftDefinition, ResourceDefinition rightDefinition) => ContentEquals(leftDefinition, rightDefinition),
             (Resource leftResource, Resource rightResource) => ContentEquals(leftResource, rightResource),
             (ActivationState leftState, ActivationState rightState) => ContentEquals(leftState, rightState),
+            (ResourceLifecycleMarker leftMarker, ResourceLifecycleMarker rightMarker) => ContentEquals(leftMarker, rightMarker),
             _ => JsonContentEquals(left, right),
         };
 
@@ -1248,7 +1386,12 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         && string.Equals(left.Id, right.Id, StringComparison.Ordinal)
         && left.Version == right.Version
         && left.IsSingleton == right.IsSingleton
-        && DictionaryContentEquals(left.AspectDefinitions, right.AspectDefinitions);
+        && DictionaryContentEquals(left.AspectDefinitions, right.AspectDefinitions)
+        && left.PolicyDeclarations.Count == right.PolicyDeclarations.Count
+        && left.PolicyDeclarations
+            .OrderBy(static policy => policy.PolicyId, StringComparer.Ordinal)
+            .Zip(right.PolicyDeclarations.OrderBy(static policy => policy.PolicyId, StringComparer.Ordinal))
+            .All(pair => JsonContentEquals(pair.First, pair.Second));
 
     private static bool ContentEquals(Resource left, Resource right) =>
         string.Equals(left.ResourceId, right.ResourceId, StringComparison.Ordinal)
@@ -1266,6 +1409,12 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         && string.Equals(left.Channel, right.Channel, StringComparison.Ordinal)
         && left.LastUpdated == right.LastUpdated
         && left.ActiveVersions.Distinct().Order().SequenceEqual(right.ActiveVersions.Distinct().Order());
+
+    private static bool ContentEquals(ResourceLifecycleMarker left, ResourceLifecycleMarker right) =>
+        string.Equals(left.ResourceId, right.ResourceId, StringComparison.Ordinal)
+        && left.State == right.State
+        && left.MarkedAt == right.MarkedAt
+        && string.Equals(left.Reason, right.Reason, StringComparison.Ordinal);
 
     private static bool DictionaryContentEquals<TValue>(
         IReadOnlyDictionary<string, TValue> left,
@@ -1349,6 +1498,9 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     private static string ActivationEntryId(ActivationState state) =>
         JsonSerializer.Serialize(new object[] { state.ResourceId, state.Channel }, JsonOptions);
 
+    private static string LifecycleMarkerId(ResourceLifecycleMarker marker) =>
+        JsonSerializer.Serialize(new object[] { marker.ResourceId }, JsonOptions);
+
     private sealed record RemappedCollisionDiagnostic(
         PortableEntityKind EntityKind,
         string SourceLogicalId,
@@ -1367,7 +1519,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         public bool HasWrites =>
             PlannedCounts.Definitions > 0
             || PlannedCounts.ResourceVersions > 0
-            || PlannedCounts.ActivationEntries > 0;
+            || PlannedCounts.ActivationEntries > 0
+            || PlannedCounts.LifecycleMarkers > 0;
 
         public static ImportPlan Failed(
             IReadOnlyList<PortableDiagnostic> diagnostics,

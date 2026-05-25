@@ -51,6 +51,9 @@ public sealed record PortablePlannedImportCounts
     /// <summary>Activation entries planned for import.</summary>
     public int ActivationEntries { get; init; }
 
+    /// <summary>Lifecycle markers planned for import.</summary>
+    public int LifecycleMarkers { get; init; }
+
     /// <summary>Items expected to be reused because existing content is identical.</summary>
     public int ReusedIdenticalItems { get; init; }
 
@@ -74,6 +77,9 @@ public sealed record PortableActualImportCounts
 
     /// <summary>Activation entries imported.</summary>
     public int ActivationEntries { get; init; }
+
+    /// <summary>Lifecycle markers imported.</summary>
+    public int LifecycleMarkers { get; init; }
 
     /// <summary>Items reused because existing content was identical.</summary>
     public int ReusedIdenticalItems { get; init; }
@@ -127,6 +133,9 @@ public enum PortableEntityKind
 
     /// <summary>Activation entry.</summary>
     ActivationEntry,
+
+    /// <summary>Lifecycle marker.</summary>
+    LifecycleMarker,
 }
 
 /// <summary>

@@ -10,10 +10,11 @@ This package currently provides:
 - `IResourceVersionReader`
 - `IResourceVersionWriter`
 - `IResourcePortabilityStore`
+- `IResourceLifecycleMarkerStore`
 - `IResourceQueryService`
 - `IResourceQueryCapabilitiesProvider`
 
-It persists resource definitions, resource version snapshots, and activation state using SQLite tables with JSON payload columns.
+It persists resource definitions, resource version snapshots, activation state, and explicit lifecycle markers using SQLite tables with JSON payload columns.
 Query execution is provider-backed: `ResourceQuery` ASTs are translated to parameterized SQLite SQL and JSON1 expressions instead of materializing the full store in memory.
 Portability support is provider-backed too: the SQLite JSON resource store implements exact snapshot reads, target-state comparison reads, and atomic import apply for `IResourcePortabilityService`.
 All provider tables include `tenant_id`; fresh databases use tenant-aware primary keys, and provider initialization adds a default-scope `tenant_id` column to pre-tenant tables so existing rows remain visible to omitted-scope callers.
@@ -51,7 +52,7 @@ var preview = await portability.PreviewImportAsync(
     });
 ```
 
-SQLite import apply is all-or-nothing for a planned snapshot. Strict imports fail before writing on divergent identity collisions; explicit `RemapDivergent` mode writes deterministic remapped identifiers and keeps definition lineage, resource versions, and activation entries consistent. No SQLite schema migration or physical indexing is introduced by portability primitives.
+SQLite import apply is all-or-nothing for a planned snapshot. Strict imports fail before writing on divergent identity collisions; explicit `RemapDivergent` mode writes deterministic remapped identifiers and keeps definition lineage, resource versions, activation entries, and lifecycle markers consistent. No SQLite physical indexing is introduced by portability primitives.
 
 Supported query shapes:
 
@@ -67,6 +68,7 @@ Supported query shapes:
 - facet `Exists`
 - numeric/date-like facet `Range`
 - `And`, `Or`, and single-operand `Not`
+- explicit `LifecycleState` filtering for archived, soft-deleted, or unmarked resources
 
 Date-like facet ranges match JSON string scalar values in the ISO-8601-style shape emitted by `System.Text.Json` for `DateTime` or `DateTimeOffset`. Date-only strings, malformed strings, numbers, booleans, objects, arrays, nulls, and missing facets do not match date-like range predicates.
 
@@ -75,3 +77,5 @@ Unsupported query shapes throw `UnsupportedQueryFeatureException` with stable `C
 The provider also declares this support through `SqliteJsonQueryCapabilitiesProvider` with provider key `sqlite-json`, so callers can inspect capabilities or use `IResourceQueryValidator` before execution. Execution runs shared validation first and remains authoritative if validation is skipped.
 
 Tenant scope is applied as a provider-owned predicate before user query predicates. Latest, active, and draft scopes all include tenant-aware joins so matching resource IDs or activation channels in another tenant cannot affect results.
+
+Lifecycle markers are explicit state. `AddAsterSqliteJson(...)` replaces the core in-memory `IResourceLifecycleMarkerStore` with the SQLite-backed store so archive and soft-delete markers persist across service provider instances, participate in portability export/import, and can be queried through `ResourceQuery.LifecycleState`. Omitting `LifecycleState` does not hide archived or soft-deleted resources.
