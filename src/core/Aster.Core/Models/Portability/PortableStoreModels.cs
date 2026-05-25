@@ -35,6 +35,11 @@ public sealed record PortableStoreSnapshot
     public IReadOnlyList<ActivationState> ActivationStates { get; init; } = [];
 
     /// <summary>
+    /// Lifecycle markers whose referenced resources are present.
+    /// </summary>
+    public IReadOnlyList<ResourceLifecycleMarker> LifecycleMarkers { get; init; } = [];
+
+    /// <summary>
     /// Activation entries skipped because referenced resource versions were excluded.
     /// </summary>
     public IReadOnlyList<SkippedActivationEntry> SkippedActivationEntries { get; init; } = [];
@@ -59,6 +64,11 @@ public sealed record PortableTargetState
     /// Existing activation states.
     /// </summary>
     public IReadOnlyList<ActivationState> ActivationStates { get; init; } = [];
+
+    /// <summary>
+    /// Existing lifecycle markers.
+    /// </summary>
+    public IReadOnlyList<ResourceLifecycleMarker> LifecycleMarkers { get; init; } = [];
 }
 
 /// <summary>

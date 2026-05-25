@@ -86,5 +86,8 @@ public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabiliti
             QueryValueShape.Numeric,
             QueryValueShape.DateTime,
         },
-        UnsupportedFeatures: []);
+        UnsupportedFeatures: [])
+    {
+        SupportsLifecycleStateFiltering = true,
+    };
 }

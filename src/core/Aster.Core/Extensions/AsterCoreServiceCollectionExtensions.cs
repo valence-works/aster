@@ -82,6 +82,8 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<InMemoryResourceStore>());
         services.AddSingleton<InMemoryPortabilityStore>();
         services.AddSingleton<IResourcePortabilityStore>(sp => sp.GetRequiredService<InMemoryPortabilityStore>());
+        services.AddSingleton<InMemoryResourceLifecycleMarkerStore>();
+        services.AddSingleton<IResourceLifecycleMarkerStore>(sp => sp.GetRequiredService<InMemoryResourceLifecycleMarkerStore>());
 
         // Resource manager
         services.AddSingleton<InMemoryResourceManager>();
@@ -91,6 +93,9 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourceManager>(sp => sp.GetRequiredService<DefaultResourceManager>());
         services.AddSingleton<IResourceSchemaVersionService, ResourceSchemaVersionService>();
         services.AddSingleton<IResourcePortabilityService, ResourcePortabilityService>();
+        services.AddSingleton<IResourcePolicyValidator, ResourcePolicyValidator>();
+        services.AddSingleton<IResourcePolicyEvaluationService, ResourcePolicyEvaluationService>();
+        services.AddSingleton<IResourceLifecycleMarkerService, ResourceLifecycleMarkerService>();
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();

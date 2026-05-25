@@ -38,6 +38,11 @@ public sealed record PortableSnapshot
     /// Activation state entries whose referenced resource versions are included.
     /// </summary>
     public IReadOnlyList<ActivationState> ActivationStates { get; init; } = [];
+
+    /// <summary>
+    /// Lifecycle markers whose referenced resources are included.
+    /// </summary>
+    public IReadOnlyList<ResourceLifecycleMarker> LifecycleMarkers { get; init; } = [];
 }
 
 /// <summary>

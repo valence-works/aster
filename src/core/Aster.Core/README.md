@@ -44,6 +44,10 @@ builder.Services.AddAsterCore();
 | `ResourceQueryValidator` | `IResourceQueryValidator` |
 | `ResourceSchemaVersionService` | `IResourceSchemaVersionService` |
 | `ResourcePortabilityService` | `IResourcePortabilityService` |
+| `ResourcePolicyValidator` | `IResourcePolicyValidator` |
+| `ResourcePolicyEvaluationService` | `IResourcePolicyEvaluationService` |
+| `ResourceLifecycleMarkerService` | `IResourceLifecycleMarkerService` |
+| `InMemoryResourceLifecycleMarkerStore` | `IResourceLifecycleMarkerStore` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
 | `SystemTextJsonFacetBinder` | `ITypedFacetBinder` |
@@ -282,7 +286,74 @@ Import is strict by default. Existing identical content is reused, divergent col
 
 ---
 
-### 9. Register lifecycle hooks
+### 9. Declare, preview, and mark policy outcomes
+
+Policy declarations are explicit resource definition metadata. They do not run in the background and they do not mutate resource history when a definition is registered.
+
+```csharp
+var definition = new ResourceDefinitionBuilder()
+    .WithDefinitionId("Product")
+    .WithPolicy(new ResourcePolicyDeclaration
+    {
+        PolicyId = "archive-old-products",
+        Kind = ResourcePolicyKind.Archival,
+        Target = ResourcePolicyTarget.Resource,
+        Outcome = ResourcePolicyOutcome.Archive,
+        Criteria = new ResourcePolicyCriteria
+        {
+            MinimumAge = TimeSpan.FromDays(365),
+            LifecycleState = ResourceLifecycleMarkerState.None,
+        },
+    })
+    .Build();
+```
+
+Hosts can validate declarations before previewing or acting:
+
+```csharp
+var policyValidator = serviceProvider.GetRequiredService<IResourcePolicyValidator>();
+var validation = policyValidator.Validate(definition);
+```
+
+Previews are deterministic and non-mutating. Age-based criteria require a host-supplied timestamp; the SDK does not read an ambient clock for policy evaluation.
+
+```csharp
+var policyEvaluation = serviceProvider.GetRequiredService<IResourcePolicyEvaluationService>();
+var preview = await policyEvaluation.PreviewAsync(new ResourcePolicyEvaluationRequest
+{
+    DefinitionIds = ["Product"],
+    EvaluationTimestamp = new DateTimeOffset(2026, 05, 25, 12, 00, 00, TimeSpan.Zero),
+});
+```
+
+Archive and soft-delete outcomes are represented by explicit lifecycle markers that hosts apply through `IResourceLifecycleMarkerService`. Marker writes are idempotent for the same state, reject conflicting archive/soft-delete state, and do not prune versions, deactivate versions, or physically delete resources.
+
+```csharp
+var lifecycleMarkers = serviceProvider.GetRequiredService<IResourceLifecycleMarkerService>();
+
+await lifecycleMarkers.ApplyAsync(new ResourceLifecycleMarkerRequest
+{
+    ResourceId = "product-1",
+    State = ResourceLifecycleMarkerState.Archived,
+    MarkedAt = new DateTimeOffset(2026, 05, 25, 12, 00, 00, TimeSpan.Zero),
+});
+```
+
+Lifecycle markers are queryable only when requested explicitly:
+
+```csharp
+var archived = await queryService.QueryAsync(new ResourceQuery
+{
+    DefinitionId = "Product",
+    LifecycleState = ResourceLifecycleMarkerState.Archived,
+});
+```
+
+Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, schedulers, authorization policy engines, destructive pruning writes, restore workflows, provider registries, public SQL, or public `IQueryable<Resource>`.
+
+---
+
+### 10. Register lifecycle hooks
 
 Hosts can register explicit lifecycle hooks around resource saves, activation/deactivation, export, preview import, and write import.
 
@@ -321,6 +392,10 @@ IResourceVersionWriter           — low-level version/activation persistence ho
 IResourceVersionReader           — low-level read hook for query candidate version sets
 IResourcePortabilityService  — exports, validates, previews, and imports portable snapshots
 IResourcePortabilityStore    — provider-facing exact snapshot read and atomic import contract
+IResourcePolicyValidator      — validates definition-attached policy declarations
+IResourcePolicyEvaluationService — previews policy outcomes without mutation
+IResourceLifecycleMarkerService — applies explicit archive/soft-delete markers
+IResourceLifecycleMarkerStore — provider-facing lifecycle marker persistence contract
 IResourceQueryService         — portable query service; default is LINQ-based in-memory
 IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support
@@ -339,6 +414,7 @@ Key invariants:
 - `ResourceId` is the **logical** identifier shared across all versions. Each version has its own `Id` (GUID).
 - `DefinitionVersion` records schema lineage for a resource version. Normal updates preserve it; explicit schema upgrades advance it.
 - Activation channels are independent: a resource can be active in `"Published"` at V2 and in `"Staging"` at V3 simultaneously.
+- Policy declarations are metadata only; policy previews and lifecycle marker writes are explicit host-controlled operations.
 - Optimistic concurrency is enforced on `UpdateAsync` (must supply `BaseVersion == current latest Version`) and `ActivateAsync` (must supply the current latest version number).
 
 ---

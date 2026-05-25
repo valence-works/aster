@@ -14,6 +14,8 @@ Auto-generated from all feature plans. Last updated: 2026-05-17
 - Existing SQLite JSON payload shape; no migration (007-sqlite-facet-sorting)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK and xUnit test stack; no new dependencies (008-typed-query-authoring)
 - N/A; no persistence or schema changes (008-typed-query-authoring)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, resource manager/store abstractions, query capability/validation stack, portability service, lifecycle hook dispatcher, xUnit test stack; no new dependencies (016-policy-foundations)
+- Existing resource definitions gain policy declaration metadata; resource lifecycle markers are stored as additive state separate from immutable resource versions; portable snapshots include policy declarations and lifecycle markers; SQLite JSON adds policy/marker storage without a general migration framework (016-policy-foundations)
 
 - C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0) + Microsoft.Extensions.DependencyInjection, Microsoft.Extensions.Logging (001-core-sdk-foundation)
 
@@ -33,9 +35,9 @@ tests/
 C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0): Follow standard conventions
 
 ## Recent Changes
+- 016-policy-foundations: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, resource manager/store abstractions, query capability/validation stack, portability service, lifecycle hook dispatcher, xUnit test stack; no new dependencies
 - 008-typed-query-authoring: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK and xUnit test stack; no new dependencies
 - 007-sqlite-facet-sorting: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing SQLite JSON provider and test stack
-- 006-provider-conformance-tests: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting for libraries; tests target net10.0 + Existing xUnit and Microsoft.Extensions.DependencyInjection test stack
 
 
 <!-- MANUAL ADDITIONS START -->

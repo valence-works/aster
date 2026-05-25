@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/015-tenant-scoping/plan.md`.
+shell commands, and other important information, read `specs/016-policy-foundations/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -16,8 +16,11 @@ shell commands, and other important information, read `specs/015-tenant-scoping/
 - Existing resource definitions, resource versions, activation state, and portable snapshots; no schema migration or persisted hook state (014-host-lifecycle-hooks)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, resource manager/store abstractions, query capability/validation stack, portability service, lifecycle hook dispatcher, xUnit test stack; no new dependencies (015-tenant-scoping)
 - Existing resource definitions, resource versions, activation state, and portable snapshots extended with tenant scope metadata; no automatic migration policy or external storage service (015-tenant-scoping)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, resource manager/store abstractions, query capability/validation stack, portability service, lifecycle hook dispatcher, xUnit test stack; no new dependencies (016-policy-foundations)
+- Existing resource definitions gain policy declaration metadata; resource lifecycle markers are stored as additive state separate from immutable resource versions; portable snapshots include policy declarations and lifecycle markers; SQLite JSON adds policy/marker storage without a general migration framework (016-policy-foundations)
 
 ## Recent Changes
+- 016-policy-foundations: Added explicit policy foundations planning for definition-attached policy declarations, deterministic previews, archive/soft-delete lifecycle markers, lifecycle-state queries, portability, and provider support; no automatic execution, pruning writes, scheduler, policy engine, provider registry, public SQL, or public IQueryable<Resource>
 - 015-tenant-scoping: Added explicit tenant boundary planning for definitions, resources, activation state, queries, schema upgrades, portability, and lifecycle hooks; no automatic migration policy or tenant registry
 - 014-host-lifecycle-hooks: Added explicit host lifecycle hook planning over save, activation, deactivation, export, preview import, and write import; no schema migration or persisted hook state
 - 013-portability-primitives: Added deterministic export/import portability planning over existing definitions, resources, and activation state; no schema migration planned

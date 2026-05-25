@@ -17,6 +17,7 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly string connectionString;
+    private readonly IResourceLifecycleMarkerStore? markerStore;
     private readonly ResourceQueryValidator validator;
 
     /// <summary>
@@ -24,14 +25,17 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
     /// </summary>
     /// <param name="options">Provider options.</param>
     /// <param name="capabilityProviders">Registered provider capability declarations.</param>
+    /// <param name="markerStore">Optional lifecycle marker store for explicit lifecycle-state filtering.</param>
     public SqliteJsonQueryService(
         SqliteJsonAsterOptions options,
-        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
+        IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null,
+        IResourceLifecycleMarkerStore? markerStore = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.ConnectionString);
 
         connectionString = options.ConnectionString;
+        this.markerStore = markerStore;
         validator = new ResourceQueryValidator(
             capabilityProviders ?? [new SqliteJsonQueryCapabilitiesProvider()],
             this);
@@ -70,7 +74,34 @@ public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQue
         command.CommandText = builder.Build();
         builder.Parameters.ApplyTo(command);
 
-        return await ReadResourcesAsync(command, cancellationToken);
+        var resources = await ReadResourcesAsync(command, cancellationToken);
+        return query.LifecycleState is null
+            ? resources
+            : await ApplyLifecycleStateFilterAsync(resources, query, cancellationToken);
+    }
+
+    private async ValueTask<IEnumerable<Resource>> ApplyLifecycleStateFilterAsync(
+        IReadOnlyList<Resource> resources,
+        ResourceQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (markerStore is null)
+            return resources;
+
+        var tenant = TenantScopeResolver.Resolve(query.TenantScope);
+        var markers = await markerStore.GetMarkersAsync(
+            resources.Select(static resource => resource.ResourceId).Distinct(StringComparer.Ordinal),
+            tenant,
+            cancellationToken);
+        var expected = query.LifecycleState!.Value;
+
+        return resources.Where(resource =>
+        {
+            var actual = markers.TryGetValue(resource.ResourceId, out var marker)
+                ? marker.State
+                : ResourceLifecycleMarkerState.None;
+            return actual == expected;
+        }).ToList();
     }
 
     private static async Task<List<Resource>> ReadResourcesAsync(

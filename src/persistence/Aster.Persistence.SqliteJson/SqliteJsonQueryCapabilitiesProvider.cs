@@ -88,5 +88,8 @@ public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabili
         UnsupportedFeatures:
         [
             "Metadata range filters",
-        ]);
+        ])
+    {
+        SupportsLifecycleStateFiltering = true,
+    };
 }

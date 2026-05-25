@@ -43,6 +43,11 @@ public sealed record QueryCapabilityDescription(
     public IReadOnlyList<IndexProjection> IndexProjections { get; init; } = IndexProjections ?? [];
 
     /// <summary>
+    /// Gets whether the provider supports explicit lifecycle-state filtering.
+    /// </summary>
+    public bool SupportsLifecycleStateFiltering { get; init; }
+
+    /// <summary>
     /// Returns whether the provider supports the supplied comparison operator for the filter type.
     /// </summary>
     /// <param name="filterType">The filter category.</param>

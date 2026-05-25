@@ -1,4 +1,5 @@
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Models.Policies;
 
 namespace Aster.Core.Models.Definitions;
 
@@ -39,6 +40,12 @@ public sealed record ResourceDefinition
     /// </summary>
     public IReadOnlyDictionary<string, AspectDefinition> AspectDefinitions { get; init; }
         = new Dictionary<string, AspectDefinition>();
+
+    /// <summary>
+    /// Explicit policy declarations attached to this definition version.
+    /// Declarations do not execute automatically.
+    /// </summary>
+    public IReadOnlyList<ResourcePolicyDeclaration> PolicyDeclarations { get; init; } = [];
 
     /// <summary>
     /// If <see langword="true"/>, only one instance can exist for this definition.
