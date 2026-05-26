@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -134,6 +135,41 @@ public sealed class PolicyApplicationDiagnosticsTests : IDisposable
             Assert.Equal(ResourcePolicyDiagnosticCodes.PolicyApplicationConflictingOutcome, candidate.Diagnostics.Single().Code));
         Assert.Null(await provider.GetRequiredService<IResourceLifecycleMarkerStore>()
             .GetMarkerAsync("product-1", Aster.Core.Models.Tenancy.TenantScope.Default));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_DuplicateMarkerConflictPropagatesFailureDiagnostics()
+    {
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.SoftDeletePolicy()]);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "product-1");
+        await provider.GetRequiredService<IResourceLifecycleMarkerService>().ApplyAsync(new ResourceLifecycleMarkerRequest
+        {
+            ResourceId = "product-1",
+            State = ResourceLifecycleMarkerState.Archived,
+            MarkedAt = DateTimeOffset.UtcNow,
+        });
+
+        var result = await provider.GetRequiredService<IResourcePolicyApplicationService>().ApplyAsync(new ResourcePolicyApplicationRequest
+        {
+            AppliedAt = DateTimeOffset.UtcNow,
+            Candidates =
+            [
+                PolicyTestFixtures.ApplicationCandidate(
+                    "product-1",
+                    "soft-delete-old",
+                    ResourcePolicyKind.SoftDelete,
+                    ResourcePolicyOutcome.SoftDelete),
+                PolicyTestFixtures.ApplicationCandidate(
+                    "product-1",
+                    "soft-delete-old",
+                    ResourcePolicyKind.SoftDelete,
+                    ResourcePolicyOutcome.SoftDelete),
+            ],
+        });
+
+        Assert.Equal(2, result.FailedCount);
+        Assert.All(result.Candidates, candidate =>
+            Assert.Equal(ResourcePolicyDiagnosticCodes.LifecycleMarkerConflict, candidate.Diagnostics.Single().Code));
     }
 
     private async Task<ResourcePolicyApplicationResult> ApplyAsync(ResourcePolicyApplicationCandidate candidate) =>
