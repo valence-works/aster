@@ -68,15 +68,15 @@ Alternatives considered:
 - Apply based only on resource and outcome: rejected because policy identity would become informational only.
 - Allow missing policies but fail mismatched policies: rejected because deleted policy intent should not continue to drive application.
 
-## Decision: Reuse Existing Lifecycle Marker Semantics
+## Decision: Reuse Existing Lifecycle Marker Store Semantics
 
-Decision: Supported application outcomes delegate to the existing lifecycle marker service for marker idempotency, conflict diagnostics, and marker persistence.
+Decision: Supported application outcomes use the existing lifecycle marker store for marker reads and persistence after the policy application service performs target existence, idempotency, and conflict preflight.
 
-Rationale: The marker service already owns effective marker behavior. Reusing it keeps the application service small and prevents divergent marker rules.
+Rationale: Policy application already performs candidate-bounded target reads, marker prefetch, current policy validation, duplicate handling, and same-resource conflict preflight. Writing through the marker store avoids repeating target reads in the marker service while still using the same persisted marker model.
 
 Alternatives considered:
 
-- Write markers directly through the marker store: rejected because it would duplicate target existence, conflict, and idempotency behavior.
+- Delegate each write through the lifecycle marker service: rejected because it would re-read latest resource versions per candidate after policy application has already validated candidate-bounded target existence.
 - Add provider-specific application stores: rejected because no new storage is required.
 
 ## Decision: No New Lifecycle Hook Behavior

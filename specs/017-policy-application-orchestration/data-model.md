@@ -164,7 +164,7 @@ Host evaluates policies
   -> read latest target resources in tenant
   -> validate stale resource versions
   -> validate current policy declaration exists and outcome matches
-  -> delegate supported marker writes to lifecycle marker service
+  -> persist supported marker writes through lifecycle marker store
   -> return one result per input candidate
 ```
 

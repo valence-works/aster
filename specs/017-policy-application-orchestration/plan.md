@@ -5,13 +5,13 @@
 
 ## Summary
 
-Add host-controlled policy application orchestration for selected archive and soft-delete preview candidates. The implementation adds a small core SDK application service and request/result models that validate candidate shape, stale resource versions, current policy declaration compatibility, same-resource lifecycle conflicts, tenant boundaries, and pruning preview-only behavior before delegating supported marker writes to the existing lifecycle marker service. The slice does not add provider storage, schedulers, hidden execution, destructive pruning writes, lifecycle hook behavior, provider registries, public SQL, or public `IQueryable<Resource>`.
+Add host-controlled policy application orchestration for selected archive and soft-delete preview candidates. The implementation adds a small core SDK application service and request/result models that validate candidate shape, stale resource versions, current policy declaration compatibility, same-resource lifecycle conflicts, tenant boundaries, and pruning preview-only behavior before persisting supported marker writes through the existing lifecycle marker store. The slice does not add provider storage, schedulers, hidden execution, destructive pruning writes, lifecycle hook behavior, provider registries, public SQL, or public `IQueryable<Resource>`.
 
 ## Technical Context
 
 **Language/Version**: C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting  
 **Primary Dependencies**: Existing core SDK, policy declaration/preview models, lifecycle marker service/store, resource definition store, resource version reader, in-memory store, SQLite JSON provider through existing abstractions, xUnit test stack; no new dependencies  
-**Storage**: No schema or storage changes. Application orchestration writes only existing lifecycle marker state through `IResourceLifecycleMarkerService`; definitions, resources, activation state, portability snapshots, and SQLite tables remain unchanged.  
+**Storage**: No schema or storage changes. Application orchestration writes only existing lifecycle marker state through `IResourceLifecycleMarkerStore` after its validation and conflict preflight; definitions, resources, activation state, portability snapshots, and SQLite tables remain unchanged.
 **Testing**: `dotnet test Aster.sln`, focused policy application tests, tenant-scoped application tests, lifecycle marker regression tests, SQLite JSON compatibility tests through existing provider registration, `dotnet build Aster.sln /m:1`, `git diff --check`  
 **Target Platform**: .NET SDK/library consumers and local test environment  
 **Project Type**: SDK/library with provider packages and tests  

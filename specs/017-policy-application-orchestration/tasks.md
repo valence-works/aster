@@ -51,7 +51,7 @@
 ### Implementation for User Story 1
 
 - [X] T010 [US1] Implement tenant resolution, empty request handling, and input-order result creation in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
-- [X] T011 [US1] Map archive and soft-delete policy outcomes to lifecycle marker writes through `IResourceLifecycleMarkerService` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
+- [X] T011 [US1] Map archive and soft-delete policy outcomes to lifecycle marker writes through `IResourceLifecycleMarkerStore` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
 - [X] T012 [US1] Preserve resource versions and activation state by avoiding resource writer and activation dependencies in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
 - [X] T013 [US1] Run focused P1 tests with `dotnet test /Users/sipke/Projects/ValenceWorks/aster/Aster.sln --filter PolicyApplication`
 
@@ -78,7 +78,7 @@
 - [X] T019 [US2] Add latest-version lookup and stale-candidate diagnostics through `IResourceVersionReader` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
 - [X] T020 [US2] Add current policy declaration existence and outcome-match validation through `IResourceDefinitionStore` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
 - [X] T021 [US2] Add same-resource archive/soft-delete conflict preflight before marker writes in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
-- [X] T022 [US2] Map lifecycle marker service conflicts and target-not-found results into policy application candidate results in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
+- [X] T022 [US2] Map lifecycle marker store conflicts and target-not-found results into policy application candidate results in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourcePolicyApplicationService.cs`
 - [X] T023 [US2] Compute aggregate applied, already-satisfied, skipped, and failed counts from candidate results in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Policies/ResourcePolicyApplication.cs`
 - [X] T024 [US2] Run focused P2 tests with `dotnet test /Users/sipke/Projects/ValenceWorks/aster/Aster.sln --filter PolicyApplication`
 

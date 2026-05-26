@@ -21,7 +21,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
     /// </summary>
     /// <param name="definitionStore">Definition store used to validate current policy declarations.</param>
     /// <param name="versionReader">Resource version reader used for tenant-scoped latest-version checks.</param>
-    /// <param name="markerStore">Lifecycle marker store used to detect already-satisfied candidates.</param>
+    /// <param name="markerStore">Lifecycle marker store used to read existing markers and persist applied lifecycle outcomes.</param>
     public ResourcePolicyApplicationService(
         IResourceDefinitionStore definitionStore,
         IResourceVersionReader versionReader,
