@@ -40,4 +40,9 @@ public sealed record ResourceVersionReadRequest
     /// Required when <see cref="Scope"/> is <see cref="ResourceVersionScope.Active"/>.
     /// </summary>
     public string? ActivationChannel { get; init; }
+
+    /// <summary>
+    /// Optional bounded resource identifier set. When empty, all resources in scope are read.
+    /// </summary>
+    public HashSet<string> ResourceIds { get; init; } = new(StringComparer.Ordinal);
 }

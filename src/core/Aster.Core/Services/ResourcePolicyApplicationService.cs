@@ -54,12 +54,28 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             };
         }
 
-        var latestResources = (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
-        {
-            TenantScope = tenant,
-            Scope = ResourceVersionScope.Latest,
+        var shapeFailures = candidates
+            .Select((candidate, index) => ValidateShape(index, candidate))
+            .ToArray();
+        var candidateResourceIds = candidates
+            .Where(static candidate => !string.IsNullOrWhiteSpace(candidate.ResourceId))
+            .Select(static candidate => candidate.ResourceId!)
+            .ToHashSet(StringComparer.Ordinal);
+        var latestResources = candidateResourceIds.Count == 0
+            ? new Dictionary<string, Resource>(StringComparer.Ordinal)
+            : (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+            {
+                TenantScope = tenant,
+                Scope = ResourceVersionScope.Latest,
+                ResourceIds = candidateResourceIds,
         }, cancellationToken)).ToDictionary(static resource => resource.ResourceId, StringComparer.Ordinal);
-        var conflictIndexes = FindConflictingLifecycleCandidates(candidates);
+        var markers = candidateResourceIds.Count == 0
+            ? new Dictionary<string, ResourceLifecycleMarker>(StringComparer.Ordinal)
+            : new Dictionary<string, ResourceLifecycleMarker>(
+                await markerStore.GetMarkersAsync(candidateResourceIds, tenant, cancellationToken),
+                StringComparer.Ordinal);
+        var definitions = new Dictionary<string, ResourceDefinition?>(StringComparer.Ordinal);
+        var conflictIndexes = FindConflictingLifecycleCandidates(candidates, shapeFailures);
         var results = new ResourcePolicyApplicationCandidateResult?[candidates.Count];
         var processedLifecycleResults = new Dictionary<LifecycleCandidateKey, ResourcePolicyApplicationCandidateResult>();
 
@@ -67,6 +83,12 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         {
             cancellationToken.ThrowIfCancellationRequested();
             var candidate = candidates[index];
+
+            if (shapeFailures[index] is not null)
+            {
+                results[index] = shapeFailures[index];
+                continue;
+            }
 
             if (conflictIndexes.Contains(index))
             {
@@ -76,13 +98,6 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
                     ResourcePolicyDiagnosticCodes.PolicyApplicationConflictingOutcome,
                     $"Resource '{candidate.ResourceId}' has conflicting archive and soft-delete outcomes in this request.",
                     "outcome");
-                continue;
-            }
-
-            var shapeFailure = ValidateShape(index, candidate);
-            if (shapeFailure is not null)
-            {
-                results[index] = shapeFailure;
                 continue;
             }
 
@@ -131,7 +146,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
                 continue;
             }
 
-            var policyFailure = await ValidatePolicyAsync(index, candidate, latest, tenant, cancellationToken);
+            var policyFailure = await ValidatePolicyAsync(index, candidate, latest, tenant, definitions, cancellationToken);
             if (policyFailure is not null)
             {
                 results[index] = policyFailure;
@@ -141,12 +156,12 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             var key = new LifecycleCandidateKey(candidate.ResourceId!, markerState);
             if (processedLifecycleResults.TryGetValue(key, out var previousResult))
             {
-                results[index] = await DuplicateResultAsync(index, candidate, markerState, tenant, previousResult, cancellationToken);
+                results[index] = DuplicateResult(index, candidate, markerState, markers, previousResult);
                 continue;
             }
 
-            var existing = await markerStore.GetMarkerAsync(candidate.ResourceId!, tenant, cancellationToken);
-            results[index] = await ApplyMarkerAsync(index, candidate, markerState, tenant, existing, request, cancellationToken);
+            markers.TryGetValue(candidate.ResourceId!, out var existing);
+            results[index] = await ApplyMarkerAsync(index, candidate, markerState, tenant, existing, request, markers, cancellationToken);
             processedLifecycleResults[key] = results[index]!;
         }
 
@@ -163,9 +178,15 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         ResourcePolicyApplicationCandidate candidate,
         Resource latest,
         TenantScope tenant,
+        IDictionary<string, ResourceDefinition?> definitions,
         CancellationToken cancellationToken)
     {
-        var definition = await definitionStore.GetDefinitionAsync(latest.DefinitionId, tenant, cancellationToken);
+        if (!definitions.TryGetValue(latest.DefinitionId, out var definition))
+        {
+            definition = await definitionStore.GetDefinitionAsync(latest.DefinitionId, tenant, cancellationToken);
+            definitions[latest.DefinitionId] = definition;
+        }
+
         var policy = definition?.PolicyDeclarations.FirstOrDefault(policy =>
             string.Equals(policy.PolicyId, candidate.PolicyId, StringComparison.Ordinal));
 
@@ -200,6 +221,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         TenantScope tenant,
         ResourceLifecycleMarker? existing,
         ResourcePolicyApplicationRequest request,
+        IDictionary<string, ResourceLifecycleMarker> markers,
         CancellationToken cancellationToken)
     {
         if (existing is not null)
@@ -228,17 +250,17 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             MarkedAt = request.AppliedAt,
             Reason = candidate.Reason ?? request.Reason,
         }, cancellationToken);
+        markers[candidate.ResourceId!] = marker;
 
         return CandidateResult(index, candidate, ResourcePolicyApplicationCandidateStatus.Applied, marker);
     }
 
-    private async ValueTask<ResourcePolicyApplicationCandidateResult> DuplicateResultAsync(
+    private static ResourcePolicyApplicationCandidateResult DuplicateResult(
         int index,
         ResourcePolicyApplicationCandidate candidate,
         ResourceLifecycleMarkerState markerState,
-        TenantScope tenant,
-        ResourcePolicyApplicationCandidateResult previousResult,
-        CancellationToken cancellationToken)
+        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
+        ResourcePolicyApplicationCandidateResult previousResult)
     {
         if (previousResult.Status == ResourcePolicyApplicationCandidateStatus.Failed)
         {
@@ -250,7 +272,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
                 previousResult.Diagnostics);
         }
 
-        var marker = await markerStore.GetMarkerAsync(candidate.ResourceId!, tenant, cancellationToken);
+        markers.TryGetValue(candidate.ResourceId!, out var marker);
         return CandidateResult(
             index,
             candidate,
@@ -307,14 +329,21 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         return null;
     }
 
-    private static HashSet<int> FindConflictingLifecycleCandidates(IReadOnlyList<ResourcePolicyApplicationCandidate> candidates)
+    private static HashSet<int> FindConflictingLifecycleCandidates(
+        IReadOnlyList<ResourcePolicyApplicationCandidate> candidates,
+        IReadOnlyList<ResourcePolicyApplicationCandidateResult?> shapeFailures)
     {
         var outcomesByResourceId = new Dictionary<string, HashSet<ResourcePolicyOutcome>>(StringComparer.Ordinal);
         for (var index = 0; index < candidates.Count; index++)
         {
             var candidate = candidates[index];
-            if (string.IsNullOrWhiteSpace(candidate.ResourceId) || candidate.Outcome is not { } outcome || !IsLifecycleOutcome(outcome))
+            if (shapeFailures[index] is not null
+                || string.IsNullOrWhiteSpace(candidate.ResourceId)
+                || candidate.Outcome is not { } outcome
+                || !IsLifecycleOutcome(outcome))
+            {
                 continue;
+            }
 
             if (!outcomesByResourceId.TryGetValue(candidate.ResourceId, out var outcomes))
             {
@@ -334,7 +363,8 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         for (var index = 0; index < candidates.Count; index++)
         {
             var candidate = candidates[index];
-            if (candidate.ResourceId is not null
+            if (shapeFailures[index] is null
+                && candidate.ResourceId is not null
                 && conflictingResourceIds.Contains(candidate.ResourceId)
                 && candidate.Outcome is { } outcome
                 && IsLifecycleOutcome(outcome))
