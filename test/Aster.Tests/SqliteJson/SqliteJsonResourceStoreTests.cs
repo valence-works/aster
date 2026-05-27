@@ -205,6 +205,38 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadVersionsAsync_ResourceIdsNormalizationPreservesBoundedIntent()
+    {
+        var first = CreateStore();
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-1", version: 1, title: "Alpha"));
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-2", version: 1, title: "Beta"));
+
+        var second = CreateStore();
+
+        var nullBound = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = null,
+        })).ToList();
+        var emptyBound = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = [],
+        })).ToList();
+        var invalidOnly = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = ["", " "],
+        })).ToList();
+        var nonOrdinalComparer = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "PRODUCT-1" },
+        })).ToList();
+
+        Assert.Equal(2, nullBound.Count);
+        Assert.Equal(2, emptyBound.Count);
+        Assert.Empty(invalidOnly);
+        Assert.Empty(nonOrdinalComparer);
+    }
+
+    [Fact]
     public async Task ActivationState_PersistsAndScopesReads()
     {
         // Arrange

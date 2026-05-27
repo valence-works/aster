@@ -163,13 +163,14 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
     {
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
+        var resourceIds = request.GetResourceIdSelection();
 
         var resources = request.Scope switch
         {
-            ResourceVersionScope.Latest => ReadLatestVersions(tenant, request.ResourceIds, cancellationToken),
-            ResourceVersionScope.AllVersions => ReadAllVersions(tenant, request.ResourceIds, cancellationToken),
-            ResourceVersionScope.Active => ReadActiveVersions(tenant, request.ResourceIds, request.ActivationChannel, cancellationToken),
-            ResourceVersionScope.Draft => ReadDraftVersions(tenant, request.ResourceIds, cancellationToken),
+            ResourceVersionScope.Latest => ReadLatestVersions(tenant, resourceIds, cancellationToken),
+            ResourceVersionScope.AllVersions => ReadAllVersions(tenant, resourceIds, cancellationToken),
+            ResourceVersionScope.Active => ReadActiveVersions(tenant, resourceIds, request.ActivationChannel, cancellationToken),
+            ResourceVersionScope.Draft => ReadDraftVersions(tenant, resourceIds, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Scope, "Unknown resource version scope.")
         };
 
@@ -250,7 +251,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
 
     private IEnumerable<Resource> ReadLatestVersions(
         TenantScope tenant,
-        IReadOnlySet<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
         foreach (var ((tenantId, resourceId), versionList) in Versions)
@@ -272,7 +273,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
 
     private IEnumerable<Resource> ReadAllVersions(
         TenantScope tenant,
-        IReadOnlySet<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
         foreach (var ((tenantId, resourceId), versionList) in Versions)
@@ -295,7 +296,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
 
     private IEnumerable<Resource> ReadActiveVersions(
         TenantScope tenant,
-        IReadOnlySet<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         string? channel,
         CancellationToken cancellationToken)
     {
@@ -335,7 +336,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
 
     private IEnumerable<Resource> ReadDraftVersions(
         TenantScope tenant,
-        IReadOnlySet<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
         var activeVersionsByResource = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
@@ -381,6 +382,6 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         }
     }
 
-    private static bool MatchesResourceId(string resourceId, IReadOnlySet<string> resourceIds) =>
-        resourceIds.Count == 0 || resourceIds.Contains(resourceId);
+    private static bool MatchesResourceId(string resourceId, ResourceVersionReadResourceIdSelection resourceIds) =>
+        resourceIds.Matches(resourceId);
 }

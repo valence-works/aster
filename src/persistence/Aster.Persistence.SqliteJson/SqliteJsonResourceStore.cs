@@ -340,9 +340,7 @@ public sealed class SqliteJsonResourceStore :
     {
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
-        var resourceIds = request.ResourceIds
-            .Where(static id => !string.IsNullOrWhiteSpace(id))
-            .ToHashSet(StringComparer.Ordinal);
+        var resourceIds = request.GetResourceIdSelection();
 
         return request.Scope switch
         {
@@ -461,11 +459,14 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadLatestVersionsAsync(
         TenantScope tenant,
-        IReadOnlyCollection<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
-        if (resourceIds.Count > 0)
-            return await ReadLatestVersionsByResourceIdsAsync(tenant, resourceIds, cancellationToken);
+        if (resourceIds.IsEmptyBound)
+            return [];
+
+        if (resourceIds.Values.Count > 0)
+            return await ReadLatestVersionsByResourceIdsAsync(tenant, resourceIds.Values, cancellationToken);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -491,16 +492,19 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadAllVersionsAsync(
         TenantScope tenant,
-        IReadOnlyCollection<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
-        if (resourceIds.Count > 0)
+        if (resourceIds.IsEmptyBound)
+            return [];
+
+        if (resourceIds.Values.Count > 0)
         {
             return await ReadPayloadsByTextIdsAsync<Resource>(
                 tableName: "resource_versions",
                 columnName: "resource_id",
                 tenant: tenant,
-                ids: resourceIds,
+                ids: resourceIds.Values,
                 orderBy: "resource_id, version",
                 cancellationToken);
         }
@@ -1001,7 +1005,7 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadActiveVersionsAsync(
         TenantScope tenant,
-        IReadOnlyCollection<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         string? channel,
         CancellationToken cancellationToken)
     {
@@ -1019,7 +1023,7 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadDraftVersionsAsync(
         TenantScope tenant,
-        IReadOnlyCollection<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
         var resources = (await ReadAllVersionsAsync(tenant, resourceIds, cancellationToken)).ToList();
@@ -1034,21 +1038,31 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<Dictionary<string, HashSet<int>>> ReadActivationStatesAsync(
         TenantScope tenant,
-        IReadOnlyCollection<string> resourceIds,
+        ResourceVersionReadResourceIdSelection resourceIds,
         string? channel,
         CancellationToken cancellationToken)
     {
-        var states = resourceIds.Count > 0
-            ? await ReadPayloadsByTextIdsAsync<ActivationState>(
+        List<ActivationState> states;
+        if (resourceIds.IsEmptyBound)
+        {
+            states = [];
+        }
+        else if (resourceIds.Values.Count > 0)
+        {
+            states = await ReadPayloadsByTextIdsAsync<ActivationState>(
                 tableName: "activation_states",
                 columnName: "resource_id",
                 tenant: tenant,
-                ids: resourceIds,
+                ids: resourceIds.Values,
                 orderBy: "resource_id, channel",
-                cancellationToken)
-            : await ReadActivationStatesForTenantAsync(tenant, channel, cancellationToken);
+                cancellationToken);
+        }
+        else
+        {
+            states = await ReadActivationStatesForTenantAsync(tenant, channel, cancellationToken);
+        }
 
-        if (resourceIds.Count > 0 && channel is not null)
+        if (resourceIds.Values.Count > 0 && channel is not null)
             states = states.Where(state => string.Equals(state.Channel, channel, StringComparison.Ordinal)).ToList();
 
         var active = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);

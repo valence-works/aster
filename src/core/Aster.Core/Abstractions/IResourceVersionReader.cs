@@ -42,7 +42,53 @@ public sealed record ResourceVersionReadRequest
     public string? ActivationChannel { get; init; }
 
     /// <summary>
-    /// Optional bounded resource identifier set. When empty, all resources in scope are read.
+    /// Optional bounded resource identifier set. When <see langword="null"/> or empty, all resources in scope are read.
+    /// Matching is ordinal after provider normalization. If a non-empty collection contains only null,
+    /// empty, or whitespace identifiers, providers must preserve bounded intent and return no resources.
     /// </summary>
-    public HashSet<string> ResourceIds { get; init; } = new(StringComparer.Ordinal);
+    public IReadOnlyCollection<string>? ResourceIds { get; init; }
+
+    /// <summary>
+    /// Normalizes <see cref="ResourceIds"/> into an ordinal bounded-resource selection.
+    /// </summary>
+    /// <returns>The normalized bounded-resource selection.</returns>
+    public ResourceVersionReadResourceIdSelection GetResourceIdSelection()
+    {
+        if (ResourceIds is not { Count: > 0 })
+            return ResourceVersionReadResourceIdSelection.Unbounded;
+
+        var values = ResourceIds
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return new ResourceVersionReadResourceIdSelection(IsBounded: true, values);
+    }
+}
+
+/// <summary>
+/// Normalized resource identifier selection for version reads.
+/// </summary>
+/// <param name="IsBounded">Whether the caller supplied an explicit non-empty resource identifier collection.</param>
+/// <param name="Values">Ordinal resource identifiers after null, empty, and whitespace values are removed.</param>
+public readonly record struct ResourceVersionReadResourceIdSelection(
+    bool IsBounded,
+    IReadOnlySet<string> Values)
+{
+    /// <summary>
+    /// Unbounded selection that matches every resource in the requested tenant and version scope.
+    /// </summary>
+    public static ResourceVersionReadResourceIdSelection Unbounded { get; } =
+        new(IsBounded: false, new HashSet<string>(StringComparer.Ordinal));
+
+    /// <summary>
+    /// Gets whether the caller supplied a bounded collection that normalized to no valid identifiers.
+    /// </summary>
+    public bool IsEmptyBound => IsBounded && Values.Count == 0;
+
+    /// <summary>
+    /// Returns whether the normalized selection includes the specified resource identifier.
+    /// </summary>
+    /// <param name="resourceId">The resource identifier to test.</param>
+    /// <returns><see langword="true"/> when the selection is unbounded or contains the resource identifier.</returns>
+    public bool Matches(string resourceId) => !IsBounded || Values.Contains(resourceId);
 }
