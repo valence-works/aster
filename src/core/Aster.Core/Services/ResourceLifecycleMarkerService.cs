@@ -47,6 +47,7 @@ public sealed class ResourceLifecycleMarkerService : IResourceLifecycleMarkerSer
         {
             TenantScope = tenant,
             Scope = ResourceVersionScope.Latest,
+            ResourceIds = [request.ResourceId],
         }, cancellationToken);
 
         if (!resources.Any(resource => string.Equals(resource.ResourceId, request.ResourceId, StringComparison.Ordinal)))

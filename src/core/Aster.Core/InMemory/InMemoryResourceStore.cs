@@ -163,13 +163,14 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
     {
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
+        var resourceIds = request.GetResourceIdSelection();
 
         var resources = request.Scope switch
         {
-            ResourceVersionScope.Latest => ReadLatestVersions(tenant, cancellationToken),
-            ResourceVersionScope.AllVersions => ReadAllVersions(tenant, cancellationToken),
-            ResourceVersionScope.Active => ReadActiveVersions(tenant, request.ActivationChannel, cancellationToken),
-            ResourceVersionScope.Draft => ReadDraftVersions(tenant, cancellationToken),
+            ResourceVersionScope.Latest => ReadLatestVersions(tenant, resourceIds, cancellationToken),
+            ResourceVersionScope.AllVersions => ReadAllVersions(tenant, resourceIds, cancellationToken),
+            ResourceVersionScope.Active => ReadActiveVersions(tenant, resourceIds, request.ActivationChannel, cancellationToken),
+            ResourceVersionScope.Draft => ReadDraftVersions(tenant, resourceIds, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Scope, "Unknown resource version scope.")
         };
 
@@ -248,13 +249,19 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         }
     }
 
-    private IEnumerable<Resource> ReadLatestVersions(TenantScope tenant, CancellationToken cancellationToken)
+    private IEnumerable<Resource> ReadLatestVersions(
+        TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
+        CancellationToken cancellationToken)
     {
-        foreach (var ((tenantId, _), versionList) in Versions)
+        foreach (var ((tenantId, resourceId), versionList) in Versions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
+                || !MatchesResourceId(resourceId, resourceIds))
+            {
                 continue;
+            }
 
             lock (versionList)
             {
@@ -264,13 +271,19 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         }
     }
 
-    private IEnumerable<Resource> ReadAllVersions(TenantScope tenant, CancellationToken cancellationToken)
+    private IEnumerable<Resource> ReadAllVersions(
+        TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
+        CancellationToken cancellationToken)
     {
-        foreach (var ((tenantId, _), versionList) in Versions)
+        foreach (var ((tenantId, resourceId), versionList) in Versions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
+                || !MatchesResourceId(resourceId, resourceIds))
+            {
                 continue;
+            }
 
             List<Resource> snapshot;
             lock (versionList)
@@ -281,15 +294,22 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         }
     }
 
-    private IEnumerable<Resource> ReadActiveVersions(TenantScope tenant, string? channel, CancellationToken cancellationToken)
+    private IEnumerable<Resource> ReadActiveVersions(
+        TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
+        string? channel,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
 
         foreach (var ((tenantId, resourceId), versionList) in Versions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
+                || !MatchesResourceId(resourceId, resourceIds))
+            {
                 continue;
+            }
 
             if (!Activations.TryGetValue((tenant.TenantId, resourceId), out var channelActivations))
                 continue;
@@ -314,15 +334,21 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         }
     }
 
-    private IEnumerable<Resource> ReadDraftVersions(TenantScope tenant, CancellationToken cancellationToken)
+    private IEnumerable<Resource> ReadDraftVersions(
+        TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
+        CancellationToken cancellationToken)
     {
         var activeVersionsByResource = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
 
         foreach (var ((tenantId, resourceId), channelActivations) in Activations)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
+                || !MatchesResourceId(resourceId, resourceIds))
+            {
                 continue;
+            }
 
             lock (channelActivations)
             {
@@ -335,8 +361,11 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         foreach (var ((tenantId, resourceId), versionList) in Versions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
+                || !MatchesResourceId(resourceId, resourceIds))
+            {
                 continue;
+            }
 
             activeVersionsByResource.TryGetValue(resourceId, out var activeVersionNumbers);
 
@@ -352,4 +381,7 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
                 yield return resource;
         }
     }
+
+    private static bool MatchesResourceId(string resourceId, ResourceVersionReadResourceIdSelection resourceIds) =>
+        resourceIds.Matches(resourceId);
 }

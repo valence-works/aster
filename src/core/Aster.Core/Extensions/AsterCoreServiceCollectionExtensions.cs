@@ -95,6 +95,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourcePortabilityService, ResourcePortabilityService>();
         services.AddSingleton<IResourcePolicyValidator, ResourcePolicyValidator>();
         services.AddSingleton<IResourcePolicyEvaluationService, ResourcePolicyEvaluationService>();
+        services.AddSingleton<IResourcePolicyApplicationService, ResourcePolicyApplicationService>();
         services.AddSingleton<IResourceLifecycleMarkerService, ResourceLifecycleMarkerService>();
 
         // Query service

@@ -340,13 +340,14 @@ public sealed class SqliteJsonResourceStore :
     {
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
+        var resourceIds = request.GetResourceIdSelection();
 
         return request.Scope switch
         {
-            ResourceVersionScope.Latest => await ReadLatestVersionsAsync(tenant, cancellationToken),
-            ResourceVersionScope.AllVersions => await ReadAllVersionsAsync(tenant, cancellationToken),
-            ResourceVersionScope.Active => await ReadActiveVersionsAsync(tenant, request.ActivationChannel, cancellationToken),
-            ResourceVersionScope.Draft => await ReadDraftVersionsAsync(tenant, cancellationToken),
+            ResourceVersionScope.Latest => await ReadLatestVersionsAsync(tenant, resourceIds, cancellationToken),
+            ResourceVersionScope.AllVersions => await ReadAllVersionsAsync(tenant, resourceIds, cancellationToken),
+            ResourceVersionScope.Active => await ReadActiveVersionsAsync(tenant, resourceIds, request.ActivationChannel, cancellationToken),
+            ResourceVersionScope.Draft => await ReadDraftVersionsAsync(tenant, resourceIds, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Scope, "Unknown resource version scope.")
         };
     }
@@ -458,8 +459,15 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadLatestVersionsAsync(
         TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
+        if (resourceIds.IsEmptyBound)
+            return [];
+
+        if (resourceIds.Values.Count > 0)
+            return await ReadLatestVersionsByResourceIdsAsync(tenant, resourceIds.Values, cancellationToken);
+
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
@@ -484,8 +492,23 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadAllVersionsAsync(
         TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
+        if (resourceIds.IsEmptyBound)
+            return [];
+
+        if (resourceIds.Values.Count > 0)
+        {
+            return await ReadPayloadsByTextIdsAsync<Resource>(
+                tableName: "resource_versions",
+                columnName: "resource_id",
+                tenant: tenant,
+                ids: resourceIds.Values,
+                orderBy: "resource_id, version",
+                cancellationToken);
+        }
+
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
@@ -497,6 +520,40 @@ public sealed class SqliteJsonResourceStore :
         command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
 
         return await ReadPayloadsAsync<Resource>(command, cancellationToken);
+    }
+
+    private async Task<IEnumerable<Resource>> ReadLatestVersionsByResourceIdsAsync(
+        TenantScope tenant,
+        IReadOnlyCollection<string> resourceIds,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<Resource>();
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in resourceIds.Order(StringComparer.Ordinal).Chunk(MaxSqliteParametersPerQuery))
+        {
+            await using var command = connection.CreateCommand();
+            var parameterNames = AddTextParameters(command, "resourceId", batch);
+            command.CommandText = $"""
+                SELECT rv.payload
+                FROM resource_versions rv
+                INNER JOIN (
+                    SELECT tenant_id, resource_id, MAX(version) AS version
+                    FROM resource_versions
+                    WHERE tenant_id = $tenantId AND resource_id IN ({string.Join(", ", parameterNames)})
+                    GROUP BY tenant_id, resource_id
+                ) latest
+                    ON latest.tenant_id = rv.tenant_id
+                    AND latest.resource_id = rv.resource_id
+                    AND latest.version = rv.version
+                WHERE rv.tenant_id = $tenantId
+                ORDER BY rv.resource_id;
+                """;
+            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+
+            results.AddRange(await ReadPayloadsAsync<Resource>(command, cancellationToken));
+        }
+
+        return results;
     }
 
     private async Task<List<ResourceDefinition>> SelectDefinitionsAsync(
@@ -948,13 +1005,14 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadActiveVersionsAsync(
         TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
         string? channel,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
 
-        var resources = (await ReadAllVersionsAsync(tenant, cancellationToken)).ToList();
-        var active = await ReadActivationStatesAsync(tenant, channel, cancellationToken);
+        var resources = (await ReadAllVersionsAsync(tenant, resourceIds, cancellationToken)).ToList();
+        var active = await ReadActivationStatesAsync(tenant, resourceIds, channel, cancellationToken);
 
         return resources
             .Where(resource =>
@@ -965,10 +1023,11 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<IEnumerable<Resource>> ReadDraftVersionsAsync(
         TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
-        var resources = (await ReadAllVersionsAsync(tenant, cancellationToken)).ToList();
-        var active = await ReadActivationStatesAsync(tenant, channel: null, cancellationToken);
+        var resources = (await ReadAllVersionsAsync(tenant, resourceIds, cancellationToken)).ToList();
+        var active = await ReadActivationStatesAsync(tenant, resourceIds, channel: null, cancellationToken);
 
         return resources
             .Where(resource =>
@@ -979,20 +1038,33 @@ public sealed class SqliteJsonResourceStore :
 
     private async Task<Dictionary<string, HashSet<int>>> ReadActivationStatesAsync(
         TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds,
         string? channel,
         CancellationToken cancellationToken)
     {
-        await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = channel is null
-            ? "SELECT payload FROM activation_states WHERE tenant_id = $tenantId;"
-            : "SELECT payload FROM activation_states WHERE tenant_id = $tenantId AND channel = $channel;";
+        List<ActivationState> states;
+        if (resourceIds.IsEmptyBound)
+        {
+            states = [];
+        }
+        else if (resourceIds.Values.Count > 0)
+        {
+            states = await ReadPayloadsByTextIdsAsync<ActivationState>(
+                tableName: "activation_states",
+                columnName: "resource_id",
+                tenant: tenant,
+                ids: resourceIds.Values,
+                orderBy: "resource_id, channel",
+                cancellationToken);
+        }
+        else
+        {
+            states = await ReadActivationStatesForTenantAsync(tenant, channel, cancellationToken);
+        }
 
-        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
-        if (channel is not null)
-            command.Parameters.AddWithValue("$channel", channel);
+        if (resourceIds.Values.Count > 0 && channel is not null)
+            states = states.Where(state => string.Equals(state.Channel, channel, StringComparison.Ordinal)).ToList();
 
-        var states = await ReadPayloadsAsync<ActivationState>(command, cancellationToken);
         var active = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
 
         foreach (var state in states)
@@ -1008,6 +1080,24 @@ public sealed class SqliteJsonResourceStore :
         }
 
         return active;
+    }
+
+    private async Task<List<ActivationState>> ReadActivationStatesForTenantAsync(
+        TenantScope tenant,
+        string? channel,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = channel is null
+            ? "SELECT payload FROM activation_states WHERE tenant_id = $tenantId;"
+            : "SELECT payload FROM activation_states WHERE tenant_id = $tenantId AND channel = $channel;";
+
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        if (channel is not null)
+            command.Parameters.AddWithValue("$channel", channel);
+
+        return await ReadPayloadsAsync<ActivationState>(command, cancellationToken);
     }
 
     private async Task InsertDefinitionAsync(

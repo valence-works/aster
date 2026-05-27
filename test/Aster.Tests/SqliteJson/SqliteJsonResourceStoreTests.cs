@@ -178,6 +178,65 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadVersionsAsync_ResourceIdsBoundsLatestAndAllVersionReads()
+    {
+        var first = CreateStore();
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-1", version: 1, title: "Alpha"));
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-1", version: 2, title: "Beta"));
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-2", version: 1, title: "Gamma"));
+
+        var second = CreateStore();
+
+        var latest = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = ["product-1"],
+        })).ToList();
+        var allVersions = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            Scope = ResourceVersionScope.AllVersions,
+            ResourceIds = ["product-1"],
+        })).ToList();
+
+        var latestVersion = Assert.Single(latest);
+        Assert.Equal("product-1", latestVersion.ResourceId);
+        Assert.Equal(2, latestVersion.Version);
+        Assert.Equal([1, 2], allVersions.Select(static resource => resource.Version).ToList());
+        Assert.All(allVersions, static resource => Assert.Equal("product-1", resource.ResourceId));
+    }
+
+    [Fact]
+    public async Task ReadVersionsAsync_ResourceIdsNormalizationPreservesBoundedIntent()
+    {
+        var first = CreateStore();
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-1", version: 1, title: "Alpha"));
+        await first.SaveVersionAsync(CreateResource(resourceId: "product-2", version: 1, title: "Beta"));
+
+        var second = CreateStore();
+
+        var nullBound = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = null,
+        })).ToList();
+        var emptyBound = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = [],
+        })).ToList();
+        var invalidOnly = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = ["", " "],
+        })).ToList();
+        var nonOrdinalComparer = (await second.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            ResourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "PRODUCT-1" },
+        })).ToList();
+
+        Assert.Equal(2, nullBound.Count);
+        Assert.Equal(2, emptyBound.Count);
+        Assert.Empty(invalidOnly);
+        Assert.Empty(nonOrdinalComparer);
+    }
+
+    [Fact]
     public async Task ActivationState_PersistsAndScopesReads()
     {
         // Arrange

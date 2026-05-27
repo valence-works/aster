@@ -133,6 +133,24 @@ public static class ResourcePolicyDiagnosticCodes
     /// <summary>Pruning writes are not supported by this slice.</summary>
     public const string PolicyPruningPreviewOnly = "policy-pruning-preview-only";
 
+    /// <summary>Policy application candidate shape is invalid.</summary>
+    public const string PolicyApplicationCandidateInvalid = "policy-application-candidate-invalid";
+
+    /// <summary>Policy application outcome is unsupported for writes.</summary>
+    public const string PolicyApplicationOutcomeUnsupported = "policy-application-outcome-unsupported";
+
+    /// <summary>Policy application candidate refers to a no-longer-latest resource version.</summary>
+    public const string PolicyApplicationStaleCandidate = "policy-application-stale-candidate";
+
+    /// <summary>Policy application candidate references a missing current policy declaration.</summary>
+    public const string PolicyApplicationPolicyMissing = "policy-application-policy-missing";
+
+    /// <summary>Policy application candidate no longer matches the current policy declaration outcome.</summary>
+    public const string PolicyApplicationPolicyMismatch = "policy-application-policy-mismatch";
+
+    /// <summary>Policy application request includes conflicting lifecycle outcomes for the same resource.</summary>
+    public const string PolicyApplicationConflictingOutcome = "policy-application-conflicting-outcome";
+
     /// <summary>Lifecycle marker write conflicts with current marker state.</summary>
     public const string LifecycleMarkerConflict = "lifecycle-marker-conflict";
 

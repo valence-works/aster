@@ -67,6 +67,21 @@ internal static class PolicyTestFixtures
             },
         };
 
+    public static ResourcePolicyApplicationCandidate ApplicationCandidate(
+        string resourceId,
+        string policyId = "archive-old",
+        ResourcePolicyKind policyKind = ResourcePolicyKind.Archival,
+        ResourcePolicyOutcome outcome = ResourcePolicyOutcome.Archive,
+        int? resourceVersion = 1) =>
+        new()
+        {
+            PolicyId = policyId,
+            PolicyKind = policyKind,
+            Outcome = outcome,
+            ResourceId = resourceId,
+            ResourceVersion = resourceVersion,
+        };
+
     public static ResourceDefinition ProductDefinition(params ResourcePolicyDeclaration[] policies) =>
         new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
