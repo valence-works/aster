@@ -9,7 +9,7 @@ namespace Aster.Core.InMemory;
 /// <summary>
 /// In-memory lifecycle marker storage.
 /// </summary>
-public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMarkerStore
+public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMarkerClearStore
 {
     private readonly ConcurrentDictionary<(string TenantId, string ResourceId), ResourceLifecycleMarker> markers = [];
 
@@ -59,6 +59,18 @@ public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMar
         var scopedMarker = marker with { TenantScope = tenant };
         markers[(tenant.TenantId, scopedMarker.ResourceId)] = scopedMarker;
         return ValueTask.FromResult(scopedMarker);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<bool> ClearMarkerAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        return ValueTask.FromResult(markers.TryRemove((tenant.TenantId, resourceId), out _));
     }
 
     internal void RestoreMarker(ResourceLifecycleMarker marker) =>

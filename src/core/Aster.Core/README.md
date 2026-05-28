@@ -47,7 +47,8 @@ builder.Services.AddAsterCore();
 | `ResourcePolicyValidator` | `IResourcePolicyValidator` |
 | `ResourcePolicyEvaluationService` | `IResourcePolicyEvaluationService` |
 | `ResourceLifecycleMarkerService` | `IResourceLifecycleMarkerService` |
-| `InMemoryResourceLifecycleMarkerStore` | `IResourceLifecycleMarkerStore` |
+| `ResourceLifecycleRestoreService` | `IResourceLifecycleRestoreService` |
+| `InMemoryResourceLifecycleMarkerStore` | `IResourceLifecycleMarkerStore`, `IResourceLifecycleMarkerClearStore` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
 | `SystemTextJsonFacetBinder` | `ITypedFacetBinder` |
@@ -349,7 +350,40 @@ var archived = await queryService.QueryAsync(new ResourceQuery
 });
 ```
 
-Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, schedulers, authorization policy engines, destructive pruning writes, restore workflows, provider registries, public SQL, or public `IQueryable<Resource>`.
+Hosts can preview and explicitly restore archive or soft-delete markers through `IResourceLifecycleRestoreService`. Restore clears only the expected marker state, returns one result per submitted candidate, treats missing markers as already restored, and fails closed when current marker state differs from the expected state.
+
+```csharp
+var restore = serviceProvider.GetRequiredService<IResourceLifecycleRestoreService>();
+
+var preview = await restore.PreviewRestoreAsync(new ResourceLifecycleRestoreRequest
+{
+    Candidates =
+    [
+        new ResourceLifecycleRestoreCandidate
+        {
+            ResourceId = "product-1",
+            ExpectedState = ResourceLifecycleMarkerState.Archived,
+        },
+    ],
+});
+
+if (preview.Candidates.Single().Status == ResourceLifecycleRestoreCandidateStatus.Restorable)
+{
+    await restore.RestoreAsync(new ResourceLifecycleRestoreRequest
+    {
+        Candidates =
+        [
+            new ResourceLifecycleRestoreCandidate
+            {
+                ResourceId = "product-1",
+                ExpectedState = ResourceLifecycleMarkerState.Archived,
+            },
+        ],
+    });
+}
+```
+
+Restore preview is non-mutating. Restore application re-reads current marker state before clearing, does not rewrite resource versions, does not change activation state, and does not invoke lifecycle hooks. Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, automatic restore, schedulers, authorization policy engines, destructive pruning writes, provider registries, public SQL, or public `IQueryable<Resource>`.
 
 ---
 
@@ -396,6 +430,8 @@ IResourcePolicyValidator      — validates definition-attached policy declarati
 IResourcePolicyEvaluationService — previews policy outcomes without mutation
 IResourceLifecycleMarkerService — applies explicit archive/soft-delete markers
 IResourceLifecycleMarkerStore — provider-facing lifecycle marker persistence contract
+IResourceLifecycleMarkerClearStore — provider-facing lifecycle marker removal contract
+IResourceLifecycleRestoreService — previews and applies explicit archive/soft-delete marker restoration
 IResourceQueryService         — portable query service; default is LINQ-based in-memory
 IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support
