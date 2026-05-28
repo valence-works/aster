@@ -52,7 +52,7 @@ Candidate scope:
 |---|---|
 | Optional recipes | Separate `Aster.Recipes` package for hosts that want recipe execution over portability primitives. |
 | Multi-tenancy extensions | Shared definitions, tenant hierarchy, and cross-tenant administrative workflows after explicit tenant boundaries exist. |
-| Policies | Restore workflows and eventual pruning write semantics after separate specs. |
+| Policies | Eventual pruning write semantics after a separate spec defines safety checks and rollback expectations. |
 | Operational hardening | Benchmarks, migration idempotency, concurrency hardening, and large-data test suites. |
 
 ## Guardrails

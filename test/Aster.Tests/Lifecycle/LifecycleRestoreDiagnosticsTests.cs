@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
 using Aster.Core.Models.Querying;
@@ -61,6 +62,21 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
     }
 
     [Fact]
+    public void AddAsterCore_WhenActiveMarkerStoreCannotClearMarkersFailsFastForRestore()
+    {
+        using var customProvider = new ServiceCollection()
+            .AddAsterCore()
+            .AddSingleton<IResourceLifecycleMarkerStore, MarkerStoreWithoutClear>()
+            .BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => customProvider.GetRequiredService<IResourceLifecycleRestoreService>());
+
+        Assert.Contains(nameof(IResourceLifecycleMarkerStore), exception.Message);
+        Assert.Contains(nameof(IResourceLifecycleMarkerClearStore), exception.Message);
+    }
+
+    [Fact]
     public async Task RestoreAsync_MissingTargetMismatchAndStalePreviewFailClosed()
     {
         await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "archived");
@@ -113,6 +129,27 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
         Assert.Equal(ResourceLifecycleRestoreCandidateStatus.Failed, candidate.Status);
         Assert.Contains(candidate.Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreMarkerMismatch);
         Assert.Equal(ResourceLifecycleMarkerState.SoftDeleted, store.Current.State);
+    }
+
+    private sealed class MarkerStoreWithoutClear : IResourceLifecycleMarkerStore
+    {
+        public ValueTask<ResourceLifecycleMarker?> GetMarkerAsync(
+            string resourceId,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<ResourceLifecycleMarker?>(null);
+
+        public ValueTask<IReadOnlyDictionary<string, ResourceLifecycleMarker>> GetMarkersAsync(
+            IEnumerable<string> resourceIds,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<IReadOnlyDictionary<string, ResourceLifecycleMarker>>(
+                new Dictionary<string, ResourceLifecycleMarker>(StringComparer.Ordinal));
+
+        public ValueTask<ResourceLifecycleMarker> SaveMarkerAsync(
+            ResourceLifecycleMarker marker,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(marker);
     }
 
     private sealed class SingleResourceVersionReader : IResourceVersionReader

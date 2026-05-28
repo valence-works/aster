@@ -84,7 +84,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourcePortabilityStore>(sp => sp.GetRequiredService<InMemoryPortabilityStore>());
         services.AddSingleton<InMemoryResourceLifecycleMarkerStore>();
         services.AddSingleton<IResourceLifecycleMarkerStore>(sp => sp.GetRequiredService<InMemoryResourceLifecycleMarkerStore>());
-        services.AddSingleton<IResourceLifecycleMarkerClearStore>(sp => sp.GetRequiredService<InMemoryResourceLifecycleMarkerStore>());
+        services.AddSingleton<IResourceLifecycleMarkerClearStore>(ResolveResourceLifecycleMarkerClearStore);
 
         // Resource manager
         services.AddSingleton<InMemoryResourceManager>();
@@ -116,5 +116,13 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<ITypedFacetBinder>(sp => sp.GetRequiredService<SystemTextJsonFacetBinder>());
 
         return services;
+    }
+
+    private static IResourceLifecycleMarkerClearStore ResolveResourceLifecycleMarkerClearStore(IServiceProvider serviceProvider)
+    {
+        var markerStore = serviceProvider.GetRequiredService<IResourceLifecycleMarkerStore>();
+        return markerStore as IResourceLifecycleMarkerClearStore
+            ?? throw new InvalidOperationException(
+                $"The active {nameof(IResourceLifecycleMarkerStore)} registration must also implement {nameof(IResourceLifecycleMarkerClearStore)} to use lifecycle restore workflows.");
     }
 }
