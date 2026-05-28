@@ -35,7 +35,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
         var results = await EvaluateAsync(
-            request.Candidates,
+            ResolveCandidates(request),
             tenant,
             apply: false,
             cancellationToken);
@@ -55,7 +55,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
         var results = await EvaluateAsync(
-            request.Candidates,
+            ResolveCandidates(request),
             tenant,
             apply: true,
             cancellationToken);
@@ -67,6 +67,9 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
             Candidates = results,
         };
     }
+
+    private static IReadOnlyList<ResourceLifecycleRestoreCandidate> ResolveCandidates(ResourceLifecycleRestoreRequest request) =>
+        request.Candidates ?? [];
 
     private async ValueTask<IReadOnlyList<ResourceLifecycleRestoreCandidateResult>> EvaluateAsync(
         IReadOnlyList<ResourceLifecycleRestoreCandidate> candidates,

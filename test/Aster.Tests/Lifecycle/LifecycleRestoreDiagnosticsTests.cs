@@ -62,6 +62,32 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
     }
 
     [Fact]
+    public async Task PreviewRestoreAsync_NullCandidatesCollectionReturnsEmptyResult()
+    {
+        var restore = provider.GetRequiredService<IResourceLifecycleRestoreService>();
+
+        var result = await restore.PreviewRestoreAsync(new ResourceLifecycleRestoreRequest
+        {
+            Candidates = null!,
+        });
+
+        Assert.Empty(result.Candidates);
+    }
+
+    [Fact]
+    public async Task RestoreAsync_NullCandidatesCollectionReturnsEmptyResult()
+    {
+        var restore = provider.GetRequiredService<IResourceLifecycleRestoreService>();
+
+        var result = await restore.RestoreAsync(new ResourceLifecycleRestoreRequest
+        {
+            Candidates = null!,
+        });
+
+        Assert.Empty(result.Candidates);
+    }
+
+    [Fact]
     public void AddAsterCore_WhenActiveMarkerStoreCannotClearMarkersFailsFastForRestore()
     {
         using var customProvider = new ServiceCollection()
