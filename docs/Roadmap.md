@@ -778,7 +778,8 @@ Define the minimal contracts needed for portable export/import of definitions/re
 - Lifecycle-state query criteria
 - Portability preservation for policy declarations and lifecycle markers
 - Landed follow-up: host-controlled policy application orchestration for selected archive and soft-delete preview outcomes
-- Future specs: restore workflows and destructive pruning semantics
+- Landed follow-up: host-controlled lifecycle restore workflows for archive and soft-delete markers
+- Future specs: destructive pruning semantics
 
 **DoD**
 - Host can inspect and validate policy intent without hidden execution

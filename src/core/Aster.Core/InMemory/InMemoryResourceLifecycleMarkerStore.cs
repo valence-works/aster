@@ -65,12 +65,27 @@ public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMar
     public ValueTask<bool> ClearMarkerAsync(
         string resourceId,
         TenantScope tenantScope,
+        ResourceLifecycleMarkerState expectedState,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         cancellationToken.ThrowIfCancellationRequested();
         var tenant = TenantScopeResolver.Resolve(tenantScope);
-        return ValueTask.FromResult(markers.TryRemove((tenant.TenantId, resourceId), out _));
+        var key = (tenant.TenantId, resourceId);
+
+        while (markers.TryGetValue(key, out var current))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (current.State != expectedState)
+                return ValueTask.FromResult(false);
+
+            var removed = ((ICollection<KeyValuePair<(string TenantId, string ResourceId), ResourceLifecycleMarker>>)markers)
+                .Remove(new KeyValuePair<(string TenantId, string ResourceId), ResourceLifecycleMarker>(key, current));
+            if (removed)
+                return ValueTask.FromResult(true);
+        }
+
+        return ValueTask.FromResult(false);
     }
 
     internal void RestoreMarker(ResourceLifecycleMarker marker) =>

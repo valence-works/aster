@@ -2,7 +2,7 @@
 
 Aster is delivered in six phases. Each phase builds on the last, with clean extension points so earlier work is not thrown away.
 
-> **Current status:** Phase 5 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, explicit index projection contracts, explicit definition schema upgrade behavior, portability primitives, host lifecycle hooks, explicit tenant scoping, policy foundations, and host-controlled policy application orchestration are available.
+> **Current status:** Phase 5 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query authoring helpers, provider authoring/conformance support, SQLite facet sorting, portable operators, SQLite date-like ranges, explicit index projection contracts, explicit definition schema upgrade behavior, portability primitives, host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, and lifecycle restore workflows are available.
 >
 > For the current implementation trail and next Spec Kit slices, see [`docs/ExecutionRoadmap.md`](../docs/ExecutionRoadmap.md).
 
@@ -33,7 +33,7 @@ Aster is delivered in six phases. Each phase builds on the last, with clean exte
 | **015 Tenant Scoping** | Landed | Add explicit tenant boundaries for definitions, resources, activation, queries, portability, and lifecycle hooks. |
 | **016 Policy Foundations** | Landed | Introduce explicit retention, archival, soft-delete, and pruning policy contracts without hidden background processing. |
 | **017 Policy Application Orchestration** | Landed | Apply selected archive and soft-delete policy preview outcomes through host-controlled workflows. |
-| **018 Lifecycle Restore Workflows** | Next | Preview and explicitly restore archive and soft-delete lifecycle markers without hidden execution or resource version rewrites. |
+| **018 Lifecycle Restore Workflows** | Landed | Preview and explicitly restore archive and soft-delete lifecycle markers without hidden execution or resource version rewrites. |
 
 ---
 

@@ -57,15 +57,16 @@ public interface IResourceLifecycleMarkerClearStore : IResourceLifecycleMarkerSt
     ValueTask<bool> ClearMarkerAsync(
         string resourceId,
         TenantScope tenantScope,
+        ResourceLifecycleMarkerState expectedState,
         CancellationToken cancellationToken = default);
 }
 ```
 
 Contract rules:
 
-- `ClearMarkerAsync` MUST remove the effective lifecycle marker for the resource in the supplied tenant.
-- `ClearMarkerAsync` MUST return `true` when a marker existed and was removed.
-- `ClearMarkerAsync` MUST return `false` when no marker existed.
+- `ClearMarkerAsync` MUST remove the effective lifecycle marker for the resource in the supplied tenant only when its state matches `expectedState`.
+- `ClearMarkerAsync` MUST return `true` when a matching marker existed and was removed.
+- `ClearMarkerAsync` MUST return `false` when no marker existed or the current marker state did not match `expectedState`.
 - `ClearMarkerAsync` MUST NOT remove resource versions, activation state, definitions, policy declarations, or markers in other tenants.
 - Providers SHOULD implement clear through the existing lifecycle marker storage mechanism without schema changes.
 - Providers that do not implement the clear capability do not support lifecycle restore workflows.

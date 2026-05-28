@@ -149,14 +149,22 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
         if (marker.State != expectedState)
             return MarkerMismatch(index, candidate, expectedState, marker);
 
-        var removed = await markerStore.ClearMarkerAsync(candidate.ResourceId!, tenant, cancellationToken);
-        markers.Remove(candidate.ResourceId!);
+        var removed = await markerStore.ClearMarkerAsync(candidate.ResourceId!, tenant, expectedState, cancellationToken);
+        if (removed)
+        {
+            markers.Remove(candidate.ResourceId!);
+            return CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.Restored, marker);
+        }
 
-        return CandidateResult(
-            index,
-            candidate,
-            removed ? ResourceLifecycleRestoreCandidateStatus.Restored : ResourceLifecycleRestoreCandidateStatus.AlreadyRestored,
-            marker);
+        var current = await markerStore.GetMarkerAsync(candidate.ResourceId!, tenant, cancellationToken);
+        if (current is null)
+        {
+            markers.Remove(candidate.ResourceId!);
+            return CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.AlreadyRestored);
+        }
+
+        markers[candidate.ResourceId!] = current;
+        return MarkerMismatch(index, candidate, expectedState, current);
     }
 
     private static ResourceLifecycleRestoreCandidateResult PreviewCandidate(

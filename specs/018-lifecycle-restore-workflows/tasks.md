@@ -11,11 +11,11 @@
 
 **Purpose**: Confirm baseline and feature context before shared implementation.
 
-- [X] T001 Read lifecycle restore requirements in `/Users/sipke/Projects/ValenceWorks/aster/specs/018-lifecycle-restore-workflows/spec.md`
-- [X] T002 Read restore planning and contract decisions in `/Users/sipke/Projects/ValenceWorks/aster/specs/018-lifecycle-restore-workflows/plan.md`
-- [X] T003 Inspect existing lifecycle marker service/store contracts in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Abstractions/IResourceLifecycleMarkerStore.cs`
-- [X] T004 Inspect existing lifecycle marker implementation in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleMarkerService.cs`
-- [X] T005 Run baseline restore/build with `/usr/local/share/dotnet/dotnet restore /Users/sipke/Projects/ValenceWorks/aster/Aster.sln`
+- [X] T001 Read lifecycle restore requirements in `specs/018-lifecycle-restore-workflows/spec.md`
+- [X] T002 Read restore planning and contract decisions in `specs/018-lifecycle-restore-workflows/plan.md`
+- [X] T003 Inspect existing lifecycle marker service/store contracts in `src/core/Aster.Core/Abstractions/IResourceLifecycleMarkerStore.cs`
+- [X] T004 Inspect existing lifecycle marker implementation in `src/core/Aster.Core/Services/ResourceLifecycleMarkerService.cs`
+- [X] T005 Run baseline restore/build with `dotnet restore Aster.sln`
 
 ---
 
@@ -25,15 +25,15 @@
 
 **CRITICAL**: No user story implementation should begin until these are complete.
 
-- [X] T006 [P] Add `IResourceLifecycleRestoreService` contract in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Abstractions/IResourceLifecycleRestoreService.cs`
-- [X] T007 Add `IResourceLifecycleMarkerClearStore` provider capability in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Abstractions/IResourceLifecycleMarkerStore.cs`
-- [X] T008 [P] Add lifecycle restore request/result/status models in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleRestore.cs`
-- [X] T009 [P] Add stable restore diagnostic codes in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Policies/ResourcePolicyResults.cs`
-- [X] T010 Implement `IResourceLifecycleMarkerClearStore.ClearMarkerAsync` for in-memory markers in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/InMemory/InMemoryResourceLifecycleMarkerStore.cs`
-- [X] T011 Implement `IResourceLifecycleMarkerClearStore.ClearMarkerAsync` for SQLite JSON markers in `/Users/sipke/Projects/ValenceWorks/aster/src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
-- [X] T012 Register `IResourceLifecycleMarkerClearStore` and `IResourceLifecycleRestoreService` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
-- [X] T013 Register SQLite JSON `IResourceLifecycleMarkerClearStore` replacement in `/Users/sipke/Projects/ValenceWorks/aster/src/persistence/Aster.Persistence.SqliteJson/SqliteJsonAsterServiceCollectionExtensions.cs`
-- [X] T014 Run foundational compile with `/usr/local/share/dotnet/dotnet build /Users/sipke/Projects/ValenceWorks/aster/Aster.sln /m:1`
+- [X] T006 [P] Add `IResourceLifecycleRestoreService` contract in `src/core/Aster.Core/Abstractions/IResourceLifecycleRestoreService.cs`
+- [X] T007 Add `IResourceLifecycleMarkerClearStore` provider capability in `src/core/Aster.Core/Abstractions/IResourceLifecycleMarkerStore.cs`
+- [X] T008 [P] Add lifecycle restore request/result/status models in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestore.cs`
+- [X] T009 [P] Add stable restore diagnostic codes in `src/core/Aster.Core/Models/Policies/ResourcePolicyResults.cs`
+- [X] T010 Implement `IResourceLifecycleMarkerClearStore.ClearMarkerAsync` for in-memory markers in `src/core/Aster.Core/InMemory/InMemoryResourceLifecycleMarkerStore.cs`
+- [X] T011 Implement `IResourceLifecycleMarkerClearStore.ClearMarkerAsync` for SQLite JSON markers in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
+- [X] T012 Register `IResourceLifecycleMarkerClearStore` and `IResourceLifecycleRestoreService` in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`
+- [X] T013 Register SQLite JSON `IResourceLifecycleMarkerClearStore` replacement in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonAsterServiceCollectionExtensions.cs`
+- [X] T014 Run foundational compile with `dotnet build Aster.sln /m:1`
 
 **Checkpoint**: Contracts and provider clear capability compile; user story implementation can proceed.
 
@@ -47,18 +47,18 @@
 
 ### Tests for User Story 1
 
-- [X] T015 [P] [US1] Add archive and soft-delete restore success tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreServiceTests.cs`
-- [X] T016 [US1] Add subset restore and unselected marker preservation tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreServiceTests.cs`
-- [X] T017 [P] [US1] Add resource version and activation preservation tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreActivationTests.cs`
-- [X] T018 [P] [US1] Add lifecycle-state query after restore regression test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/LifecycleStateQueryTests.cs`
+- [X] T015 [P] [US1] Add archive and soft-delete restore success tests in `test/Aster.Tests/Lifecycle/LifecycleRestoreServiceTests.cs`
+- [X] T016 [US1] Add subset restore and unselected marker preservation tests in `test/Aster.Tests/Lifecycle/LifecycleRestoreServiceTests.cs`
+- [X] T017 [P] [US1] Add resource version and activation preservation tests in `test/Aster.Tests/Lifecycle/LifecycleRestoreActivationTests.cs`
+- [X] T018 [P] [US1] Add lifecycle-state query after restore regression test in `test/Aster.Tests/Querying/LifecycleStateQueryTests.cs`
 
 ### Implementation for User Story 1
 
-- [X] T019 [US1] Implement `ResourceLifecycleRestoreService.RestoreAsync` success path in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T020 [US1] Add candidate-bounded latest-resource and marker reads by distinct candidate resource IDs to restore application in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T021 [US1] Clear matching archive and soft-delete markers through `IResourceLifecycleMarkerClearStore` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T022 [US1] Preserve versions and activation state by avoiding resource writer and activation dependencies in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T023 [US1] Run focused P1 tests with `/usr/local/share/dotnet/dotnet test /Users/sipke/Projects/ValenceWorks/aster/Aster.sln --filter "LifecycleRestore|LifecycleStateQuery"`
+- [X] T019 [US1] Implement `ResourceLifecycleRestoreService.RestoreAsync` success path in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T020 [US1] Add candidate-bounded latest-resource and marker reads by distinct candidate resource IDs to restore application in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T021 [US1] Clear matching archive and soft-delete markers through `IResourceLifecycleMarkerClearStore` in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T022 [US1] Preserve versions and activation state by avoiding resource writer and activation dependencies in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T023 [US1] Run focused P1 tests with `dotnet test Aster.sln --filter "LifecycleRestore|LifecycleStateQuery"`
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -72,16 +72,16 @@
 
 ### Tests for User Story 2
 
-- [X] T024 [P] [US2] Add preview restorable, already-restored, duplicate-skipped, and empty-request tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestorePreviewTests.cs`
-- [X] T025 [US2] Add preview marker-mismatch and missing-target diagnostic tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestorePreviewTests.cs`
-- [X] T026 [US2] Add preview no-mutation regression tests, including invalid and unsupported candidate no-clear assertions, in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestorePreviewTests.cs`
+- [X] T024 [P] [US2] Add preview restorable, already-restored, duplicate-skipped, and empty-request tests in `test/Aster.Tests/Lifecycle/LifecycleRestorePreviewTests.cs`
+- [X] T025 [US2] Add preview marker-mismatch and missing-target diagnostic tests in `test/Aster.Tests/Lifecycle/LifecycleRestorePreviewTests.cs`
+- [X] T026 [US2] Add preview no-mutation regression tests, including invalid and unsupported candidate no-clear assertions, in `test/Aster.Tests/Lifecycle/LifecycleRestorePreviewTests.cs`
 
 ### Implementation for User Story 2
 
-- [X] T027 [US2] Implement `ResourceLifecycleRestoreService.PreviewRestoreAsync` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T028 [US2] Extract shared candidate validation/evaluation helper for preview and application in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T029 [US2] Ensure preview never calls `ClearMarkerAsync` in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T030 [US2] Run focused P2 tests with `/usr/local/share/dotnet/dotnet test /Users/sipke/Projects/ValenceWorks/aster/Aster.sln --filter "LifecycleRestorePreview|LifecycleRestore"`
+- [X] T027 [US2] Implement `ResourceLifecycleRestoreService.PreviewRestoreAsync` in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T028 [US2] Extract shared candidate validation/evaluation helper for preview and application in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T029 [US2] Ensure preview never calls `ClearMarkerAsync` in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T030 [US2] Run focused P2 tests with `dotnet test Aster.sln --filter "LifecycleRestorePreview|LifecycleRestore"`
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 
@@ -95,22 +95,22 @@
 
 ### Tests for User Story 3
 
-- [X] T031 [P] [US3] Add restore aggregate counts, empty-request, and one-result-per-input tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreResultTests.cs`
-- [X] T032 [US3] Add duplicate candidate determinism tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreResultTests.cs`
-- [X] T033 [P] [US3] Add invalid candidate and unsupported state diagnostic tests with no-marker-cleared assertions in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreDiagnosticsTests.cs`
-- [X] T034 [US3] Add missing target, marker-mismatch, and stale-preview-before-apply application diagnostic tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreDiagnosticsTests.cs`
-- [X] T035 [P] [US3] Add tenant-scoped restore isolation and omitted default tenant scope tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Tenancy/TenantLifecycleRestoreTests.cs`
-- [X] T036 [P] [US3] Add SQLite JSON restore compatibility tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/SqliteJson/SqliteJsonLifecycleRestoreTests.cs`
+- [X] T031 [P] [US3] Add restore aggregate counts, empty-request, and one-result-per-input tests in `test/Aster.Tests/Lifecycle/LifecycleRestoreResultTests.cs`
+- [X] T032 [US3] Add duplicate candidate determinism tests in `test/Aster.Tests/Lifecycle/LifecycleRestoreResultTests.cs`
+- [X] T033 [P] [US3] Add invalid candidate and unsupported state diagnostic tests with no-marker-cleared assertions in `test/Aster.Tests/Lifecycle/LifecycleRestoreDiagnosticsTests.cs`
+- [X] T034 [US3] Add missing target, marker-mismatch, and stale-preview-before-apply application diagnostic tests in `test/Aster.Tests/Lifecycle/LifecycleRestoreDiagnosticsTests.cs`
+- [X] T035 [P] [US3] Add tenant-scoped restore isolation and omitted default tenant scope tests in `test/Aster.Tests/Tenancy/TenantLifecycleRestoreTests.cs`
+- [X] T036 [P] [US3] Add SQLite JSON restore compatibility tests in `test/Aster.Tests/SqliteJson/SqliteJsonLifecycleRestoreTests.cs`
 
 ### Implementation for User Story 3
 
-- [X] T037 [US3] Implement invalid candidate and unsupported state diagnostics in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T038 [US3] Implement missing target and tenant-scoped target-not-found diagnostics in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T039 [US3] Implement marker-state mismatch diagnostics that leave current markers untouched in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T040 [US3] Implement duplicate candidate memoization and deterministic skipped/already-restored behavior in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
-- [X] T041 [US3] Compute preview and application aggregate counts from candidate results in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleRestore.cs`
-- [X] T042 [US3] Ensure SQLite JSON lifecycle marker deletes are tenant-scoped in `/Users/sipke/Projects/ValenceWorks/aster/src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
-- [X] T043 [US3] Run focused P3 tests with `/usr/local/share/dotnet/dotnet test /Users/sipke/Projects/ValenceWorks/aster/Aster.sln --filter "LifecycleRestore|TenantLifecycleRestore|SqliteJsonLifecycleRestore"`
+- [X] T037 [US3] Implement invalid candidate and unsupported state diagnostics in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T038 [US3] Implement missing target and tenant-scoped target-not-found diagnostics in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T039 [US3] Implement marker-state mismatch diagnostics that leave current markers untouched in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T040 [US3] Implement duplicate candidate memoization and deterministic skipped/already-restored behavior in `src/core/Aster.Core/Services/ResourceLifecycleRestoreService.cs`
+- [X] T041 [US3] Compute preview and application aggregate counts from candidate results in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestore.cs`
+- [X] T042 [US3] Ensure SQLite JSON lifecycle marker deletes are tenant-scoped in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonResourceStore.cs`
+- [X] T043 [US3] Run focused P3 tests with `dotnet test Aster.sln --filter "LifecycleRestore|TenantLifecycleRestore|SqliteJsonLifecycleRestore"`
 
 **Checkpoint**: All user stories are independently functional.
 
@@ -120,14 +120,14 @@
 
 **Purpose**: Documentation, compatibility, and final verification.
 
-- [X] T044 [P] Update lifecycle marker documentation in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/README.md`
-- [X] T045 [P] Update SQLite JSON provider documentation in `/Users/sipke/Projects/ValenceWorks/aster/src/persistence/Aster.Persistence.SqliteJson/README.md`
-- [X] T046 [P] Update roadmap/status documentation in `/Users/sipke/Projects/ValenceWorks/aster/docs/ExecutionRoadmap.md`
-- [X] T047 Validate quickstart examples against implemented APIs in `/Users/sipke/Projects/ValenceWorks/aster/specs/018-lifecycle-restore-workflows/quickstart.md`
-- [X] T048 Run all tests with `/usr/local/share/dotnet/dotnet test /Users/sipke/Projects/ValenceWorks/aster/Aster.sln`
-- [X] T049 Run full build with `/usr/local/share/dotnet/dotnet build /Users/sipke/Projects/ValenceWorks/aster/Aster.sln /m:1`
-- [X] T050 Run whitespace validation with `git diff --check` in `/Users/sipke/Projects/ValenceWorks/aster`
-- [X] T051 Re-run constitution check and remove unnecessary abstractions or dependencies in `/Users/sipke/Projects/ValenceWorks/aster/specs/018-lifecycle-restore-workflows/plan.md`
+- [X] T044 [P] Update lifecycle marker documentation in `src/core/Aster.Core/README.md`
+- [X] T045 [P] Update SQLite JSON provider documentation in `src/persistence/Aster.Persistence.SqliteJson/README.md`
+- [X] T046 [P] Update roadmap/status documentation in `docs/ExecutionRoadmap.md`
+- [X] T047 Validate quickstart examples against implemented APIs in `specs/018-lifecycle-restore-workflows/quickstart.md`
+- [X] T048 Run all tests with `dotnet test Aster.sln`
+- [X] T049 Run full build with `dotnet build Aster.sln /m:1`
+- [X] T050 Run whitespace validation with `git diff --check`
+- [X] T051 Re-run constitution check and remove unnecessary abstractions or dependencies in `specs/018-lifecycle-restore-workflows/plan.md`
 
 ---
 
@@ -162,17 +162,17 @@
 ## Parallel Example: User Story 1
 
 ```text
-Task: "T015 [P] [US1] Add archive and soft-delete restore success tests in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreServiceTests.cs"
-Task: "T017 [P] [US1] Add resource version and activation preservation tests in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreActivationTests.cs"
-Task: "T018 [P] [US1] Add lifecycle-state query after restore regression test in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Querying/LifecycleStateQueryTests.cs"
+Task: "T015 [P] [US1] Add archive and soft-delete restore success tests in test/Aster.Tests/Lifecycle/LifecycleRestoreServiceTests.cs"
+Task: "T017 [P] [US1] Add resource version and activation preservation tests in test/Aster.Tests/Lifecycle/LifecycleRestoreActivationTests.cs"
+Task: "T018 [P] [US1] Add lifecycle-state query after restore regression test in test/Aster.Tests/Querying/LifecycleStateQueryTests.cs"
 ```
 
 ## Parallel Example: User Story 3
 
 ```text
-Task: "T033 [P] [US3] Add invalid candidate and unsupported state diagnostic tests in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Lifecycle/LifecycleRestoreDiagnosticsTests.cs"
-Task: "T035 [P] [US3] Add tenant-scoped restore isolation tests in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Tenancy/TenantLifecycleRestoreTests.cs"
-Task: "T036 [P] [US3] Add SQLite JSON restore compatibility tests in /Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/SqliteJson/SqliteJsonLifecycleRestoreTests.cs"
+Task: "T033 [P] [US3] Add invalid candidate and unsupported state diagnostic tests in test/Aster.Tests/Lifecycle/LifecycleRestoreDiagnosticsTests.cs"
+Task: "T035 [P] [US3] Add tenant-scoped restore isolation tests in test/Aster.Tests/Tenancy/TenantLifecycleRestoreTests.cs"
+Task: "T036 [P] [US3] Add SQLite JSON restore compatibility tests in test/Aster.Tests/SqliteJson/SqliteJsonLifecycleRestoreTests.cs"
 ```
 
 ---

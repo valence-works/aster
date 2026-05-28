@@ -1,7 +1,9 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
+using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Lifecycle;
@@ -75,5 +77,90 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
             second => Assert.Contains(second.Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreMarkerMismatch));
         var current = await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "archived");
         Assert.Equal(ResourceLifecycleMarkerState.SoftDeleted, current?.State);
+    }
+
+    [Fact]
+    public async Task RestoreAsync_WhenMarkerChangesBeforeClearDoesNotClearNewState()
+    {
+        var store = new ChangingMarkerClearStore();
+        var restore = new ResourceLifecycleRestoreService(new SingleResourceVersionReader(), store);
+
+        var result = await restore.RestoreAsync(new ResourceLifecycleRestoreRequest
+        {
+            Candidates = [LifecycleRestoreTestFixtures.Candidate("product-1", ResourceLifecycleMarkerState.Archived)],
+        });
+
+        var candidate = Assert.Single(result.Candidates);
+        Assert.Equal(ResourceLifecycleRestoreCandidateStatus.Failed, candidate.Status);
+        Assert.Contains(candidate.Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreMarkerMismatch);
+        Assert.Equal(ResourceLifecycleMarkerState.SoftDeleted, store.Current.State);
+    }
+
+    private sealed class SingleResourceVersionReader : IResourceVersionReader
+    {
+        public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
+            ResourceVersionReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<IEnumerable<Resource>>(
+            [
+                new Resource
+                {
+                    ResourceId = "product-1",
+                    Id = "product-1-1",
+                    DefinitionId = "Product",
+                    Version = 1,
+                    Created = DateTime.UtcNow,
+                },
+            ]);
+    }
+
+    private sealed class ChangingMarkerClearStore : IResourceLifecycleMarkerClearStore
+    {
+        private ResourceLifecycleMarker current = Marker(ResourceLifecycleMarkerState.Archived);
+
+        public ResourceLifecycleMarker Current => current;
+
+        public ValueTask<ResourceLifecycleMarker?> GetMarkerAsync(
+            string resourceId,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<ResourceLifecycleMarker?>(current);
+
+        public ValueTask<IReadOnlyDictionary<string, ResourceLifecycleMarker>> GetMarkersAsync(
+            IEnumerable<string> resourceIds,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<IReadOnlyDictionary<string, ResourceLifecycleMarker>>(
+                new Dictionary<string, ResourceLifecycleMarker>(StringComparer.Ordinal)
+                {
+                    ["product-1"] = current,
+                });
+
+        public ValueTask<ResourceLifecycleMarker> SaveMarkerAsync(
+            ResourceLifecycleMarker marker,
+            CancellationToken cancellationToken = default)
+        {
+            current = marker;
+            return ValueTask.FromResult(marker);
+        }
+
+        public ValueTask<bool> ClearMarkerAsync(
+            string resourceId,
+            TenantScope tenantScope,
+            ResourceLifecycleMarkerState expectedState,
+            CancellationToken cancellationToken = default)
+        {
+            current = Marker(ResourceLifecycleMarkerState.SoftDeleted);
+            return ValueTask.FromResult(false);
+        }
+
+        private static ResourceLifecycleMarker Marker(ResourceLifecycleMarkerState state) =>
+            new()
+            {
+                TenantScope = TenantScope.Default,
+                ResourceId = "product-1",
+                State = state,
+                MarkedAt = DateTimeOffset.UtcNow,
+            };
     }
 }

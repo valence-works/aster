@@ -1,6 +1,7 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.Tenancy;
 using Aster.Tests.Lifecycle;
 using Aster.Tests.Policies;
 using Aster.Tests.Tenancy;
@@ -56,5 +57,26 @@ public sealed class SqliteJsonLifecycleRestoreTests : IDisposable
 
         Assert.Null(await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "shared", TenantScopeTestFixtures.TenantA));
         Assert.NotNull(await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "shared", TenantScopeTestFixtures.TenantB));
+    }
+
+    [Fact]
+    public async Task ClearMarkerAsync_OnlyDeletesMatchingExpectedState()
+    {
+        await using var provider = LifecycleRestoreTestFixtures.CreateSqliteProvider(databasePath);
+        await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "archived");
+        await LifecycleRestoreTestFixtures.MarkAsync(provider, "archived", ResourceLifecycleMarkerState.Archived);
+        var clearStore = provider.GetRequiredService<IResourceLifecycleMarkerClearStore>();
+
+        var wrongStateRemoved = await clearStore.ClearMarkerAsync(
+            "archived",
+            TenantScope.Default,
+            ResourceLifecycleMarkerState.SoftDeleted);
+        var rightStateRemoved = await clearStore.ClearMarkerAsync(
+            "archived",
+            TenantScope.Default,
+            ResourceLifecycleMarkerState.Archived);
+
+        Assert.False(wrongStateRemoved);
+        Assert.True(rightStateRemoved);
     }
 }

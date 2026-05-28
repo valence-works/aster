@@ -337,6 +337,7 @@ public sealed class SqliteJsonResourceStore :
     public async ValueTask<bool> ClearMarkerAsync(
         string resourceId,
         TenantScope tenantScope,
+        ResourceLifecycleMarkerState expectedState,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
@@ -346,10 +347,13 @@ public sealed class SqliteJsonResourceStore :
         await using var command = connection.CreateCommand();
         command.CommandText = """
             DELETE FROM lifecycle_markers
-            WHERE tenant_id = $tenantId AND resource_id = $resourceId;
+            WHERE tenant_id = $tenantId
+                AND resource_id = $resourceId
+                AND json_extract(payload, '$.state') = $expectedState;
             """;
         command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
         command.Parameters.AddWithValue("$resourceId", resourceId);
+        command.Parameters.AddWithValue("$expectedState", (int)expectedState);
 
         return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
