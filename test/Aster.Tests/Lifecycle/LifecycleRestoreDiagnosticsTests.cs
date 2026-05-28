@@ -27,6 +27,7 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
         {
             Candidates =
             [
+                null!,
                 LifecycleRestoreTestFixtures.Candidate(null, ResourceLifecycleMarkerState.Archived),
                 LifecycleRestoreTestFixtures.Candidate("missing-state", null),
                 LifecycleRestoreTestFixtures.Candidate("unsupported-state", (ResourceLifecycleMarkerState)999),
@@ -36,9 +37,27 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
         Assert.All(result.Candidates, candidate => Assert.Equal(ResourceLifecycleRestoreCandidateStatus.Failed, candidate.Status));
         Assert.Contains(result.Candidates[0].Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreCandidateInvalid);
         Assert.Contains(result.Candidates[1].Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreCandidateInvalid);
-        Assert.Contains(result.Candidates[2].Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreStateUnsupported);
+        Assert.Contains(result.Candidates[2].Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreCandidateInvalid);
+        Assert.Contains(result.Candidates[3].Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreStateUnsupported);
         Assert.NotNull(await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "missing-state"));
         Assert.NotNull(await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "unsupported-state"));
+    }
+
+    [Fact]
+    public async Task PreviewRestoreAsync_NullCandidateFailsWithDiagnostic()
+    {
+        var restore = provider.GetRequiredService<IResourceLifecycleRestoreService>();
+
+        var result = await restore.PreviewRestoreAsync(new ResourceLifecycleRestoreRequest
+        {
+            Candidates = [null!],
+        });
+
+        var candidate = Assert.Single(result.Candidates);
+        Assert.Equal(ResourceLifecycleRestoreCandidateStatus.Failed, candidate.Status);
+        Assert.Null(candidate.ResourceId);
+        Assert.Null(candidate.ExpectedState);
+        Assert.Contains(candidate.Diagnostics, diagnostic => diagnostic.Code == ResourcePolicyDiagnosticCodes.LifecycleRestoreCandidateInvalid);
     }
 
     [Fact]

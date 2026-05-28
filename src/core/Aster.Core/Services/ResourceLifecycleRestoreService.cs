@@ -82,7 +82,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
             .ToArray();
         var resourceIds = candidates
             .Where((candidate, index) => shapeFailures[index] is null && !string.IsNullOrWhiteSpace(candidate.ResourceId))
-            .Select(static candidate => candidate.ResourceId!)
+            .Select(static candidate => candidate!.ResourceId!)
             .ToHashSet(StringComparer.Ordinal);
         var latestResources = resourceIds.Count == 0
             ? new Dictionary<string, Resource>(StringComparer.Ordinal)
@@ -111,7 +111,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
                 continue;
             }
 
-            var expectedState = candidate.ExpectedState!.Value;
+            var expectedState = candidate!.ExpectedState!.Value;
             var key = new RestoreCandidateKey(candidate.ResourceId!, expectedState);
             if (!processed.Add(key))
             {
@@ -188,8 +188,18 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
 
     private static ResourceLifecycleRestoreCandidateResult? ValidateShape(
         int index,
-        ResourceLifecycleRestoreCandidate candidate)
+        ResourceLifecycleRestoreCandidate? candidate)
     {
+        if (candidate is null)
+        {
+            return Failure(
+                index,
+                candidate,
+                ResourcePolicyDiagnosticCodes.LifecycleRestoreCandidateInvalid,
+                "Lifecycle restore candidates must not be null.",
+                "candidate");
+        }
+
         if (string.IsNullOrWhiteSpace(candidate.ResourceId))
         {
             return Failure(
@@ -250,7 +260,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
 
     private static ResourceLifecycleRestoreCandidateResult Failure(
         int index,
-        ResourceLifecycleRestoreCandidate candidate,
+        ResourceLifecycleRestoreCandidate? candidate,
         string code,
         string message,
         string? path = null,
@@ -265,20 +275,20 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
                     code,
                     message,
                     path,
-                    resourceId: candidate.ResourceId),
+                    resourceId: candidate?.ResourceId),
             ]);
 
     private static ResourceLifecycleRestoreCandidateResult CandidateResult(
         int index,
-        ResourceLifecycleRestoreCandidate candidate,
+        ResourceLifecycleRestoreCandidate? candidate,
         ResourceLifecycleRestoreCandidateStatus status,
         ResourceLifecycleMarker? marker = null,
         IReadOnlyList<ResourcePolicyDiagnostic>? diagnostics = null) =>
         new()
         {
             Index = index,
-            ResourceId = candidate.ResourceId,
-            ExpectedState = candidate.ExpectedState,
+            ResourceId = candidate?.ResourceId,
+            ExpectedState = candidate?.ExpectedState,
             Status = status,
             Marker = marker,
             Diagnostics = diagnostics ?? [],
