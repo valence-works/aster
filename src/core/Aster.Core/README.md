@@ -35,7 +35,7 @@ builder.Services.AddAsterCore();
 | Service | Interface |
 |---|---|
 | `InMemoryResourceDefinitionStore` | `IResourceDefinitionStore` |
-| `InMemoryResourceStore` | `IResourceVersionReader`, `IResourceVersionWriter` |
+| `InMemoryResourceStore` | `IResourceVersionReader`, `IResourceVersionWriter`, `IResourceActivationStateReader` |
 | `InMemoryPortabilityStore` | `IResourcePortabilityStore` |
 | `DefaultResourceManager` | `IResourceManager` |
 | `InMemoryQueryService` | `IResourceQueryService` |
@@ -48,6 +48,7 @@ builder.Services.AddAsterCore();
 | `ResourcePolicyEvaluationService` | `IResourcePolicyEvaluationService` |
 | `ResourceLifecycleMarkerService` | `IResourceLifecycleMarkerService` |
 | `ResourceLifecycleRestoreService` | `IResourceLifecycleRestoreService` |
+| `ResourceVersionHistoryService` | `IResourceVersionHistoryService` |
 | `InMemoryResourceLifecycleMarkerStore` | `IResourceLifecycleMarkerStore`, `IResourceLifecycleMarkerClearStore` |
 | `GuidIdentityGenerator` | `IIdentityGenerator` |
 | `SystemTextJsonAspectBinder` | `ITypedAspectBinder` |
@@ -123,7 +124,32 @@ var active = await manager.GetActiveVersionsAsync(resource.ResourceId, "Publishe
 
 ---
 
-### 6. Query resources
+### 6. Inspect version history
+
+`IResourceVersionHistoryService` returns a read-only tenant-scoped timeline for one resource. It combines existing resource versions, activation channels, and lifecycle marker state without evaluating policies or mutating anything.
+
+```csharp
+var history = serviceProvider.GetRequiredService<IResourceVersionHistoryService>();
+
+var result = await history.GetHistoryAsync(new ResourceVersionHistoryRequest
+{
+    ResourceId = resource.ResourceId,
+});
+
+foreach (var version in result.Versions)
+{
+    Console.WriteLine(
+        $"{version.Version}: latest={version.IsLatest}, draft={version.IsDraft}, " +
+        $"channels={string.Join(",", version.ActiveChannels)}, " +
+        $"maintenance={version.MaintenanceDisposition}");
+}
+```
+
+Latest or active versions are reported as protected from destructive pruning. Historical inactive non-latest versions are only reported as possible maintenance candidates; hosts must still use policy preview/application services before pruning.
+
+---
+
+### 7. Query resources
 
 ```csharp
 var queryService = serviceProvider.GetRequiredService<IResourceQueryService>();
@@ -204,7 +230,7 @@ var query = new ResourceQuery
 
 ---
 
-### 7. Inspect and upgrade definition lineage
+### 8. Inspect and upgrade definition lineage
 
 `CreateAsync` records the active definition version on the new resource. Normal `UpdateAsync` calls preserve that `DefinitionVersion`; they do not silently move long-lived resources to newer schemas.
 
@@ -250,7 +276,7 @@ Tenant IDs are opaque exact-match values. `TenantScope.FromTenantId(...)` reject
 
 ---
 
-### 8. Export, preview, and import portable snapshots
+### 9. Export, preview, and import portable snapshots
 
 `IResourcePortabilityService` exports selected definitions, resources, resource versions, and activation state into an SDK-native `PortableSnapshot`. The service also validates snapshots, previews import plans without writing, and performs all-or-nothing imports.
 
@@ -287,7 +313,7 @@ Import is strict by default. Existing identical content is reused, divergent col
 
 ---
 
-### 9. Declare, preview, and mark policy outcomes
+### 10. Declare, preview, and mark policy outcomes
 
 Policy declarations are explicit resource definition metadata. They do not run in the background and they do not mutate resource history when a definition is registered.
 
@@ -410,7 +436,7 @@ Each submitted candidate returns `Pruned`, `AlreadyPruned`, `Skipped`, or `Faile
 
 ---
 
-### 10. Register lifecycle hooks
+### 11. Register lifecycle hooks
 
 Hosts can register explicit lifecycle hooks around resource saves, activation/deactivation, export, preview import, and write import.
 

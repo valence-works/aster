@@ -17,6 +17,7 @@ public sealed class SqliteJsonResourceStore :
     IResourceDefinitionStore,
     IResourceVersionReader,
     IResourceVersionWriter,
+    IResourceActivationStateReader,
     IResourceVersionPruningStore,
     IResourcePortabilityStore,
     IResourceLifecycleMarkerClearStore
@@ -260,6 +261,30 @@ public sealed class SqliteJsonResourceStore :
 
         await command.ExecuteNonQueryAsync(cancellationToken);
         return scopedState;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<ActivationState>> ReadActivationStatesAsync(
+        IEnumerable<string> resourceIds,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resourceIds);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        var ids = resourceIds
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        if (ids.Count == 0)
+            return [];
+
+        return await ReadPayloadsByTextIdsAsync<ActivationState>(
+            tableName: "activation_states",
+            columnName: "resource_id",
+            tenant: tenant,
+            ids: ids,
+            orderBy: "resource_id, channel",
+            cancellationToken);
     }
 
     /// <inheritdoc />

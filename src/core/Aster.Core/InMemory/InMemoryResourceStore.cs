@@ -11,7 +11,11 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory store for <see cref="Resource"/> versions and activation state.
 /// Intended for use by <see cref="InMemoryResourceManager"/> only.
 /// </summary>
-public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter, IResourceVersionPruningStore
+public sealed class InMemoryResourceStore :
+    IResourceVersionReader,
+    IResourceVersionWriter,
+    IResourceVersionPruningStore,
+    IResourceActivationStateReader
 {
     /// <summary>
     /// Resource version history keyed by tenant ID and <c>ResourceId</c>.
@@ -222,6 +226,34 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         states[channel] = scopedState;
 
         return ValueTask.FromResult(scopedState);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<IReadOnlyList<ActivationState>> ReadActivationStatesAsync(
+        IEnumerable<string> resourceIds,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resourceIds);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        var ids = resourceIds
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        if (ids.Count == 0)
+            return ValueTask.FromResult<IReadOnlyList<ActivationState>>([]);
+
+        var states = new List<ActivationState>();
+        foreach (var resourceId in ids.Order(StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ActivationStates.TryGetValue((tenant.TenantId, resourceId), out var channelStates))
+                continue;
+
+            states.AddRange(channelStates.Values.OrderBy(static state => state.Channel, StringComparer.Ordinal));
+        }
+
+        return ValueTask.FromResult<IReadOnlyList<ActivationState>>(states);
     }
 
     /// <inheritdoc />
