@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/018-lifecycle-restore-workflows/plan.md`.
+shell commands, and other important information, read `specs/019-policy-pruning-application/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -22,8 +22,11 @@ shell commands, and other important information, read `specs/018-lifecycle-resto
 - No schema or storage changes. Application orchestration writes only existing lifecycle marker state through `IResourceLifecycleMarkerStore` after validation and conflict preflight; definitions, resources, activation state, portability snapshots, and SQLite tables remain unchanged. (017-policy-application-orchestration)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, lifecycle marker service/store, resource version reader, in-memory store, SQLite JSON provider through existing abstractions, query capability stack, xUnit test stack; no new dependencies (018-lifecycle-restore-workflows)
 - Existing lifecycle marker storage only. Restore clears existing archive/soft-delete marker rows or in-memory entries; no resource version, activation state, policy declaration, portability snapshot format, or SQLite schema changes. (018-lifecycle-restore-workflows)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, resource definition store, resource version reader, lifecycle marker store, policy validation/evaluation models, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies (019-policy-pruning-application)
+- Existing resource version storage only. Pruning removes selected resource version snapshots from in-memory and SQLite JSON stores; no schema migration, policy declaration mutation, lifecycle marker mutation, activation mutation, or portability snapshot format change. (019-policy-pruning-application)
 
 ## Recent Changes
+- 019-policy-pruning-application: Added host-controlled policy pruning application planning for selected version-pruning preview outcomes with safety preflight, tenant scoping, stable diagnostics, and no schedulers, authorization engines, provider registries, public SQL, public IQueryable<Resource>, broad workflow/state-machine infrastructure, or schema migrations
 - 018-lifecycle-restore-workflows: Added lifecycle restore workflow planning for host-controlled preview and application over archive/soft-delete markers; no resource version rewrites, activation changes, schedulers, authorization engines, provider registries, public SQL, public IQueryable<Resource>, destructive pruning writes, or schema changes
 - 017-policy-application-orchestration: Added host-controlled policy application orchestration for selected archive/soft-delete preview outcomes with per-candidate results, stale/policy validation, tenant scoping, and bounded provider reads
 - 016-policy-foundations: Added explicit policy foundations planning for definition-attached policy declarations, deterministic previews, archive/soft-delete lifecycle markers, lifecycle-state queries, portability, and provider support; no automatic execution, pruning writes, scheduler, policy engine, provider registry, public SQL, or public IQueryable<Resource>
