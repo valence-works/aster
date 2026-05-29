@@ -125,6 +125,21 @@ public sealed class InMemoryActivationTests
         Assert.Equal(v2.Version, latest.Version);
     }
 
+    [Fact]
+    public async Task DefaultResourceManager_HistoricalVersion_MultiActiveAppendsInDeterministicOrder()
+    {
+        await using var provider = new ServiceCollection().AddAsterCore().BuildServiceProvider();
+        var manager = provider.GetRequiredService<IResourceManager>();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
+        var v2 = await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
+        await manager.ActivateAsync(v1.ResourceId, v2.Version, "Preview", allowMultipleActive: true);
+
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, "Preview", allowMultipleActive: true);
+
+        var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Preview")).ToList();
+        Assert.Equal([v1.Version, v2.Version], active.Select(r => r.Version).ToList());
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // DeactivateAsync
     // ──────────────────────────────────────────────────────────────────────────
