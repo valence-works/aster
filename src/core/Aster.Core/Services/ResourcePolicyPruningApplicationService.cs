@@ -130,7 +130,7 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
         TenantScope tenant,
         DateTimeOffset? appliedAt,
         IDictionary<string, List<Resource>> allVersions,
-        IReadOnlyDictionary<string, List<Resource>> draftVersions,
+        Dictionary<string, List<Resource>> draftVersions,
         IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
         IDictionary<string, ResourceDefinition?> definitions,
         CancellationToken cancellationToken)
@@ -185,9 +185,12 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
         {
             var removed = await pruningStore.PruneVersionAsync(candidate.ResourceId!, target.Version, tenant, cancellationToken);
             if (!removed)
+            {
+                RemoveCandidateVersion(candidate.ResourceId!, target.Version, allVersions, draftVersions);
                 return CandidateResult(index, candidate, ResourcePolicyPruningApplicationCandidateStatus.AlreadyPruned);
+            }
 
-            versions.RemoveAll(version => version.Version == target.Version);
+            RemoveCandidateVersion(candidate.ResourceId!, target.Version, allVersions, draftVersions);
             return CandidateResult(index, candidate, ResourcePolicyPruningApplicationCandidateStatus.Pruned);
         }
         catch (NotSupportedException)
@@ -271,6 +274,19 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
             return draftVersions.TryGetValue(resourceId, out var drafts) ? drafts.Count : 0;
 
         return versions.Count;
+    }
+
+    private static void RemoveCandidateVersion(
+        string resourceId,
+        int resourceVersion,
+        IDictionary<string, List<Resource>> allVersions,
+        IDictionary<string, List<Resource>> draftVersions)
+    {
+        if (allVersions.TryGetValue(resourceId, out var versions))
+            versions.RemoveAll(version => version.Version == resourceVersion);
+
+        if (draftVersions.TryGetValue(resourceId, out var drafts))
+            drafts.RemoveAll(version => version.Version == resourceVersion);
     }
 
     private async ValueTask<ResourcePolicyPruningApplicationCandidateResult?> ValidatePolicyIdentityAsync(

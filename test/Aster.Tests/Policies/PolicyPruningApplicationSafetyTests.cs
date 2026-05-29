@@ -102,6 +102,35 @@ public sealed class PolicyPruningApplicationSafetyTests : IDisposable
         Assert.Equal([1, 2, 3], await ReadVersionNumbersAsync());
     }
 
+    [Fact]
+    public async Task ApplyAsync_RetainedVersionSafetyUsesUpdatedDraftViewWithinRequest()
+    {
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.PruningPolicy("keep-latest", retainedVersions: 2)]);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 1);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 2);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 3);
+
+        var result = await provider.GetRequiredService<IResourcePolicyPruningApplicationService>().ApplyAsync(
+            new ResourcePolicyPruningApplicationRequest
+            {
+                Candidates =
+                [
+                    PolicyTestFixtures.PruningCandidate("versioned", resourceVersion: 1),
+                    PolicyTestFixtures.PruningCandidate("versioned", resourceVersion: 2),
+                ],
+            });
+
+        Assert.Collection(
+            result.Candidates,
+            first => Assert.Equal(ResourcePolicyPruningApplicationCandidateStatus.Pruned, first.Status),
+            second =>
+            {
+                Assert.Equal(ResourcePolicyPruningApplicationCandidateStatus.Failed, second.Status);
+                Assert.Equal(ResourcePolicyDiagnosticCodes.PolicyPruningUnsafe, second.Diagnostics.Single().Code);
+            });
+        Assert.Equal([2, 3], await ReadVersionNumbersAsync());
+    }
+
     private async Task SetupVersionedResourceAsync()
     {
         await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.PruningPolicy(retainedVersions: 2)]);
