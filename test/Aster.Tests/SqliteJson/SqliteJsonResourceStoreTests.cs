@@ -108,6 +108,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
             },
         });
         await manager.ActivateAsync(v1.ResourceId, v2.Version, "Published");
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, "Published");
 
         var secondStore = CreateStore();
         var secondManager = CreateManager(secondStore);
@@ -121,7 +122,8 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal(2, latest.Version);
         Assert.Equal("Published", GetTitle(latest));
         Assert.Single(active);
-        Assert.Equal(2, active[0].Version);
+        Assert.Equal(1, active[0].Version);
+        Assert.Equal("Draft", GetTitle(active[0]));
     }
 
     [Fact]

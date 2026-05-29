@@ -236,19 +236,12 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         if (versions is null)
             throw new VersionNotFoundException(resourceId, version);
 
-        Resource latest;
         lock (versions)
         {
             var match = versions.FirstOrDefault(r => r.Version == version);
             if (match is null)
                 throw new VersionNotFoundException(resourceId, version);
-
-            latest = versions[^1];
         }
-
-        // Optimistic concurrency: version must be the current latest
-        if (version != latest.Version)
-            throw new ConcurrencyException(resourceId, version, latest.Version);
 
         var channelActivations = store.GetOrAddActivations(resourceId, tenant);
         var newActiveVersions = new HashSet<int>();
@@ -270,7 +263,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
             TenantScope = tenant,
             ResourceId = resourceId,
             Channel = channel,
-            ActiveVersions = [.. newActiveVersions],
+            ActiveVersions = newActiveVersions.Order().ToList(),
             LastUpdated = DateTime.UtcNow,
         };
 

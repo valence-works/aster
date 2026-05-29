@@ -89,10 +89,10 @@ public interface IResourceManager
     ValueTask<Resource?> GetLatestVersionAsync(string resourceId, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Activates the given version in the specified channel.
+    /// Activates any existing version in the specified channel.
     /// </summary>
     /// <param name="resourceId">Logical resource identifier.</param>
-    /// <param name="version">The version number to activate.</param>
+    /// <param name="version">The existing version number to activate, including historical non-latest versions.</param>
     /// <param name="channel">The channel name (e.g., "Published").</param>
     /// <param name="allowMultipleActive">
     /// If <see langword="false"/> (default), activating a version deactivates all others in the same channel.
@@ -100,16 +100,13 @@ public interface IResourceManager
     /// </param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <exception cref="VersionNotFoundException">Thrown if the specified version does not exist.</exception>
-    /// <exception cref="ConcurrencyException">
-    /// Thrown if the store's latest version has changed since the caller last read.
-    /// </exception>
     ValueTask ActivateAsync(string resourceId, int version, string channel, bool allowMultipleActive = false, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Activates the given tenant-scoped resource version in the specified channel.
+    /// Activates any existing tenant-scoped resource version in the specified channel.
     /// </summary>
     /// <param name="resourceId">Logical resource identifier.</param>
-    /// <param name="version">The version number to activate.</param>
+    /// <param name="version">The existing version number to activate, including historical non-latest versions.</param>
     /// <param name="channel">The channel name.</param>
     /// <param name="tenantScope">Tenant scope for activation.</param>
     /// <param name="allowMultipleActive">Whether to permit multiple active versions in the channel.</param>

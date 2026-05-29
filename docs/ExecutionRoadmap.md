@@ -8,7 +8,7 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, and read-only version history inspection.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, and version history inspection have landed; the next slices should stay focused on advanced tenant/versioning behavior or bounded operational hardening, not both at once.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, and version history inspection have landed; historical version activation is the current bounded advanced-versioning slice.
 
 ## Landed Slices
 
@@ -37,16 +37,30 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 
 ## Near-Term Roadmap
 
-### 021 — Next Bounded Phase 5 Slice
+### 021 — Historical Version Activation
 
-**Goal:** Choose one small continuation slice that builds on tenant-aware lifecycle and policy primitives without broadening the architecture.
+**Status:** In progress on `021-historical-version-activation`.
+
+**Goal:** Allow hosts to explicitly activate any existing resource version, including historical non-latest versions, through the existing activation APIs.
+
+Scope:
+
+- Remove the latest-only activation restriction while preserving version existence validation.
+- Keep latest-version identity and immutable resource versions unchanged.
+- Preserve single-active versus multi-active channel behavior.
+- Preserve tenant scoping, lifecycle hooks, and provider-backed activation storage.
+- Keep schema changes, automatic jobs, ambient authorization, provider registries, public SQL, public `IQueryable<Resource>`, and broad workflow/state-machine infrastructure out of scope.
+
+### 022 — Next Bounded Phase 5 Slice
+
+**Goal:** Choose one small continuation slice after historical activation lands.
 
 Candidate scope:
 
-- Advanced versioning behavior that is explicit, append-only, and provider-agnostic.
+- Advanced versioning follow-up only if it stays explicit, append-only, and provider-agnostic.
 - A deliberately bounded policy follow-up, such as reporting or audit-oriented application summaries, only after a separate spec defines exact host value.
 - Tenant extension behavior, such as shared definitions or administrative workflows, only if the boundaries stay explicit.
-- Keep automatic jobs, ambient authorization, provider registries, public SQL, public `IQueryable<Resource>`, and broad workflow/state-machine infrastructure out of scope unless a future spec justifies them directly.
+- Bounded operational hardening such as targeted benchmarks, migration idempotency checks, or concurrency stress tests.
 
 ## Later Roadmap
 

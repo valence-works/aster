@@ -313,10 +313,6 @@ public sealed partial class DefaultResourceManager : IResourceManager
         if (versions.All(r => r.Version != version))
             throw new VersionNotFoundException(resourceId, version);
 
-        var latest = versions[^1];
-        if (version != latest.Version)
-            throw new ConcurrencyException(resourceId, version, latest.Version);
-
         var activeVersions = allowMultipleActive
             ? (await GetActiveVersionsAsync(resourceId, channel, tenant, cancellationToken))
                 .Select(r => r.Version)

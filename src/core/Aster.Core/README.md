@@ -502,7 +502,7 @@ Key invariants:
 - `DefinitionVersion` records schema lineage for a resource version. Normal updates preserve it; explicit schema upgrades advance it.
 - Activation channels are independent: a resource can be active in `"Published"` at V2 and in `"Staging"` at V3 simultaneously.
 - Policy declarations are metadata only; policy previews and lifecycle marker writes are explicit host-controlled operations.
-- Optimistic concurrency is enforced on `UpdateAsync` (must supply `BaseVersion == current latest Version`) and `ActivateAsync` (must supply the current latest version number).
+- Optimistic concurrency is enforced on `UpdateAsync` (must supply `BaseVersion == current latest Version`). `ActivateAsync` can target any existing version, including historical non-latest versions; activation changes channel state only and does not change latest.
 
 ---
 
