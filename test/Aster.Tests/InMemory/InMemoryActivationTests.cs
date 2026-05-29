@@ -1,7 +1,9 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
 using Aster.Core.InMemory;
 using Aster.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -58,61 +60,69 @@ public sealed class InMemoryActivationTests
     }
 
     [Fact]
-    public async Task ActivateAsync_NonLatestVersion_ThrowsConcurrencyException()
+    public async Task ActivateAsync_HistoricalVersion_ActivatesWhileLatestRemainsUnchanged()
     {
-        // Arrange — create V1, update to V2, then try to activate stale V1
         var (manager, _) = CreateManager();
         var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
-        await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
-
-        // Act & Assert — V2 is latest; activating V1 is a concurrency conflict
-        await Assert.ThrowsAsync<ConcurrencyException>(() =>
-            manager.ActivateAsync(v1.ResourceId, 1, "Published").AsTask());
-    }
-
-    [Fact]
-    public async Task ActivateAsync_SingleActive_DeactivatesPreviousVersion()
-    {
-        // Arrange
-        var (manager, _) = CreateManager();
-        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
-        await manager.ActivateAsync(v1.ResourceId, 1, "Published", allowMultipleActive: false);
-
-        // Sanity: V1 is active
-        var beforeUpdate = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
-        Assert.Single(beforeUpdate);
-
-        // Update to V2 so V2 is now latest
         var v2 = await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
 
-        // Act — activate V2 with single-active (default)
-        await manager.ActivateAsync(v1.ResourceId, 2, "Published", allowMultipleActive: false);
-        var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, "Published");
 
-        // Assert — only V2 should be active
+        var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
+        var latest = await manager.GetLatestVersionAsync(v1.ResourceId);
+
         Assert.Single(active);
-        Assert.Equal(2, active[0].Version);
+        Assert.Equal(v1.Version, active[0].Version);
+        Assert.NotNull(latest);
+        Assert.Equal(v2.Version, latest.Version);
     }
 
     [Fact]
-    public async Task ActivateAsync_MultiActive_AppendsBothVersions()
+    public async Task ActivateAsync_SingleActive_HistoricalVersionReplacesPreviousVersion()
     {
-        // Arrange
         var (manager, _) = CreateManager();
         var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
-        await manager.ActivateAsync(v1.ResourceId, 1, "Preview", allowMultipleActive: true);
+        var v2 = await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
+        await manager.ActivateAsync(v1.ResourceId, v2.Version, "Published", allowMultipleActive: false);
 
-        // Update to V2 and activate too (multi-active)
-        await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
-        await manager.ActivateAsync(v1.ResourceId, 2, "Preview", allowMultipleActive: true);
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, "Published", allowMultipleActive: false);
+        var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
 
-        // Act
+        Assert.Single(active);
+        Assert.Equal(v1.Version, active[0].Version);
+    }
+
+    [Fact]
+    public async Task ActivateAsync_MultiActive_HistoricalVersionAppendsInDeterministicOrder()
+    {
+        var (manager, _) = CreateManager();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
+        var v2 = await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
+        await manager.ActivateAsync(v1.ResourceId, v2.Version, "Preview", allowMultipleActive: true);
+
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, "Preview", allowMultipleActive: true);
         var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Preview")).ToList();
 
-        // Assert — both V1 and V2 are active in Preview
-        Assert.Equal(2, active.Count);
-        Assert.Contains(active, r => r.Version == 1);
-        Assert.Contains(active, r => r.Version == 2);
+        Assert.Equal([1, 2], active.Select(r => r.Version).ToList());
+    }
+
+    [Fact]
+    public async Task DefaultResourceManager_HistoricalVersion_ActivatesThroughProviderBackedPath()
+    {
+        await using var provider = new ServiceCollection().AddAsterCore().BuildServiceProvider();
+        var manager = provider.GetRequiredService<IResourceManager>();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest());
+        var v2 = await manager.UpdateAsync(v1.ResourceId, new UpdateResourceRequest { BaseVersion = 1 });
+        await manager.ActivateAsync(v1.ResourceId, v2.Version, "Published");
+
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, "Published");
+
+        var active = (await manager.GetActiveVersionsAsync(v1.ResourceId, "Published")).ToList();
+        var latest = await manager.GetLatestVersionAsync(v1.ResourceId);
+        Assert.Single(active);
+        Assert.Equal(v1.Version, active[0].Version);
+        Assert.NotNull(latest);
+        Assert.Equal(v2.Version, latest.Version);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

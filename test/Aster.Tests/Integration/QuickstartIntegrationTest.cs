@@ -163,4 +163,27 @@ public sealed class QuickstartIntegrationTest
                 AspectUpdates = new Dictionary<string, object> { { "X", "second" } }
             }).AsTask());
     }
+
+    [Fact]
+    public async Task Quickstart_HistoricalActivation_ActivatesOlderVersionWithoutChangingLatest()
+    {
+        var (_, manager) = CreateServices();
+        var v1 = await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "product-1",
+        });
+        var v2 = await manager.UpdateAsync("product-1", new UpdateResourceRequest
+        {
+            BaseVersion = v1.Version,
+        });
+
+        await manager.ActivateAsync("product-1", v1.Version, "Published");
+
+        var active = (await manager.GetActiveVersionsAsync("product-1", "Published")).ToList();
+        var latest = await manager.GetLatestVersionAsync("product-1");
+        Assert.Single(active);
+        Assert.Equal(v1.Version, active[0].Version);
+        Assert.NotNull(latest);
+        Assert.Equal(v2.Version, latest.Version);
+    }
 }

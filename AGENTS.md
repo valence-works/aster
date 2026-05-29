@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/020-version-history-inspection/plan.md`.
+shell commands, and other important information, read `specs/021-historical-version-activation/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -26,8 +26,11 @@ shell commands, and other important information, read `specs/020-version-history
 - Existing resource version storage only. Pruning removes selected resource version snapshots from in-memory and SQLite JSON stores; no schema migration, policy declaration mutation, lifecycle marker mutation, activation mutation, or portability snapshot format change. (019-policy-pruning-application)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, resource version reader, lifecycle marker store, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies (020-version-history-inspection)
 - Existing resource versions, activation state, and lifecycle marker storage only. No schema migration, data rewrite, portability snapshot format change, or physical index creation. (020-version-history-inspection)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, `IResourceManager`, resource version reader/writer, in-memory store, SQLite JSON provider through existing abstractions, lifecycle hook dispatcher, xUnit test stack; no new dependencies (021-historical-version-activation)
+- Existing activation state storage only. Historical activation updates activation rows or in-memory activation state; no resource version rewrite, no latest-version change, no lifecycle marker mutation, no portability format change, and no schema migration. (021-historical-version-activation)
 
 ## Recent Changes
+- 021-historical-version-activation: Added historical resource version activation planning and implementation context for activating any existing version without changing latest, rewriting versions, changing storage schema, adding provider registries, public SQL, public IQueryable<Resource>, schedulers, authorization engines, or workflow infrastructure
 - 020-version-history-inspection: Added read-only host-facing resource version history inspection with latest/draft/active-channel summaries, lifecycle marker state, conservative maintenance hints, tenant scoping, SQLite parity, and no storage migrations, query planner, provider registry, public SQL, public IQueryable<Resource>, background jobs, or mutation behavior
 - 019-policy-pruning-application: Added host-controlled policy pruning application for selected version-pruning preview outcomes with safety preflight, tenant scoping, stable diagnostics, in-memory/SQLite removal support, and no schedulers, authorization engines, provider registries, public SQL, public IQueryable<Resource>, broad workflow/state-machine infrastructure, or schema migrations
 - 018-lifecycle-restore-workflows: Added lifecycle restore workflow planning for host-controlled preview and application over archive/soft-delete markers; no resource version rewrites, activation changes, schedulers, authorization engines, provider registries, public SQL, public IQueryable<Resource>, destructive pruning writes, or schema changes

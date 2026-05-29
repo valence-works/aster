@@ -54,6 +54,28 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task HistoricalActivateAsync_RunsHooksWithRequestedVersionAndResultingActiveVersions()
+    {
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);
+        var v1 = await manager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        var v2 = await manager.UpdateAsync(v1.ResourceId, LifecycleHookTestFixtures.UpdateRequest(v1.Version));
+        await manager.ActivateAsync(v1.ResourceId, v2.Version, LifecycleHookTestFixtures.Channel);
+        recorder.Events.Clear();
+
+        await manager.ActivateAsync(v1.ResourceId, v1.Version, LifecycleHookTestFixtures.Channel);
+
+        var before = Assert.IsType<ResourceActivationLifecycleContext>(recorder.Events[0].Context);
+        var after = Assert.IsType<ResourceActivationLifecycleContext>(recorder.Events[2].Context);
+        Assert.Equal(v1.Version, before.Version);
+        Assert.Equal(v1.Version, after.Version);
+        Assert.Equal([v1.Version], before.ActiveVersions);
+        Assert.Equal([v1.Version], after.ActiveVersions);
+        Assert.Equal(before.OperationId, after.OperationId);
+    }
+
+    [Fact]
     public async Task BeforeActivationRejection_LeavesChannelStateUnchanged()
     {
         await LifecycleHookTestFixtures.SaveDefinitionAsync(provider);
