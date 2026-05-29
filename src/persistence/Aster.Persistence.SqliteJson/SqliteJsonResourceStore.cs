@@ -273,7 +273,6 @@ public sealed class SqliteJsonResourceStore :
         var tenant = TenantScopeResolver.Resolve(tenantScope);
         var ids = resourceIds
             .Where(static id => !string.IsNullOrWhiteSpace(id))
-            .Distinct(StringComparer.Ordinal)
             .ToHashSet(StringComparer.Ordinal);
         if (ids.Count == 0)
             return [];
