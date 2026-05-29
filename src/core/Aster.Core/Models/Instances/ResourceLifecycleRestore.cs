@@ -107,7 +107,7 @@ public sealed record ResourceLifecycleRestoreCandidateResult
     /// <summary>Marker observed before the candidate outcome, when available.</summary>
     public ResourceLifecycleMarker? Marker { get; init; }
 
-    /// <summary>Stable diagnostics for failed or skipped candidates.</summary>
+    /// <summary>Stable diagnostics for failed candidates.</summary>
     public IReadOnlyList<ResourcePolicyDiagnostic> Diagnostics { get; init; } = [];
 }
 

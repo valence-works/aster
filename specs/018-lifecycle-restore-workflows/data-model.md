@@ -75,13 +75,13 @@ Fields:
 - `ResourceId`: input resource identifier when available.
 - `ExpectedState`: expected marker state when valid.
 - `Status`: candidate status.
-- `Diagnostics`: stable diagnostics for failed or skipped candidates.
+- `Diagnostics`: stable diagnostics for failed candidates.
 
 Preview statuses:
 
 - `Restorable`: target exists and current marker matches expected state.
 - `AlreadyRestored`: target exists and no marker is present.
-- `Skipped`: duplicate or unsupported candidate that did not fail.
+- `Skipped`: deterministic duplicate after a prior result where no additional outcome is needed.
 - `Failed`: invalid shape, missing target, unsupported state, or marker mismatch.
 
 Application statuses:
