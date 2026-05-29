@@ -80,6 +80,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<InMemoryResourceStore>();
         services.AddSingleton<IResourceVersionReader>(sp => sp.GetRequiredService<InMemoryResourceStore>());
         services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<InMemoryResourceStore>());
+        services.AddSingleton<IResourceActivationStateReader>(ResolveResourceActivationStateReader);
         services.AddSingleton<UnsupportedResourceVersionPruningStore>();
         services.AddSingleton<IResourceVersionPruningStore>(ResolveResourceVersionPruningStore);
         services.AddSingleton<InMemoryPortabilityStore>();
@@ -102,6 +103,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourcePolicyPruningApplicationService, ResourcePolicyPruningApplicationService>();
         services.AddSingleton<IResourceLifecycleMarkerService, ResourceLifecycleMarkerService>();
         services.AddSingleton<IResourceLifecycleRestoreService, ResourceLifecycleRestoreService>();
+        services.AddSingleton<IResourceVersionHistoryService, ResourceVersionHistoryService>();
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();
@@ -134,5 +136,13 @@ public static class AsterCoreServiceCollectionExtensions
         var versionReader = serviceProvider.GetRequiredService<IResourceVersionReader>();
         return versionReader as IResourceVersionPruningStore
             ?? serviceProvider.GetRequiredService<UnsupportedResourceVersionPruningStore>();
+    }
+
+    private static IResourceActivationStateReader ResolveResourceActivationStateReader(IServiceProvider serviceProvider)
+    {
+        var versionReader = serviceProvider.GetRequiredService<IResourceVersionReader>();
+        return versionReader as IResourceActivationStateReader
+            ?? throw new InvalidOperationException(
+                $"The active {nameof(IResourceVersionReader)} registration must also implement {nameof(IResourceActivationStateReader)} to use version history inspection.");
     }
 }

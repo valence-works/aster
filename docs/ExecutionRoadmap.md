@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, and host-controlled policy pruning application.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, and read-only version history inspection.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, and destructive pruning application have landed; the next slices should stay focused on advanced tenant/versioning behavior or bounded operational hardening, not both at once.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, and version history inspection have landed; the next slices should stay focused on advanced tenant/versioning behavior or bounded operational hardening, not both at once.
 
 ## Landed Slices
 
@@ -33,10 +33,11 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `017-policy-application-orchestration` | Landed | Host-controlled application of selected archive/soft-delete preview outcomes with per-candidate results, stale/policy validation, tenant scoping, and bounded provider reads. |
 | `018-lifecycle-restore-workflows` | Landed | Host-controlled preview and application for restoring archive/soft-delete markers with tenant scoping, idempotent already-restored outcomes, stable diagnostics, and no version or activation mutation. |
 | `019-policy-pruning-application` | Landed | Host-controlled application of selected version-pruning preview outcomes with latest/active protection, policy revalidation, tenant scoping, deterministic retries, provider fallback diagnostics, and no schema or portability format changes. |
+| `020-version-history-inspection` | Landed | Read-only host-facing version history inspection with latest/draft/active-channel summaries, lifecycle marker visibility, conservative maintenance hints, tenant scoping, and in-memory/SQLite parity without schema changes or query-surface expansion. |
 
 ## Near-Term Roadmap
 
-### 020 — Next Bounded Phase 5 Slice
+### 021 — Next Bounded Phase 5 Slice
 
 **Goal:** Choose one small continuation slice that builds on tenant-aware lifecycle and policy primitives without broadening the architecture.
 
