@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, and read-only version history inspection.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, and explicit historical version activation.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, and version history inspection have landed; historical version activation is the current bounded advanced-versioning slice.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, and historical version activation have landed; policy application summaries are the current bounded reporting slice.
 
 ## Landed Slices
 
@@ -34,26 +34,26 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `018-lifecycle-restore-workflows` | Landed | Host-controlled preview and application for restoring archive/soft-delete markers with tenant scoping, idempotent already-restored outcomes, stable diagnostics, and no version or activation mutation. |
 | `019-policy-pruning-application` | Landed | Host-controlled application of selected version-pruning preview outcomes with latest/active protection, policy revalidation, tenant scoping, deterministic retries, provider fallback diagnostics, and no schema or portability format changes. |
 | `020-version-history-inspection` | Landed | Read-only host-facing version history inspection with latest/draft/active-channel summaries, lifecycle marker visibility, conservative maintenance hints, tenant scoping, and in-memory/SQLite parity without schema changes or query-surface expansion. |
+| `021-historical-version-activation` | Landed | Explicit activation of any existing historical or latest resource version while preserving immutable versions, latest identity, activation state separation, tenant scoping, lifecycle hooks, and in-memory/SQLite parity. |
 
 ## Near-Term Roadmap
 
-### 021 — Historical Version Activation
+### 022 — Policy Application Summaries
 
-**Status:** In progress on `021-historical-version-activation`.
+**Status:** In progress on `022-policy-application-summaries`.
 
-**Goal:** Allow hosts to explicitly activate any existing resource version, including historical non-latest versions, through the existing activation APIs.
+**Goal:** Give hosts deterministic summary views over existing policy application and pruning application results for UI/reporting.
 
 Scope:
 
-- Remove the latest-only activation restriction while preserving version existence validation.
-- Keep latest-version identity and immutable resource versions unchanged.
-- Preserve single-active versus multi-active channel behavior.
-- Preserve tenant scoping, lifecycle hooks, and provider-backed activation storage.
-- Keep schema changes, automatic jobs, ambient authorization, provider registries, public SQL, public `IQueryable<Resource>`, and broad workflow/state-machine infrastructure out of scope.
+- Summarize marker-based policy application status counts, completion booleans, affected resource counts, and diagnostic code counts.
+- Summarize pruning application status counts, completion booleans, affected resource-version counts, and diagnostic code counts.
+- Keep summaries as pure SDK helpers over existing result objects.
+- Keep storage changes, audit persistence, automatic jobs, ambient authorization, provider registries, public SQL, public `IQueryable<Resource>`, and broad reporting infrastructure out of scope.
 
-### 022 — Next Bounded Phase 5 Slice
+### 023 — Next Bounded Phase 5 Slice
 
-**Goal:** Choose one small continuation slice after historical activation lands.
+**Goal:** Choose one small continuation slice after policy summaries land.
 
 Candidate scope:
 

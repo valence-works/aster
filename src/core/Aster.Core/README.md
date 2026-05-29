@@ -434,6 +434,15 @@ var pruningResult = await pruning.ApplyAsync(new ResourcePolicyPruningApplicatio
 
 Each submitted candidate returns `Pruned`, `AlreadyPruned`, `Skipped`, or `Failed`. Failures include stable policy diagnostics such as `policy-pruning-version-protected-latest`, `policy-pruning-version-protected-active`, `policy-pruning-policy-mismatch`, `policy-pruning-provider-unsupported`, and `policy-pruning-write-failed`. Pruning does not mutate activation state, lifecycle markers, definitions, policy declarations, or remaining versions.
 
+Policy application and pruning application results can be summarized for host UI/reporting without re-running policy logic:
+
+```csharp
+var applicationSummary = applicationResult.ToSummary();
+var pruningSummary = pruningResult.ToSummary();
+```
+
+Summaries report total candidates, status counts, failure/completion booleans, affected resource or resource-version counts, and deterministic diagnostic code counts. They are pure in-memory views over existing result objects; they are not audit records and do not query stores, write state, invoke hooks, schedule work, or authorize operations.
+
 ---
 
 ### 11. Register lifecycle hooks
