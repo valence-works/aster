@@ -5,6 +5,15 @@
 **Status**: Draft  
 **Input**: User description: "Add host-controlled policy pruning application workflows. Hosts can apply selected version-pruning preview outcomes to permanently remove eligible non-latest, inactive resource versions within one tenant after explicit safety preflight. Preserve append-only behavior by default; require preview-derived candidates, stable per-candidate diagnostics, tenant scoping, idempotent already-pruned outcomes, and provider-backed atomicity where possible. Do not add schedulers, automatic retention jobs, authorization engines, provider registries, runtime scanning, public SQL, public IQueryable<Resource>, broad workflow/state-machine infrastructure, or schema migrations."
 
+## Clarifications
+
+### Session 2026-05-29
+
+- Q: What preview basis is required for pruning candidates? → A: Candidates use existing preview fields: policy ID, policy kind, prune-preview outcome, resource ID, and resource version. No opaque preview token is introduced in this slice.
+- Q: How is stale policy selection detected? → A: Application revalidates the current policy declaration by policy ID, kind, outcome, and current criteria against the candidate version before removal.
+- Q: What retained-version safety floor applies? → A: Application must leave at least the policy's current maximum retained version count for the resource and must never prune latest or active versions.
+- Q: Is pruning application all-or-nothing? → A: Cross-candidate all-or-nothing behavior is not required. Providers should remove each valid candidate conditionally and return per-candidate outcomes.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Preview-Selected Pruning Application (Priority: P1)
@@ -59,7 +68,7 @@ As a tenant-aware host author, I need pruning application to operate inside exac
 - A candidate omits resource identity, version identity, expected version number, or preview correlation metadata.
 - A candidate references a resource or version that no longer exists in the effective tenant.
 - A candidate references a version that exists outside the effective tenant.
-- A candidate references a version that is latest, active, archived, soft-deleted, or otherwise protected by current policy safety rules.
+- A candidate references a version that is latest, active, no longer matches current policy criteria, or is otherwise protected by current policy safety rules.
 - A stale candidate no longer matches the policy declaration or preview basis that originally produced it.
 - Multiple candidates target the same version in one request.
 - Some candidates are valid while others are stale, invalid, missing, or unsafe.
@@ -79,22 +88,22 @@ As a tenant-aware host author, I need pruning application to operate inside exac
 - **FR-001**: System MUST provide a host-controlled pruning application workflow for selected version-pruning candidates.
 - **FR-002**: Pruning application MUST permanently remove only explicit candidate resource versions selected by the host.
 - **FR-003**: Pruning application MUST NOT run automatically, schedule work, discover candidates implicitly, or apply all preview results without host selection.
-- **FR-004**: Pruning application MUST require candidates to identify the resource, resource version, expected version number or stable version identity, and preview basis needed to detect stale selections.
+- **FR-004**: Pruning application MUST require candidates to identify the policy ID, policy kind, prune-preview outcome, resource identity, and resource version from the preview candidate.
 - **FR-005**: Pruning application MUST resolve exactly one effective tenant per request.
 - **FR-006**: Omitted tenant scope MUST continue to mean the documented default single-tenant scope.
 - **FR-007**: Pruning application MUST NOT remove versions outside the effective tenant boundary.
-- **FR-008**: Pruning application MUST re-check current resource existence, version existence, latest status, activation state, lifecycle marker state, policy declaration compatibility, and retained-version safety before removing a candidate version.
-- **FR-009**: Pruning application MUST fail closed when a candidate is stale, malformed, unsupported, outside the effective tenant, currently latest, currently active, protected by lifecycle state, or unsafe to prune.
+- **FR-008**: Pruning application MUST re-check current resource existence, version existence, latest status, activation state, lifecycle marker state when the current policy criteria require it, policy declaration compatibility, policy criteria compatibility, and retained-version safety before removing a candidate version.
+- **FR-009**: Pruning application MUST fail closed when a candidate is stale, malformed, unsupported, outside the effective tenant, currently latest, currently active, no longer matching current policy criteria, or unsafe to prune.
 - **FR-010**: Pruning application MUST NOT remove every retained version for a resource unless a future feature explicitly defines that behavior.
 - **FR-011**: Pruning application MUST allow partial success for unrelated candidates while still returning exactly one result for every input candidate.
 - **FR-012**: Pruning application MUST report stable per-candidate statuses for pruned, already-pruned, skipped duplicate, and failed outcomes.
-- **FR-013**: Pruning diagnostics MUST be stable enough for hosts and tests to distinguish invalid candidate shape, stale preview basis, missing target, tenant-scoped target-not-found behavior, protected latest version, protected active version, protected lifecycle state, unsafe retained-version removal, provider unsupported behavior, and provider write failure.
+- **FR-013**: Pruning diagnostics MUST be stable enough for hosts and tests to distinguish invalid candidate shape, stale preview basis, missing target, tenant-scoped target-not-found behavior, protected latest version, protected active version, policy criteria mismatch, unsafe retained-version removal, provider unsupported behavior, and provider write failure.
 - **FR-014**: Duplicate candidates in one request MUST be handled deterministically.
 - **FR-015**: Reapplying a candidate for a version that was already removed MUST produce an idempotent already-pruned outcome when the resource still exists and the candidate is otherwise valid for the effective tenant.
 - **FR-016**: Pruning application MUST NOT rewrite remaining resource versions, mutate activation state, mutate lifecycle marker state, mutate policy declarations, or change portability snapshot semantics beyond the absence of pruned versions.
 - **FR-017**: Pruning application MUST keep archive and soft-delete restore workflows separate from destructive version pruning.
 - **FR-018**: Providers that cannot support destructive version removal MUST fail closed with a stable unsupported diagnostic rather than silently ignoring pruning candidates.
-- **FR-019**: Providers that support destructive version removal SHOULD apply all valid removals for one request atomically when their storage capabilities allow it; when full atomicity is unavailable, results MUST identify each candidate outcome.
+- **FR-019**: Providers that support destructive version removal SHOULD remove each valid candidate conditionally using current-state checks; cross-candidate all-or-nothing behavior is not required, and results MUST identify each candidate outcome.
 - **FR-020**: Documentation MUST explain host-controlled candidate selection, destructive behavior, safety preflight, tenant boundaries, idempotency, partial success, provider unsupported behavior, and out-of-scope automatic execution.
 - **FR-021**: The feature MUST NOT introduce background schedulers, hidden retention jobs, authorization or permission policy engines, cross-tenant pruning, runtime scanning, provider registries, public SQL, public queryable resource surfaces, broad workflow/state-machine infrastructure, or schema migrations.
 
@@ -119,7 +128,7 @@ As a tenant-aware host author, I need pruning application to operate inside exac
 ### Measurable Outcomes
 
 - **SC-001**: A host can apply a selected subset of pruning preview candidates and verify that 100% of unselected versions remain.
-- **SC-002**: Stale, latest, active, protected lifecycle, missing, malformed, and tenant-mismatched candidates produce stable failed results without removing protected versions.
+- **SC-002**: Stale, latest, active, policy-mismatched, missing, malformed, and tenant-mismatched candidates produce stable failed results without removing protected versions.
 - **SC-003**: Mixed requests return exactly one ordered result for every submitted candidate, including partial success cases.
 - **SC-004**: Reapplying an already-pruned candidate produces an idempotent outcome without removing additional versions.
 - **SC-005**: Tenant-scoped pruning removes zero versions outside the effective tenant boundary.
