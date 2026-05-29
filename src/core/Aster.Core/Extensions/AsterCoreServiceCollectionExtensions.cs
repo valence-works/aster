@@ -80,6 +80,8 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<InMemoryResourceStore>();
         services.AddSingleton<IResourceVersionReader>(sp => sp.GetRequiredService<InMemoryResourceStore>());
         services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<InMemoryResourceStore>());
+        services.AddSingleton<UnsupportedResourceVersionPruningStore>();
+        services.AddSingleton<IResourceVersionPruningStore>(ResolveResourceVersionPruningStore);
         services.AddSingleton<InMemoryPortabilityStore>();
         services.AddSingleton<IResourcePortabilityStore>(sp => sp.GetRequiredService<InMemoryPortabilityStore>());
         services.AddSingleton<InMemoryResourceLifecycleMarkerStore>();
@@ -97,6 +99,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourcePolicyValidator, ResourcePolicyValidator>();
         services.AddSingleton<IResourcePolicyEvaluationService, ResourcePolicyEvaluationService>();
         services.AddSingleton<IResourcePolicyApplicationService, ResourcePolicyApplicationService>();
+        services.AddSingleton<IResourcePolicyPruningApplicationService, ResourcePolicyPruningApplicationService>();
         services.AddSingleton<IResourceLifecycleMarkerService, ResourceLifecycleMarkerService>();
         services.AddSingleton<IResourceLifecycleRestoreService, ResourceLifecycleRestoreService>();
 
@@ -124,5 +127,12 @@ public static class AsterCoreServiceCollectionExtensions
         return markerStore as IResourceLifecycleMarkerClearStore
             ?? throw new InvalidOperationException(
                 $"The active {nameof(IResourceLifecycleMarkerStore)} registration must also implement {nameof(IResourceLifecycleMarkerClearStore)} to use lifecycle restore workflows.");
+    }
+
+    private static IResourceVersionPruningStore ResolveResourceVersionPruningStore(IServiceProvider serviceProvider)
+    {
+        var versionReader = serviceProvider.GetRequiredService<IResourceVersionReader>();
+        return versionReader as IResourceVersionPruningStore
+            ?? serviceProvider.GetRequiredService<UnsupportedResourceVersionPruningStore>();
     }
 }

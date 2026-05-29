@@ -9,6 +9,7 @@ This package currently provides:
 - `IResourceDefinitionStore`
 - `IResourceVersionReader`
 - `IResourceVersionWriter`
+- `IResourceVersionPruningStore`
 - `IResourcePortabilityStore`
 - `IResourceLifecycleMarkerStore`
 - `IResourceLifecycleMarkerClearStore`
@@ -80,3 +81,5 @@ The provider also declares this support through `SqliteJsonQueryCapabilitiesProv
 Tenant scope is applied as a provider-owned predicate before user query predicates. Latest, active, and draft scopes all include tenant-aware joins so matching resource IDs or activation channels in another tenant cannot affect results.
 
 Lifecycle markers are explicit state. `AddAsterSqliteJson(...)` replaces the core in-memory `IResourceLifecycleMarkerStore` and `IResourceLifecycleMarkerClearStore` with the SQLite-backed store so archive and soft-delete markers persist across service provider instances, participate in portability export/import, can be queried through `ResourceQuery.LifecycleState`, and can be explicitly restored through `IResourceLifecycleRestoreService`. Restore deletes only the tenant-scoped marker row for the selected resource; it does not rewrite resource versions, change activation state, mutate policy declarations, or change the portability snapshot format. Omitting `LifecycleState` does not hide archived or soft-deleted resources.
+
+The SQLite store also implements `IResourceVersionPruningStore` for host-controlled policy pruning application. Version pruning deletes only the matching `(tenant_id, resource_id, version)` row after core preflight has protected latest and active versions and revalidated policy criteria. It does not delete activation state, lifecycle markers, definitions, policy declarations, or other tenant rows.

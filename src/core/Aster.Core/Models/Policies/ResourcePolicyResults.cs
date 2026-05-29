@@ -133,6 +133,30 @@ public static class ResourcePolicyDiagnosticCodes
     /// <summary>Pruning writes are not supported by this slice.</summary>
     public const string PolicyPruningPreviewOnly = "policy-pruning-preview-only";
 
+    /// <summary>Policy pruning application candidate shape is invalid.</summary>
+    public const string PolicyPruningCandidateInvalid = "policy-pruning-candidate-invalid";
+
+    /// <summary>Policy pruning application target resource was not found.</summary>
+    public const string PolicyPruningTargetNotFound = "policy-pruning-target-not-found";
+
+    /// <summary>Policy pruning application target is the latest version.</summary>
+    public const string PolicyPruningVersionProtectedLatest = "policy-pruning-version-protected-latest";
+
+    /// <summary>Policy pruning application target is active in at least one channel.</summary>
+    public const string PolicyPruningVersionProtectedActive = "policy-pruning-version-protected-active";
+
+    /// <summary>Policy pruning application candidate references a missing current policy declaration.</summary>
+    public const string PolicyPruningPolicyMissing = "policy-pruning-policy-missing";
+
+    /// <summary>Policy pruning application candidate no longer matches current policy criteria.</summary>
+    public const string PolicyPruningPolicyMismatch = "policy-pruning-policy-mismatch";
+
+    /// <summary>Active provider does not support destructive resource version pruning.</summary>
+    public const string PolicyPruningProviderUnsupported = "policy-pruning-provider-unsupported";
+
+    /// <summary>Provider failed to remove a candidate version after preflight succeeded.</summary>
+    public const string PolicyPruningWriteFailed = "policy-pruning-write-failed";
+
     /// <summary>Policy application candidate shape is invalid.</summary>
     public const string PolicyApplicationCandidateInvalid = "policy-application-candidate-invalid";
 

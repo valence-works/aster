@@ -51,6 +51,8 @@ var pruningCandidates = preview.Candidates
 Hosts explicitly select candidates to apply. The application service revalidates current state before removing any version.
 
 ```csharp
+var pruningApplication = serviceProvider.GetRequiredService<IResourcePolicyPruningApplicationService>();
+
 var result = await pruningApplication.ApplyAsync(new ResourcePolicyPruningApplicationRequest
 {
     AppliedAt = now,

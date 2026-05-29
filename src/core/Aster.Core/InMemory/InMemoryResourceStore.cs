@@ -11,7 +11,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory store for <see cref="Resource"/> versions and activation state.
 /// Intended for use by <see cref="InMemoryResourceManager"/> only.
 /// </summary>
-public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter
+public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter, IResourceVersionPruningStore
 {
     /// <summary>
     /// Resource version history keyed by tenant ID and <c>ResourceId</c>.
@@ -222,6 +222,27 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         states[channel] = scopedState;
 
         return ValueTask.FromResult(scopedState);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<bool> PruneVersionAsync(
+        string resourceId,
+        int resourceVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!Versions.TryGetValue((tenant.TenantId, resourceId), out var versions))
+            return ValueTask.FromResult(false);
+
+        lock (versions)
+        {
+            var removed = versions.RemoveAll(version => version.Version == resourceVersion) > 0;
+            return ValueTask.FromResult(removed);
+        }
     }
 
     /// <summary>

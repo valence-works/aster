@@ -17,6 +17,7 @@ public sealed class SqliteJsonResourceStore :
     IResourceDefinitionStore,
     IResourceVersionReader,
     IResourceVersionWriter,
+    IResourceVersionPruningStore,
     IResourcePortabilityStore,
     IResourceLifecycleMarkerClearStore
 {
@@ -259,6 +260,31 @@ public sealed class SqliteJsonResourceStore :
 
         await command.ExecuteNonQueryAsync(cancellationToken);
         return scopedState;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<bool> PruneVersionAsync(
+        string resourceId,
+        int resourceVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM resource_versions
+            WHERE tenant_id = $tenantId
+                AND resource_id = $resourceId
+                AND version = $version;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+        command.Parameters.AddWithValue("$version", resourceVersion);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
     /// <inheritdoc />
