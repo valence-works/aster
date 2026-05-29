@@ -4,6 +4,7 @@ using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
+using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,6 +68,26 @@ internal static class PolicyTestFixtures
             },
         };
 
+    public static ResourcePolicyDeclaration PruningPolicy(
+        string policyId,
+        int retainedVersions = 2,
+        ResourceLifecycleMarkerState? lifecycleState = null,
+        TimeSpan? minimumAge = null) =>
+        new()
+        {
+            PolicyId = policyId,
+            Kind = ResourcePolicyKind.VersionPruning,
+            Target = ResourcePolicyTarget.ResourceVersion,
+            Outcome = ResourcePolicyOutcome.PrunePreview,
+            Criteria = new ResourcePolicyCriteria
+            {
+                MaximumRetainedVersions = retainedVersions,
+                ActivationState = ResourcePolicyActivationState.Draft,
+                LifecycleState = lifecycleState,
+                MinimumAge = minimumAge,
+            },
+        };
+
     public static ResourcePolicyApplicationCandidate ApplicationCandidate(
         string resourceId,
         string policyId = "archive-old",
@@ -78,6 +99,19 @@ internal static class PolicyTestFixtures
             PolicyId = policyId,
             PolicyKind = policyKind,
             Outcome = outcome,
+            ResourceId = resourceId,
+            ResourceVersion = resourceVersion,
+        };
+
+    public static ResourcePolicyPruningApplicationCandidate PruningCandidate(
+        string resourceId,
+        int resourceVersion,
+        string policyId = "keep-latest") =>
+        new()
+        {
+            PolicyId = policyId,
+            PolicyKind = ResourcePolicyKind.VersionPruning,
+            Outcome = ResourcePolicyOutcome.PrunePreview,
             ResourceId = resourceId,
             ResourceVersion = resourceVersion,
         };
@@ -125,6 +159,37 @@ internal static class PolicyTestFixtures
         };
 
         return await writer.SaveVersionAsync(resource);
+    }
+
+    public static async Task<IReadOnlyList<Resource>> ReadVersionsAsync(
+        IServiceProvider provider,
+        string resourceId,
+        TenantScope? tenantScope = null)
+    {
+        var reader = provider.GetRequiredService<IResourceVersionReader>();
+        return (await reader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            TenantScope = tenantScope,
+            Scope = ResourceVersionScope.AllVersions,
+            ResourceIds = [resourceId],
+        })).OrderBy(static resource => resource.Version).ToList();
+    }
+
+    public static async Task ActivateAsync(
+        IServiceProvider provider,
+        string resourceId,
+        int version,
+        TenantScope? tenantScope = null)
+    {
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        await writer.UpdateActivationAsync(resourceId, "Published", new ActivationState
+        {
+            TenantScope = tenantScope ?? TenantScope.Default,
+            ResourceId = resourceId,
+            Channel = "Published",
+            ActiveVersions = [version],
+            LastUpdated = DateTime.UtcNow,
+        });
     }
 
     public static void DeleteSqliteFiles(string databasePath)

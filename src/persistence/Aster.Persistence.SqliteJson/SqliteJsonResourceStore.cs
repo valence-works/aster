@@ -17,6 +17,7 @@ public sealed class SqliteJsonResourceStore :
     IResourceDefinitionStore,
     IResourceVersionReader,
     IResourceVersionWriter,
+    IResourceVersionPruningStore,
     IResourcePortabilityStore,
     IResourceLifecycleMarkerClearStore
 {
@@ -262,6 +263,51 @@ public sealed class SqliteJsonResourceStore :
     }
 
     /// <inheritdoc />
+    public async ValueTask<bool> PruneVersionAsync(
+        string resourceId,
+        int resourceVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+
+        var targetExists = await ResourceVersionExistsAsync(connection, transaction, tenant, resourceId, resourceVersion, cancellationToken);
+        if (!targetExists)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return false;
+        }
+
+        var latestVersion = await ReadLatestResourceVersionAsync(connection, transaction, tenant, resourceId, cancellationToken);
+        if (latestVersion == resourceVersion)
+            throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is the latest version and cannot be pruned.");
+
+        var isActive = await IsActiveVersionAsync(connection, transaction, tenant, resourceId, resourceVersion, cancellationToken);
+        if (isActive)
+            throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is active and cannot be pruned.");
+
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            DELETE FROM resource_versions
+            WHERE tenant_id = $tenantId
+                AND resource_id = $resourceId
+                AND version = $version;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+        command.Parameters.AddWithValue("$version", resourceVersion);
+
+        var removed = await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+        await transaction.CommitAsync(cancellationToken);
+        return removed;
+    }
+
+    /// <inheritdoc />
     public async ValueTask<ResourceLifecycleMarker?> GetMarkerAsync(
         string resourceId,
         TenantScope tenantScope,
@@ -282,6 +328,79 @@ public sealed class SqliteJsonResourceStore :
 
         var payload = await command.ExecuteScalarAsync(cancellationToken) as string;
         return payload is null ? null : Deserialize<ResourceLifecycleMarker>(payload);
+    }
+
+    private static async Task<bool> ResourceVersionExistsAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        TenantScope tenant,
+        string resourceId,
+        int resourceVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT 1
+            FROM resource_versions
+            WHERE tenant_id = $tenantId
+                AND resource_id = $resourceId
+                AND version = $version
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+        command.Parameters.AddWithValue("$version", resourceVersion);
+
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    private static async Task<int?> ReadLatestResourceVersionAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        TenantScope tenant,
+        string resourceId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT MAX(version)
+            FROM resource_versions
+            WHERE tenant_id = $tenantId
+                AND resource_id = $resourceId;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
+    private static async Task<bool> IsActiveVersionAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        TenantScope tenant,
+        string resourceId,
+        int resourceVersion,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT 1
+            FROM activation_states AS activation
+            JOIN json_each(activation.payload, '$.activeVersions') AS activeVersion
+            WHERE activation.tenant_id = $tenantId
+                AND activation.resource_id = $resourceId
+                AND activeVersion.value = $version
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+        command.Parameters.AddWithValue("$version", resourceVersion);
+
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
     }
 
     /// <inheritdoc />

@@ -385,6 +385,29 @@ if (preview.Candidates.Single().Status == ResourceLifecycleRestoreCandidateStatu
 
 Restore preview is non-mutating. Restore application re-reads current marker state before clearing, does not rewrite resource versions, does not change activation state, and does not invoke lifecycle hooks. Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, automatic restore, schedulers, authorization policy engines, destructive pruning writes, provider registries, public SQL, or public `IQueryable<Resource>`.
 
+Hosts can also apply selected version-pruning preview outcomes through `IResourcePolicyPruningApplicationService`. Pruning application is explicit, tenant-scoped, and candidate-bounded: the SDK removes only submitted resource versions after revalidating current policy declarations, latest/active protection, lifecycle and age criteria, and retained-version safety.
+
+```csharp
+var pruning = serviceProvider.GetRequiredService<IResourcePolicyPruningApplicationService>();
+
+var pruningResult = await pruning.ApplyAsync(new ResourcePolicyPruningApplicationRequest
+{
+    Candidates =
+    [
+        new ResourcePolicyPruningApplicationCandidate
+        {
+            PolicyId = "retain-two-drafts",
+            PolicyKind = ResourcePolicyKind.VersionPruning,
+            Outcome = ResourcePolicyOutcome.PrunePreview,
+            ResourceId = "product-1",
+            ResourceVersion = 1,
+        },
+    ],
+});
+```
+
+Each submitted candidate returns `Pruned`, `AlreadyPruned`, `Skipped`, or `Failed`. Failures include stable policy diagnostics such as `policy-pruning-version-protected-latest`, `policy-pruning-version-protected-active`, `policy-pruning-policy-mismatch`, `policy-pruning-provider-unsupported`, and `policy-pruning-write-failed`. Pruning does not mutate activation state, lifecycle markers, definitions, policy declarations, or remaining versions.
+
 ---
 
 ### 10. Register lifecycle hooks
@@ -432,6 +455,8 @@ IResourceLifecycleMarkerService — applies explicit archive/soft-delete markers
 IResourceLifecycleMarkerStore — provider-facing lifecycle marker persistence contract
 IResourceLifecycleMarkerClearStore — provider-facing lifecycle marker removal contract
 IResourceLifecycleRestoreService — previews and applies explicit archive/soft-delete marker restoration
+IResourcePolicyPruningApplicationService — applies selected version-pruning preview outcomes
+IResourceVersionPruningStore — provider-facing resource version removal contract
 IResourceQueryService         — portable query service; default is LINQ-based in-memory
 IResourceQueryProviderIdentity — exposes the active query provider key
 IResourceQueryCapabilitiesProvider — declares active provider query support

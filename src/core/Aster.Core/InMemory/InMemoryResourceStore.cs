@@ -11,7 +11,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory store for <see cref="Resource"/> versions and activation state.
 /// Intended for use by <see cref="InMemoryResourceManager"/> only.
 /// </summary>
-public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter
+public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVersionWriter, IResourceVersionPruningStore
 {
     /// <summary>
     /// Resource version history keyed by tenant ID and <c>ResourceId</c>.
@@ -222,6 +222,47 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
         states[channel] = scopedState;
 
         return ValueTask.FromResult(scopedState);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<bool> PruneVersionAsync(
+        string resourceId,
+        int resourceVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!Versions.TryGetValue((tenant.TenantId, resourceId), out var versions))
+            return ValueTask.FromResult(false);
+
+        lock (versions)
+        {
+            var targetIndex = versions.FindIndex(version => version.Version == resourceVersion);
+            if (targetIndex < 0)
+                return ValueTask.FromResult(false);
+
+            if (targetIndex == versions.Count - 1)
+                throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is the latest version and cannot be pruned.");
+
+            if (IsActiveVersion(resourceId, resourceVersion, tenant))
+                throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is active and cannot be pruned.");
+
+            versions.RemoveAt(targetIndex);
+            var removed = true;
+            return ValueTask.FromResult(removed);
+        }
+    }
+
+    private bool IsActiveVersion(string resourceId, int resourceVersion, TenantScope tenant)
+    {
+        if (!Activations.TryGetValue((tenant.TenantId, resourceId), out var channelActivations))
+            return false;
+
+        lock (channelActivations)
+            return channelActivations.Values.Any(versions => versions.Contains(resourceVersion));
     }
 
     /// <summary>
