@@ -1,5 +1,7 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Versioning;
@@ -58,6 +60,38 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
             await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoryAsync(null!));
     }
 
+    [Fact]
+    public async Task GetHistoryAsync_WhenCustomVersionReaderIsActiveUsesMatchingActivationReader()
+    {
+        var services = new ServiceCollection().AddAsterCore();
+        services.AddSingleton<CustomHistoryProvider>();
+        services.AddSingleton<IResourceVersionReader>(sp => sp.GetRequiredService<CustomHistoryProvider>());
+
+        using var customProvider = services.BuildServiceProvider();
+
+        var result = await customProvider.GetRequiredService<IResourceVersionHistoryService>().GetHistoryAsync(
+            new ResourceVersionHistoryRequest { ResourceId = "custom" });
+
+        var summary = Assert.Single(result.Versions);
+        Assert.False(summary.IsDraft);
+        Assert.True(summary.IsProtectedFromPruning);
+        Assert.Equal(ResourceVersionMaintenanceDisposition.Protected, summary.MaintenanceDisposition);
+        Assert.Equal(["External"], summary.ActiveChannels);
+    }
+
+    [Fact]
+    public void GetHistoryAsync_WhenCustomVersionReaderCannotReadActivationStateFailsFast()
+    {
+        var services = new ServiceCollection().AddAsterCore();
+        services.AddSingleton<IResourceVersionReader, VersionOnlyReader>();
+
+        using var customProvider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => customProvider.GetRequiredService<IResourceVersionHistoryService>());
+        Assert.Contains(nameof(IResourceActivationStateReader), exception.Message, StringComparison.Ordinal);
+    }
+
     private static void AssertVersion(
         ResourceVersionSummary summary,
         int version,
@@ -75,5 +109,61 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
         Assert.Equal(activeChannels, summary.ActiveChannels);
         Assert.Equal(disposition, summary.MaintenanceDisposition);
         Assert.Equal(disposition == ResourceVersionMaintenanceDisposition.Protected, summary.IsProtectedFromPruning);
+    }
+
+    private sealed class CustomHistoryProvider : IResourceVersionReader, IResourceActivationStateReader
+    {
+        private static readonly Resource CustomResource = new()
+        {
+            TenantScope = TenantScope.Default,
+            ResourceId = "custom",
+            Id = "custom-history-1",
+            DefinitionId = "Product",
+            DefinitionVersion = 1,
+            Version = 1,
+            Created = new DateTime(2026, 5, 29, 12, 0, 0, DateTimeKind.Utc),
+        };
+
+        private static readonly ActivationState CustomActivation = new()
+        {
+            TenantScope = TenantScope.Default,
+            ResourceId = "custom",
+            Channel = "External",
+            ActiveVersions = [1],
+            LastUpdated = new DateTime(2026, 5, 29, 12, 5, 0, DateTimeKind.Utc),
+        };
+
+        public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
+            ResourceVersionReadRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var selection = request.GetResourceIdSelection();
+            var resources = selection.Matches(CustomResource.ResourceId)
+                ? new[] { CustomResource }
+                : [];
+
+            return ValueTask.FromResult<IEnumerable<Resource>>(resources);
+        }
+
+        public ValueTask<IReadOnlyList<ActivationState>> ReadActivationStatesAsync(
+            IEnumerable<string> resourceIds,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default)
+        {
+            var ids = resourceIds.ToHashSet(StringComparer.Ordinal);
+            var states = ids.Contains(CustomActivation.ResourceId)
+                ? new[] { CustomActivation }
+                : [];
+
+            return ValueTask.FromResult<IReadOnlyList<ActivationState>>(states);
+        }
+    }
+
+    private sealed class VersionOnlyReader : IResourceVersionReader
+    {
+        public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
+            ResourceVersionReadRequest request,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<IEnumerable<Resource>>([]);
     }
 }
