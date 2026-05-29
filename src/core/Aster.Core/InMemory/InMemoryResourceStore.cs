@@ -240,9 +240,29 @@ public sealed class InMemoryResourceStore : IResourceVersionReader, IResourceVer
 
         lock (versions)
         {
-            var removed = versions.RemoveAll(version => version.Version == resourceVersion) > 0;
+            var targetIndex = versions.FindIndex(version => version.Version == resourceVersion);
+            if (targetIndex < 0)
+                return ValueTask.FromResult(false);
+
+            if (targetIndex == versions.Count - 1)
+                throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is the latest version and cannot be pruned.");
+
+            if (IsActiveVersion(resourceId, resourceVersion, tenant))
+                throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is active and cannot be pruned.");
+
+            versions.RemoveAt(targetIndex);
+            var removed = true;
             return ValueTask.FromResult(removed);
         }
+    }
+
+    private bool IsActiveVersion(string resourceId, int resourceVersion, TenantScope tenant)
+    {
+        if (!Activations.TryGetValue((tenant.TenantId, resourceId), out var channelActivations))
+            return false;
+
+        lock (channelActivations)
+            return channelActivations.Values.Any(versions => versions.Contains(resourceVersion));
     }
 
     /// <summary>

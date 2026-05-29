@@ -44,6 +44,37 @@ public sealed class SqliteJsonPolicyPruningApplicationTests : IDisposable
         Assert.Equal([1, 2, 3], await ReadVersionsAsync(secondProvider, TenantScopeTestFixtures.TenantB));
     }
 
+    [Fact]
+    public async Task PruneVersionAsync_FailsClosedForPersistedLatestVersion()
+    {
+        await using var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 1);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 2);
+        var pruningStore = provider.GetRequiredService<IResourceVersionPruningStore>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await pruningStore.PruneVersionAsync("versioned", 2, TenantScope.Default));
+
+        Assert.Equal([1, 2], (await PolicyTestFixtures.ReadVersionsAsync(provider, "versioned")).Select(static version => version.Version).ToList());
+    }
+
+    [Fact]
+    public async Task PruneVersionAsync_FailsClosedForPersistedActiveVersion()
+    {
+        await using var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 1);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 2);
+        await PolicyTestFixtures.ActivateAsync(provider, "versioned", version: 1);
+        var pruningStore = provider.GetRequiredService<IResourceVersionPruningStore>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await pruningStore.PruneVersionAsync("versioned", 1, TenantScope.Default));
+
+        Assert.Equal([1, 2], (await PolicyTestFixtures.ReadVersionsAsync(provider, "versioned")).Select(static version => version.Version).ToList());
+    }
+
     private static async Task RegisterTenantResourceAsync(IServiceProvider provider, TenantScope tenant)
     {
         await PolicyTestFixtures.RegisterProductDefinitionAsync(
