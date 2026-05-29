@@ -87,6 +87,21 @@ public sealed class PolicyPruningApplicationSafetyTests : IDisposable
         Assert.Equal([1, 2, 3], await ReadVersionNumbersAsync());
     }
 
+    [Fact]
+    public async Task ApplyAsync_RetainedVersionSafetyUsesDraftMatchedVersions()
+    {
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.PruningPolicy("keep-latest", retainedVersions: 2)]);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 1);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 2);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 3);
+        await PolicyTestFixtures.ActivateAsync(provider, "versioned", version: 2);
+
+        var result = await ApplyAsync(PolicyTestFixtures.PruningCandidate("versioned", resourceVersion: 1));
+
+        AssertDiagnostic(result, ResourcePolicyDiagnosticCodes.PolicyPruningUnsafe);
+        Assert.Equal([1, 2, 3], await ReadVersionNumbersAsync());
+    }
+
     private async Task SetupVersionedResourceAsync()
     {
         await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.PruningPolicy(retainedVersions: 2)]);

@@ -172,6 +172,7 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
             candidate,
             target,
             versions,
+            draftVersions,
             tenant,
             appliedAt,
             markers,
@@ -223,6 +224,7 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
         ResourcePolicyPruningApplicationCandidate candidate,
         Resource target,
         IReadOnlyCollection<Resource> versions,
+        IReadOnlyDictionary<string, List<Resource>> draftVersions,
         TenantScope tenant,
         DateTimeOffset? appliedAt,
         IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
@@ -234,7 +236,9 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
         if (identityFailure is not null)
             return identityFailure;
 
-        if (versions.Count - 1 < policy!.Criteria.MaximumRetainedVersions.GetValueOrDefault())
+        var currentPolicy = policy!;
+        var matchedVersionCount = CountActivationMatchedVersions(currentPolicy, target.ResourceId, versions, draftVersions);
+        if (matchedVersionCount - 1 < currentPolicy.Criteria.MaximumRetainedVersions.GetValueOrDefault())
         {
             return Failure(
                 index,
@@ -244,7 +248,7 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
                 "resourceVersion");
         }
 
-        if (!MatchesPolicyCriteria(policy, target, appliedAt, markers, out var path))
+        if (!MatchesPolicyCriteria(currentPolicy, target, appliedAt, markers, out var path))
         {
             return Failure(
                 index,
@@ -255,6 +259,18 @@ public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPru
         }
 
         return null;
+    }
+
+    private static int CountActivationMatchedVersions(
+        ResourcePolicyDeclaration policy,
+        string resourceId,
+        IReadOnlyCollection<Resource> versions,
+        IReadOnlyDictionary<string, List<Resource>> draftVersions)
+    {
+        if (policy.Criteria.ActivationState == ResourcePolicyActivationState.Draft)
+            return draftVersions.TryGetValue(resourceId, out var drafts) ? drafts.Count : 0;
+
+        return versions.Count;
     }
 
     private async ValueTask<ResourcePolicyPruningApplicationCandidateResult?> ValidatePolicyIdentityAsync(

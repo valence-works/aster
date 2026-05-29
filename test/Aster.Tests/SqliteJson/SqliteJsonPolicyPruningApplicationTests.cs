@@ -49,7 +49,7 @@ public sealed class SqliteJsonPolicyPruningApplicationTests : IDisposable
         await PolicyTestFixtures.RegisterProductDefinitionAsync(
             provider,
             tenant,
-            PolicyTestFixtures.PruningPolicy("keep-latest", retainedVersions: 2, lifecycleState: ResourceLifecycleMarkerState.Archived));
+            PolicyTestFixtures.PruningPolicy("keep-latest", retainedVersions: 1, lifecycleState: ResourceLifecycleMarkerState.Archived));
         await PolicyTestFixtures.SaveResourceAsync(provider, "shared", version: 1, tenantScope: tenant);
         await PolicyTestFixtures.SaveResourceAsync(provider, "shared", version: 2, tenantScope: tenant);
         await PolicyTestFixtures.SaveResourceAsync(provider, "shared", version: 3, tenantScope: tenant);
