@@ -65,7 +65,7 @@ As a tenant-aware host author, I need pruning application to operate inside exac
 ### Edge Cases
 
 - A null or malformed request is submitted.
-- A candidate omits resource identity, version identity, expected version number, or preview correlation metadata.
+- A candidate omits policy identity, policy kind, prune-preview outcome, resource identity, or resource version.
 - A candidate references a resource or version that no longer exists in the effective tenant.
 - A candidate references a version that exists outside the effective tenant.
 - A candidate references a version that is latest, active, no longer matches current policy criteria, or is otherwise protected by current policy safety rules.

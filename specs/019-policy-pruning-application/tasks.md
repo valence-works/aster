@@ -23,7 +23,7 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Add `IResourcePolicyPruningApplicationService` and `IResourceVersionPruningStore` contracts in `src/core/Aster.Core/Abstractions/IResourcePolicyPruningApplicationService.cs`
+- [ ] T004 Add `IResourcePolicyPruningApplicationService`, `IResourceVersionPruningStore`, and unsupported fallback pruning store contracts/classes in `src/core/Aster.Core/Abstractions/IResourcePolicyPruningApplicationService.cs` and `src/core/Aster.Core/Services/UnsupportedResourceVersionPruningStore.cs`
 - [ ] T005 Add `ResourcePolicyPruningApplicationRequest`, `ResourcePolicyPruningApplicationCandidate`, `ResourcePolicyPruningApplicationResult`, `ResourcePolicyPruningApplicationCandidateResult`, and `ResourcePolicyPruningApplicationCandidateStatus` in `src/core/Aster.Core/Models/Policies/ResourcePolicyPruningApplication.cs`
 - [ ] T006 Add stable pruning diagnostic codes in `src/core/Aster.Core/Models/Policies/ResourcePolicyResults.cs`
 - [ ] T007 Register core pruning services and in-memory pruning capability in `src/core/Aster.Core/Extensions/AsterCoreServiceCollectionExtensions.cs`

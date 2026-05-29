@@ -115,6 +115,7 @@ Provider rules:
 - `PruneVersionAsync` must return `false` when no matching version exists.
 - Providers must not remove activation state, lifecycle marker state, definitions, policy declarations, or other versions through this operation.
 - Providers should implement removal with current-state conditions where possible.
+- Core registration should provide an unsupported fallback so hosts using providers without pruning support receive `policy-pruning-provider-unsupported` results instead of service resolution failures.
 
 ## Validation Rules
 
