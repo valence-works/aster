@@ -77,7 +77,7 @@ Expected behavior:
 ```csharp
 var tenantHistory = await history.GetHistoryAsync(new ResourceVersionHistoryRequest
 {
-    TenantScope = TenantScope.ForTenant("tenant-a"),
+    TenantScope = TenantScope.FromTenantId("tenant-a"),
     ResourceId = "product-1",
 });
 ```
