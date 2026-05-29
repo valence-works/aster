@@ -2,7 +2,7 @@
 
 **Feature Branch**: `020-version-history-inspection`
 **Created**: 2026-05-29
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Add a read-only host-facing resource version history inspection workflow. Hosts can request a tenant-scoped history for one resource and receive ordered version summaries that identify latest, draft, active channels, lifecycle marker state, definition version, timestamps, and safe maintenance hints. The feature must reuse existing stores and services, introduce no storage schema changes, no query planner, no public SQL, no IQueryable<Resource>, no provider registry, no background jobs, and no mutation behavior."
 
 ## User Scenarios & Testing *(mandatory)*
