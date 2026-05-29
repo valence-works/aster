@@ -1,14 +1,14 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-05-25
+Last updated: 2026-05-27
 
 This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, and policy foundations.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, and host-controlled lifecycle restore workflows.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries and policy foundations have landed; the next slices should stay focused on either policy execution affordances or advanced tenant/versioning behavior, not both at once.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, and reversible lifecycle restore have landed; the next slices should stay focused on advanced tenant/versioning behavior or a deliberately bounded policy follow-up, not both at once.
 
 ## Landed Slices
 
@@ -30,20 +30,21 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `014-host-lifecycle-hooks` | Landed | Explicit before/after hooks for save, activation, deactivation, schema upgrades, export, preview import, and write import with deterministic ordering and fail-closed diagnostics. |
 | `015-tenant-scoping` | Landed | Explicit tenant boundaries for definitions, resources, activation state, queries, schema upgrades, portability snapshots, and lifecycle hook contexts with default single-tenant compatibility. |
 | `016-policy-foundations` | Landed | Definition-attached policy declarations, validation diagnostics, deterministic non-mutating previews, explicit archive/soft-delete lifecycle markers, lifecycle-state querying, and portability preservation. |
+| `017-policy-application-orchestration` | Landed | Host-controlled application of selected archive/soft-delete preview outcomes with per-candidate results, stale/policy validation, tenant scoping, and bounded provider reads. |
+| `018-lifecycle-restore-workflows` | Landed | Host-controlled preview and application for restoring archive/soft-delete markers with tenant scoping, idempotent already-restored outcomes, stable diagnostics, and no version or activation mutation. |
 
 ## Near-Term Roadmap
 
-### 017 — Policy Application Orchestration
+### 019 — Next Bounded Phase 5 Slice
 
-**Goal:** Add host-controlled affordances for applying previewed policy outcomes without introducing schedulers, hidden retention jobs, or destructive pruning writes.
+**Goal:** Choose one small continuation slice that builds on tenant-aware lifecycle and policy primitives without broadening the architecture.
 
 Candidate scope:
 
-- Batch application request/response models for archive and soft-delete preview candidates.
-- Idempotent application over explicit lifecycle marker writes.
-- Structured partial-failure diagnostics for stale/missing resources.
-- Optional lifecycle-hook context coverage for policy-applied marker writes if the existing hook surfaces are insufficient.
-- Keep background schedulers, hidden retention jobs, authorization policy engines, destructive pruning writes, provider registries, public SQL, and `IQueryable<Resource>` out of scope.
+- Advanced versioning behavior that is explicit, append-only, and provider-agnostic.
+- A deliberately bounded policy follow-up, such as pruning write semantics, only after a separate spec defines safety checks and rollback expectations.
+- Tenant extension behavior, such as shared definitions or administrative workflows, only if the boundaries stay explicit.
+- Keep automatic jobs, ambient authorization, provider registries, public SQL, public `IQueryable<Resource>`, and broad workflow/state-machine infrastructure out of scope unless a future spec justifies them directly.
 
 ## Later Roadmap
 
@@ -51,7 +52,7 @@ Candidate scope:
 |---|---|
 | Optional recipes | Separate `Aster.Recipes` package for hosts that want recipe execution over portability primitives. |
 | Multi-tenancy extensions | Shared definitions, tenant hierarchy, and cross-tenant administrative workflows after explicit tenant boundaries exist. |
-| Policies | Host-controlled policy application, restore workflows, and eventual pruning write semantics after separate specs. |
+| Policies | Eventual pruning write semantics after a separate spec defines safety checks and rollback expectations. |
 | Operational hardening | Benchmarks, migration idempotency, concurrency hardening, and large-data test suites. |
 
 ## Guardrails

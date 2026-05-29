@@ -18,7 +18,7 @@ public sealed class SqliteJsonResourceStore :
     IResourceVersionReader,
     IResourceVersionWriter,
     IResourcePortabilityStore,
-    IResourceLifecycleMarkerStore
+    IResourceLifecycleMarkerClearStore
 {
     private const int MaxSqliteParametersPerQuery = 500;
 
@@ -331,6 +331,31 @@ public sealed class SqliteJsonResourceStore :
 
         await command.ExecuteNonQueryAsync(cancellationToken);
         return scopedMarker;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<bool> ClearMarkerAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        ResourceLifecycleMarkerState expectedState,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM lifecycle_markers
+            WHERE tenant_id = $tenantId
+                AND resource_id = $resourceId
+                AND json_extract(payload, '$.state') = $expectedState;
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$resourceId", resourceId);
+        command.Parameters.AddWithValue("$expectedState", (int)expectedState);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
     /// <inheritdoc />

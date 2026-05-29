@@ -156,4 +156,13 @@ public static class ResourcePolicyDiagnosticCodes
 
     /// <summary>Lifecycle marker target resource was not found.</summary>
     public const string LifecycleMarkerTargetNotFound = "lifecycle-marker-target-not-found";
+
+    /// <summary>Lifecycle restore candidate shape is invalid.</summary>
+    public const string LifecycleRestoreCandidateInvalid = "lifecycle-restore-candidate-invalid";
+
+    /// <summary>Lifecycle restore expected state is unsupported.</summary>
+    public const string LifecycleRestoreStateUnsupported = "lifecycle-restore-state-unsupported";
+
+    /// <summary>Lifecycle restore candidate expected state differs from current marker state.</summary>
+    public const string LifecycleRestoreMarkerMismatch = "lifecycle-restore-marker-mismatch";
 }

@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/016-policy-foundations/plan.md`.
+shell commands, and other important information, read `specs/018-lifecycle-restore-workflows/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -20,8 +20,12 @@ shell commands, and other important information, read `specs/016-policy-foundati
 - Existing resource definitions gain policy declaration metadata; resource lifecycle markers are stored as additive state separate from immutable resource versions; portable snapshots include policy declarations and lifecycle markers; SQLite JSON adds policy/marker storage without a general migration framework (016-policy-foundations)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, policy declaration/preview models, lifecycle marker service/store, resource definition store, resource version reader, in-memory store, SQLite JSON provider through existing abstractions, xUnit test stack; no new dependencies (017-policy-application-orchestration)
 - No schema or storage changes. Application orchestration writes only existing lifecycle marker state through `IResourceLifecycleMarkerStore` after validation and conflict preflight; definitions, resources, activation state, portability snapshots, and SQLite tables remain unchanged. (017-policy-application-orchestration)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, lifecycle marker service/store, resource version reader, in-memory store, SQLite JSON provider through existing abstractions, query capability stack, xUnit test stack; no new dependencies (018-lifecycle-restore-workflows)
+- Existing lifecycle marker storage only. Restore clears existing archive/soft-delete marker rows or in-memory entries; no resource version, activation state, policy declaration, portability snapshot format, or SQLite schema changes. (018-lifecycle-restore-workflows)
 
 ## Recent Changes
+- 018-lifecycle-restore-workflows: Added lifecycle restore workflow planning for host-controlled preview and application over archive/soft-delete markers; no resource version rewrites, activation changes, schedulers, authorization engines, provider registries, public SQL, public IQueryable<Resource>, destructive pruning writes, or schema changes
+- 017-policy-application-orchestration: Added host-controlled policy application orchestration for selected archive/soft-delete preview outcomes with per-candidate results, stale/policy validation, tenant scoping, and bounded provider reads
 - 016-policy-foundations: Added explicit policy foundations planning for definition-attached policy declarations, deterministic previews, archive/soft-delete lifecycle markers, lifecycle-state queries, portability, and provider support; no automatic execution, pruning writes, scheduler, policy engine, provider registry, public SQL, or public IQueryable<Resource>
 - 015-tenant-scoping: Added explicit tenant boundary planning for definitions, resources, activation state, queries, schema upgrades, portability, and lifecycle hooks; no automatic migration policy or tenant registry
 - 014-host-lifecycle-hooks: Added explicit host lifecycle hook planning over save, activation, deactivation, export, preview import, and write import; no schema migration or persisted hook state

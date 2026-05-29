@@ -34,6 +34,7 @@ public static class SqliteJsonAsterServiceCollectionExtensions
         services.AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SqliteJsonResourceStore>());
         services.AddSingleton<IResourcePortabilityStore>(sp => sp.GetRequiredService<SqliteJsonResourceStore>());
         services.AddSingleton<IResourceLifecycleMarkerStore>(sp => sp.GetRequiredService<SqliteJsonResourceStore>());
+        services.AddSingleton<IResourceLifecycleMarkerClearStore>(sp => sp.GetRequiredService<SqliteJsonResourceStore>());
         services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<SqliteJsonQueryService>());
         services.AddSingleton<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<SqliteJsonQueryProviderIdentity>());
         services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<SqliteJsonQueryCapabilitiesProvider>());

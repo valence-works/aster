@@ -9,7 +9,7 @@ namespace Aster.Core.InMemory;
 /// <summary>
 /// In-memory lifecycle marker storage.
 /// </summary>
-public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMarkerStore
+public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMarkerClearStore
 {
     private readonly ConcurrentDictionary<(string TenantId, string ResourceId), ResourceLifecycleMarker> markers = [];
 
@@ -59,6 +59,33 @@ public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMar
         var scopedMarker = marker with { TenantScope = tenant };
         markers[(tenant.TenantId, scopedMarker.ResourceId)] = scopedMarker;
         return ValueTask.FromResult(scopedMarker);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<bool> ClearMarkerAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        ResourceLifecycleMarkerState expectedState,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+        var key = (tenant.TenantId, resourceId);
+
+        while (markers.TryGetValue(key, out var current))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (current.State != expectedState)
+                return ValueTask.FromResult(false);
+
+            var removed = ((ICollection<KeyValuePair<(string TenantId, string ResourceId), ResourceLifecycleMarker>>)markers)
+                .Remove(new KeyValuePair<(string TenantId, string ResourceId), ResourceLifecycleMarker>(key, current));
+            if (removed)
+                return ValueTask.FromResult(true);
+        }
+
+        return ValueTask.FromResult(false);
     }
 
     internal void RestoreMarker(ResourceLifecycleMarker marker) =>

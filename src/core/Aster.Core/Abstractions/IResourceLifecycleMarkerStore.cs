@@ -33,6 +33,22 @@ public interface IResourceLifecycleMarkerStore
 }
 
 /// <summary>
+/// Provider-facing storage capability for removing explicit lifecycle markers.
+/// </summary>
+public interface IResourceLifecycleMarkerClearStore : IResourceLifecycleMarkerStore
+{
+    /// <summary>
+    /// Removes the effective lifecycle marker for a resource in the supplied tenant when its state matches the expected state.
+    /// </summary>
+    /// <returns><see langword="true" /> when a matching marker existed and was removed; otherwise <see langword="false" />.</returns>
+    ValueTask<bool> ClearMarkerAsync(
+        string resourceId,
+        TenantScope tenantScope,
+        ResourceLifecycleMarkerState expectedState,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// Host-facing service for explicit archive and soft-delete marker writes.
 /// </summary>
 public interface IResourceLifecycleMarkerService
