@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, and batch version history inspection.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, and version history summaries.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, and batch version history inspection have landed; version history summaries are the current bounded reporting slice.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, and version history summaries have landed; operational hardening is the current bounded confidence slice.
 
 ## Landed Slices
 
@@ -37,25 +37,27 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `021-historical-version-activation` | Landed | Explicit activation of any existing historical or latest resource version while preserving immutable versions, latest identity, activation state separation, tenant scoping, lifecycle hooks, and in-memory/SQLite parity. |
 | `022-policy-application-summaries` | Landed | Pure host-facing summaries for policy application and pruning application results with deterministic status counts, completion booleans, affected target counts, diagnostic counts, and no storage or reporting framework. |
 | `023-batch-version-history` | Landed | Explicit batch version history inspection for selected resource IDs with first-seen distinct ordering, tenant scoping, missing-resource histories, SQLite parity, and no storage or query-surface expansion. |
+| `024-version-history-summaries` | Landed | Pure host-facing summaries for single and batch version history results with deterministic version-state counts, selected/missing resource counts, lifecycle state counts, and no storage, provider, service, query planner, policy evaluation, or reporting infrastructure. |
 
 ## Near-Term Roadmap
 
-### 024 — Version History Summaries
+### 025 — Operational Hardening
 
-**Status:** In progress on `024-version-history-summaries`.
+**Status:** In progress on `025-operational-hardening`.
 
-**Goal:** Give hosts deterministic summary views over single and batch version history result objects.
+**Goal:** Add bounded retry and concurrency-sensitive regression coverage for recent Phase 5 workflows.
 
 Scope:
 
-- Summarize one resource history with total/latest/draft/active/protected/candidate counts and lifecycle state counts.
-- Summarize batch history results with selected-resource, resources-with-versions, missing-resource, total-version, and version-state counts.
-- Keep summaries as pure SDK helpers over existing result objects.
-- Keep storage, providers, services, audit persistence, automatic jobs, public SQL, public `IQueryable<Resource>`, query planners, policy evaluation, and reporting infrastructure out of scope.
+- Verify lifecycle restore retries and same-candidate concurrent restores leave marker state clear and deterministic.
+- Verify policy pruning retries report already-pruned behavior and do not remove additional versions.
+- Verify SQLite persisted pruning retries remain safe after provider reopen.
+- Verify repeated historical activation keeps active versions unique/ordered and latest version identity unchanged.
+- Keep new product APIs, storage schema changes, providers, schedulers, benchmark infrastructure, public SQL, public `IQueryable<Resource>`, and dependencies out of scope.
 
-### 025 — Next Bounded Phase 5 Slice
+### 026 — Next Bounded Phase 5 Slice
 
-**Goal:** Choose one small continuation slice after version history summaries land.
+**Goal:** Choose one small continuation slice after operational hardening lands.
 
 Candidate scope:
 
