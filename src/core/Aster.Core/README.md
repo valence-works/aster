@@ -157,6 +157,16 @@ var batch = await history.GetHistoriesAsync(new ResourceVersionHistoryBatchReque
 // Duplicate IDs are collapsed; missing resources return empty histories.
 ```
 
+Use `ToSummary()` when a host needs deterministic counts for a single history or selected batch:
+
+```csharp
+var singleSummary = result.ToSummary();
+var batchSummary = batch.ToSummary();
+
+Console.WriteLine($"Protected versions: {singleSummary.ProtectedVersionCount}");
+Console.WriteLine($"Missing resources: {batchSummary.MissingResourceCount}");
+```
+
 Latest or active versions are reported as protected from destructive pruning. Historical inactive non-latest versions are only reported as possible maintenance candidates; hosts must still use policy preview/application services before pruning.
 
 ---
