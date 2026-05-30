@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/021-historical-version-activation/plan.md`.
+shell commands, and other important information, read `specs/022-policy-application-summaries/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -28,8 +28,11 @@ shell commands, and other important information, read `specs/021-historical-vers
 - Existing resource versions, activation state, and lifecycle marker storage only. No schema migration, data rewrite, portability snapshot format change, or physical index creation. (020-version-history-inspection)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, `IResourceManager`, resource version reader/writer, in-memory store, SQLite JSON provider through existing abstractions, lifecycle hook dispatcher, xUnit test stack; no new dependencies (021-historical-version-activation)
 - Existing activation state storage only. Historical activation updates activation rows or in-memory activation state; no resource version rewrite, no latest-version change, no lifecycle marker mutation, no portability format change, and no schema migration. (021-historical-version-activation)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK policy result models and xUnit test stack; no new dependencies (022-policy-application-summaries)
+- No storage changes. Summaries are pure in-memory views over existing result objects; no schema migration, persistence, audit records, or provider storage changes. (022-policy-application-summaries)
 
 ## Recent Changes
+- 022-policy-application-summaries: Added pure host-facing summaries for policy application and pruning application results with deterministic status counts, completion booleans, affected target counts, diagnostic code counts, and no storage, provider, scheduler, authorization, public SQL, public IQueryable<Resource>, audit persistence, or reporting framework
 - 021-historical-version-activation: Added historical resource version activation planning and implementation context for activating any existing version without changing latest, rewriting versions, changing storage schema, adding provider registries, public SQL, public IQueryable<Resource>, schedulers, authorization engines, or workflow infrastructure
 - 020-version-history-inspection: Added read-only host-facing resource version history inspection with latest/draft/active-channel summaries, lifecycle marker state, conservative maintenance hints, tenant scoping, SQLite parity, and no storage migrations, query planner, provider registry, public SQL, public IQueryable<Resource>, background jobs, or mutation behavior
 - 019-policy-pruning-application: Added host-controlled policy pruning application for selected version-pruning preview outcomes with safety preflight, tenant scoping, stable diagnostics, in-memory/SQLite removal support, and no schedulers, authorization engines, provider registries, public SQL, public IQueryable<Resource>, broad workflow/state-machine infrastructure, or schema migrations
