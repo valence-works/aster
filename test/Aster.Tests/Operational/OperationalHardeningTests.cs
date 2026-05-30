@@ -2,6 +2,8 @@ using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
+using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using Aster.Tests.Lifecycle;
 using Aster.Tests.Policies;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,7 +42,10 @@ public sealed class OperationalHardeningTests : IDisposable
         using var provider = LifecycleRestoreTestFixtures.CreateCoreProvider();
         await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "concurrent-restore");
         await LifecycleRestoreTestFixtures.MarkAsync(provider, "concurrent-restore", ResourceLifecycleMarkerState.Archived);
-        var restore = provider.GetRequiredService<IResourceLifecycleRestoreService>();
+        var markerStore = new CoordinatedMarkerClearStore(provider.GetRequiredService<IResourceLifecycleMarkerClearStore>());
+        var restore = new ResourceLifecycleRestoreService(
+            provider.GetRequiredService<IResourceVersionReader>(),
+            markerStore);
 
         var results = await Task.WhenAll(
             restore.RestoreAsync(RestoreRequest("concurrent-restore", ResourceLifecycleMarkerState.Archived)).AsTask(),
@@ -48,6 +53,7 @@ public sealed class OperationalHardeningTests : IDisposable
 
         Assert.Equal(1, results.Sum(static result => result.RestoredCount));
         Assert.Equal(1, results.Sum(static result => result.AlreadyRestoredCount));
+        Assert.Equal(2, markerStore.ClearAttempts);
         Assert.Null(await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "concurrent-restore"));
     }
 
@@ -160,5 +166,50 @@ public sealed class OperationalHardeningTests : IDisposable
         var databasePath = Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}.db");
         sqliteDatabasePaths.Add(databasePath);
         return databasePath;
+    }
+
+    private sealed class CoordinatedMarkerClearStore : IResourceLifecycleMarkerClearStore
+    {
+        private readonly IResourceLifecycleMarkerClearStore inner;
+        private readonly TaskCompletionSource bothClearAttemptsArrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int clearAttempts;
+
+        public CoordinatedMarkerClearStore(IResourceLifecycleMarkerClearStore inner)
+        {
+            ArgumentNullException.ThrowIfNull(inner);
+            this.inner = inner;
+        }
+
+        public int ClearAttempts => Volatile.Read(ref clearAttempts);
+
+        public ValueTask<ResourceLifecycleMarker?> GetMarkerAsync(
+            string resourceId,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default) =>
+            inner.GetMarkerAsync(resourceId, tenantScope, cancellationToken);
+
+        public ValueTask<IReadOnlyDictionary<string, ResourceLifecycleMarker>> GetMarkersAsync(
+            IEnumerable<string> resourceIds,
+            TenantScope tenantScope,
+            CancellationToken cancellationToken = default) =>
+            inner.GetMarkersAsync(resourceIds, tenantScope, cancellationToken);
+
+        public ValueTask<ResourceLifecycleMarker> SaveMarkerAsync(
+            ResourceLifecycleMarker marker,
+            CancellationToken cancellationToken = default) =>
+            inner.SaveMarkerAsync(marker, cancellationToken);
+
+        public async ValueTask<bool> ClearMarkerAsync(
+            string resourceId,
+            TenantScope tenantScope,
+            ResourceLifecycleMarkerState expectedState,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref clearAttempts) == 2)
+                bothClearAttemptsArrived.TrySetResult();
+
+            await bothClearAttemptsArrived.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+            return await inner.ClearMarkerAsync(resourceId, tenantScope, expectedState, cancellationToken);
+        }
     }
 }
