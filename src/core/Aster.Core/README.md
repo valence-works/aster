@@ -126,7 +126,7 @@ var active = await manager.GetActiveVersionsAsync(resource.ResourceId, "Publishe
 
 ### 6. Inspect version history
 
-`IResourceVersionHistoryService` returns a read-only tenant-scoped timeline for one resource. It combines existing resource versions, activation channels, and lifecycle marker state without evaluating policies or mutating anything.
+`IResourceVersionHistoryService` returns read-only tenant-scoped timelines for one resource or an explicit selected set of resources. It combines existing resource versions, activation channels, and lifecycle marker state without evaluating policies or mutating anything.
 
 ```csharp
 var history = serviceProvider.GetRequiredService<IResourceVersionHistoryService>();
@@ -143,6 +143,18 @@ foreach (var version in result.Versions)
         $"channels={string.Join(",", version.ActiveChannels)}, " +
         $"maintenance={version.MaintenanceDisposition}");
 }
+```
+
+Use `GetHistoriesAsync` when a host already has a bounded resource selection and needs consistent history rows for a screen or report:
+
+```csharp
+var batch = await history.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest
+{
+    ResourceIds = ["product-1", "product-2", "product-1", "missing-product"],
+});
+
+// Histories are returned for product-1, product-2, and missing-product in first-seen order.
+// Duplicate IDs are collapsed; missing resources return empty histories.
 ```
 
 Latest or active versions are reported as protected from destructive pruning. Historical inactive non-latest versions are only reported as possible maintenance candidates; hosts must still use policy preview/application services before pruning.

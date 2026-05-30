@@ -39,16 +39,101 @@ public sealed class ResourceVersionHistoryService : IResourceVersionHistoryServi
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.ResourceId);
 
-        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
-        var resourceId = request.ResourceId;
+        var result = await GetHistoriesAsync(new ResourceVersionHistoryBatchRequest
+        {
+            TenantScope = request.TenantScope,
+            ResourceIds = [request.ResourceId],
+        }, cancellationToken);
 
-        var versions = (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+        return result.Histories[0];
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ResourceVersionHistoryBatchResult> GetHistoriesAsync(
+        ResourceVersionHistoryBatchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.ResourceIds);
+
+        var tenant = TenantScopeResolver.Resolve(request.TenantScope);
+        var resourceIds = NormalizeResourceIds(request.ResourceIds);
+
+        if (resourceIds.Count == 0)
+        {
+            return new ResourceVersionHistoryBatchResult
+            {
+                TenantScope = tenant,
+            };
+        }
+
+        var versionsByResourceId = (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
             TenantScope = tenant,
             Scope = ResourceVersionScope.AllVersions,
-            ResourceIds = [resourceId],
-        }, cancellationToken)).OrderBy(static resource => resource.Version).ToList();
+            ResourceIds = resourceIds,
+        }, cancellationToken))
+            .GroupBy(static resource => resource.ResourceId, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.OrderBy(static resource => resource.Version).ToList(),
+                StringComparer.Ordinal);
 
+        var activeChannelsByResourceAndVersion = await ReadActiveChannelsByResourceAndVersionAsync(
+            resourceIds,
+            tenant,
+            cancellationToken);
+        var markers = await markerStore.GetMarkersAsync(resourceIds, tenant, cancellationToken);
+
+        var histories = resourceIds
+            .Select(resourceId =>
+            {
+                var versions = versionsByResourceId.TryGetValue(resourceId, out var resourceVersions)
+                    ? resourceVersions
+                    : [];
+                var activeChannelsByVersion = activeChannelsByResourceAndVersion.TryGetValue(resourceId, out var resourceActiveChannels)
+                    ? resourceActiveChannels
+                    : new Dictionary<int, IReadOnlyList<string>>();
+
+                return BuildHistory(
+                    resourceId,
+                    tenant,
+                    versions,
+                    activeChannelsByVersion,
+                    markers.TryGetValue(resourceId, out var marker) ? marker : null);
+            })
+            .ToList();
+
+        return new ResourceVersionHistoryBatchResult
+        {
+            TenantScope = tenant,
+            Histories = histories,
+        };
+    }
+
+    private static IReadOnlyList<string> NormalizeResourceIds(IReadOnlyCollection<string> resourceIds)
+    {
+        var normalized = new List<string>(resourceIds.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var resourceId in resourceIds)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+
+            if (seen.Add(resourceId))
+                normalized.Add(resourceId);
+        }
+
+        return normalized;
+    }
+
+    private static ResourceVersionHistoryResult BuildHistory(
+        string resourceId,
+        TenantScope tenant,
+        IReadOnlyList<Resource> versions,
+        IReadOnlyDictionary<int, IReadOnlyList<string>> activeChannelsByVersion,
+        ResourceLifecycleMarker? marker)
+    {
         if (versions.Count == 0)
         {
             return new ResourceVersionHistoryResult
@@ -58,8 +143,6 @@ public sealed class ResourceVersionHistoryService : IResourceVersionHistoryServi
             };
         }
 
-        var activeChannelsByVersion = await ReadActiveChannelsByVersionAsync(resourceId, tenant, cancellationToken);
-        var marker = await markerStore.GetMarkerAsync(resourceId, tenant, cancellationToken);
         var lifecycleState = marker?.State ?? ResourceLifecycleMarkerState.None;
         var latestVersion = versions[^1].Version;
 
@@ -97,16 +180,22 @@ public sealed class ResourceVersionHistoryService : IResourceVersionHistoryServi
         };
     }
 
-    private async Task<Dictionary<int, IReadOnlyList<string>>> ReadActiveChannelsByVersionAsync(
-        string resourceId,
+    private async Task<Dictionary<string, IReadOnlyDictionary<int, IReadOnlyList<string>>>> ReadActiveChannelsByResourceAndVersionAsync(
+        IReadOnlyCollection<string> resourceIds,
         TenantScope tenant,
         CancellationToken cancellationToken)
     {
-        var states = await activationStateReader.ReadActivationStatesAsync([resourceId], tenant, cancellationToken);
-        var channelsByVersion = new Dictionary<int, SortedSet<string>>();
+        var states = await activationStateReader.ReadActivationStatesAsync(resourceIds, tenant, cancellationToken);
+        var channelsByResourceAndVersion = new Dictionary<string, Dictionary<int, SortedSet<string>>>(StringComparer.Ordinal);
 
         foreach (var state in states)
         {
+            if (!channelsByResourceAndVersion.TryGetValue(state.ResourceId, out var channelsByVersion))
+            {
+                channelsByVersion = new Dictionary<int, SortedSet<string>>();
+                channelsByResourceAndVersion[state.ResourceId] = channelsByVersion;
+            }
+
             foreach (var version in state.ActiveVersions)
             {
                 if (!channelsByVersion.TryGetValue(version, out var channels))
@@ -119,8 +208,11 @@ public sealed class ResourceVersionHistoryService : IResourceVersionHistoryServi
             }
         }
 
-        return channelsByVersion.ToDictionary(
+        return channelsByResourceAndVersion.ToDictionary(
             static item => item.Key,
-            static item => (IReadOnlyList<string>)item.Value.ToList());
+            static item => (IReadOnlyDictionary<int, IReadOnlyList<string>>)item.Value.ToDictionary(
+                static versionItem => versionItem.Key,
+                static versionItem => (IReadOnlyList<string>)versionItem.Value.ToList()),
+            StringComparer.Ordinal);
     }
 }

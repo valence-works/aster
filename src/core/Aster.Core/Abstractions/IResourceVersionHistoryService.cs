@@ -14,6 +14,13 @@ public interface IResourceVersionHistoryService
     ValueTask<ResourceVersionHistoryResult> GetHistoryAsync(
         ResourceVersionHistoryRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads ordered version histories for an explicit set of resources in one effective tenant.
+    /// </summary>
+    ValueTask<ResourceVersionHistoryBatchResult> GetHistoriesAsync(
+        ResourceVersionHistoryBatchRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

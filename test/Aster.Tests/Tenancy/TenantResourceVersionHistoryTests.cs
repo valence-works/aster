@@ -44,6 +44,42 @@ public sealed class TenantResourceVersionHistoryTests : IDisposable
         Assert.Single(result.Versions);
     }
 
+    [Fact]
+    public async Task GetHistoriesAsync_ReturnsOnlyRequestedTenantState()
+    {
+        await RegisterTenantResourceAsync(TenantScopeTestFixtures.TenantA, activeVersions: [1], ResourceLifecycleMarkerState.Archived);
+        await RegisterTenantResourceAsync(TenantScopeTestFixtures.TenantB, activeVersions: [2], ResourceLifecycleMarkerState.SoftDeleted);
+
+        var result = await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+            new ResourceVersionHistoryBatchRequest
+            {
+                TenantScope = TenantScopeTestFixtures.TenantA,
+                ResourceIds = ["shared"],
+            });
+
+        var history = Assert.Single(result.Histories);
+        Assert.Equal(TenantScopeTestFixtures.TenantA, result.TenantScope);
+        Assert.Equal(TenantScopeTestFixtures.TenantA, history.TenantScope);
+        Assert.Equal([1, 2], history.Versions.Select(static version => version.Version));
+        Assert.Equal(["Published"], history.Versions[0].ActiveChannels);
+        Assert.Empty(history.Versions[1].ActiveChannels);
+        Assert.All(history.Versions, version => Assert.Equal(ResourceLifecycleMarkerState.Archived, version.LifecycleState));
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_OmittedTenantUsesDefaultScope()
+    {
+        await ResourceVersionHistoryTestFixtures.SaveVersionAsync(provider, "default", version: 1);
+
+        var result = await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+            new ResourceVersionHistoryBatchRequest { ResourceIds = ["default"] });
+
+        var history = Assert.Single(result.Histories);
+        Assert.Equal(TenantScope.Default, result.TenantScope);
+        Assert.Equal(TenantScope.Default, history.TenantScope);
+        Assert.Single(history.Versions);
+    }
+
     private async Task RegisterTenantResourceAsync(
         TenantScope tenant,
         IReadOnlyList<int> activeVersions,
