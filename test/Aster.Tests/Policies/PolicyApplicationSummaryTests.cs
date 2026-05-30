@@ -1,4 +1,5 @@
 using Aster.Core.Models.Policies;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Tests.Policies;
 
@@ -7,9 +8,11 @@ public sealed class PolicyApplicationSummaryTests
     [Fact]
     public void ApplicationSummary_MixedCandidates_AggregatesCountsAndDiagnostics()
     {
+        var appliedAt = DateTimeOffset.UtcNow;
         var result = new ResourcePolicyApplicationResult
         {
-            AppliedAt = DateTimeOffset.UtcNow,
+            TenantScope = TenantScope.FromTenantId("tenant-a"),
+            AppliedAt = appliedAt,
             Candidates =
             [
                 ApplicationCandidate(ResourcePolicyApplicationCandidateStatus.Applied, "product-1"),
@@ -21,6 +24,8 @@ public sealed class PolicyApplicationSummaryTests
 
         var summary = result.ToSummary();
 
+        Assert.Equal(result.TenantScope, summary.TenantScope);
+        Assert.Equal(appliedAt, summary.AppliedAt);
         Assert.Equal(4, summary.TotalCount);
         Assert.Equal(1, summary.AppliedCount);
         Assert.Equal(1, summary.AlreadySatisfiedCount);
@@ -65,8 +70,11 @@ public sealed class PolicyApplicationSummaryTests
     [Fact]
     public void PruningSummary_MixedCandidates_AggregatesCountsTargetsAndDiagnostics()
     {
+        var appliedAt = DateTimeOffset.UtcNow;
         var result = new ResourcePolicyPruningApplicationResult
         {
+            TenantScope = TenantScope.FromTenantId("tenant-a"),
+            AppliedAt = appliedAt,
             Candidates =
             [
                 PruningCandidate(ResourcePolicyPruningApplicationCandidateStatus.Pruned, "product-1", 1),
@@ -78,6 +86,8 @@ public sealed class PolicyApplicationSummaryTests
 
         var summary = result.ToSummary();
 
+        Assert.Equal(result.TenantScope, summary.TenantScope);
+        Assert.Equal(appliedAt, summary.AppliedAt);
         Assert.Equal(4, summary.TotalCount);
         Assert.Equal(1, summary.PrunedCount);
         Assert.Equal(1, summary.AlreadyPrunedCount);

@@ -24,6 +24,7 @@ The exact member placement may follow existing SDK style, but summary generation
 
 For marker-based policy application:
 
+- `TenantScope` and `AppliedAt` mirror the source result.
 - `TotalCount` equals the number of candidate results.
 - `AppliedCount`, `AlreadySatisfiedCount`, `SkippedCount`, and `FailedCount` reflect candidate statuses.
 - `HasFailures` is true when `FailedCount > 0`.
@@ -35,6 +36,7 @@ For marker-based policy application:
 
 For policy pruning application:
 
+- `TenantScope` and `AppliedAt` mirror the source result.
 - `TotalCount` equals the number of candidate results.
 - `PrunedCount`, `AlreadyPrunedCount`, `SkippedCount`, and `FailedCount` reflect candidate statuses.
 - `HasFailures` is true when `FailedCount > 0`.

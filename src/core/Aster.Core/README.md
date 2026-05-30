@@ -441,7 +441,7 @@ var applicationSummary = applicationResult.ToSummary();
 var pruningSummary = pruningResult.ToSummary();
 ```
 
-Summaries report total candidates, status counts, failure/completion booleans, affected resource or resource-version counts, and deterministic diagnostic code counts. They are pure in-memory views over existing result objects; they are not audit records and do not query stores, write state, invoke hooks, schedule work, or authorize operations.
+Summaries report tenant scope, applied timestamp when present, total candidates, status counts, failure/completion booleans, affected resource or resource-version counts, and deterministic diagnostic code counts. They are pure in-memory views over existing result objects; they are not audit records and do not query stores, write state, invoke hooks, schedule work, or authorize operations.
 
 ---
 

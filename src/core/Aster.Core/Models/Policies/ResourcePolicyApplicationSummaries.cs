@@ -1,3 +1,5 @@
+using Aster.Core.Models.Tenancy;
+
 namespace Aster.Core.Models.Policies;
 
 /// <summary>
@@ -17,6 +19,12 @@ public sealed record ResourcePolicyDiagnosticCodeCount
 /// </summary>
 public sealed record ResourcePolicyApplicationSummary
 {
+    /// <summary>Effective tenant used by the application result.</summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
+    /// <summary>Timestamp used by the application result.</summary>
+    public required DateTimeOffset AppliedAt { get; init; }
+
     /// <summary>Total number of candidate results.</summary>
     public required int TotalCount { get; init; }
 
@@ -50,6 +58,12 @@ public sealed record ResourcePolicyApplicationSummary
 /// </summary>
 public sealed record ResourcePolicyPruningApplicationSummary
 {
+    /// <summary>Effective tenant used by the pruning result.</summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
+    /// <summary>Optional host timestamp supplied by the pruning result.</summary>
+    public DateTimeOffset? AppliedAt { get; init; }
+
     /// <summary>Total number of candidate results.</summary>
     public required int TotalCount { get; init; }
 
@@ -95,6 +109,8 @@ public static class ResourcePolicyApplicationSummaryExtensions
 
         return new ResourcePolicyApplicationSummary
         {
+            TenantScope = result.TenantScope,
+            AppliedAt = result.AppliedAt,
             TotalCount = candidates.Count,
             AppliedCount = candidates.Count(static candidate => candidate.Status == ResourcePolicyApplicationCandidateStatus.Applied),
             AlreadySatisfiedCount = candidates.Count(static candidate => candidate.Status == ResourcePolicyApplicationCandidateStatus.AlreadySatisfied),
@@ -122,6 +138,8 @@ public static class ResourcePolicyApplicationSummaryExtensions
 
         return new ResourcePolicyPruningApplicationSummary
         {
+            TenantScope = result.TenantScope,
+            AppliedAt = result.AppliedAt,
             TotalCount = candidates.Count,
             PrunedCount = candidates.Count(static candidate => candidate.Status == ResourcePolicyPruningApplicationCandidateStatus.Pruned),
             AlreadyPrunedCount = candidates.Count(static candidate => candidate.Status == ResourcePolicyPruningApplicationCandidateStatus.AlreadyPruned),

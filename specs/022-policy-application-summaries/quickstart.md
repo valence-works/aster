@@ -12,6 +12,8 @@ Expected use:
 
 ```csharp
 summary.TotalCount
+summary.TenantScope
+summary.AppliedAt
 summary.AppliedCount
 summary.AlreadySatisfiedCount
 summary.SkippedCount
@@ -36,6 +38,8 @@ Expected use:
 
 ```csharp
 summary.TotalCount
+summary.TenantScope
+summary.AppliedAt
 summary.PrunedCount
 summary.AlreadyPrunedCount
 summary.SkippedCount
