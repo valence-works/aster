@@ -122,7 +122,7 @@ public static class ResourcePolicyApplicationSummaryExtensions
                 .Where(static resourceId => !string.IsNullOrWhiteSpace(resourceId))
                 .Distinct(StringComparer.Ordinal)
                 .Count(),
-            DiagnosticCodeCounts = CountDiagnosticCodes(candidates.SelectMany(static candidate => candidate.Diagnostics ?? [])),
+            DiagnosticCodeCounts = ResourcePolicyDiagnosticCodeCounter.Count(candidates.SelectMany(static candidate => candidate.Diagnostics ?? [])),
         };
     }
 
@@ -151,11 +151,14 @@ public static class ResourcePolicyApplicationSummaryExtensions
                 .Select(static candidate => (candidate.ResourceId!, candidate.ResourceVersion!.Value))
                 .Distinct()
                 .Count(),
-            DiagnosticCodeCounts = CountDiagnosticCodes(candidates.SelectMany(static candidate => candidate.Diagnostics ?? [])),
+            DiagnosticCodeCounts = ResourcePolicyDiagnosticCodeCounter.Count(candidates.SelectMany(static candidate => candidate.Diagnostics ?? [])),
         };
     }
+}
 
-    private static IReadOnlyList<ResourcePolicyDiagnosticCodeCount> CountDiagnosticCodes(
+internal static class ResourcePolicyDiagnosticCodeCounter
+{
+    public static IReadOnlyList<ResourcePolicyDiagnosticCodeCount> Count(
         IEnumerable<ResourcePolicyDiagnostic> diagnostics) =>
         diagnostics
             .Select(static diagnostic => diagnostic.Code)

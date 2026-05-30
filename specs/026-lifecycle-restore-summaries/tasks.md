@@ -11,8 +11,8 @@
 
 **Purpose**: Confirm the active slice and no dependency or provider setup is needed.
 
-- [ ] T001 Confirm `.specify/feature.json` points to `specs/026-lifecycle-restore-summaries`
-- [ ] T002 Confirm `AGENTS.md` points to `specs/026-lifecycle-restore-summaries/plan.md`
+- [X] T001 Confirm `.specify/feature.json` points to `specs/026-lifecycle-restore-summaries`
+- [X] T002 Confirm `AGENTS.md` points to `specs/026-lifecycle-restore-summaries/plan.md`
 
 ---
 
@@ -20,8 +20,8 @@
 
 **Purpose**: Add the shared summary model file used by both preview and application stories.
 
-- [ ] T003 [P] Add restore summary record contracts in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
-- [ ] T004 Add shared deterministic diagnostic-count helper in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
+- [X] T003 [P] Add restore summary record contracts in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
+- [X] T004 Add shared deterministic diagnostic-count helper in `src/core/Aster.Core/Models/Policies/ResourcePolicyApplicationSummaries.cs`
 
 **Checkpoint**: Summary models and shared helpers are available for user stories.
 
@@ -35,12 +35,12 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] [US1] Add mixed-status application summary test in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
-- [ ] T006 [P] [US1] Add application null/empty collection tests in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
+- [X] T005 [P] [US1] Add mixed-status application summary test in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
+- [X] T006 [P] [US1] Add application null/empty collection tests in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implement `ToSummary(this ResourceLifecycleRestoreApplicationResult result)` in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
+- [X] T007 [US1] Implement `ToSummary(this ResourceLifecycleRestoreApplicationResult result)` in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
 
 **Checkpoint**: User Story 1 is independently testable with focused summary tests.
 
@@ -54,12 +54,12 @@
 
 ### Tests for User Story 2
 
-- [ ] T008 [P] [US2] Add mixed-status preview summary test in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
-- [ ] T009 [P] [US2] Add preview null/empty collection tests in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
+- [X] T008 [P] [US2] Add mixed-status preview summary test in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
+- [X] T009 [P] [US2] Add preview null/empty collection tests in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Implement `ToSummary(this ResourceLifecycleRestorePreviewResult result)` in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
+- [X] T010 [US2] Implement `ToSummary(this ResourceLifecycleRestorePreviewResult result)` in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
 
 **Checkpoint**: User Story 2 is independently testable with focused summary tests.
 
@@ -73,12 +73,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T011 [P] [US3] Add manual-construction purity coverage in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
-- [ ] T012 [P] [US3] Add diagnostic ordering and blank-code filtering coverage in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
+- [X] T011 [P] [US3] Add manual-construction purity coverage in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
+- [X] T012 [P] [US3] Add diagnostic ordering and blank-code filtering coverage in `test/Aster.Tests/Lifecycle/ResourceLifecycleRestoreSummaryTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] Ensure restore summary helpers perform no service/provider/storage access in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
+- [X] T013 [US3] Ensure restore summary helpers perform no service/provider/storage access in `src/core/Aster.Core/Models/Instances/ResourceLifecycleRestoreSummaries.cs`
 
 **Checkpoint**: All user stories are independently covered.
 
@@ -88,12 +88,12 @@
 
 **Purpose**: Documentation, roadmap, and validation.
 
-- [ ] T014 [P] Update `docs/ExecutionRoadmap.md` to mark 025 landed and make 026 active
-- [ ] T015 [P] Update `AGENTS.md` active technology and recent-change context for 026
-- [ ] T016 Run focused tests: `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceLifecycleRestoreSummaryTests"`
-- [ ] T017 Run full tests: `dotnet test Aster.sln`
-- [ ] T018 Run build: `dotnet build Aster.sln /m:1`
-- [ ] T019 Run whitespace validation: `git diff --check`
+- [X] T014 [P] Update `docs/ExecutionRoadmap.md` to mark 025 landed and make 026 active
+- [X] T015 [P] Update `AGENTS.md` active technology and recent-change context for 026
+- [X] T016 Run focused tests: `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceLifecycleRestoreSummaryTests"`
+- [X] T017 Run full tests: `dotnet test Aster.sln`
+- [X] T018 Run build: `dotnet build Aster.sln /m:1`
+- [X] T019 Run whitespace validation: `git diff --check`
 
 ---
 
