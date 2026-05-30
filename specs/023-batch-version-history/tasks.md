@@ -1,6 +1,6 @@
 # Tasks: Batch Version History Inspection
 
-**Input**: Design documents from `/specs/023-batch-version-history/`  
+**Input**: Design documents from `/specs/023-batch-version-history/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
 **Tests**: Include focused tests because this is SDK behavior with tenant/provider compatibility requirements.

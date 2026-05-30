@@ -107,6 +107,21 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
         Assert.Empty(history.Versions);
     }
 
+    [Fact]
+    public async Task GetHistoriesAsync_DefaultImplementationPreservesCustomServiceCompatibility()
+    {
+        IResourceVersionHistoryService customService = new SingleResourceOnlyHistoryService();
+
+        var result = await customService.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest
+        {
+            ResourceIds = ["custom", "missing", "custom"],
+        });
+
+        Assert.Equal(["custom", "missing"], result.Histories.Select(static history => history.ResourceId));
+        Assert.Single(result.Histories[0].Versions);
+        Assert.Empty(result.Histories[1].Versions);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -271,5 +286,41 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
             ResourceVersionReadRequest request,
             CancellationToken cancellationToken = default) =>
             ValueTask.FromResult<IEnumerable<Resource>>([]);
+    }
+
+    private sealed class SingleResourceOnlyHistoryService : IResourceVersionHistoryService
+    {
+        public ValueTask<ResourceVersionHistoryResult> GetHistoryAsync(
+            ResourceVersionHistoryRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            ArgumentException.ThrowIfNullOrWhiteSpace(request.ResourceId);
+
+            var versions = string.Equals(request.ResourceId, "custom", StringComparison.Ordinal)
+                ? new[]
+                {
+                    new ResourceVersionSummary
+                    {
+                        ResourceVersionId = "custom-history-1",
+                        Version = 1,
+                        DefinitionId = "Product",
+                        DefinitionVersion = 1,
+                        Created = new DateTime(2026, 5, 30, 12, 0, 0, DateTimeKind.Utc),
+                        IsLatest = true,
+                        IsDraft = true,
+                        IsProtectedFromPruning = true,
+                        MaintenanceDisposition = ResourceVersionMaintenanceDisposition.Protected,
+                    },
+                }
+                : [];
+
+            return ValueTask.FromResult(new ResourceVersionHistoryResult
+            {
+                TenantScope = request.TenantScope ?? TenantScope.Default,
+                ResourceId = request.ResourceId,
+                Versions = versions,
+            });
+        }
     }
 }

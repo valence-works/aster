@@ -1,6 +1,6 @@
 # Implementation Plan: Batch Version History Inspection
 
-**Branch**: `023-batch-version-history` | **Date**: 2026-05-30 | **Spec**: [spec.md](spec.md)  
+**Branch**: `023-batch-version-history` | **Date**: 2026-05-30 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/023-batch-version-history/spec.md`
 
 ## Summary
@@ -9,14 +9,14 @@ Add a small batch read surface to the existing read-only resource version histor
 
 ## Technical Context
 
-**Language/Version**: C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting  
-**Primary Dependencies**: Existing core SDK, resource version history service, resource version reader, activation-state reader, lifecycle marker store, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies  
-**Storage**: Existing resource versions, activation state, and lifecycle marker storage only. No schema migration, data rewrite, portability snapshot format change, or physical index creation.  
-**Testing**: `dotnet test Aster.sln`, focused version history tests, tenant isolation tests, SQLite JSON parity tests, compatibility tests for existing single-resource history behavior, `dotnet build Aster.sln /m:1`, `git diff --check`  
-**Target Platform**: .NET SDK/library consumers and local test environment  
-**Project Type**: SDK/library with provider packages and tests  
-**Performance Goals**: Batch inspection is bounded to an explicit caller-supplied identifier set in one tenant and should reuse bulk-capable existing reads rather than forcing callers into repeated service calls.  
-**Constraints**: Read-only behavior; one effective tenant per request; deterministic first-seen distinct resource order; deterministic version and active-channel ordering; empty selection succeeds; blank identifiers fail fast; missing resources return empty histories; no scheduler, authorization engine, provider registry, runtime scanning, public SQL, public `IQueryable<Resource>`, query planner, broad reporting infrastructure, or schema migration.  
+**Language/Version**: C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting
+**Primary Dependencies**: Existing core SDK, resource version history service, resource version reader, activation-state reader, lifecycle marker store, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies
+**Storage**: Existing resource versions, activation state, and lifecycle marker storage only. No schema migration, data rewrite, portability snapshot format change, or physical index creation.
+**Testing**: `dotnet test Aster.sln`, focused version history tests, tenant isolation tests, SQLite JSON parity tests, compatibility tests for existing single-resource history behavior, `dotnet build Aster.sln /m:1`, `git diff --check`
+**Target Platform**: .NET SDK/library consumers and local test environment
+**Project Type**: SDK/library with provider packages and tests
+**Performance Goals**: Batch inspection is bounded to an explicit caller-supplied identifier set in one tenant and should reuse bulk-capable existing reads rather than forcing callers into repeated service calls.
+**Constraints**: Read-only behavior; one effective tenant per request; deterministic first-seen distinct resource order; deterministic version and active-channel ordering; empty selection succeeds; blank identifiers fail fast; missing resources return empty histories; no scheduler, authorization engine, provider registry, runtime scanning, public SQL, public `IQueryable<Resource>`, query planner, broad reporting infrastructure, or schema migration.
 **Scale/Scope**: Core SDK request/result models, one method on the existing history service, service implementation reuse, docs, roadmap, and focused tests.
 
 ## Constitution Check

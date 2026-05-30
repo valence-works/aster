@@ -1,8 +1,8 @@
 # Feature Specification: Batch Version History Inspection
 
-**Feature Branch**: `023-batch-version-history`  
-**Created**: 2026-05-30  
-**Status**: Draft  
+**Feature Branch**: `023-batch-version-history`
+**Created**: 2026-05-30
+**Status**: Draft
 **Input**: User request to proceed with the next bounded slice after policy application summaries.
 
 ## User Scenarios & Testing *(mandatory)*

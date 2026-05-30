@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Batch Version History Inspection
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: 2026-05-30  
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: 2026-05-30
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
