@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/022-policy-application-summaries/plan.md`.
+shell commands, and other important information, read `specs/023-batch-version-history/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -30,8 +30,11 @@ shell commands, and other important information, read `specs/022-policy-applicat
 - Existing activation state storage only. Historical activation updates activation rows or in-memory activation state; no resource version rewrite, no latest-version change, no lifecycle marker mutation, no portability format change, and no schema migration. (021-historical-version-activation)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK policy result models and xUnit test stack; no new dependencies (022-policy-application-summaries)
 - No storage changes. Summaries are pure in-memory views over existing result objects; no schema migration, persistence, audit records, or provider storage changes. (022-policy-application-summaries)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, resource version history service, resource version reader, activation-state reader, lifecycle marker store, in-memory store, SQLite JSON provider, xUnit test stack; no new dependencies (023-batch-version-history)
+- Existing resource versions, activation state, and lifecycle marker storage only. No schema migration, data rewrite, portability snapshot format change, or physical index creation. (023-batch-version-history)
 
 ## Recent Changes
+- 023-batch-version-history: Added explicit batch version history planning and implementation context for selected resource IDs with first-seen distinct ordering, tenant scoping, missing-resource histories, SQLite parity, and no storage migrations, query planner, provider registry, public SQL, public IQueryable<Resource>, runtime scanning, automatic discovery, or mutation behavior
 - 022-policy-application-summaries: Added pure host-facing summaries for policy application and pruning application results with deterministic status counts, completion booleans, affected target counts, diagnostic code counts, and no storage, provider, scheduler, authorization, public SQL, public IQueryable<Resource>, audit persistence, or reporting framework
 - 021-historical-version-activation: Added historical resource version activation planning and implementation context for activating any existing version without changing latest, rewriting versions, changing storage schema, adding provider registries, public SQL, public IQueryable<Resource>, schedulers, authorization engines, or workflow infrastructure
 - 020-version-history-inspection: Added read-only host-facing resource version history inspection with latest/draft/active-channel summaries, lifecycle marker state, conservative maintenance hints, tenant scoping, SQLite parity, and no storage migrations, query planner, provider registry, public SQL, public IQueryable<Resource>, background jobs, or mutation behavior

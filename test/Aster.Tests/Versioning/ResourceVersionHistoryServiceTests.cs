@@ -42,6 +42,86 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
         Assert.Empty(result.Versions);
     }
 
+    [Fact]
+    public async Task GetHistoriesAsync_ReturnsDistinctHistoriesInFirstSeenOrder()
+    {
+        await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "alpha", versionCount: 3);
+        await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "bravo", versionCount: 2);
+        await ResourceVersionHistoryTestFixtures.ActivateAsync(provider, "alpha", "Published", [2]);
+        await ResourceVersionHistoryTestFixtures.ActivateAsync(provider, "bravo", "Preview", [1]);
+
+        var result = await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+            new ResourceVersionHistoryBatchRequest
+            {
+                ResourceIds = ["bravo", "alpha", "bravo", "missing"],
+            });
+
+        Assert.Equal(TenantScope.Default, result.TenantScope);
+        Assert.Equal(["bravo", "alpha", "missing"], result.Histories.Select(static history => history.ResourceId));
+        Assert.Equal([1, 2], result.Histories[0].Versions.Select(static version => version.Version));
+        Assert.Equal([1, 2, 3], result.Histories[1].Versions.Select(static version => version.Version));
+        Assert.Empty(result.Histories[2].Versions);
+        Assert.Equal(["Preview"], result.Histories[0].Versions[0].ActiveChannels);
+        Assert.Equal(["Published"], result.Histories[1].Versions[1].ActiveChannels);
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_MatchesSingleResourceHistorySemantics()
+    {
+        await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "history", versionCount: 4);
+        await ResourceVersionHistoryTestFixtures.ActivateAsync(provider, "history", "Published", [2]);
+        await ResourceVersionHistoryTestFixtures.MarkAsync(provider, "history", ResourceLifecycleMarkerState.Archived);
+
+        var service = provider.GetRequiredService<IResourceVersionHistoryService>();
+
+        var batch = await service.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest
+        {
+            ResourceIds = ["history"],
+        });
+        var single = await service.GetHistoryAsync(new ResourceVersionHistoryRequest { ResourceId = "history" });
+
+        var batchHistory = Assert.Single(batch.Histories);
+        Assert.Equal(single.ResourceId, batchHistory.ResourceId);
+        Assert.Equal(single.TenantScope, batchHistory.TenantScope);
+        Assert.Equal(single.Versions.Select(ToComparable), batchHistory.Versions.Select(ToComparable));
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_EmptySelectionReturnsEmptyBatch()
+    {
+        var result = await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+            new ResourceVersionHistoryBatchRequest { ResourceIds = [] });
+
+        Assert.Equal(TenantScope.Default, result.TenantScope);
+        Assert.Empty(result.Histories);
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_MissingResourceReturnsEmptyHistory()
+    {
+        var result = await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+            new ResourceVersionHistoryBatchRequest { ResourceIds = ["missing"] });
+
+        var history = Assert.Single(result.Histories);
+        Assert.Equal("missing", history.ResourceId);
+        Assert.Empty(history.Versions);
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_DefaultImplementationPreservesCustomServiceCompatibility()
+    {
+        IResourceVersionHistoryService customService = new SingleResourceOnlyHistoryService();
+
+        var result = await customService.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest
+        {
+            ResourceIds = ["custom", "missing", "custom"],
+        });
+
+        Assert.Equal(["custom", "missing"], result.Histories.Select(static history => history.ResourceId));
+        Assert.Single(result.Histories[0].Versions);
+        Assert.Empty(result.Histories[1].Versions);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -53,11 +133,37 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
                 new ResourceVersionHistoryRequest { ResourceId = resourceId }));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetHistoriesAsync_InvalidResourceIdThrows(string? resourceId)
+    {
+        await Assert.ThrowsAnyAsync<ArgumentException>(async () =>
+            await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+                new ResourceVersionHistoryBatchRequest { ResourceIds = ["valid", resourceId!] }));
+    }
+
     [Fact]
     public async Task GetHistoryAsync_NullRequestThrows()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoryAsync(null!));
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_NullRequestThrows()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(null!));
+    }
+
+    [Fact]
+    public async Task GetHistoriesAsync_NullResourceIdsThrows()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await provider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+                new ResourceVersionHistoryBatchRequest()));
     }
 
     [Fact]
@@ -110,6 +216,21 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
         Assert.Equal(disposition, summary.MaintenanceDisposition);
         Assert.Equal(disposition == ResourceVersionMaintenanceDisposition.Protected, summary.IsProtectedFromPruning);
     }
+
+    private static object ToComparable(ResourceVersionSummary summary) => new
+    {
+        summary.ResourceVersionId,
+        summary.Version,
+        summary.DefinitionId,
+        summary.DefinitionVersion,
+        summary.Created,
+        summary.IsLatest,
+        summary.IsDraft,
+        ActiveChannels = string.Join("|", summary.ActiveChannels),
+        summary.LifecycleState,
+        summary.IsProtectedFromPruning,
+        summary.MaintenanceDisposition,
+    };
 
     private sealed class CustomHistoryProvider : IResourceVersionReader, IResourceActivationStateReader
     {
@@ -165,5 +286,41 @@ public sealed class ResourceVersionHistoryServiceTests : IDisposable
             ResourceVersionReadRequest request,
             CancellationToken cancellationToken = default) =>
             ValueTask.FromResult<IEnumerable<Resource>>([]);
+    }
+
+    private sealed class SingleResourceOnlyHistoryService : IResourceVersionHistoryService
+    {
+        public ValueTask<ResourceVersionHistoryResult> GetHistoryAsync(
+            ResourceVersionHistoryRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            ArgumentException.ThrowIfNullOrWhiteSpace(request.ResourceId);
+
+            var versions = string.Equals(request.ResourceId, "custom", StringComparison.Ordinal)
+                ? new[]
+                {
+                    new ResourceVersionSummary
+                    {
+                        ResourceVersionId = "custom-history-1",
+                        Version = 1,
+                        DefinitionId = "Product",
+                        DefinitionVersion = 1,
+                        Created = new DateTime(2026, 5, 30, 12, 0, 0, DateTimeKind.Utc),
+                        IsLatest = true,
+                        IsDraft = true,
+                        IsProtectedFromPruning = true,
+                        MaintenanceDisposition = ResourceVersionMaintenanceDisposition.Protected,
+                    },
+                }
+                : [];
+
+            return ValueTask.FromResult(new ResourceVersionHistoryResult
+            {
+                TenantScope = request.TenantScope ?? TenantScope.Default,
+                ResourceId = request.ResourceId,
+                Versions = versions,
+            });
+        }
     }
 }

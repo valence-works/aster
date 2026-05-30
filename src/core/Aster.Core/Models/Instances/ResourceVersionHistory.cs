@@ -19,6 +19,38 @@ public sealed class ResourceVersionHistoryRequest
 }
 
 /// <summary>
+/// Request to inspect multiple resources' version histories in one tenant.
+/// </summary>
+public sealed class ResourceVersionHistoryBatchRequest
+{
+    /// <summary>
+    /// Tenant scope for the read. When omitted, the default single-tenant scope is used.
+    /// </summary>
+    public TenantScope? TenantScope { get; set; }
+
+    /// <summary>
+    /// Logical resource identifiers to inspect.
+    /// </summary>
+    public IReadOnlyCollection<string>? ResourceIds { get; set; }
+}
+
+/// <summary>
+/// Read-only version histories for an explicit resource selection.
+/// </summary>
+public sealed record ResourceVersionHistoryBatchResult
+{
+    /// <summary>
+    /// Effective tenant used for all reads.
+    /// </summary>
+    public TenantScope TenantScope { get; init; } = TenantScope.Default;
+
+    /// <summary>
+    /// Ordered histories for each distinct requested logical resource identifier.
+    /// </summary>
+    public IReadOnlyList<ResourceVersionHistoryResult> Histories { get; init; } = [];
+}
+
+/// <summary>
 /// Read-only version history for one resource.
 /// </summary>
 public sealed record ResourceVersionHistoryResult

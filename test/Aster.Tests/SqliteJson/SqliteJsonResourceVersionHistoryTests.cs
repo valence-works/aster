@@ -37,4 +37,33 @@ public sealed class SqliteJsonResourceVersionHistoryTests : IDisposable
         Assert.All(result.Versions, version => Assert.Equal(ResourceLifecycleMarkerState.SoftDeleted, version.LifecycleState));
     }
 
+    [Fact]
+    public async Task GetHistoriesAsync_ReturnsPersistedBatchHistorySemantics()
+    {
+        await using (var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath))
+        {
+            await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "persisted-a", versionCount: 3);
+            await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "persisted-b", versionCount: 2);
+            await ResourceVersionHistoryTestFixtures.ActivateAsync(provider, "persisted-a", "Published", [2]);
+            await ResourceVersionHistoryTestFixtures.ActivateAsync(provider, "persisted-b", "Preview", [1]);
+            await ResourceVersionHistoryTestFixtures.MarkAsync(provider, "persisted-a", ResourceLifecycleMarkerState.Archived);
+        }
+
+        await using var secondProvider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+
+        var result = await secondProvider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
+            new ResourceVersionHistoryBatchRequest
+            {
+                ResourceIds = ["persisted-b", "persisted-a", "persisted-b", "missing"],
+            });
+
+        Assert.Equal(["persisted-b", "persisted-a", "missing"], result.Histories.Select(static history => history.ResourceId));
+        Assert.Equal([1, 2], result.Histories[0].Versions.Select(static version => version.Version));
+        Assert.Equal([1, 2, 3], result.Histories[1].Versions.Select(static version => version.Version));
+        Assert.Empty(result.Histories[2].Versions);
+        Assert.Equal(["Preview"], result.Histories[0].Versions[0].ActiveChannels);
+        Assert.Equal(["Published"], result.Histories[1].Versions[1].ActiveChannels);
+        Assert.All(result.Histories[1].Versions, version => Assert.Equal(ResourceLifecycleMarkerState.Archived, version.LifecycleState));
+    }
+
 }
