@@ -11,8 +11,8 @@
 
 **Purpose**: Confirm the active slice and no dependency or provider setup is needed.
 
-- [ ] T001 Confirm `.specify/feature.json` points to `specs/027-policy-preview-summaries`
-- [ ] T002 Confirm `AGENTS.md` points to `specs/027-policy-preview-summaries/plan.md`
+- [X] T001 Confirm `.specify/feature.json` points to `specs/027-policy-preview-summaries`
+- [X] T002 Confirm `AGENTS.md` points to `specs/027-policy-preview-summaries/plan.md`
 
 ---
 
@@ -20,8 +20,8 @@
 
 **Purpose**: Add the shared preview summary model file used by all stories.
 
-- [ ] T003 [P] Add preview summary record contracts in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
-- [ ] T004 Confirm the existing diagnostic-code helper is reused from `src/core/Aster.Core/Models/Policies/ResourcePolicyApplicationSummaries.cs`
+- [X] T003 [P] Add preview summary record contracts in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
+- [X] T004 Confirm the existing diagnostic-code helper is reused from `src/core/Aster.Core/Models/Policies/ResourcePolicyApplicationSummaries.cs`
 
 **Checkpoint**: Summary models and shared helpers are available for user stories.
 
@@ -35,11 +35,11 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] [US1] Add mixed-candidate preview summary test in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
+- [X] T005 [P] [US1] Add mixed-candidate preview summary test in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Implement candidate, resource, target, outcome, and kind counts in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
+- [X] T006 [US1] Implement candidate, resource, target, outcome, and kind counts in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
 
 **Checkpoint**: User Story 1 is independently testable with focused summary tests.
 
@@ -53,11 +53,11 @@
 
 ### Tests for User Story 2
 
-- [ ] T007 [P] [US2] Add diagnostic summary test in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
+- [X] T007 [P] [US2] Add diagnostic summary test in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Implement diagnostic count and diagnostic boolean fields in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
+- [X] T008 [US2] Implement diagnostic count and diagnostic boolean fields in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
 
 **Checkpoint**: User Story 2 is independently testable with focused summary tests.
 
@@ -71,12 +71,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T009 [P] [US3] Add null-input and null-collection tests in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
-- [ ] T010 [P] [US3] Add manual-construction purity coverage in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
+- [X] T009 [P] [US3] Add null-input and null-collection tests in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
+- [X] T010 [P] [US3] Add manual-construction purity coverage in `test/Aster.Tests/Policies/PolicyPreviewSummaryTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T011 [US3] Ensure preview summary helpers perform no service/provider/storage access in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
+- [X] T011 [US3] Ensure preview summary helpers perform no service/provider/storage access in `src/core/Aster.Core/Models/Policies/ResourcePolicyPreviewSummaries.cs`
 
 **Checkpoint**: All user stories are independently covered.
 
@@ -86,12 +86,12 @@
 
 **Purpose**: Documentation, roadmap, and validation.
 
-- [ ] T012 [P] Update `docs/ExecutionRoadmap.md` to mark 026 landed and make 027 active
-- [ ] T013 [P] Update `AGENTS.md` active technology and recent-change context for 027
-- [ ] T014 Run focused tests: `dotnet test Aster.sln --filter "FullyQualifiedName~PolicyPreviewSummaryTests"`
-- [ ] T015 Run full tests: `dotnet test Aster.sln`
-- [ ] T016 Run build: `dotnet build Aster.sln /m:1`
-- [ ] T017 Run whitespace validation: `git diff --check`
+- [X] T012 [P] Update `docs/ExecutionRoadmap.md` to mark 026 landed and make 027 active
+- [X] T013 [P] Update `AGENTS.md` active technology and recent-change context for 027
+- [X] T014 Run focused tests: `dotnet test Aster.sln --filter "FullyQualifiedName~PolicyPreviewSummaryTests"`
+- [X] T015 Run full tests: `dotnet test Aster.sln`
+- [X] T016 Run build: `dotnet build Aster.sln /m:1`
+- [X] T017 Run whitespace validation: `git diff --check`
 
 ---
 
