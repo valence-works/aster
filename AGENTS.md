@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/028-portability-result-summaries/plan.md`.
+shell commands, and other important information, read `specs/029-schema-upgrade-summaries/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -42,8 +42,11 @@ shell commands, and other important information, read `specs/028-portability-res
 - No storage changes. Summaries are pure in-memory views over existing policy preview result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (027-policy-preview-summaries)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK portability result models and xUnit test stack; no new dependencies (028-portability-result-summaries)
 - No storage changes. Summaries are pure in-memory views over existing portability result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (028-portability-result-summaries)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK schema-version models and xUnit test stack; no new dependencies (029-schema-upgrade-summaries)
+- No storage changes. Summaries are pure in-memory views over existing schema status and schema upgrade result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (029-schema-upgrade-summaries)
 
 ## Recent Changes
+- 029-schema-upgrade-summaries: Added planning context for pure host-facing schema status and schema upgrade result summaries with deterministic status counts, upgrade-needed/blocking/unknown-lineage counts, upgraded-resource counts, carried-forward aspect-key counts, source/target definition-version counts, and no storage, provider, service registration, scheduler, audit persistence, public SQL, public IQueryable<Resource>, query planner, or mutation behavior
 - 028-portability-result-summaries: Added pure host-facing portability export/import preview/import summaries with deterministic entity counts, identity mapping reason counts, diagnostic severity counts, diagnostic code counts, status booleans, and no storage, provider, service registration, recipe package, scheduler, audit persistence, public SQL, public IQueryable<Resource>, query planner, or mutation behavior
 - 027-policy-preview-summaries: Added pure host-facing policy preview summaries with deterministic candidate counts, outcome counts, policy kind counts, distinct resource counts, distinct resource-version target counts, diagnostic code counts, diagnostic booleans, and no storage, provider, service registration, scheduler, audit persistence, public SQL, public IQueryable<Resource>, query planner, or mutation behavior
 - 026-lifecycle-restore-summaries: Added pure host-facing lifecycle restore preview and application summaries with deterministic status counts, affected resource counts, diagnostic code counts, completion booleans, and no storage, provider, service registration, scheduler, audit persistence, public SQL, public IQueryable<Resource>, query planner, or mutation behavior
