@@ -75,6 +75,27 @@ public sealed record PortableExportSummary
 }
 
 /// <summary>
+/// Aggregate view over a portable snapshot validation result.
+/// </summary>
+public sealed record PortableValidationSummary
+{
+    /// <summary>Whether the source validation result is valid.</summary>
+    public required bool IsValid { get; init; }
+
+    /// <summary>Whether validation diagnostics include at least one error.</summary>
+    public bool HasErrors => DiagnosticSeverityCounts.Any(static count => count.Severity == PortableDiagnosticSeverity.Error && count.Count > 0);
+
+    /// <summary>Total number of validation diagnostics.</summary>
+    public required int TotalDiagnosticCount { get; init; }
+
+    /// <summary>Deterministic diagnostic severity counts.</summary>
+    public IReadOnlyList<PortableDiagnosticSeverityCount> DiagnosticSeverityCounts { get; init; } = [];
+
+    /// <summary>Deterministic diagnostic code counts.</summary>
+    public IReadOnlyList<PortableDiagnosticCodeCount> DiagnosticCodeCounts { get; init; } = [];
+}
+
+/// <summary>
 /// Aggregate view over a portable import preview result.
 /// </summary>
 public sealed record PortableImportPreviewSummary
@@ -174,6 +195,25 @@ public static class PortableResultSummaryExtensions
             ActivationEntryCount = snapshot?.ActivationStates?.Count ?? 0,
             LifecycleMarkerCount = snapshot?.LifecycleMarkers?.Count ?? 0,
             SkippedActivationEntryCount = (result.SkippedActivationEntries ?? []).Count,
+            DiagnosticSeverityCounts = CountSeverities(diagnostics),
+            DiagnosticCodeCounts = CountCodes(diagnostics),
+        };
+    }
+
+    /// <summary>
+    /// Creates a deterministic aggregate summary for a portable snapshot validation result.
+    /// </summary>
+    /// <param name="result">The validation result to summarize.</param>
+    /// <returns>A summary over validation state and diagnostics.</returns>
+    public static PortableValidationSummary ToSummary(this PortableSnapshotValidationResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var diagnostics = result.Diagnostics ?? [];
+
+        return new PortableValidationSummary
+        {
+            IsValid = result.IsValid,
+            TotalDiagnosticCount = diagnostics.Count,
             DiagnosticSeverityCounts = CountSeverities(diagnostics),
             DiagnosticCodeCounts = CountCodes(diagnostics),
         };

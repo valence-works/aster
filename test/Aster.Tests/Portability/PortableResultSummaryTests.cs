@@ -171,11 +171,96 @@ public sealed class PortableResultSummaryTests
     }
 
     [Fact]
+    public void ValidationSummary_ValidResult_ReturnsValidZeroCounts()
+    {
+        var summary = new PortableSnapshotValidationResult
+        {
+            IsValid = true,
+        }.ToSummary();
+
+        Assert.True(summary.IsValid);
+        Assert.False(summary.HasErrors);
+        Assert.Equal(0, summary.TotalDiagnosticCount);
+        Assert.Empty(summary.DiagnosticSeverityCounts);
+        Assert.Empty(summary.DiagnosticCodeCounts);
+    }
+
+    [Fact]
+    public void ValidationSummary_MixedDiagnostics_AggregatesCountsDeterministically()
+    {
+        var result = new PortableSnapshotValidationResult
+        {
+            IsValid = false,
+            Diagnostics =
+            [
+                Diagnostic(PortableDiagnosticSeverity.Warning, "z-code"),
+                Diagnostic(PortableDiagnosticSeverity.Error, "a-code"),
+                Diagnostic(PortableDiagnosticSeverity.Warning, "z-code"),
+                Diagnostic(PortableDiagnosticSeverity.Info, "m-code"),
+            ],
+        };
+
+        var summary = result.ToSummary();
+
+        Assert.False(summary.IsValid);
+        Assert.True(summary.HasErrors);
+        Assert.Equal(4, summary.TotalDiagnosticCount);
+        Assert.Equal(
+            [(PortableDiagnosticSeverity.Info, 1), (PortableDiagnosticSeverity.Warning, 2), (PortableDiagnosticSeverity.Error, 1)],
+            summary.DiagnosticSeverityCounts.Select(static count => (count.Severity, count.Count)).ToList());
+        Assert.Equal(
+            [("a-code", 1), ("m-code", 1), ("z-code", 2)],
+            summary.DiagnosticCodeCounts.Select(static count => (count.Code, count.Count)).ToList());
+    }
+
+    [Fact]
     public void Summaries_NullInputsThrow()
     {
         Assert.Throws<ArgumentNullException>(() => ((PortableSnapshotExportResult)null!).ToSummary());
+        Assert.Throws<ArgumentNullException>(() => ((PortableSnapshotValidationResult)null!).ToSummary());
         Assert.Throws<ArgumentNullException>(() => ((PortableImportPreview)null!).ToSummary());
         Assert.Throws<ArgumentNullException>(() => ((PortableImportResult)null!).ToSummary());
+    }
+
+    [Fact]
+    public void ValidationSummary_NullDiagnostics_AreTreatedAsEmptyForCounts()
+    {
+        var summary = new PortableSnapshotValidationResult
+        {
+            IsValid = true,
+            Diagnostics = null!,
+        }.ToSummary();
+
+        Assert.True(summary.IsValid);
+        Assert.False(summary.HasErrors);
+        Assert.Equal(0, summary.TotalDiagnosticCount);
+        Assert.Empty(summary.DiagnosticSeverityCounts);
+        Assert.Empty(summary.DiagnosticCodeCounts);
+    }
+
+    [Fact]
+    public void ValidationSummary_BlankCodes_AreIgnoredInCodeCountsButIncludedInTotals()
+    {
+        var summary = new PortableSnapshotValidationResult
+        {
+            IsValid = false,
+            Diagnostics =
+            [
+                Diagnostic(PortableDiagnosticSeverity.Error, ""),
+                Diagnostic(PortableDiagnosticSeverity.Warning, " "),
+                Diagnostic(PortableDiagnosticSeverity.Warning, "warning-code"),
+            ],
+        }.ToSummary();
+
+        Assert.False(summary.IsValid);
+        Assert.True(summary.HasErrors);
+        Assert.Equal(3, summary.TotalDiagnosticCount);
+        Assert.Equal(
+            [(PortableDiagnosticSeverity.Warning, 2), (PortableDiagnosticSeverity.Error, 1)],
+            summary.DiagnosticSeverityCounts.Select(static count => (count.Severity, count.Count)).ToList());
+        Assert.Equal(
+            [("warning-code", 1)],
+            summary.DiagnosticCodeCounts.Select(static count => (count.Code, count.Count)).ToList());
     }
 
     [Fact]

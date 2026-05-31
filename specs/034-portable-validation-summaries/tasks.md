@@ -17,8 +17,8 @@
 
 **Purpose**: Confirm the working branch and feature artifacts are ready.
 
-- [ ] T001 Confirm branch `034-portable-validation-summaries` is active and working tree contains only intended 034 changes
-- [ ] T002 Confirm Constitution Check gates in `/Users/sipke/Projects/ValenceWorks/aster/specs/034-portable-validation-summaries/plan.md` still pass before implementation
+- [x] T001 Confirm branch `034-portable-validation-summaries` is active and working tree contains only intended 034 changes
+- [x] T002 Confirm Constitution Check gates in `/Users/sipke/Projects/ValenceWorks/aster/specs/034-portable-validation-summaries/plan.md` still pass before implementation
 
 ---
 
@@ -26,10 +26,10 @@
 
 **Purpose**: Identify existing summary patterns and portability validation contracts before writing code.
 
-- [ ] T003 Review existing portability summary implementation in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
-- [ ] T004 Review existing portability summary tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
-- [ ] T005 Review existing portability validation behavior tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortabilityValidationTests.cs`
-- [ ] T006 Confirm no new dependencies, service registration, provider changes, storage changes, public SQL, public `IQueryable<Resource>`, or mutation behavior are needed
+- [x] T003 Review existing portability summary implementation in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
+- [x] T004 Review existing portability summary tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
+- [x] T005 Review existing portability validation behavior tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortabilityValidationTests.cs`
+- [x] T006 Confirm no new dependencies, service registration, provider changes, storage changes, public SQL, public `IQueryable<Resource>`, or mutation behavior are needed
 
 **Checkpoint**: Existing patterns are understood and implementation can proceed.
 
@@ -43,15 +43,15 @@
 
 ### Tests for User Story 1
 
-- [ ] T007 [US1] Add failing valid-result summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
-- [ ] T008 [US1] Add failing mixed-diagnostic validation summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
+- [x] T007 [US1] Add failing valid-result summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
+- [x] T008 [US1] Add failing mixed-diagnostic validation summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add `PortableValidationSummary` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
-- [ ] T010 [US1] Add `ToSummary(this PortableSnapshotValidationResult result)` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
-- [ ] T011 [US1] Reuse existing severity/code count helpers for validation summary diagnostics in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
-- [ ] T012 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~PortableResultSummaryTests"`
+- [x] T009 [US1] Add `PortableValidationSummary` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
+- [x] T010 [US1] Add `ToSummary(this PortableSnapshotValidationResult result)` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
+- [x] T011 [US1] Reuse existing severity/code count helpers for validation summary diagnostics in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
+- [x] T012 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~PortableResultSummaryTests"`
 
 **Checkpoint**: P1 summary behavior works independently.
 
@@ -65,15 +65,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T013 [US2] Add failing null-diagnostics validation summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
-- [ ] T014 [US2] Add failing blank-code validation summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
-- [ ] T015 [US2] Add null-root validation summary assertion to existing null input test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
+- [x] T013 [US2] Add failing null-diagnostics validation summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
+- [x] T014 [US2] Add failing blank-code validation summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
+- [x] T015 [US2] Add null-root validation summary assertion to existing null input test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Portability/PortableResultSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Ensure validation summary treats null diagnostics as empty in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
-- [ ] T017 [US2] Ensure validation summary omits blank diagnostic codes while preserving total and severity counts in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
-- [ ] T018 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~PortableResultSummaryTests"`
+- [x] T016 [US2] Ensure validation summary treats null diagnostics as empty in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
+- [x] T017 [US2] Ensure validation summary omits blank diagnostic codes while preserving total and severity counts in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs`
+- [x] T018 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~PortableResultSummaryTests"`
 
 **Checkpoint**: Sparse validation results are summarized predictably.
 
@@ -87,14 +87,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T019 [US3] Run `dotnet test Aster.sln --filter "FullyQualifiedName~PortabilityValidationTests"`
-- [ ] T020 [US3] Run `dotnet test Aster.sln`
-- [ ] T021 [US3] Run `dotnet build Aster.sln /m:1`
+- [x] T019 [US3] Run `dotnet test Aster.sln --filter "FullyQualifiedName~PortabilityValidationTests"`
+- [x] T020 [US3] Run `dotnet test Aster.sln`
+- [x] T021 [US3] Run `dotnet build Aster.sln /m:1`
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Confirm `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs` has no service resolution, provider access, storage access, import/export execution, validation execution, or mutation behavior
-- [ ] T023 [US3] Confirm no DI registration, provider, storage, public SQL, public `IQueryable<Resource>`, or query planner files changed
+- [x] T022 [US3] Confirm `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Portability/PortableResultSummaries.cs` has no service resolution, provider access, storage access, import/export execution, validation execution, or mutation behavior
+- [x] T023 [US3] Confirm no DI registration, provider, storage, public SQL, public `IQueryable<Resource>`, or query planner files changed
 
 **Checkpoint**: Compatibility and non-goals are verified.
 
@@ -104,11 +104,11 @@
 
 **Purpose**: Keep feature artifacts and repository context aligned with the shipped implementation.
 
-- [ ] T024 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/specs/034-portable-validation-summaries/quickstart.md` if implementation names differ from plan
-- [ ] T025 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/AGENTS.md` recent change entry from planning context to shipped implementation
-- [ ] T026 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/docs/ExecutionRoadmap.md` if final scope changes during implementation
-- [ ] T027 Re-run Constitution Check and verify no unnecessary abstractions, dependencies, service registrations, or provider changes were introduced
-- [ ] T028 Mark all completed tasks in `/Users/sipke/Projects/ValenceWorks/aster/specs/034-portable-validation-summaries/tasks.md`
+- [x] T024 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/specs/034-portable-validation-summaries/quickstart.md` if implementation names differ from plan
+- [x] T025 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/AGENTS.md` recent change entry from planning context to shipped implementation
+- [x] T026 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/docs/ExecutionRoadmap.md` if final scope changes during implementation
+- [x] T027 Re-run Constitution Check and verify no unnecessary abstractions, dependencies, service registrations, or provider changes were introduced
+- [x] T028 Mark all completed tasks in `/Users/sipke/Projects/ValenceWorks/aster/specs/034-portable-validation-summaries/tasks.md`
 
 ---
 
