@@ -17,8 +17,8 @@
 
 **Purpose**: Confirm the working branch and feature artifacts are ready.
 
-- [ ] T001 Confirm branch `035-lifecycle-marker-result-summaries` is active and working tree contains only intended 035 changes
-- [ ] T002 Confirm Constitution Check gates in `/Users/sipke/Projects/ValenceWorks/aster/specs/035-lifecycle-marker-result-summaries/plan.md` still pass before implementation
+- [x] T001 Confirm branch `035-lifecycle-marker-result-summaries` is active and working tree contains only intended 035 changes
+- [x] T002 Confirm Constitution Check gates in `/Users/sipke/Projects/ValenceWorks/aster/specs/035-lifecycle-marker-result-summaries/plan.md` still pass before implementation
 
 ---
 
@@ -26,10 +26,10 @@
 
 **Purpose**: Identify existing marker result and policy diagnostic summary patterns before writing code.
 
-- [ ] T003 Review marker result model in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarker.cs`
-- [ ] T004 Review policy diagnostic summary patterns in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Policies/ResourcePolicyValidationSummaries.cs`
-- [ ] T005 Review lifecycle marker service compatibility tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerServiceTests.cs` and `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerConflictTests.cs`
-- [ ] T006 Confirm no new dependencies, service registration, provider changes, storage changes, public SQL, public `IQueryable<Resource>`, or mutation behavior are needed
+- [x] T003 Review marker result model in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarker.cs`
+- [x] T004 Review policy diagnostic summary patterns in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Policies/ResourcePolicyValidationSummaries.cs`
+- [x] T005 Review lifecycle marker service compatibility tests in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerServiceTests.cs` and `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerConflictTests.cs`
+- [x] T006 Confirm no new dependencies, service registration, provider changes, storage changes, public SQL, public `IQueryable<Resource>`, or mutation behavior are needed
 
 **Checkpoint**: Existing patterns are understood and implementation can proceed.
 
@@ -43,16 +43,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T007 [US1] Add failing successful single-result summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
-- [ ] T008 [US1] Add failing failed single-result summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
-- [ ] T009 [US1] Add null single-result assertion in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
+- [x] T007 [US1] Add failing successful single-result summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
+- [x] T008 [US1] Add failing failed single-result summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
+- [x] T009 [US1] Add null single-result assertion in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Add marker summary count records to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
-- [ ] T011 [US1] Add `ResourceLifecycleMarkerResultSummary` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
-- [ ] T012 [US1] Add `ToSummary(this ResourceLifecycleMarkerResult result)` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
-- [ ] T013 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleMarkerResultSummaryTests"`
+- [x] T010 [US1] Add marker summary count records to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
+- [x] T011 [US1] Add `ResourceLifecycleMarkerResultSummary` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
+- [x] T012 [US1] Add `ToSummary(this ResourceLifecycleMarkerResult result)` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
+- [x] T013 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleMarkerResultSummaryTests"`
 
 **Checkpoint**: P1 summary behavior works independently.
 
@@ -66,16 +66,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T014 [US2] Add failing mixed enumerable summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
-- [ ] T015 [US2] Add failing null and empty enumerable summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
-- [ ] T016 [US2] Add failing null nested diagnostics and blank keyed field summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
+- [x] T014 [US2] Add failing mixed enumerable summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
+- [x] T015 [US2] Add failing null and empty enumerable summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
+- [x] T016 [US2] Add failing null nested diagnostics and blank keyed field summary test in `/Users/sipke/Projects/ValenceWorks/aster/test/Aster.Tests/Policies/LifecycleMarkerResultSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Add `ToSummary(this IEnumerable<ResourceLifecycleMarkerResult>? results)` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
-- [ ] T018 [US2] Add deterministic marker state, marker resource, diagnostic path, and diagnostic resource count helpers in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
-- [ ] T019 [US2] Reuse existing `ResourcePolicyDiagnosticCodeCounter` for diagnostic code counts in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
-- [ ] T020 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleMarkerResultSummaryTests"`
+- [x] T017 [US2] Add `ToSummary(this IEnumerable<ResourceLifecycleMarkerResult>? results)` to `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
+- [x] T018 [US2] Add deterministic marker state, marker resource, diagnostic path, and diagnostic resource count helpers in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
+- [x] T019 [US2] Reuse existing `ResourcePolicyDiagnosticCodeCounter` for diagnostic code counts in `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs`
+- [x] T020 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleMarkerResultSummaryTests"`
 
 **Checkpoint**: Batch-style host summaries are deterministic and null-safe.
 
@@ -89,14 +89,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T021 [US3] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleMarkerServiceTests|FullyQualifiedName~LifecycleMarkerConflictTests"`
-- [ ] T022 [US3] Run `dotnet test Aster.sln`
-- [ ] T023 [US3] Run `dotnet build Aster.sln /m:1`
+- [x] T021 [US3] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleMarkerServiceTests|FullyQualifiedName~LifecycleMarkerConflictTests"`
+- [x] T022 [US3] Run `dotnet test Aster.sln`
+- [x] T023 [US3] Run `dotnet build Aster.sln /m:1`
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] Confirm `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs` has no service resolution, provider access, storage access, marker writes, policy evaluation, lifecycle dispatch, or mutation behavior
-- [ ] T025 [US3] Confirm no DI registration, provider, storage, public SQL, public `IQueryable<Resource>`, or query planner files changed
+- [x] T024 [US3] Confirm `/Users/sipke/Projects/ValenceWorks/aster/src/core/Aster.Core/Models/Instances/ResourceLifecycleMarkerSummaries.cs` has no service resolution, provider access, storage access, marker writes, policy evaluation, lifecycle dispatch, or mutation behavior
+- [x] T025 [US3] Confirm no DI registration, provider, storage, public SQL, public `IQueryable<Resource>`, or query planner files changed
 
 **Checkpoint**: Compatibility and non-goals are verified.
 
@@ -106,11 +106,11 @@
 
 **Purpose**: Keep feature artifacts and repository context aligned with the shipped implementation.
 
-- [ ] T026 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/specs/035-lifecycle-marker-result-summaries/quickstart.md` if implementation names differ from plan
-- [ ] T027 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/AGENTS.md` recent change entry from planning context to shipped implementation
-- [ ] T028 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/docs/ExecutionRoadmap.md` if final scope changes during implementation
-- [ ] T029 Re-run Constitution Check and verify no unnecessary abstractions, dependencies, service registrations, provider changes, or mutation paths were introduced
-- [ ] T030 Mark all completed tasks in `/Users/sipke/Projects/ValenceWorks/aster/specs/035-lifecycle-marker-result-summaries/tasks.md`
+- [x] T026 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/specs/035-lifecycle-marker-result-summaries/quickstart.md` if implementation names differ from plan
+- [x] T027 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/AGENTS.md` recent change entry from planning context to shipped implementation
+- [x] T028 [P] Update `/Users/sipke/Projects/ValenceWorks/aster/docs/ExecutionRoadmap.md` if final scope changes during implementation
+- [x] T029 Re-run Constitution Check and verify no unnecessary abstractions, dependencies, service registrations, provider changes, or mutation paths were introduced
+- [x] T030 Mark all completed tasks in `/Users/sipke/Projects/ValenceWorks/aster/specs/035-lifecycle-marker-result-summaries/tasks.md`
 
 ---
 
