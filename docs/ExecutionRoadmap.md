@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, and index projection summaries.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, and policy validation summaries.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, and index projection summaries have landed; policy validation summaries are the current bounded host-reporting slice.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, and policy validation summaries have landed; lifecycle hook outcome summaries are the current bounded host-reporting slice.
 
 ## Landed Slices
 
@@ -45,23 +45,24 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `029-schema-upgrade-summaries` | Landed | Pure host-facing schema status and schema upgrade summaries with deterministic status, upgrade-needed, blocking, unknown-lineage, upgraded-resource, carried-forward aspect-key, and definition-version counts without storage, provider, service registration, audit persistence, or mutation behavior. |
 | `030-query-validation-summaries` | Landed | Pure host-facing query validation summaries with deterministic failure-code, path, feature, total failure, and validity counts without storage, provider, service registration, query planner, execution behavior, public SQL, or public `IQueryable<Resource>`. |
 | `031-index-projection-summaries` | Landed | Pure host-facing index projection validation/evaluation summaries with deterministic failure-code, failure-field, failure-source, value-field-type, value-field, total value, total failure, and validity counts without storage, provider, service registration, query planner, execution behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
+| `032-policy-validation-summaries` | Landed | Pure host-facing policy validation summaries with deterministic diagnostic-code, diagnostic-path, policy-id, resource-id, resource-version, total diagnostic, and validity counts without storage, provider, service registration, scheduler, audit persistence, policy execution, policy validation behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 
 ## Near-Term Roadmap
 
-### 032 — Policy Validation Summaries
+### 033 — Lifecycle Hook Outcome Summaries
 
-**Status:** In progress on `032-policy-validation-summaries`.
+**Status:** In progress on `033-lifecycle-hook-outcome-summaries`.
 
-**Goal:** Add pure host-facing summaries for policy validation result objects.
+**Goal:** Add pure host-facing summaries for lifecycle hook outcome objects.
 
 Scope:
 
-- Summarize policy validation results with deterministic diagnostic-code, path, policy-id, resource-id, resource-version, total diagnostic, and validity counts.
-- Preserve pure transformation behavior over existing policy validation results with no storage, provider, service registration, scheduler, audit persistence, public SQL, public `IQueryable<Resource>`, policy execution, policy validation behavior, or mutation behavior.
+- Summarize manually supplied lifecycle hook outcomes with deterministic status, outcome-code, diagnostic-code, lifecycle-point, hook-type, total outcome, total diagnostic, and success/failure counts.
+- Preserve pure transformation behavior over existing lifecycle hook outcome objects with no storage, provider, service registration, scheduler, audit persistence, public SQL, public `IQueryable<Resource>`, lifecycle dispatcher behavior, hook execution behavior, or mutation behavior.
 
-### 033 — Next Bounded Slice
+### 034 — Next Bounded Slice
 
-**Goal:** Choose one small continuation slice after policy validation summaries land.
+**Goal:** Choose one small continuation slice after lifecycle hook outcome summaries land.
 
 Candidate scope:
 
