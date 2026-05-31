@@ -35,7 +35,7 @@
 
 ---
 
-## Phase 3: User Story 1 - Summarize Snapshot Validation (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Summarize Snapshot Validation (Priority: P1) MVP
 
 **Goal**: Hosts can summarize `PortableSnapshotValidationResult` validity and diagnostics through one public helper.
 
