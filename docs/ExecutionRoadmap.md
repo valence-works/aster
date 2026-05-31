@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, and lifecycle restore summaries.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, and policy preview summaries.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning**. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, and lifecycle restore summaries have landed; policy preview summaries are the current bounded host-reporting slice.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with a small cross-cutting portability reporting follow-up. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, and policy preview summaries have landed; portability result summaries are the current bounded host-reporting slice.
 
 ## Landed Slices
 
@@ -40,24 +40,25 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `024-version-history-summaries` | Landed | Pure host-facing summaries for single and batch version history results with deterministic version-state counts, selected/missing resource counts, lifecycle state counts, and no storage, provider, service, query planner, policy evaluation, or reporting infrastructure. |
 | `025-operational-hardening` | Landed | Bounded retry and concurrency-sensitive coverage for lifecycle restore, policy pruning retries, SQLite persisted pruning retries, and repeated historical activation without new product APIs, storage schema changes, schedulers, benchmark infrastructure, or dependencies. |
 | `026-lifecycle-restore-summaries` | Landed | Pure host-facing lifecycle restore preview and application summaries with deterministic status counts, affected resource counts, diagnostic counts, completion booleans, and no storage, provider, service registration, audit persistence, or mutation behavior. |
+| `027-policy-preview-summaries` | Landed | Pure host-facing policy preview summaries with deterministic candidate, outcome, policy-kind, distinct resource, distinct resource-version target, and diagnostic counts without storage, provider, service registration, audit persistence, or mutation behavior. |
 
 ## Near-Term Roadmap
 
-### 027 — Policy Preview Summaries
+### 028 — Portability Result Summaries
 
-**Status:** In progress on `027-policy-preview-summaries`.
+**Status:** In progress on `028-portability-result-summaries`.
 
-**Goal:** Add pure host-facing summaries for policy evaluation preview results.
+**Goal:** Add pure host-facing summaries for portability export, import preview, and import result objects.
 
 Scope:
 
-- Summarize policy preview candidates with deterministic total, outcome, policy-kind, distinct resource, and distinct resource-version target counts.
-- Summarize preview diagnostics with deterministic diagnostic-code counts and diagnostic booleans.
-- Preserve pure transformation behavior over existing result objects with no service registration, provider access, storage changes, audit persistence, schedulers, public SQL, public `IQueryable<Resource>`, or mutation behavior.
+- Summarize export results with deterministic snapshot entity counts, skipped activation counts, diagnostic severity counts, and diagnostic-code counts.
+- Summarize import previews and import results with deterministic planned/actual count totals, identity mapping reason counts, diagnostic counts, and status booleans.
+- Preserve pure transformation behavior over existing result objects with no service registration, provider access, storage changes, recipe package, audit persistence, schedulers, public SQL, public `IQueryable<Resource>`, or mutation behavior.
 
-### 028 — Next Bounded Phase 5 Slice
+### 029 — Next Bounded Slice
 
-**Goal:** Choose one small continuation slice after policy preview summaries land.
+**Goal:** Choose one small continuation slice after portability result summaries land.
 
 Candidate scope:
 
