@@ -17,8 +17,8 @@
 
 **Purpose**: Confirm the feature has the expected bounded SDK shape before implementation.
 
-- [ ] T001 Confirm active feature context points at `specs/031-index-projection-summaries` in `.specify/feature.json` and `AGENTS.md`
-- [ ] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, physical indexes, query planner, public SQL, public `IQueryable<Resource>`, execution behavior changes, or mutation behavior are planned in `specs/031-index-projection-summaries/plan.md`
+- [x] T001 Confirm active feature context points at `specs/031-index-projection-summaries` in `.specify/feature.json` and `AGENTS.md`
+- [x] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, physical indexes, query planner, public SQL, public `IQueryable<Resource>`, execution behavior changes, or mutation behavior are planned in `specs/031-index-projection-summaries/plan.md`
 
 ---
 
@@ -28,8 +28,8 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
-- [ ] T004 [P] Create focused test file shell in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
+- [x] T004 [P] Create focused test file shell in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
 
 **Checkpoint**: Summary file and test file exist; user story implementation can begin.
 
@@ -43,15 +43,15 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [US1] Add success validation summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
-- [ ] T006 [US1] Add mixed validation failure summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
-- [ ] T007 [US1] Add blank validation failure key tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T005 [US1] Add success validation summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T006 [US1] Add mixed validation failure summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T007 [US1] Add blank validation failure key tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement projection failure count records and `IndexProjectionValidationSummary` in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
-- [ ] T009 [US1] Implement `ToSummary(this IndexProjectionValidationResult result)` with deterministic failure counts in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
-- [ ] T010 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionSummaryTests"` and confirm US1 tests pass
+- [x] T008 [US1] Implement projection failure count records and `IndexProjectionValidationSummary` in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
+- [x] T009 [US1] Implement `ToSummary(this IndexProjectionValidationResult result)` with deterministic failure counts in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
+- [x] T010 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionSummaryTests"` and confirm US1 tests pass
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -65,15 +65,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T011 [US2] Add successful evaluation value summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
-- [ ] T012 [US2] Add mixed evaluation value/failure summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
-- [ ] T013 [US2] Add empty/null nested evaluation collection tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T011 [US2] Add successful evaluation value summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T012 [US2] Add mixed evaluation value/failure summary tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
+- [x] T013 [US2] Add empty/null nested evaluation collection tests in `test/Aster.Tests/Querying/IndexProjectionSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Implement projection value count records and `IndexProjectionEvaluationSummary` in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
-- [ ] T015 [US2] Implement `ToSummary(this IndexProjectionEvaluationResult result)` with deterministic value and failure counts in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
-- [ ] T016 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionSummaryTests"` and confirm US1/US2 tests pass
+- [x] T014 [US2] Implement projection value count records and `IndexProjectionEvaluationSummary` in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
+- [x] T015 [US2] Implement `ToSummary(this IndexProjectionEvaluationResult result)` with deterministic value and failure counts in `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs`
+- [x] T016 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionSummaryTests"` and confirm US1/US2 tests pass
 
 **Checkpoint**: User Stories 1 and 2 are independently functional and testable.
 
@@ -87,14 +87,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T017 [US3] Verify existing projection declaration behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionDeclarationTests"`
-- [ ] T018 [US3] Verify existing projection evaluation behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionEvaluationTests"`
-- [ ] T019 [US3] Verify full test suite with `dotnet test Aster.sln`
+- [x] T017 [US3] Verify existing projection declaration behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionDeclarationTests"`
+- [x] T018 [US3] Verify existing projection evaluation behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~IndexProjectionEvaluationTests"`
+- [x] T019 [US3] Verify full test suite with `dotnet test Aster.sln`
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Review `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs` for no store/provider/service/physical-index/query-planner/execution/public-SQL/public-IQueryable/mutation behavior
-- [ ] T021 [US3] Run `dotnet build Aster.sln /m:1`
+- [x] T020 [US3] Review `src/core/Aster.Core/Models/Querying/IndexProjectionSummaries.cs` for no store/provider/service/physical-index/query-planner/execution/public-SQL/public-IQueryable/mutation behavior
+- [x] T021 [US3] Run `dotnet build Aster.sln /m:1`
 
 **Checkpoint**: Existing behavior remains unchanged.
 
@@ -104,11 +104,11 @@
 
 **Purpose**: Documentation, cleanup, and final validation.
 
-- [ ] T022 Update `specs/031-index-projection-summaries/quickstart.md` if implementation names differ from the planned contract
-- [ ] T023 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
-- [ ] T024 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, service registration, physical index, query planner, execution, public SQL, public `IQueryable<Resource>`, or mutation scope
-- [ ] T025 Run `git diff --check`
-- [ ] T026 Mark all tasks complete in `specs/031-index-projection-summaries/tasks.md`
+- [x] T022 Update `specs/031-index-projection-summaries/quickstart.md` if implementation names differ from the planned contract
+- [x] T023 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
+- [x] T024 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, service registration, physical index, query planner, execution, public SQL, public `IQueryable<Resource>`, or mutation scope
+- [x] T025 Run `git diff --check`
+- [x] T026 Mark all tasks complete in `specs/031-index-projection-summaries/tasks.md`
 
 ---
 
