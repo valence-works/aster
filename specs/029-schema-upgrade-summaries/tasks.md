@@ -17,8 +17,8 @@
 
 **Purpose**: Confirm the feature has the expected bounded SDK shape before implementation.
 
-- [ ] T001 Confirm active feature context points at `specs/029-schema-upgrade-summaries` in `.specify/feature.json` and `AGENTS.md`
-- [ ] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, schedulers, audit persistence, public SQL, or public `IQueryable<Resource>` are planned in `specs/029-schema-upgrade-summaries/plan.md`
+- [x] T001 Confirm active feature context points at `specs/029-schema-upgrade-summaries` in `.specify/feature.json` and `AGENTS.md`
+- [x] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, schedulers, audit persistence, public SQL, or public `IQueryable<Resource>` are planned in `specs/029-schema-upgrade-summaries/plan.md`
 
 ---
 
@@ -28,8 +28,8 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
-- [ ] T004 [P] Create focused test file shell in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
+- [x] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
+- [x] T004 [P] Create focused test file shell in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
 
 **Checkpoint**: Summary file and test file exist; user story implementation can begin.
 
@@ -43,14 +43,14 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [US1] Add mixed schema status summary tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
-- [ ] T006 [US1] Add empty/null schema status collection tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
+- [x] T005 [US1] Add mixed schema status summary tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
+- [x] T006 [US1] Add empty/null schema status collection tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implement `ResourceSchemaStatusCount` and `ResourceSchemaStatusSummary` in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
-- [ ] T008 [US1] Implement `ToSummary(this IEnumerable<ResourceSchemaStatusResult>? results)` with deterministic status counts in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
-- [ ] T009 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceSchemaUpgradeSummaryTests"` and confirm US1 tests pass
+- [x] T007 [US1] Implement `ResourceSchemaStatusCount` and `ResourceSchemaStatusSummary` in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
+- [x] T008 [US1] Implement `ToSummary(this IEnumerable<ResourceSchemaStatusResult>? results)` with deterministic status counts in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
+- [x] T009 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceSchemaUpgradeSummaryTests"` and confirm US1 tests pass
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -64,16 +64,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T010 [US2] Add mixed schema upgrade summary tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
-- [ ] T011 [US2] Add unknown source version and blank carried-forward aspect key tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
-- [ ] T012 [US2] Add empty/null schema upgrade collection tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
+- [x] T010 [US2] Add mixed schema upgrade summary tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
+- [x] T011 [US2] Add unknown source version and blank carried-forward aspect key tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
+- [x] T012 [US2] Add empty/null schema upgrade collection tests in `test/Aster.Tests/SchemaVersions/ResourceSchemaUpgradeSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Implement `ResourceSchemaUpgradeStatusCount`, `ResourceSchemaDefinitionVersionCount`, and `ResourceSchemaCarriedForwardAspectKeyCount` in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
-- [ ] T014 [US2] Implement `ResourceSchemaUpgradeSummary` in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
-- [ ] T015 [US2] Implement `ToSummary(this IEnumerable<ResourceSchemaUpgradeResult>? results)` with deterministic status, version, and aspect-key counts in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
-- [ ] T016 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceSchemaUpgradeSummaryTests"` and confirm US1/US2 tests pass
+- [x] T013 [US2] Implement `ResourceSchemaUpgradeStatusCount`, `ResourceSchemaDefinitionVersionCount`, and `ResourceSchemaCarriedForwardAspectKeyCount` in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
+- [x] T014 [US2] Implement `ResourceSchemaUpgradeSummary` in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
+- [x] T015 [US2] Implement `ToSummary(this IEnumerable<ResourceSchemaUpgradeResult>? results)` with deterministic status, version, and aspect-key counts in `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs`
+- [x] T016 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceSchemaUpgradeSummaryTests"` and confirm US1/US2 tests pass
 
 **Checkpoint**: User Stories 1 and 2 are independently functional and testable.
 
@@ -87,13 +87,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T017 [US3] Verify existing schema version behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceSchemaVersionServiceTests"`
-- [ ] T018 [US3] Verify full test suite with `dotnet test Aster.sln`
+- [x] T017 [US3] Verify existing schema version behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceSchemaVersionServiceTests"`
+- [x] T018 [US3] Verify full test suite with `dotnet test Aster.sln`
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Review `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs` for no store/provider/service/scheduler/audit/query/mutation behavior
-- [ ] T020 [US3] Run `dotnet build Aster.sln /m:1`
+- [x] T019 [US3] Review `src/core/Aster.Core/Models/Instances/ResourceSchemaUpgradeSummaries.cs` for no store/provider/service/scheduler/audit/query/mutation behavior
+- [x] T020 [US3] Run `dotnet build Aster.sln /m:1`
 
 **Checkpoint**: Existing behavior remains unchanged.
 
@@ -103,11 +103,11 @@
 
 **Purpose**: Documentation, cleanup, and final validation.
 
-- [ ] T021 Update `specs/029-schema-upgrade-summaries/quickstart.md` if implementation names differ from the planned contract
-- [ ] T022 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
-- [ ] T023 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, scheduler, audit, query, or mutation scope
-- [ ] T024 Run `git diff --check`
-- [ ] T025 Mark all tasks complete in `specs/029-schema-upgrade-summaries/tasks.md`
+- [x] T021 Update `specs/029-schema-upgrade-summaries/quickstart.md` if implementation names differ from the planned contract
+- [x] T022 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
+- [x] T023 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, scheduler, audit, query, or mutation scope
+- [x] T024 Run `git diff --check`
+- [x] T025 Mark all tasks complete in `specs/029-schema-upgrade-summaries/tasks.md`
 
 ---
 
