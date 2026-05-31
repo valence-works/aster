@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/025-operational-hardening/plan.md`.
+shell commands, and other important information, read `specs/026-lifecycle-restore-summaries/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -36,8 +36,11 @@ shell commands, and other important information, read `specs/025-operational-har
 - No storage changes. Summaries are pure in-memory views over existing result objects; no schema migration, persistence, provider storage, or physical index changes. (024-version-history-summaries)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, lifecycle restore service, policy pruning application service, historical activation path, xUnit test stack; no new dependencies (025-operational-hardening)
 - Existing resource version, activation state, and lifecycle marker storage only. No schema migration, data rewrite, persisted test artifacts, or physical index changes. (025-operational-hardening)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK lifecycle restore models, policy diagnostic models, xUnit test stack; no new dependencies (026-lifecycle-restore-summaries)
+- No storage changes. Summaries are pure in-memory views over existing restore result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (026-lifecycle-restore-summaries)
 
 ## Recent Changes
+- 026-lifecycle-restore-summaries: Added pure host-facing lifecycle restore preview and application summaries with deterministic status counts, affected resource counts, diagnostic code counts, completion booleans, and no storage, provider, service registration, scheduler, audit persistence, public SQL, public IQueryable<Resource>, query planner, or mutation behavior
 - 025-operational-hardening: Added bounded operational hardening planning and test context for lifecycle restore retries, same-candidate restore races, policy pruning retries, persisted SQLite pruning retries, and repeated historical activation without new product APIs, storage schema changes, providers, schedulers, benchmark infrastructure, or dependencies
 - 024-version-history-summaries: Added pure host-facing summaries for single and batch version history results with deterministic version-state counts, selected/missing resource counts, lifecycle state counts, and no storage, provider, service, query planner, public SQL, public IQueryable<Resource>, policy evaluation, reporting infrastructure, or mutation behavior
 - 023-batch-version-history: Added explicit batch version history planning and implementation context for selected resource IDs with first-seen distinct ordering, tenant scoping, missing-resource histories, SQLite parity, and no storage migrations, query planner, provider registry, public SQL, public IQueryable<Resource>, runtime scanning, automatic discovery, or mutation behavior
