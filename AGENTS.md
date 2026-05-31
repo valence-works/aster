@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/033-lifecycle-hook-outcome-summaries/plan.md`.
+shell commands, and other important information, read `specs/034-portable-validation-summaries/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -52,8 +52,11 @@ shell commands, and other important information, read `specs/033-lifecycle-hook-
 - No storage changes. Summaries are pure in-memory views over existing policy validation result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (032-policy-validation-summaries)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK lifecycle hook models and xUnit test stack; no new dependencies (033-lifecycle-hook-outcome-summaries)
 - No storage changes. Summaries are pure in-memory views over supplied lifecycle hook outcome objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (033-lifecycle-hook-outcome-summaries)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK portability models and xUnit test stack; no new dependencies (034-portable-validation-summaries)
+- No storage changes. Summaries are pure in-memory views over supplied portability validation result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (034-portable-validation-summaries)
 
 ## Recent Changes
+- 034-portable-validation-summaries: Added planning context for pure host-facing portable snapshot validation summaries with deterministic validity, error, total diagnostic, diagnostic severity, and diagnostic code counts, and no storage, provider, service registration, reporting framework, import/export behavior, validation behavior, public SQL, public IQueryable<Resource>, or mutation behavior
 - 033-lifecycle-hook-outcome-summaries: Added pure host-facing lifecycle hook outcome summaries with deterministic status, outcome-code, diagnostic-code, lifecycle-point, hook-type, total outcome, total diagnostic, and success/failure counts, and no storage, provider, service registration, scheduler, audit persistence, lifecycle dispatcher behavior, hook execution behavior, public SQL, public IQueryable<Resource>, or mutation behavior
 - 032-policy-validation-summaries: Added pure host-facing policy validation summaries with deterministic diagnostic-code, diagnostic-path, policy-id, resource-id, resource-version, total diagnostic, and validity counts, and no storage, provider, service registration, scheduler, audit persistence, policy execution, policy validation behavior, public SQL, public IQueryable<Resource>, or mutation behavior
 - 031-index-projection-summaries: Added pure host-facing index projection validation/evaluation summaries with deterministic failure-code, failure-field, failure-source, value-field-type, value-field, total value, total failure, and validity counts, and no physical indexes, storage, provider, service registration, query planner, execution behavior, public SQL, public IQueryable<Resource>, or mutation behavior
