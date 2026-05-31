@@ -17,8 +17,8 @@
 
 **Purpose**: Confirm the feature has the expected bounded SDK shape before implementation.
 
-- [ ] T001 Confirm active feature context points at `specs/033-lifecycle-hook-outcome-summaries` in `.specify/feature.json` and `AGENTS.md`
-- [ ] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, schedulers, audit persistence, lifecycle dispatcher behavior changes, hook execution behavior changes, public SQL, public `IQueryable<Resource>`, query planner, or mutation behavior are planned in `specs/033-lifecycle-hook-outcome-summaries/plan.md`
+- [x] T001 Confirm active feature context points at `specs/033-lifecycle-hook-outcome-summaries` in `.specify/feature.json` and `AGENTS.md`
+- [x] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, schedulers, audit persistence, lifecycle dispatcher behavior changes, hook execution behavior changes, public SQL, public `IQueryable<Resource>`, query planner, or mutation behavior are planned in `specs/033-lifecycle-hook-outcome-summaries/plan.md`
 
 ---
 
@@ -28,8 +28,8 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
-- [ ] T004 [P] Create focused test file shell in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
+- [x] T004 [P] Create focused test file shell in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
 
 **Checkpoint**: Summary file and test file exist; user story implementation can begin.
 
@@ -43,15 +43,15 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [US1] Add successful single-outcome summary tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
-- [ ] T006 [US1] Add mixed outcome status summary tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
-- [ ] T007 [US1] Add null single-outcome and null/empty enumerable tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T005 [US1] Add successful single-outcome summary tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T006 [US1] Add mixed outcome status summary tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T007 [US1] Add null single-outcome and null/empty enumerable tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement `LifecycleHookOutcomeSummary` and status/code count records in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
-- [ ] T009 [US1] Implement single-outcome and enumerable `ToSummary()` helpers with status and outcome-code counts in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
-- [ ] T010 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleHookOutcomeSummaryTests"` and confirm US1 tests pass
+- [x] T008 [US1] Implement `LifecycleHookOutcomeSummary` and status/code count records in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
+- [x] T009 [US1] Implement single-outcome and enumerable `ToSummary()` helpers with status and outcome-code counts in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
+- [x] T010 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleHookOutcomeSummaryTests"` and confirm US1 tests pass
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -65,15 +65,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T011 [US2] Add diagnostic code and lifecycle point grouping tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
-- [ ] T012 [US2] Add hook type grouping and blank key filtering tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
-- [ ] T013 [US2] Add null nested diagnostic collection tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T011 [US2] Add diagnostic code and lifecycle point grouping tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T012 [US2] Add hook type grouping and blank key filtering tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
+- [x] T013 [US2] Add null nested diagnostic collection tests in `test/Aster.Tests/Lifecycle/LifecycleHookOutcomeSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Implement diagnostic code, lifecycle point, and hook type count records in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
-- [ ] T015 [US2] Extend `ToSummary()` helpers with deterministic diagnostic total and grouped diagnostic counts in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
-- [ ] T016 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleHookOutcomeSummaryTests"` and confirm US1/US2 tests pass
+- [x] T014 [US2] Implement diagnostic code, lifecycle point, and hook type count records in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
+- [x] T015 [US2] Extend `ToSummary()` helpers with deterministic diagnostic total and grouped diagnostic counts in `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs`
+- [x] T016 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~LifecycleHookOutcomeSummaryTests"` and confirm US1/US2 tests pass
 
 **Checkpoint**: User Stories 1 and 2 are independently functional and testable.
 
@@ -87,13 +87,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T017 [US3] Verify existing dispatcher behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceLifecycleHookDispatcherTests"`
-- [ ] T018 [US3] Verify full test suite with `dotnet test Aster.sln`
+- [x] T017 [US3] Verify existing dispatcher behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceLifecycleHookDispatcherTests"`
+- [x] T018 [US3] Verify full test suite with `dotnet test Aster.sln`
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Review `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs` for no storage/provider/service/scheduler/audit/dispatcher/hook-execution/public-SQL/public-IQueryable/query-planner/mutation behavior
-- [ ] T020 [US3] Run `dotnet build Aster.sln /m:1`
+- [x] T019 [US3] Review `src/core/Aster.Core/Models/Lifecycle/LifecycleHookOutcomeSummaries.cs` for no storage/provider/service/scheduler/audit/dispatcher/hook-execution/public-SQL/public-IQueryable/query-planner/mutation behavior
+- [x] T020 [US3] Run `dotnet build Aster.sln /m:1`
 
 **Checkpoint**: Existing behavior remains unchanged.
 
@@ -103,11 +103,11 @@
 
 **Purpose**: Documentation, cleanup, and final validation.
 
-- [ ] T021 Update `specs/033-lifecycle-hook-outcome-summaries/quickstart.md` if implementation names differ from the planned contract
-- [ ] T022 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
-- [ ] T023 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, service registration, scheduler, audit persistence, dispatcher behavior, hook execution behavior, public SQL, public `IQueryable<Resource>`, query planner, or mutation scope
-- [ ] T024 Run `git diff --check`
-- [ ] T025 Mark all tasks complete in `specs/033-lifecycle-hook-outcome-summaries/tasks.md`
+- [x] T021 Update `specs/033-lifecycle-hook-outcome-summaries/quickstart.md` if implementation names differ from the planned contract
+- [x] T022 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
+- [x] T023 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, service registration, scheduler, audit persistence, dispatcher behavior, hook execution behavior, public SQL, public `IQueryable<Resource>`, query planner, or mutation scope
+- [x] T024 Run `git diff --check`
+- [x] T025 Mark all tasks complete in `specs/033-lifecycle-hook-outcome-summaries/tasks.md`
 
 ---
 
