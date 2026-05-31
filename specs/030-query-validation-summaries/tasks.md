@@ -17,8 +17,8 @@
 
 **Purpose**: Confirm the feature has the expected bounded SDK shape before implementation.
 
-- [ ] T001 Confirm active feature context points at `specs/030-query-validation-summaries` in `.specify/feature.json` and `AGENTS.md`
-- [ ] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, query planner, public SQL, public `IQueryable<Resource>`, execution behavior changes, or mutation behavior are planned in `specs/030-query-validation-summaries/plan.md`
+- [x] T001 Confirm active feature context points at `specs/030-query-validation-summaries` in `.specify/feature.json` and `AGENTS.md`
+- [x] T002 Confirm no new dependencies, storage changes, provider changes, service registrations, query planner, public SQL, public `IQueryable<Resource>`, execution behavior changes, or mutation behavior are planned in `specs/030-query-validation-summaries/plan.md`
 
 ---
 
@@ -28,8 +28,8 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
-- [ ] T004 [P] Create focused test file shell in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
+- [x] T003 Create summary model shell and extension class in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
+- [x] T004 [P] Create focused test file shell in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
 
 **Checkpoint**: Summary file and test file exist; user story implementation can begin.
 
@@ -43,14 +43,14 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [US1] Add success validation summary tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
-- [ ] T006 [US1] Add mixed failure-code summary tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
+- [x] T005 [US1] Add success validation summary tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
+- [x] T006 [US1] Add mixed failure-code summary tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implement `QueryValidationFailureCodeCount` and `QueryValidationSummary` in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
-- [ ] T008 [US1] Implement `ToSummary(this QueryValidationResult result)` with total failure and deterministic code counts in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
-- [ ] T009 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~QueryValidationSummaryTests"` and confirm US1 tests pass
+- [x] T007 [US1] Implement `QueryValidationFailureCodeCount` and `QueryValidationSummary` in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
+- [x] T008 [US1] Implement `ToSummary(this QueryValidationResult result)` with total failure and deterministic code counts in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
+- [x] T009 [US1] Run `dotnet test Aster.sln --filter "FullyQualifiedName~QueryValidationSummaryTests"` and confirm US1 tests pass
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -64,14 +64,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T010 [US2] Add failure path count tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
-- [ ] T011 [US2] Add failure feature count and blank-key tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
+- [x] T010 [US2] Add failure path count tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
+- [x] T011 [US2] Add failure feature count and blank-key tests in `test/Aster.Tests/Querying/QueryValidationSummaryTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Implement `QueryValidationFailurePathCount` and `QueryValidationFailureFeatureCount` in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
-- [ ] T013 [US2] Extend `ToSummary(this QueryValidationResult result)` with deterministic path and feature counts in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
-- [ ] T014 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~QueryValidationSummaryTests"` and confirm US1/US2 tests pass
+- [x] T012 [US2] Implement `QueryValidationFailurePathCount` and `QueryValidationFailureFeatureCount` in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
+- [x] T013 [US2] Extend `ToSummary(this QueryValidationResult result)` with deterministic path and feature counts in `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs`
+- [x] T014 [US2] Run `dotnet test Aster.sln --filter "FullyQualifiedName~QueryValidationSummaryTests"` and confirm US1/US2 tests pass
 
 **Checkpoint**: User Stories 1 and 2 are independently functional and testable.
 
@@ -85,13 +85,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T015 [US3] Verify existing query validator behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceQueryValidatorTests"`
-- [ ] T016 [US3] Verify full test suite with `dotnet test Aster.sln`
+- [x] T015 [US3] Verify existing query validator behavior with `dotnet test Aster.sln --filter "FullyQualifiedName~ResourceQueryValidatorTests"`
+- [x] T016 [US3] Verify full test suite with `dotnet test Aster.sln`
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Review `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs` for no store/provider/service/query-planner/execution/public-SQL/public-IQueryable/mutation behavior
-- [ ] T018 [US3] Run `dotnet build Aster.sln /m:1`
+- [x] T017 [US3] Review `src/core/Aster.Core/Models/Querying/QueryValidationSummaries.cs` for no store/provider/service/query-planner/execution/public-SQL/public-IQueryable/mutation behavior
+- [x] T018 [US3] Run `dotnet build Aster.sln /m:1`
 
 **Checkpoint**: Existing behavior remains unchanged.
 
@@ -101,11 +101,11 @@
 
 **Purpose**: Documentation, cleanup, and final validation.
 
-- [ ] T019 Update `specs/030-query-validation-summaries/quickstart.md` if implementation names differ from the planned contract
-- [ ] T020 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
-- [ ] T021 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, service registration, query planner, execution, public SQL, public `IQueryable<Resource>`, or mutation scope
-- [ ] T022 Run `git diff --check`
-- [ ] T023 Mark all tasks complete in `specs/030-query-validation-summaries/tasks.md`
+- [x] T019 Update `specs/030-query-validation-summaries/quickstart.md` if implementation names differ from the planned contract
+- [x] T020 Update `AGENTS.md` recent changes entry from planning context to landed implementation wording
+- [x] T021 Re-run Constitution Check and remove any unnecessary abstraction, dependency, provider, storage, service registration, query planner, execution, public SQL, public `IQueryable<Resource>`, or mutation scope
+- [x] T022 Run `git diff --check`
+- [x] T023 Mark all tasks complete in `specs/030-query-validation-summaries/tasks.md`
 
 ---
 
