@@ -107,6 +107,9 @@ public sealed class PortableResultSummaryTests
         Assert.Equal(
             [(PortableDiagnosticSeverity.Error, 1)],
             summary.DiagnosticSeverityCounts.Select(static count => (count.Severity, count.Count)).ToList());
+        Assert.Equal(
+            [(PortableDiagnosticCodes.DivergentIdentityCollision, 1)],
+            summary.DiagnosticCodeCounts.Select(static count => (count.Code, count.Count)).ToList());
     }
 
     [Fact]
@@ -162,6 +165,9 @@ public sealed class PortableResultSummaryTests
         Assert.Equal(
             [(PortableDiagnosticSeverity.Error, 1)],
             failedSummary.DiagnosticSeverityCounts.Select(static count => (count.Severity, count.Count)).ToList());
+        Assert.Equal(
+            [(PortableDiagnosticCodes.ImportApplyFailed, 1)],
+            failedSummary.DiagnosticCodeCounts.Select(static count => (count.Code, count.Count)).ToList());
     }
 
     [Fact]
@@ -193,10 +199,12 @@ public sealed class PortableResultSummaryTests
         Assert.Equal(0, previewSummary.TotalPlannedItemCount);
         Assert.Empty(previewSummary.MappingReasonCounts);
         Assert.Empty(previewSummary.DiagnosticSeverityCounts);
+        Assert.Empty(previewSummary.DiagnosticCodeCounts);
         Assert.False(previewSummary.HasErrors);
         Assert.Equal(0, importSummary.TotalActualItemCount);
         Assert.Empty(importSummary.MappingReasonCounts);
         Assert.Empty(importSummary.DiagnosticSeverityCounts);
+        Assert.Empty(importSummary.DiagnosticCodeCounts);
         Assert.False(importSummary.HasErrors);
     }
 
