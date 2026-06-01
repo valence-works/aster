@@ -17,10 +17,10 @@
 
 **Purpose**: Confirm branch, scope, and existing test patterns before implementation.
 
-- [ ] T001 Confirm branch `037-sqlite-startup-concurrency` is active
-- [ ] T002 Review existing SQLite idempotency test helpers in `test/Aster.Tests/SqliteJson/SqliteJsonSchemaIdempotencyTests.cs`
-- [ ] T003 Review SQLite schema initialization behavior in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
-- [ ] T004 Confirm Constitution Check gates still pass before implementation begins
+- [X] T001 Confirm branch `037-sqlite-startup-concurrency` is active
+- [X] T002 Review existing SQLite idempotency test helpers in `test/Aster.Tests/SqliteJson/SqliteJsonSchemaIdempotencyTests.cs`
+- [X] T003 Review SQLite schema initialization behavior in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
+- [X] T004 Confirm Constitution Check gates still pass before implementation begins
 
 ---
 
@@ -30,9 +30,9 @@
 
 **CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T005 Add or reuse temporary database and provider construction helpers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
-- [ ] T006 Add or reuse seeded definition/resource/activation/marker fixture helpers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
-- [ ] T007 Add or reuse table metadata/count assertion helpers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T005 Add or reuse temporary database and provider construction helpers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T006 Add or reuse seeded definition/resource/activation/marker fixture helpers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T007 Add or reuse table metadata/count assertion helpers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
 
 **Checkpoint**: Shared concurrent startup test setup is ready.
 
@@ -46,12 +46,12 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [US1] Add concurrent fresh-database startup test in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
-- [ ] T009 [US1] Verify post-startup definition/resource save and read behavior in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T008 [US1] Add concurrent fresh-database startup test in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T009 [US1] Verify post-startup definition/resource save and read behavior in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] If T008/T009 expose a defect, apply the smallest SQLite schema/provider fix in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
+- [X] T010 [US1] Confirm no production SQLite schema/provider fix is needed for fresh concurrent startup in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
 
 **Checkpoint**: Fresh database concurrent startup is independently covered.
 
@@ -65,13 +65,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T011 [US2] Add seeded existing-database concurrent startup test in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
-- [ ] T012 [US2] Assert seeded definitions/resources/activation/markers remain intact in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
-- [ ] T013 [US2] Assert tenant-aware table metadata, row counts, and no bootstrap leftovers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T011 [US2] Add seeded existing-database concurrent startup test in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T012 [US2] Assert seeded definitions/resources/activation/markers remain intact in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T013 [US2] Assert tenant-aware table metadata, row counts, and no bootstrap leftovers in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] If T011-T013 expose a defect, apply the smallest SQLite schema/provider fix in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
+- [X] T014 [US2] Confirm no production SQLite schema/provider fix is needed for existing concurrent startup in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
 
 **Checkpoint**: Existing tenant-aware database concurrent startup is independently covered.
 
@@ -85,11 +85,11 @@
 
 ### Tests for User Story 3
 
-- [ ] T015 [US3] Add concurrent `InitializeSchema=false` construction test in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
+- [X] T015 [US3] Add concurrent `InitializeSchema=false` construction test in `test/Aster.Tests/SqliteJson/SqliteJsonStartupConcurrencyTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] If T015 exposes a defect, apply the smallest SQLite provider fix in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
+- [X] T016 [US3] Confirm no production SQLite provider fix is needed for concurrent no-schema construction in `src/persistence/Aster.Persistence.SqliteJson/SqliteJsonSchema.cs`
 
 **Checkpoint**: Passive no-schema concurrent construction is independently covered.
 
@@ -99,12 +99,12 @@
 
 **Purpose**: Update tracking artifacts and validate the slice.
 
-- [ ] T017 Update `docs/ExecutionRoadmap.md` to mark 036 landed and 037 in progress
-- [ ] T018 Update `AGENTS.md` Recent Changes entry if implementation details differ from planning assumptions
-- [ ] T019 Run focused validation from `specs/037-sqlite-startup-concurrency/quickstart.md`
-- [ ] T020 Run `dotnet test Aster.sln`
-- [ ] T021 Run `dotnet build Aster.sln /m:1`
-- [ ] T022 Re-run Constitution Check and remove unnecessary abstractions/dependencies before final verification
+- [X] T017 Update `docs/ExecutionRoadmap.md` to mark 036 landed and 037 in progress
+- [X] T018 Update `AGENTS.md` Recent Changes entry if implementation details differ from planning assumptions
+- [X] T019 Run focused validation from `specs/037-sqlite-startup-concurrency/quickstart.md`
+- [X] T020 Run `dotnet test Aster.sln`
+- [X] T021 Run `dotnet build Aster.sln /m:1`
+- [X] T022 Re-run Constitution Check and remove unnecessary abstractions/dependencies before final verification
 
 ---
 

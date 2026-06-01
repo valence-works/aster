@@ -1,14 +1,14 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, and lifecycle marker result summaries.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, lifecycle marker result summaries, and SQLite schema idempotency hardening.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting and operational-hardening follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, and lifecycle marker result summaries have landed; SQLite schema idempotency hardening is the current bounded operational slice.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting and operational-hardening follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, lifecycle marker result summaries, and SQLite schema idempotency hardening have landed; SQLite startup concurrency hardening is the current bounded operational slice.
 
 ## Landed Slices
 
@@ -49,24 +49,26 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `033-lifecycle-hook-outcome-summaries` | Landed | Pure host-facing lifecycle hook outcome summaries with deterministic status, outcome-code, diagnostic-code, lifecycle-point, hook-type, total outcome, total diagnostic, success, and failure counts without storage, provider, service registration, scheduler, audit persistence, lifecycle dispatcher behavior, hook execution behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 | `034-portable-validation-summaries` | Landed | Pure host-facing portable snapshot validation summaries with deterministic validity, error, total diagnostic, diagnostic severity, and diagnostic code counts without storage, provider, service registration, reporting framework, import/export behavior, validation behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 | `035-lifecycle-marker-result-summaries` | Landed | Pure host-facing lifecycle marker result summaries with deterministic success, failure, marker state, marker resource, diagnostic code, diagnostic path, diagnostic resource, total result, and total diagnostic counts without storage, provider, service registration, reporting framework, lifecycle marker service behavior, marker store behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
+| `036-sqlite-schema-idempotency` | Landed | SQLite JSON schema initialization idempotency coverage for repeated provider initialization, legacy pre-tenant upgrade reruns, and `InitializeSchema=false` compatibility without product APIs, storage schema changes, provider registries, public SQL, public `IQueryable<Resource>`, schedulers, benchmark infrastructure, or dependencies. |
 
 ## Near-Term Roadmap
 
-### 036 — SQLite Schema Idempotency Hardening
+### 037 — SQLite Startup Concurrency Hardening
 
-**Status:** In progress on `036-sqlite-schema-idempotency`.
+**Status:** In progress on `037-sqlite-startup-concurrency`.
 
-**Goal:** Add bounded operational hardening coverage for SQLite schema initialization idempotency.
+**Goal:** Add bounded operational hardening coverage for concurrent SQLite JSON schema/provider initialization.
 
 Scope:
 
-- Verify repeated SQLite provider/schema initialization preserves persisted data and tenant-aware table shape.
-- Verify legacy pre-tenant table upgrade can be rerun without duplicate rows or leftover bootstrap tables.
+- Verify concurrent fresh-database startup completes and leaves the schema usable.
+- Verify concurrent startup against an existing tenant-aware database preserves persisted data and table shape.
+- Verify concurrent `InitializeSchema=false` construction remains passive.
 - Preserve existing provider behavior, storage format, service registration, public SQL, public `IQueryable<Resource>`, query planner behavior, schedulers, benchmark infrastructure, and dependencies.
 
-### 037 — Next Bounded Slice
+### 038 — Next Bounded Slice
 
-**Goal:** Choose one small continuation slice after SQLite schema idempotency hardening lands.
+**Goal:** Choose one small continuation slice after SQLite startup concurrency hardening lands.
 
 Candidate scope:
 
