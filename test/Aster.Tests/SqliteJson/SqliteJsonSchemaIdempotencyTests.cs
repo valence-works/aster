@@ -5,7 +5,6 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Persistence.SqliteJson;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.SqliteJson;
@@ -17,7 +16,7 @@ public sealed class SqliteJsonSchemaIdempotencyTests : IDisposable
     public void Dispose()
     {
         foreach (var databasePath in databasePaths)
-            DeleteSqliteFiles(databasePath);
+            SqliteJsonTestDatabase.DeleteFiles(databasePath);
     }
 
     [Fact]
@@ -76,10 +75,10 @@ public sealed class SqliteJsonSchemaIdempotencyTests : IDisposable
             Assert.NotNull(await definitions.GetDefinitionAsync("Product"));
         }
 
-        AssertPrimaryKey(databasePath, "resource_definitions", ["tenant_id", "definition_id", "version"]);
-        AssertPrimaryKey(databasePath, "resource_versions", ["tenant_id", "resource_id", "version"]);
-        AssertPrimaryKey(databasePath, "activation_states", ["tenant_id", "resource_id", "channel"]);
-        AssertPrimaryKey(databasePath, "lifecycle_markers", ["tenant_id", "resource_id"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "resource_definitions", ["tenant_id", "definition_id", "version"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "resource_versions", ["tenant_id", "resource_id", "version"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "activation_states", ["tenant_id", "resource_id", "channel"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "lifecycle_markers", ["tenant_id", "resource_id"]);
     }
 
     [Fact]
@@ -93,19 +92,19 @@ public sealed class SqliteJsonSchemaIdempotencyTests : IDisposable
         await using (var second = CreateProvider(databasePath))
             _ = second.GetRequiredService<IResourceVersionReader>();
 
-        Assert.Equal(1, CountRows(databasePath, "resource_versions"));
+        Assert.Equal(1, SqliteJsonTestDatabase.CountRows(databasePath, "resource_versions"));
         Assert.Equal(1, CountRows(
             databasePath,
             "resource_versions",
             "tenant_id = 'default' AND resource_id = 'legacy-product' AND version = 1"));
         Assert.DoesNotContain(
-            ReadTableNames(databasePath),
+            SqliteJsonTestDatabase.ReadTableNames(databasePath),
             static name => name.Contains("__legacy_tenant_bootstrap", StringComparison.Ordinal));
 
-        AssertPrimaryKey(databasePath, "resource_definitions", ["tenant_id", "definition_id", "version"]);
-        AssertPrimaryKey(databasePath, "resource_versions", ["tenant_id", "resource_id", "version"]);
-        AssertPrimaryKey(databasePath, "activation_states", ["tenant_id", "resource_id", "channel"]);
-        AssertPrimaryKey(databasePath, "lifecycle_markers", ["tenant_id", "resource_id"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "resource_definitions", ["tenant_id", "definition_id", "version"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "resource_versions", ["tenant_id", "resource_id", "version"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "activation_states", ["tenant_id", "resource_id", "channel"]);
+        SqliteJsonTestDatabase.AssertPrimaryKey(databasePath, "lifecycle_markers", ["tenant_id", "resource_id"]);
     }
 
     [Fact]
@@ -146,7 +145,7 @@ public sealed class SqliteJsonSchemaIdempotencyTests : IDisposable
 
     private static async Task CreateLegacyTablesAndResourceAsync(string databasePath)
     {
-        await using var connection = await OpenConnectionAsync(databasePath);
+        await using var connection = await SqliteJsonTestDatabase.OpenConnectionAsync(databasePath);
         await using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS resource_definitions (
@@ -204,86 +203,6 @@ public sealed class SqliteJsonSchemaIdempotencyTests : IDisposable
         await command.ExecuteNonQueryAsync();
     }
 
-    private static void AssertPrimaryKey(string databasePath, string tableName, string[] expectedColumns)
-    {
-        var actual = ReadPrimaryKey(databasePath, tableName);
-        Assert.Equal(expectedColumns, actual);
-    }
-
-    private static string[] ReadPrimaryKey(string databasePath, string tableName)
-    {
-        using var connection = OpenConnection(databasePath);
-        using var command = connection.CreateCommand();
-        command.CommandText = $"PRAGMA table_info({tableName});";
-
-        using var reader = command.ExecuteReader();
-        var columns = new List<(string Name, int Ordinal)>();
-        while (reader.Read())
-        {
-            var ordinal = reader.GetInt32(5);
-            if (ordinal > 0)
-                columns.Add((reader.GetString(1), ordinal));
-        }
-
-        return columns
-            .OrderBy(static column => column.Ordinal)
-            .Select(static column => column.Name)
-            .ToArray();
-    }
-
-    private static int CountRows(string databasePath, string tableName, string? whereClause = null)
-    {
-        using var connection = OpenConnection(databasePath);
-        using var command = connection.CreateCommand();
-        command.CommandText = whereClause is null
-            ? $"SELECT COUNT(*) FROM {tableName};"
-            : $"SELECT COUNT(*) FROM {tableName} WHERE {whereClause};";
-
-        return Convert.ToInt32(command.ExecuteScalar());
-    }
-
-    private static IReadOnlyList<string> ReadTableNames(string databasePath)
-    {
-        using var connection = OpenConnection(databasePath);
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table';";
-
-        using var reader = command.ExecuteReader();
-        var names = new List<string>();
-        while (reader.Read())
-            names.Add(reader.GetString(0));
-
-        return names;
-    }
-
-    private static async Task<SqliteConnection> OpenConnectionAsync(string databasePath)
-    {
-        var connection = new SqliteConnection($"Data Source={databasePath}");
-        await connection.OpenAsync();
-        return connection;
-    }
-
-    private static SqliteConnection OpenConnection(string databasePath)
-    {
-        var connection = new SqliteConnection($"Data Source={databasePath}");
-        connection.Open();
-        return connection;
-    }
-
-    private static void DeleteSqliteFiles(string databasePath)
-    {
-        TryDelete(databasePath);
-        TryDelete($"{databasePath}-shm");
-        TryDelete($"{databasePath}-wal");
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-    }
+    private static int CountRows(string databasePath, string tableName, string? whereClause = null) =>
+        SqliteJsonTestDatabase.CountRows(databasePath, tableName, whereClause);
 }
