@@ -13,6 +13,7 @@ namespace Aster.Tests.SqliteJson;
 public sealed class SqliteJsonStartupConcurrencyTests : IDisposable
 {
     private const int StartupAttemptCount = 8;
+    private static readonly TimeSpan StartupBarrierTimeout = TimeSpan.FromSeconds(10);
 
     private readonly List<string> databasePaths = [];
 
@@ -162,7 +163,9 @@ public sealed class SqliteJsonStartupConcurrencyTests : IDisposable
         var tasks = Enumerable.Range(0, StartupAttemptCount)
             .Select(_ => Task.Run(() =>
             {
-                barrier.SignalAndWait();
+                if (!barrier.SignalAndWait(StartupBarrierTimeout))
+                    throw new TimeoutException("Concurrent SQLite startup attempts did not reach the start barrier within the expected time.");
+
                 action();
             }))
             .ToArray();
