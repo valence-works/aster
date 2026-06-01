@@ -14,6 +14,7 @@ public sealed class SqliteJsonStartupConcurrencyTests : IDisposable
 {
     private const int StartupAttemptCount = 8;
     private static readonly TimeSpan StartupBarrierTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan StartupCompletionTimeout = TimeSpan.FromSeconds(30);
 
     private readonly List<string> databasePaths = [];
 
@@ -170,7 +171,16 @@ public sealed class SqliteJsonStartupConcurrencyTests : IDisposable
             }))
             .ToArray();
 
-        await Task.WhenAll(tasks);
+        var completion = Task.WhenAll(tasks);
+
+        try
+        {
+            await completion.WaitAsync(StartupCompletionTimeout);
+        }
+        catch (TimeoutException) when (!completion.IsCompleted)
+        {
+            throw new TimeoutException("Concurrent SQLite startup attempts did not finish within the expected time.");
+        }
     }
 
     private static ServiceProvider CreateProvider(string databasePath, bool initializeSchema = true) =>
