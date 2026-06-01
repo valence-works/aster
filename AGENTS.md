@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/036-sqlite-schema-idempotency/plan.md`.
+shell commands, and other important information, read `specs/037-sqlite-startup-concurrency/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
@@ -58,8 +58,11 @@ shell commands, and other important information, read `specs/036-sqlite-schema-i
 - No storage changes. Summaries are pure in-memory views over supplied lifecycle marker result objects; no schema migration, persistence, provider storage, audit records, or physical index changes. (035-lifecycle-marker-result-summaries)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing SQLite JSON provider, Microsoft.Data.Sqlite transitively used by the provider/tests, xUnit test stack; no new dependencies (036-sqlite-schema-idempotency)
 - Existing SQLite JSON tables only; no schema format changes (036-sqlite-schema-idempotency)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing SQLite JSON provider, Microsoft.Data.Sqlite transitively used by the provider/tests, xUnit test stack; no new dependencies (037-sqlite-startup-concurrency)
+- Existing SQLite JSON tables only; no schema format changes (037-sqlite-startup-concurrency)
 
 ## Recent Changes
+- 037-sqlite-startup-concurrency: Added planning context for bounded SQLite JSON concurrent provider/schema initialization hardening across fresh databases, existing tenant-aware databases, and InitializeSchema=false passive construction without product APIs, storage schema changes, provider registries, public SQL, public IQueryable<Resource>, schedulers, benchmark infrastructure, or dependencies
 - 036-sqlite-schema-idempotency: Added SQLite JSON schema initialization idempotency hardening with repeated provider initialization, legacy pre-tenant upgrade reruns, and InitializeSchema=false compatibility coverage, and no product APIs, storage schema changes, provider registries, public SQL, public IQueryable<Resource>, schedulers, benchmark infrastructure, or dependencies
 - 035-lifecycle-marker-result-summaries: Added pure host-facing lifecycle marker result summaries with deterministic success, failure, marker state, marker resource, diagnostic code, diagnostic path, diagnostic resource, total result, and total diagnostic counts, and no storage, provider, service registration, reporting framework, lifecycle marker service behavior, marker store behavior, public SQL, public IQueryable<Resource>, or mutation behavior
 - 034-portable-validation-summaries: Added pure host-facing portable snapshot validation summaries with deterministic validity, error, total diagnostic, diagnostic severity, and diagnostic code counts, and no storage, provider, service registration, reporting framework, import/export behavior, validation behavior, public SQL, public IQueryable<Resource>, or mutation behavior
