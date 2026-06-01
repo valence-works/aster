@@ -6,9 +6,9 @@ This roadmap tracks the implementation trail we have already cut through the rep
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, and portable validation summaries.
+Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, and lifecycle marker result summaries.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, and portable validation summaries have landed; lifecycle marker result summaries are the current bounded host-reporting slice.
+The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting and operational-hardening follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, and lifecycle marker result summaries have landed; SQLite schema idempotency hardening is the current bounded operational slice.
 
 ## Landed Slices
 
@@ -48,23 +48,25 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `032-policy-validation-summaries` | Landed | Pure host-facing policy validation summaries with deterministic diagnostic-code, diagnostic-path, policy-id, resource-id, resource-version, total diagnostic, and validity counts without storage, provider, service registration, scheduler, audit persistence, policy execution, policy validation behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 | `033-lifecycle-hook-outcome-summaries` | Landed | Pure host-facing lifecycle hook outcome summaries with deterministic status, outcome-code, diagnostic-code, lifecycle-point, hook-type, total outcome, total diagnostic, success, and failure counts without storage, provider, service registration, scheduler, audit persistence, lifecycle dispatcher behavior, hook execution behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 | `034-portable-validation-summaries` | Landed | Pure host-facing portable snapshot validation summaries with deterministic validity, error, total diagnostic, diagnostic severity, and diagnostic code counts without storage, provider, service registration, reporting framework, import/export behavior, validation behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
+| `035-lifecycle-marker-result-summaries` | Landed | Pure host-facing lifecycle marker result summaries with deterministic success, failure, marker state, marker resource, diagnostic code, diagnostic path, diagnostic resource, total result, and total diagnostic counts without storage, provider, service registration, reporting framework, lifecycle marker service behavior, marker store behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 
 ## Near-Term Roadmap
 
-### 035 — Lifecycle Marker Result Summaries
+### 036 — SQLite Schema Idempotency Hardening
 
-**Status:** In progress on `035-lifecycle-marker-result-summaries`.
+**Status:** In progress on `036-sqlite-schema-idempotency`.
 
-**Goal:** Add pure host-facing summaries for lifecycle marker write results.
+**Goal:** Add bounded operational hardening coverage for SQLite schema initialization idempotency.
 
 Scope:
 
-- Summarize `ResourceLifecycleMarkerResult` objects with deterministic success, failure, marker state, marker resource, diagnostic code, diagnostic path, diagnostic resource, total result, and total diagnostic counts.
-- Preserve pure transformation behavior over existing marker result objects with no storage, provider, service registration, reporting framework, public SQL, public `IQueryable<Resource>`, lifecycle marker service behavior, marker store behavior, policy behavior, or mutation behavior.
+- Verify repeated SQLite provider/schema initialization preserves persisted data and tenant-aware table shape.
+- Verify legacy pre-tenant table upgrade can be rerun without duplicate rows or leftover bootstrap tables.
+- Preserve existing provider behavior, storage format, service registration, public SQL, public `IQueryable<Resource>`, query planner behavior, schedulers, benchmark infrastructure, and dependencies.
 
-### 036 — Next Bounded Slice
+### 037 — Next Bounded Slice
 
-**Goal:** Choose one small continuation slice after lifecycle marker result summaries land.
+**Goal:** Choose one small continuation slice after SQLite schema idempotency hardening lands.
 
 Candidate scope:
 
