@@ -183,6 +183,9 @@ public sealed class PolicyApplicationDiagnosticsTests : IDisposable
     {
         var candidate = Assert.Single(result.Candidates);
         Assert.Equal(ResourcePolicyApplicationCandidateStatus.Failed, candidate.Status);
-        Assert.Equal(code, candidate.Diagnostics.Single().Code);
+        var diagnostic = candidate.Diagnostics.Single();
+        Assert.Equal(code, diagnostic.Code);
+        if (code == ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound)
+            Assert.Equal("resourceId", diagnostic.Path);
     }
 }

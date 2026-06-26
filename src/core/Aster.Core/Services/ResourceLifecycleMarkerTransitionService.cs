@@ -56,7 +56,8 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
                 ResourceLifecycleMarkerTransitionStatus.Failed,
                 ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound,
                 $"Resource '{request.ResourceId}' was not found in tenant '{request.TenantScope.TenantId}'.",
-                request.ResourceId);
+                request.ResourceId,
+                request.TargetNotFoundDiagnosticPath);
         }
 
         var existing = await ResolveCurrentMarkerAsync(request, cancellationToken);
@@ -124,7 +125,8 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
                 ResourceLifecycleMarkerTransitionStatus.Failed,
                 ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound,
                 $"Resource '{request.ResourceId}' was not found in tenant '{request.TenantScope.TenantId}'.",
-                request.ResourceId);
+                request.ResourceId,
+                request.TargetNotFoundDiagnosticPath);
         }
 
         var existing = await ResolveCurrentMarkerAsync(request, cancellationToken);
@@ -225,7 +227,8 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
         ResourceLifecycleMarkerTransitionStatus status,
         string code,
         string message,
-        string resourceId) =>
+        string resourceId,
+        string? path = null) =>
         new()
         {
             Status = status,
@@ -234,6 +237,7 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
                 ResourcePolicyValidator.Diagnostic(
                     code,
                     message,
+                    path,
                     resourceId: resourceId),
             ],
         };
@@ -252,6 +256,8 @@ internal abstract class ResourceLifecycleMarkerTransitionRequest
     public ResourceLifecycleMarker? CurrentMarker { get; init; }
 
     public bool HasCurrentMarker { get; init; }
+
+    public string? TargetNotFoundDiagnosticPath { get; init; }
 }
 
 internal sealed class ResourceLifecycleMarkerTransitionApplyRequest : ResourceLifecycleMarkerTransitionRequest

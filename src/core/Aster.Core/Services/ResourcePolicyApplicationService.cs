@@ -252,6 +252,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             Reason = candidate.Reason ?? request.Reason,
             TargetExists = targetExists,
             HasTargetExistence = true,
+            TargetNotFoundDiagnosticPath = "resourceId",
             HasCurrentMarker = true,
             CurrentMarker = existing,
         }, cancellationToken);

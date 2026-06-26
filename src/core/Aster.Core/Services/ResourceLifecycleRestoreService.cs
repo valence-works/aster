@@ -173,6 +173,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
             Apply = apply,
             TargetExists = targetExists,
             HasTargetExistence = true,
+            TargetNotFoundDiagnosticPath = "resourceId",
             CurrentMarker = marker,
             HasCurrentMarker = true,
         }, cancellationToken);
