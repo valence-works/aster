@@ -86,6 +86,8 @@ public sealed class LifecycleRestorePreviewTests : IDisposable
     private static void AssertDiagnostic(ResourceLifecycleRestoreCandidateResult result, string code)
     {
         Assert.Equal(ResourceLifecycleRestoreCandidateStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == code);
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Code == code));
+        if (code == ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound)
+            Assert.Equal("resourceId", diagnostic.Path);
     }
 }
