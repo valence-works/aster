@@ -297,7 +297,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
             store,
             store,
             new GuidIdentityGenerator(),
-            new NoopResourceLifecycleHookDispatcher(),
+            new Lifecycle.NoopResourceLifecycleHookDispatcher(),
             NullLogger<DefaultResourceManager>.Instance);
 
     private static string GetTitle(Resource resource)
