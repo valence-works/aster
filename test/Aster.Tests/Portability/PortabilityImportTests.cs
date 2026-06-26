@@ -403,7 +403,7 @@ public sealed class PortabilityImportTests : IDisposable
     {
         var service = new ResourcePortabilityService(
             new ThrowingApplyPortabilityStore(),
-            new NoopResourceLifecycleHookDispatcher());
+            new Lifecycle.NoopResourceLifecycleHookDispatcher());
 
         var result = await service.ImportAsync(CreateSnapshot());
 

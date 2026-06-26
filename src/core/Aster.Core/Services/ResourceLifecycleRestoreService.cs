@@ -13,6 +13,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
 {
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceLifecycleMarkerClearStore markerStore;
+    private readonly IResourceLifecycleMarkerTransitionService transitions;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourceLifecycleRestoreService"/>.
@@ -20,11 +21,24 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
     public ResourceLifecycleRestoreService(
         IResourceVersionReader versionReader,
         IResourceLifecycleMarkerClearStore markerStore)
+        : this(
+            versionReader,
+            markerStore,
+            new ResourceLifecycleMarkerTransitionService(versionReader, markerStore))
+    {
+    }
+
+    internal ResourceLifecycleRestoreService(
+        IResourceVersionReader versionReader,
+        IResourceLifecycleMarkerClearStore markerStore,
+        IResourceLifecycleMarkerTransitionService transitions)
     {
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(markerStore);
+        ArgumentNullException.ThrowIfNull(transitions);
         this.versionReader = versionReader;
         this.markerStore = markerStore;
+        this.transitions = transitions;
     }
 
     /// <inheritdoc />
@@ -126,67 +140,62 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
                 continue;
             }
 
-            results[index] = apply
-                ? await ApplyCandidateAsync(index, candidate, expectedState, tenant, markers, latestResources, cancellationToken)
-                : PreviewCandidate(index, candidate, expectedState, tenant, markers, latestResources);
+            results[index] = await EvaluateCandidateAsync(
+                index,
+                candidate,
+                expectedState,
+                tenant,
+                apply,
+                markers,
+                latestResources.ContainsKey(candidate.ResourceId!),
+                cancellationToken);
         }
 
         return results.Select(static result => result!).ToList();
     }
 
-    private async ValueTask<ResourceLifecycleRestoreCandidateResult> ApplyCandidateAsync(
+    private async ValueTask<ResourceLifecycleRestoreCandidateResult> EvaluateCandidateAsync(
         int index,
         ResourceLifecycleRestoreCandidate candidate,
         ResourceLifecycleMarkerState expectedState,
         TenantScope tenant,
+        bool apply,
         IDictionary<string, ResourceLifecycleMarker> markers,
-        IReadOnlyDictionary<string, Resource> latestResources,
+        bool targetExists,
         CancellationToken cancellationToken)
     {
-        if (!latestResources.ContainsKey(candidate.ResourceId!))
-            return TargetNotFound(index, candidate, tenant);
+        markers.TryGetValue(candidate.ResourceId!, out var marker);
+        var transition = await transitions.ClearAsync(new ResourceLifecycleMarkerTransitionClearRequest
+        {
+            TenantScope = tenant,
+            ResourceId = candidate.ResourceId!,
+            ExpectedState = expectedState,
+            Apply = apply,
+            TargetExists = targetExists,
+            HasTargetExistence = true,
+            CurrentMarker = marker,
+            HasCurrentMarker = true,
+        }, cancellationToken);
 
-        if (!markers.TryGetValue(candidate.ResourceId!, out var marker))
-            return CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.AlreadyRestored);
-
-        if (marker.State != expectedState)
-            return MarkerMismatch(index, candidate, expectedState, marker);
-
-        var removed = await markerStore.ClearMarkerAsync(candidate.ResourceId!, tenant, expectedState, cancellationToken);
-        if (removed)
+        if (transition.Status is ResourceLifecycleMarkerTransitionStatus.Cleared
+            or ResourceLifecycleMarkerTransitionStatus.AlreadyCleared)
         {
             markers.Remove(candidate.ResourceId!);
-            return CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.Restored, marker);
         }
-
-        var current = await markerStore.GetMarkerAsync(candidate.ResourceId!, tenant, cancellationToken);
-        if (current is null)
+        else if (transition.Status == ResourceLifecycleMarkerTransitionStatus.MarkerMismatch && transition.Marker is not null)
         {
-            markers.Remove(candidate.ResourceId!);
-            return CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.AlreadyRestored);
+            markers[candidate.ResourceId!] = transition.Marker;
         }
 
-        markers[candidate.ResourceId!] = current;
-        return MarkerMismatch(index, candidate, expectedState, current);
-    }
+        var status = transition.Status switch
+        {
+            ResourceLifecycleMarkerTransitionStatus.ReadyToClear => ResourceLifecycleRestoreCandidateStatus.Restorable,
+            ResourceLifecycleMarkerTransitionStatus.Cleared => ResourceLifecycleRestoreCandidateStatus.Restored,
+            ResourceLifecycleMarkerTransitionStatus.AlreadyCleared => ResourceLifecycleRestoreCandidateStatus.AlreadyRestored,
+            _ => ResourceLifecycleRestoreCandidateStatus.Failed,
+        };
 
-    private static ResourceLifecycleRestoreCandidateResult PreviewCandidate(
-        int index,
-        ResourceLifecycleRestoreCandidate candidate,
-        ResourceLifecycleMarkerState expectedState,
-        TenantScope tenant,
-        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
-        IReadOnlyDictionary<string, Resource> latestResources)
-    {
-        if (!latestResources.ContainsKey(candidate.ResourceId!))
-            return TargetNotFound(index, candidate, tenant);
-
-        if (!markers.TryGetValue(candidate.ResourceId!, out var marker))
-            return CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.AlreadyRestored);
-
-        return marker.State == expectedState
-            ? CandidateResult(index, candidate, ResourceLifecycleRestoreCandidateStatus.Restorable, marker)
-            : MarkerMismatch(index, candidate, expectedState, marker);
+        return CandidateResult(index, candidate, status, transition.Marker, transition.Diagnostics);
     }
 
     private static ResourceLifecycleRestoreCandidateResult? ValidateShape(
@@ -236,30 +245,6 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
 
         return null;
     }
-
-    private static ResourceLifecycleRestoreCandidateResult TargetNotFound(
-        int index,
-        ResourceLifecycleRestoreCandidate candidate,
-        TenantScope tenant) =>
-        Failure(
-            index,
-            candidate,
-            ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound,
-            $"Resource '{candidate.ResourceId}' was not found in tenant '{tenant.TenantId}'.",
-            "resourceId");
-
-    private static ResourceLifecycleRestoreCandidateResult MarkerMismatch(
-        int index,
-        ResourceLifecycleRestoreCandidate candidate,
-        ResourceLifecycleMarkerState expectedState,
-        ResourceLifecycleMarker marker) =>
-        Failure(
-            index,
-            candidate,
-            ResourcePolicyDiagnosticCodes.LifecycleRestoreMarkerMismatch,
-            $"Resource '{candidate.ResourceId}' is marked as {marker.State}; expected {expectedState}.",
-            "expectedState",
-            marker);
 
     private static ResourceLifecycleRestoreCandidateResult Failure(
         int index,

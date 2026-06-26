@@ -99,10 +99,22 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourcePortabilityService, ResourcePortabilityService>();
         services.AddSingleton<IResourcePolicyValidator, ResourcePolicyValidator>();
         services.AddSingleton<IResourcePolicyEvaluationService, ResourcePolicyEvaluationService>();
-        services.AddSingleton<IResourcePolicyApplicationService, ResourcePolicyApplicationService>();
+        services.AddSingleton<ResourceLifecycleMarkerTransitionService>();
+        services.AddSingleton<IResourceLifecycleMarkerTransitionService>(sp => sp.GetRequiredService<ResourceLifecycleMarkerTransitionService>());
+        services.AddSingleton<IResourcePolicyApplicationService>(sp =>
+            new ResourcePolicyApplicationService(
+                sp.GetRequiredService<IResourceDefinitionStore>(),
+                sp.GetRequiredService<IResourceVersionReader>(),
+                sp.GetRequiredService<IResourceLifecycleMarkerStore>(),
+                sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
         services.AddSingleton<IResourcePolicyPruningApplicationService, ResourcePolicyPruningApplicationService>();
-        services.AddSingleton<IResourceLifecycleMarkerService, ResourceLifecycleMarkerService>();
-        services.AddSingleton<IResourceLifecycleRestoreService, ResourceLifecycleRestoreService>();
+        services.AddSingleton<IResourceLifecycleMarkerService>(sp =>
+            new ResourceLifecycleMarkerService(sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
+        services.AddSingleton<IResourceLifecycleRestoreService>(sp =>
+            new ResourceLifecycleRestoreService(
+                sp.GetRequiredService<IResourceVersionReader>(),
+                sp.GetRequiredService<IResourceLifecycleMarkerClearStore>(),
+                sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
         services.AddSingleton<IResourceVersionHistoryService, ResourceVersionHistoryService>();
 
         // Query service

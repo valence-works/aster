@@ -15,6 +15,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceLifecycleMarkerStore markerStore;
+    private readonly IResourceLifecycleMarkerTransitionService transitions;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourcePolicyApplicationService"/>.
@@ -26,13 +27,28 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         IResourceDefinitionStore definitionStore,
         IResourceVersionReader versionReader,
         IResourceLifecycleMarkerStore markerStore)
+        : this(
+            definitionStore,
+            versionReader,
+            markerStore,
+            new ResourceLifecycleMarkerTransitionService(versionReader, markerStore))
+    {
+    }
+
+    internal ResourcePolicyApplicationService(
+        IResourceDefinitionStore definitionStore,
+        IResourceVersionReader versionReader,
+        IResourceLifecycleMarkerStore markerStore,
+        IResourceLifecycleMarkerTransitionService transitions)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(markerStore);
+        ArgumentNullException.ThrowIfNull(transitions);
         this.definitionStore = definitionStore;
         this.versionReader = versionReader;
         this.markerStore = markerStore;
+        this.transitions = transitions;
     }
 
     /// <inheritdoc />
@@ -124,18 +140,8 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
                 continue;
             }
 
-            if (!latestResources.TryGetValue(candidate.ResourceId!, out var latest))
-            {
-                results[index] = Failure(
-                    index,
-                    candidate,
-                    ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound,
-                    $"Resource '{candidate.ResourceId}' was not found in tenant '{tenant.TenantId}'.",
-                    "resourceId");
-                continue;
-            }
-
-            if (candidate.ResourceVersion is { } resourceVersion && latest.Version != resourceVersion)
+            latestResources.TryGetValue(candidate.ResourceId!, out var latest);
+            if (latest is not null && candidate.ResourceVersion is { } resourceVersion && latest.Version != resourceVersion)
             {
                 results[index] = Failure(
                     index,
@@ -146,11 +152,14 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
                 continue;
             }
 
-            var policyFailure = await ValidatePolicyAsync(index, candidate, latest, tenant, definitions, cancellationToken);
-            if (policyFailure is not null)
+            if (latest is not null)
             {
-                results[index] = policyFailure;
-                continue;
+                var policyFailure = await ValidatePolicyAsync(index, candidate, latest, tenant, definitions, cancellationToken);
+                if (policyFailure is not null)
+                {
+                    results[index] = policyFailure;
+                    continue;
+                }
             }
 
             var key = new LifecycleCandidateKey(candidate.ResourceId!, markerState);
@@ -161,7 +170,16 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             }
 
             markers.TryGetValue(candidate.ResourceId!, out var existing);
-            results[index] = await ApplyMarkerAsync(index, candidate, markerState, tenant, existing, request, markers, cancellationToken);
+            results[index] = await ApplyMarkerAsync(
+                index,
+                candidate,
+                markerState,
+                targetExists: latest is not null,
+                tenant,
+                existing,
+                request,
+                markers,
+                cancellationToken);
             processedLifecycleResults[key] = results[index]!;
         }
 
@@ -218,41 +236,37 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         int index,
         ResourcePolicyApplicationCandidate candidate,
         ResourceLifecycleMarkerState markerState,
+        bool targetExists,
         TenantScope tenant,
         ResourceLifecycleMarker? existing,
         ResourcePolicyApplicationRequest request,
         IDictionary<string, ResourceLifecycleMarker> markers,
         CancellationToken cancellationToken)
     {
-        if (existing is not null)
-        {
-            return existing.State == markerState
-                ? CandidateResult(index, candidate, ResourcePolicyApplicationCandidateStatus.AlreadySatisfied, existing)
-                : CandidateResult(
-                    index,
-                    candidate,
-                    ResourcePolicyApplicationCandidateStatus.Failed,
-                    existing,
-                    [
-                        ResourcePolicyValidator.Diagnostic(
-                            ResourcePolicyDiagnosticCodes.LifecycleMarkerConflict,
-                            $"Resource '{candidate.ResourceId}' is already marked as {existing.State}.",
-                            "state",
-                            resourceId: candidate.ResourceId),
-                    ]);
-        }
-
-        var marker = await markerStore.SaveMarkerAsync(new ResourceLifecycleMarker
+        var transition = await transitions.ApplyAsync(new ResourceLifecycleMarkerTransitionApplyRequest
         {
             TenantScope = tenant,
             ResourceId = candidate.ResourceId!,
             State = markerState,
             MarkedAt = request.AppliedAt,
             Reason = candidate.Reason ?? request.Reason,
+            TargetExists = targetExists,
+            HasTargetExistence = true,
+            HasCurrentMarker = true,
+            CurrentMarker = existing,
         }, cancellationToken);
-        markers[candidate.ResourceId!] = marker;
 
-        return CandidateResult(index, candidate, ResourcePolicyApplicationCandidateStatus.Applied, marker);
+        if (transition.Status == ResourceLifecycleMarkerTransitionStatus.Applied && transition.Marker is not null)
+            markers[candidate.ResourceId!] = transition.Marker;
+
+        var status = transition.Status switch
+        {
+            ResourceLifecycleMarkerTransitionStatus.Applied => ResourcePolicyApplicationCandidateStatus.Applied,
+            ResourceLifecycleMarkerTransitionStatus.AlreadySatisfied => ResourcePolicyApplicationCandidateStatus.AlreadySatisfied,
+            _ => ResourcePolicyApplicationCandidateStatus.Failed,
+        };
+
+        return CandidateResult(index, candidate, status, transition.Marker, transition.Diagnostics);
     }
 
     private static ResourcePolicyApplicationCandidateResult DuplicateResult(
