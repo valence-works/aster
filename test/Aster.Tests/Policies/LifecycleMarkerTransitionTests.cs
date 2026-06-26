@@ -110,6 +110,96 @@ public sealed class LifecycleMarkerTransitionTests : IDisposable
         Assert.Null(persisted);
     }
 
+    [Fact]
+    public async Task ClearAsync_WhenMarkerMatchesAndApplyIsFalse_IsReadyToClear()
+    {
+        await PolicyTestFixtures.SaveResourceAsync(provider, "product-1");
+        var transition = provider.GetRequiredService<IResourceLifecycleMarkerTransitionService>();
+        var marker = (await transition.ApplyAsync(ApplyRequest("product-1", ResourceLifecycleMarkerState.Archived))).Marker!;
+
+        var result = await transition.ClearAsync(ClearRequest(
+            "product-1",
+            ResourceLifecycleMarkerState.Archived,
+            apply: false,
+            currentMarker: marker));
+
+        Assert.Equal(ResourceLifecycleMarkerTransitionStatus.ReadyToClear, result.Status);
+        Assert.Equal(marker, result.Marker);
+        var persisted = await provider.GetRequiredService<IResourceLifecycleMarkerStore>()
+            .GetMarkerAsync("product-1", TenantScope.Default);
+        Assert.Equal(marker, persisted);
+    }
+
+    [Fact]
+    public async Task ClearAsync_WhenMarkerMatchesAndApplyIsTrue_ClearsMarker()
+    {
+        await PolicyTestFixtures.SaveResourceAsync(provider, "product-1");
+        var transition = provider.GetRequiredService<IResourceLifecycleMarkerTransitionService>();
+        var marker = (await transition.ApplyAsync(ApplyRequest("product-1", ResourceLifecycleMarkerState.Archived))).Marker!;
+
+        var result = await transition.ClearAsync(ClearRequest(
+            "product-1",
+            ResourceLifecycleMarkerState.Archived,
+            apply: true,
+            currentMarker: marker));
+
+        Assert.Equal(ResourceLifecycleMarkerTransitionStatus.Cleared, result.Status);
+        Assert.Equal(marker, result.Marker);
+        var persisted = await provider.GetRequiredService<IResourceLifecycleMarkerStore>()
+            .GetMarkerAsync("product-1", TenantScope.Default);
+        Assert.Null(persisted);
+    }
+
+    [Fact]
+    public async Task ClearAsync_WhenMarkerIsAlreadyMissing_IsAlreadyCleared()
+    {
+        await PolicyTestFixtures.SaveResourceAsync(provider, "product-1");
+        var transition = provider.GetRequiredService<IResourceLifecycleMarkerTransitionService>();
+
+        var result = await transition.ClearAsync(ClearRequest(
+            "product-1",
+            ResourceLifecycleMarkerState.Archived,
+            apply: true));
+
+        Assert.Equal(ResourceLifecycleMarkerTransitionStatus.AlreadyCleared, result.Status);
+        Assert.Empty(result.Diagnostics);
+        Assert.Null(result.Marker);
+    }
+
+    [Fact]
+    public async Task ClearAsync_WhenMarkerStateDiffers_ReturnsMarkerMismatch()
+    {
+        await PolicyTestFixtures.SaveResourceAsync(provider, "product-1");
+        var transition = provider.GetRequiredService<IResourceLifecycleMarkerTransitionService>();
+        var marker = (await transition.ApplyAsync(ApplyRequest("product-1", ResourceLifecycleMarkerState.SoftDeleted))).Marker!;
+
+        var result = await transition.ClearAsync(ClearRequest(
+            "product-1",
+            ResourceLifecycleMarkerState.Archived,
+            apply: true,
+            currentMarker: marker));
+
+        Assert.Equal(ResourceLifecycleMarkerTransitionStatus.MarkerMismatch, result.Status);
+        Assert.Equal(marker, result.Marker);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(ResourcePolicyDiagnosticCodes.LifecycleRestoreMarkerMismatch, diagnostic.Code);
+    }
+
+    [Fact]
+    public async Task ClearAsync_WhenTargetIsMissing_ReturnsTargetNotFound()
+    {
+        var transition = provider.GetRequiredService<IResourceLifecycleMarkerTransitionService>();
+
+        var result = await transition.ClearAsync(ClearRequest(
+            "missing",
+            ResourceLifecycleMarkerState.Archived,
+            apply: true));
+
+        Assert.Equal(ResourceLifecycleMarkerTransitionStatus.Failed, result.Status);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound, diagnostic.Code);
+    }
+
     private static ResourceLifecycleMarkerTransitionApplyRequest ApplyRequest(
         string resourceId,
         ResourceLifecycleMarkerState state,
@@ -121,6 +211,23 @@ public sealed class LifecycleMarkerTransitionTests : IDisposable
             State = state,
             MarkedAt = MarkedAt,
             HasCurrentMarker = currentMarker is not null,
+            CurrentMarker = currentMarker,
+        };
+
+    private static ResourceLifecycleMarkerTransitionClearRequest ClearRequest(
+        string resourceId,
+        ResourceLifecycleMarkerState expectedState,
+        bool apply,
+        ResourceLifecycleMarker? currentMarker = null) =>
+        new()
+        {
+            TenantScope = TenantScope.Default,
+            ResourceId = resourceId,
+            ExpectedState = expectedState,
+            Apply = apply,
+            TargetExists = resourceId != "missing",
+            HasTargetExistence = true,
+            HasCurrentMarker = currentMarker is not null || resourceId != "missing",
             CurrentMarker = currentMarker,
         };
 }

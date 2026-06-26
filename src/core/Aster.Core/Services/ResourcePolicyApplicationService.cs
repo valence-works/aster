@@ -170,7 +170,16 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             }
 
             markers.TryGetValue(candidate.ResourceId!, out var existing);
-            results[index] = await ApplyMarkerAsync(index, candidate, markerState, tenant, existing, request, markers, cancellationToken);
+            results[index] = await ApplyMarkerAsync(
+                index,
+                candidate,
+                markerState,
+                targetExists: latest is not null,
+                tenant,
+                existing,
+                request,
+                markers,
+                cancellationToken);
             processedLifecycleResults[key] = results[index]!;
         }
 
@@ -227,6 +236,7 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
         int index,
         ResourcePolicyApplicationCandidate candidate,
         ResourceLifecycleMarkerState markerState,
+        bool targetExists,
         TenantScope tenant,
         ResourceLifecycleMarker? existing,
         ResourcePolicyApplicationRequest request,
@@ -240,6 +250,8 @@ public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicatio
             State = markerState,
             MarkedAt = request.AppliedAt,
             Reason = candidate.Reason ?? request.Reason,
+            TargetExists = targetExists,
+            HasTargetExistence = true,
             HasCurrentMarker = true,
             CurrentMarker = existing,
         }, cancellationToken);
