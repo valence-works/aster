@@ -11,12 +11,17 @@ internal interface IResourceLifecycleMarkerTransitionService
     ValueTask<ResourceLifecycleMarkerTransitionResult> ApplyAsync(
         ResourceLifecycleMarkerTransitionApplyRequest request,
         CancellationToken cancellationToken = default);
+
+    ValueTask<ResourceLifecycleMarkerTransitionResult> ClearAsync(
+        ResourceLifecycleMarkerTransitionClearRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecycleMarkerTransitionService
 {
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceLifecycleMarkerStore markerStore;
+    private readonly IResourceLifecycleMarkerClearStore? markerClearStore;
 
     public ResourceLifecycleMarkerTransitionService(
         IResourceVersionReader versionReader,
@@ -26,6 +31,7 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
         ArgumentNullException.ThrowIfNull(markerStore);
         this.versionReader = versionReader;
         this.markerStore = markerStore;
+        markerClearStore = markerStore as IResourceLifecycleMarkerClearStore;
     }
 
     public async ValueTask<ResourceLifecycleMarkerTransitionResult> ApplyAsync(
@@ -96,10 +102,88 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
         };
     }
 
+    public async ValueTask<ResourceLifecycleMarkerTransitionResult> ClearAsync(
+        ResourceLifecycleMarkerTransitionClearRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ResourceId);
+
+        if (request.ExpectedState == ResourceLifecycleMarkerState.None || !Enum.IsDefined(request.ExpectedState))
+        {
+            return Failure(
+                ResourceLifecycleMarkerTransitionStatus.Failed,
+                ResourcePolicyDiagnosticCodes.LifecycleRestoreStateUnsupported,
+                $"Lifecycle restore expected state '{request.ExpectedState}' is not supported.",
+                request.ResourceId);
+        }
+
+        if (!await TargetExistsAsync(request, cancellationToken))
+        {
+            return Failure(
+                ResourceLifecycleMarkerTransitionStatus.Failed,
+                ResourcePolicyDiagnosticCodes.LifecycleMarkerTargetNotFound,
+                $"Resource '{request.ResourceId}' was not found in tenant '{request.TenantScope.TenantId}'.",
+                request.ResourceId);
+        }
+
+        var existing = await ResolveCurrentMarkerAsync(request, cancellationToken);
+        if (existing is null)
+        {
+            return new ResourceLifecycleMarkerTransitionResult
+            {
+                Status = ResourceLifecycleMarkerTransitionStatus.AlreadyCleared,
+            };
+        }
+
+        if (existing.State != request.ExpectedState)
+            return MarkerMismatch(request, existing);
+
+        if (!request.Apply)
+        {
+            return new ResourceLifecycleMarkerTransitionResult
+            {
+                Status = ResourceLifecycleMarkerTransitionStatus.ReadyToClear,
+                Marker = existing,
+            };
+        }
+
+        var clearStore = markerClearStore
+            ?? throw new InvalidOperationException(
+                $"The active {nameof(IResourceLifecycleMarkerStore)} registration must also implement {nameof(IResourceLifecycleMarkerClearStore)} to clear lifecycle markers.");
+        var removed = await clearStore.ClearMarkerAsync(
+            request.ResourceId,
+            request.TenantScope,
+            request.ExpectedState,
+            cancellationToken);
+        if (removed)
+        {
+            return new ResourceLifecycleMarkerTransitionResult
+            {
+                Status = ResourceLifecycleMarkerTransitionStatus.Cleared,
+                Marker = existing,
+            };
+        }
+
+        var current = await markerStore.GetMarkerAsync(request.ResourceId, request.TenantScope, cancellationToken);
+        if (current is null)
+        {
+            return new ResourceLifecycleMarkerTransitionResult
+            {
+                Status = ResourceLifecycleMarkerTransitionStatus.AlreadyCleared,
+            };
+        }
+
+        return MarkerMismatch(request, current);
+    }
+
     private async ValueTask<bool> TargetExistsAsync(
-        ResourceLifecycleMarkerTransitionApplyRequest request,
+        ResourceLifecycleMarkerTransitionRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.HasTargetExistence)
+            return request.TargetExists;
+
         var resources = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
             TenantScope = request.TenantScope,
@@ -111,7 +195,7 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
     }
 
     private async ValueTask<ResourceLifecycleMarker?> ResolveCurrentMarkerAsync(
-        ResourceLifecycleMarkerTransitionApplyRequest request,
+        ResourceLifecycleMarkerTransitionRequest request,
         CancellationToken cancellationToken)
     {
         if (request.HasCurrentMarker)
@@ -119,6 +203,23 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
 
         return await markerStore.GetMarkerAsync(request.ResourceId, request.TenantScope, cancellationToken);
     }
+
+    private static ResourceLifecycleMarkerTransitionResult MarkerMismatch(
+        ResourceLifecycleMarkerTransitionClearRequest request,
+        ResourceLifecycleMarker marker) =>
+        new()
+        {
+            Status = ResourceLifecycleMarkerTransitionStatus.MarkerMismatch,
+            Marker = marker,
+            Diagnostics =
+            [
+                ResourcePolicyValidator.Diagnostic(
+                    ResourcePolicyDiagnosticCodes.LifecycleRestoreMarkerMismatch,
+                    $"Resource '{request.ResourceId}' is marked as {marker.State}; expected {request.ExpectedState}.",
+                    "expectedState",
+                    resourceId: request.ResourceId),
+            ],
+        };
 
     private static ResourceLifecycleMarkerTransitionResult Failure(
         ResourceLifecycleMarkerTransitionStatus status,
@@ -138,21 +239,35 @@ internal sealed class ResourceLifecycleMarkerTransitionService : IResourceLifecy
         };
 }
 
-internal sealed class ResourceLifecycleMarkerTransitionApplyRequest
+internal abstract class ResourceLifecycleMarkerTransitionRequest
 {
     public required TenantScope TenantScope { get; init; }
 
     public required string ResourceId { get; init; }
 
+    public bool TargetExists { get; init; }
+
+    public bool HasTargetExistence { get; init; }
+
+    public ResourceLifecycleMarker? CurrentMarker { get; init; }
+
+    public bool HasCurrentMarker { get; init; }
+}
+
+internal sealed class ResourceLifecycleMarkerTransitionApplyRequest : ResourceLifecycleMarkerTransitionRequest
+{
     public required ResourceLifecycleMarkerState State { get; init; }
 
     public required DateTimeOffset MarkedAt { get; init; }
 
     public string? Reason { get; init; }
+}
 
-    public ResourceLifecycleMarker? CurrentMarker { get; init; }
+internal sealed class ResourceLifecycleMarkerTransitionClearRequest : ResourceLifecycleMarkerTransitionRequest
+{
+    public required ResourceLifecycleMarkerState ExpectedState { get; init; }
 
-    public bool HasCurrentMarker { get; init; }
+    public bool Apply { get; init; }
 }
 
 internal sealed record ResourceLifecycleMarkerTransitionResult
@@ -168,5 +283,9 @@ internal enum ResourceLifecycleMarkerTransitionStatus
 {
     Applied,
     AlreadySatisfied,
+    ReadyToClear,
+    Cleared,
+    AlreadyCleared,
+    MarkerMismatch,
     Failed,
 }
