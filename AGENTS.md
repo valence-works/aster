@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read `specs/037-sqlite-startup-concurrency/plan.md`.
+shell commands, and other important information, read `specs/038-facet-metadata/plan.md`.
 <!-- SPECKIT END -->
 
 ## Active Technologies
