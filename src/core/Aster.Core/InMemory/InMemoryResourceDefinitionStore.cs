@@ -84,6 +84,7 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        FacetMetadataValidator.Validate(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
         var versions = definitions.GetOrAdd((tenant.TenantId, definition.DefinitionId), _ => []);

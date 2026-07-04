@@ -94,6 +94,13 @@ public sealed partial class DefaultResourceManager : IResourceManager
             && existingVersions.Any(r => string.Equals(r.DefinitionId, definitionId, StringComparison.Ordinal)))
             throw new SingletonViolationException(definitionId);
 
+        if (definition is not null)
+        {
+            var facetValueDiagnostics = FacetValueValidator.Validate(definition, request.InitialAspects);
+            if (facetValueDiagnostics.Count > 0)
+                throw new FacetValueValidationException(facetValueDiagnostics);
+        }
+
         var resource = new Resource
         {
             TenantScope = tenant,
@@ -180,6 +187,14 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Created = DateTime.UtcNow,
             Aspects = mergedAspects,
         };
+
+        var definition = await definitionStore.GetDefinitionAsync(updated.DefinitionId, tenant, cancellationToken);
+        if (definition is not null)
+        {
+            var facetValueDiagnostics = FacetValueValidator.Validate(definition, mergedAspects);
+            if (facetValueDiagnostics.Count > 0)
+                throw new FacetValueValidationException(facetValueDiagnostics);
+        }
 
         var operationId = Guid.NewGuid();
         await lifecycleHooks.InvokeBeforeSaveAsync(new ResourceSaveLifecycleContext

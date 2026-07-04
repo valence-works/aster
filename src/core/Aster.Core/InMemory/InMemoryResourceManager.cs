@@ -70,6 +70,14 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
                 throw new SingletonViolationException(definitionId);
         }
 
+        // Facet value validation — must fail before any state change (TryAdd below).
+        if (definition is not null)
+        {
+            var facetValueDiagnostics = FacetValueValidator.Validate(definition, request.InitialAspects);
+            if (facetValueDiagnostics.Count > 0)
+                throw new FacetValueValidationException(facetValueDiagnostics);
+        }
+
         // Atomic duplicate ID check - TryAdd is atomic so only one creator can win.
         var versionList = new List<Resource>();
         if (!store.Versions.TryAdd((tenant.TenantId, resourceId), versionList))
@@ -127,6 +135,15 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
             Created = DateTime.UtcNow,
             Aspects = mergedAspects,
         };
+
+        // Facet value validation — must fail before the new version is written.
+        var definition = await definitionStore.GetDefinitionAsync(updated.DefinitionId, tenant, cancellationToken);
+        if (definition is not null)
+        {
+            var facetValueDiagnostics = FacetValueValidator.Validate(definition, mergedAspects);
+            if (facetValueDiagnostics.Count > 0)
+                throw new FacetValueValidationException(facetValueDiagnostics);
+        }
 
         return await SaveVersionAsync(updated, cancellationToken);
     }

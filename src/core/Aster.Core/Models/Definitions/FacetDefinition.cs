@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Aster.Core.Models.Definitions;
 
 /// <summary>
@@ -30,4 +32,12 @@ public sealed record FacetDefinition
     /// Whether the field must be present on save.
     /// </summary>
     public bool IsRequired { get; init; }
+
+    /// <summary>
+    /// Optional display and validation metadata. <see langword="null"/> means the facet
+    /// registers, validates, saves, exports, and imports exactly as before this feature.
+    /// Omitted from JSON when <see langword="null"/> so no-metadata definitions serialize unchanged.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FacetMetadata? Metadata { get; init; }
 }
