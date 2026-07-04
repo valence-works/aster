@@ -33,6 +33,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "persistence", "persistence"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aster.Persistence.SqliteJson", "src\persistence\Aster.Persistence.SqliteJson\Aster.Persistence.SqliteJson.csproj", "{4F9A6BDD-267C-48C2-AA95-4466BCFAC9D6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aster.AdminDemo", "src\apps\Aster.AdminDemo\Aster.AdminDemo.csproj", "{60F09C37-DD09-40BE-88A3-C63745E2FACC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -91,6 +93,18 @@ Global
 		{4F9A6BDD-267C-48C2-AA95-4466BCFAC9D6}.Release|x64.Build.0 = Release|Any CPU
 		{4F9A6BDD-267C-48C2-AA95-4466BCFAC9D6}.Release|x86.ActiveCfg = Release|Any CPU
 		{4F9A6BDD-267C-48C2-AA95-4466BCFAC9D6}.Release|x86.Build.0 = Release|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Debug|x64.Build.0 = Debug|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Debug|x86.Build.0 = Debug|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Release|x64.ActiveCfg = Release|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Release|x64.Build.0 = Release|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Release|x86.ActiveCfg = Release|Any CPU
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -103,5 +117,6 @@ Global
 		{F0567570-3679-4F30-A8D0-B6DBBC2BCE17} = {FF7A09FF-5213-4789-B438-D4B59BEEBC45}
 		{CF99AE91-2DD7-2DE3-344A-C96BDD40975E} = {34F80440-0ECD-4AC5-B191-0023429E49D7}
 		{4F9A6BDD-267C-48C2-AA95-4466BCFAC9D6} = {CF99AE91-2DD7-2DE3-344A-C96BDD40975E}
+		{60F09C37-DD09-40BE-88A3-C63745E2FACC} = {A70B85DB-A03D-49A2-9D79-E1EB06B261AA}
 	EndGlobalSection
 EndGlobal
