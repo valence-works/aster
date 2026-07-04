@@ -139,6 +139,27 @@ public sealed class ResourceDefinitionBuilder
     }
 
     /// <summary>
+    /// Attaches optional display and validation metadata to the most recently added facet
+    /// of the most recently registered aspect.
+    /// </summary>
+    /// <param name="metadata">The metadata to attach.</param>
+    /// <returns>This builder for chaining.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if no facet has been added yet.</exception>
+    public ResourceDefinitionBuilder WithFacetMetadata(FacetMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        if (aspectEntries.Count == 0 || aspectEntries[^1].Definition.FacetDefinitions.Count == 0)
+            throw new InvalidOperationException("Add a facet (WithTypedFacet) before calling WithFacetMetadata.");
+
+        var (key, lastAspect) = aspectEntries[^1];
+        var facets = new List<FacetDefinition>(lastAspect.FacetDefinitions);
+        facets[^1] = facets[^1] with { Metadata = metadata };
+        aspectEntries[^1] = (key, lastAspect with { FacetDefinitions = facets });
+        return this;
+    }
+
+    /// <summary>
     /// Builds the <see cref="ResourceDefinition"/> from the configured state.
     /// </summary>
     /// <returns>The constructed definition. <c>Version</c> is set to 0 and auto-incremented by the store on registration.</returns>

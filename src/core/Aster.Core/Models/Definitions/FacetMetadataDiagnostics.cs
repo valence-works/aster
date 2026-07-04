@@ -1,0 +1,87 @@
+namespace Aster.Core.Models.Definitions;
+
+/// <summary>
+/// A single registration-time facet metadata self-validation failure.
+/// </summary>
+/// <param name="Code">Stable diagnostic code; one of <see cref="FacetMetadataDiagnosticCodes"/>.</param>
+/// <param name="Message">Human-readable, actionable explanation.</param>
+/// <param name="AspectKey">Attachment key of the offending aspect (e.g., <c>PriceAspect</c> or <c>PriceAspect:Sale</c>).</param>
+/// <param name="FacetDefinitionId">Offending facet identifier.</param>
+public sealed record FacetMetadataDiagnostic(string Code, string Message, string AspectKey, string FacetDefinitionId);
+
+/// <summary>
+/// Stable diagnostic codes for registration-time facet metadata self-validation failures.
+/// </summary>
+public static class FacetMetadataDiagnosticCodes
+{
+    /// <summary>
+    /// <c>MinLength</c> exceeds <c>MaxLength</c>, a length bound is negative, <c>Minimum</c> exceeds
+    /// <c>Maximum</c>, or a numeric bound on an int facet is not a whole number.
+    /// </summary>
+    public const string RangeInvalid = "facet-metadata-range-invalid";
+
+    /// <summary>
+    /// A constraint is declared for a facet type outside the constraint applicability matrix.
+    /// </summary>
+    public const string ConstraintInapplicable = "facet-metadata-constraint-inapplicable";
+
+    /// <summary>
+    /// <c>AllowedValues</c> is declared but empty.
+    /// </summary>
+    public const string AllowedValuesEmpty = "facet-metadata-allowed-values-empty";
+
+    /// <summary>
+    /// <c>AllowedValues</c> contains duplicate entries after normalization to the declared type.
+    /// </summary>
+    public const string AllowedValuesDuplicate = "facet-metadata-allowed-values-duplicate";
+
+    /// <summary>
+    /// An <c>AllowedValues</c> entry does not normalize to the facet's declared type.
+    /// </summary>
+    public const string AllowedValueTypeMismatch = "facet-metadata-allowed-value-type-mismatch";
+
+    /// <summary>
+    /// <c>DefaultValue</c> violates the declared type or any declared constraint.
+    /// </summary>
+    public const string DefaultValueInvalid = "facet-metadata-default-value-invalid";
+
+    /// <summary>
+    /// <c>Pattern</c> is not a well-formed .NET regular expression.
+    /// </summary>
+    public const string PatternInvalid = "facet-metadata-pattern-invalid";
+}
+
+/// <summary>
+/// A single save-time facet value validation failure.
+/// </summary>
+/// <param name="Code">Stable diagnostic code; one of <see cref="FacetValueDiagnosticCodes"/>.</param>
+/// <param name="Message">Human-readable, actionable explanation.</param>
+/// <param name="AspectKey">Attachment key of the offending aspect on the resource.</param>
+/// <param name="FacetDefinitionId">Offending facet identifier.</param>
+public sealed record FacetValueDiagnostic(string Code, string Message, string AspectKey, string FacetDefinitionId);
+
+/// <summary>
+/// Stable diagnostic codes for save-time facet value validation failures.
+/// </summary>
+public static class FacetValueDiagnosticCodes
+{
+    /// <summary>
+    /// A present value is outside the declared <c>AllowedValues</c> list.
+    /// </summary>
+    public const string NotAllowed = "facet-value-not-allowed";
+
+    /// <summary>
+    /// A present string value is shorter than <c>MinLength</c> or longer than <c>MaxLength</c>.
+    /// </summary>
+    public const string LengthOutOfRange = "facet-value-length-out-of-range";
+
+    /// <summary>
+    /// A present numeric value is below <c>Minimum</c> or above <c>Maximum</c>.
+    /// </summary>
+    public const string OutOfRange = "facet-value-out-of-range";
+
+    /// <summary>
+    /// A present string value does not match <c>Pattern</c> (including bounded-evaluation timeout).
+    /// </summary>
+    public const string PatternMismatch = "facet-value-pattern-mismatch";
+}

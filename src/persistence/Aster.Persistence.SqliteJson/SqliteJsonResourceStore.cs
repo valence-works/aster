@@ -119,6 +119,7 @@ public sealed class SqliteJsonResourceStore :
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        FacetMetadataValidator.Validate(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);

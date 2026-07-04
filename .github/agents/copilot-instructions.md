@@ -18,6 +18,8 @@ Auto-generated from all feature plans. Last updated: 2026-05-27
 - Existing resource definitions gain policy declaration metadata; resource lifecycle markers are stored as additive state separate from immutable resource versions; portable snapshots include policy declarations and lifecycle markers; SQLite JSON adds policy/marker storage without a general migration framework (016-policy-foundations)
 - C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, policy declaration/preview models, lifecycle marker service/store, resource definition store, resource version reader, in-memory store, SQLite JSON provider through existing abstractions, xUnit test stack; no new dependencies (017-policy-application-orchestration)
 - No schema or storage changes. Application orchestration writes only existing lifecycle marker state through `IResourceLifecycleMarkerStore` after validation and conflict preflight; definitions, resources, activation state, portability snapshots, and SQLite tables remain unchanged. (017-policy-application-orchestration)
+- C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK (`Aster.Core`), existing SQLite JSON provider (`Aster.Persistence.SqliteJson`), `System.Text.Json` and `System.Text.RegularExpressions` from the platform, xUnit test stack; no new dependencies (038-facet-metadata)
+- Existing in-memory store and SQLite JSON provider; definitions remain serialized JSON payloads — no storage schema changes (038-facet-metadata)
 
 - C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0) + Microsoft.Extensions.DependencyInjection, Microsoft.Extensions.Logging (001-core-sdk-foundation)
 
@@ -37,9 +39,9 @@ tests/
 C# / .NET 9.0 (Standard 2.0/2.1 compatible ideally, but targeted for net9.0): Follow standard conventions
 
 ## Recent Changes
+- 038-facet-metadata: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK (`Aster.Core`), existing SQLite JSON provider (`Aster.Persistence.SqliteJson`), `System.Text.Json` and `System.Text.RegularExpressions` from the platform, xUnit test stack; no new dependencies
 - 017-policy-application-orchestration: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, policy declaration/preview models, lifecycle marker service/store, resource definition store, resource version reader, in-memory store, SQLite JSON provider through existing abstractions, xUnit test stack; no new dependencies
 - 016-policy-foundations: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK, in-memory store, SQLite JSON provider, resource manager/store abstractions, query capability/validation stack, portability service, lifecycle hook dispatcher, xUnit test stack; no new dependencies
-- 008-typed-query-authoring: Added C# latest, .NET 8.0 / 9.0 / 10.0 multi-targeting + Existing core SDK and xUnit test stack; no new dependencies
 
 
 <!-- MANUAL ADDITIONS START -->
