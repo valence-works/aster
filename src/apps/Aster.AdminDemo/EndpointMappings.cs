@@ -91,6 +91,9 @@ internal static class EndpointMappings
         IResourceDefinitionStore definitionStore,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.DefinitionId))
+            return Results.BadRequest(new ErrorEnvelope("definitionId is required."));
+
         try
         {
             var aspects = new List<(string AspectKey, IReadOnlyList<FacetDto> Facets)>();
@@ -220,6 +223,9 @@ internal static class EndpointMappings
         IResourceVersionHistoryService historyService,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.DefinitionId))
+            return Results.BadRequest(new ErrorEnvelope("definitionId is required."));
+
         if (await definitionStore.GetDefinitionAsync(request.DefinitionId, cancellationToken) is null)
             return Results.NotFound(new ErrorEnvelope($"Definition '{request.DefinitionId}' was not found."));
 
@@ -235,6 +241,10 @@ internal static class EndpointMappings
         catch (FacetValueValidationException exception)
         {
             return Results.BadRequest(new DiagnosticsEnvelope(exception.Diagnostics.Select(ToDiagnosticDto).ToList()));
+        }
+        catch (SingletonViolationException exception)
+        {
+            return Results.Conflict(new ErrorEnvelope(exception.Message));
         }
     }
 

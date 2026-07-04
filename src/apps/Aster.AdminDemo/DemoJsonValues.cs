@@ -56,7 +56,6 @@ internal static class DemoJsonValues
         JsonValueKind.Object => element.EnumerateObject()
             .ToDictionary(static property => property.Name, property => ConvertJsonElement(property.Value), StringComparer.Ordinal),
         JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToList(),
-        JsonValueKind.String when element.TryGetDateTime(out var dateTime) => dateTime,
         JsonValueKind.String => element.GetString(),
         JsonValueKind.Number when element.TryGetInt64(out var integer) => integer,
         JsonValueKind.Number when element.TryGetDecimal(out var decimalValue) => decimalValue,

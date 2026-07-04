@@ -32,7 +32,9 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
 
   async function submit() {
     if (!definition.data) return;
-    const clientErrors = validateAspects(definition.data, aspects);
+    const normalized = normalizeForSubmit(definition.data, aspects);
+    setAspects(normalized);
+    const clientErrors = validateAspects(definition.data, normalized);
     setErrors(clientErrors);
     setFormErrors([]);
     if (Object.keys(clientErrors).length) {
@@ -41,7 +43,6 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
     }
     setSaving(true);
     try {
-      const normalized = normalizeForSubmit(definition.data, aspects);
       if (mode === "create") {
         const created = await api.createResource({ definitionId, aspects: normalized });
         toast.success(`${definition.data.displayName} created`, { description: `Immutable v${created.version} saved.` });

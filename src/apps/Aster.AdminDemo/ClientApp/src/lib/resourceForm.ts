@@ -1,4 +1,5 @@
 import type { DefinitionDetailDto, DiagnosticDto, FacetDto, ResourceAspects } from "@/lib/api";
+import { toKebabCase } from "@/lib/utils";
 
 export type FieldErrors = Record<string, string>;
 
@@ -82,6 +83,8 @@ export function normalizeForSubmit(definition: DefinitionDetailDto, aspects: Res
         normalized[aspect.aspectKey][facet.facetId] = typeof value === "number" ? value : Number(value);
       } else if (facet.type === "boolean" || facet.metadata?.uiHint === "toggle") {
         normalized[aspect.aspectKey][facet.facetId] = Boolean(value);
+      } else if (facet.metadata?.uiHint === "slug") {
+        normalized[aspect.aspectKey][facet.facetId] = toKebabCase(String(value));
       } else {
         normalized[aspect.aspectKey][facet.facetId] = value;
       }
