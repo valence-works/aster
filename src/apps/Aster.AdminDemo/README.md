@@ -29,11 +29,8 @@ npm run build
 
 # 2. Run the host (serves API + built SPA on http://localhost:5210)
 cd ../../../..
-dotnet run --project src/apps/Aster.AdminDemo -p:NuGetAudit=false
+dotnet run --project src/apps/Aster.AdminDemo
 ```
-
-> `-p:NuGetAudit=false` works around a pre-existing NU1903 advisory on a
-> transitive SQLitePCLRaw package; no packages are pinned differently here.
 
 Open http://localhost:5210. A SQLite database is created at
 `App_Data/aster-demo.db` (gitignored) and seeded on first run with `article`
@@ -42,7 +39,7 @@ and `page` content types plus sample content.
 ### Frontend dev loop
 
 ```bash
-dotnet run --project src/apps/Aster.AdminDemo -p:NuGetAudit=false   # terminal 1
+dotnet run --project src/apps/Aster.AdminDemo   # terminal 1
 cd src/apps/Aster.AdminDemo/ClientApp && npm run dev                # terminal 2
 ```
 

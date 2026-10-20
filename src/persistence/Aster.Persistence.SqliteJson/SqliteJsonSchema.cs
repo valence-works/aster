@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Aster.Core.Models.Tenancy;
 using Microsoft.Data.Sqlite;
 
@@ -53,7 +54,29 @@ internal static class SqliteJsonSchema
         );
         """;
 
+    // Concurrent initialization of the same fresh database (journal_mode switch to WAL plus
+    // BEGIN IMMEDIATE on several connections) intermittently fails inside SQLite with
+    // SQLITE_ERROR ("SQL logic error", "cannot start a transaction within a transaction"),
+    // observed with Microsoft.Data.Sqlite 9.0.21 / SQLite 3.53. Serializing initialization per
+    // database removes that contention within a process; it does not coordinate across processes.
+    private static readonly ConcurrentDictionary<string, object> InitializationLocks = new(StringComparer.Ordinal);
+
     public static void Initialize(string connectionString)
+    {
+        lock (InitializationLocks.GetOrAdd(GetDatabaseKey(connectionString), static _ => new object()))
+            InitializeCore(connectionString);
+    }
+
+    private static string GetDatabaseKey(string connectionString)
+    {
+        var dataSource = new SqliteConnectionStringBuilder(connectionString).DataSource;
+
+        return string.IsNullOrEmpty(dataSource) || dataSource == ":memory:" || dataSource.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
+            ? connectionString
+            : Path.GetFullPath(dataSource);
+    }
+
+    private static void InitializeCore(string connectionString)
     {
         using var connection = new SqliteConnection(connectionString);
         connection.Open();
