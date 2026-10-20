@@ -18,7 +18,7 @@ Can an Elsa-like host move its control-plane entities onto Aster? The spike mode
 - lifecycle hooks
 - cross-tenant portability
 
-Every blocking gap sits in the **schema layer**: facet types, required and type enforcement, references, and typed aspects. All of it is already planned in Phase B. No new epic is needed, and the program order stands with one addition (#127).
+The one blocker is in the **query layer**: there are no array operators (F3). The remaining high-severity gaps are in the **schema layer**: facet types, required and type enforcement, references, and typed aspects. All of it is already planned in Phase B. No new epic is needed, and the program order stands with one addition (#127).
 
 ## What worked
 
@@ -38,19 +38,19 @@ Every blocking gap sits in the **schema layer**: facet types, required and type 
 |---|---|---|---|
 | F3 | No array operators: `Contains` on a label array returns false positives | Blocker for tagging | #82, #83 |
 | F2, F5, F6 | Unknown types accepted; `IsRequired` and declared types not enforced | High | #123 |
-| F1, F11 | No `WithFacet`; `WithAspect<T>()` declares no facets; string-literal names everywhere | High (DX) | #124 |
+| F1, F11 | No `WithFacet`; `WithAspect<T>()` declares no facets; dictionary aspects need string-literal facet names (POCO aspects have typed query helpers, but no derived facets to validate against) | High (DX) | #124 |
 | F4 | References are unchecked strings | High | #86, #87 |
 | F9 | Archiving a referenced resource is silent | Medium | #88, #90 |
-| F10 | Import remapping would not rewrite references | Medium | #89 |
+| F10 | The observed import succeeded and kept IDs. References would break only if IDs were remapped: they are untyped strings, so remapping would not rewrite them | Medium | #89 |
 | F8 | Activation hook contexts lack `DefinitionId` | Medium (blocks #116) | **#127 (new)** |
-| F7 | Promotion between channels takes two calls | Low | Decision below |
-| F12 | Archived resources appear in default queries | Medium | Decision below |
+| F7 | Promotion between channels takes two calls | Low | No task: decided against a core API (see Decisions); a promote action belongs in #108 and #115 |
+| F12 | Archived resources appear in default queries | Medium | #108 (hosting default; see Decisions) |
 
 ## Decisions
 
 - **F7, no `PromoteAsync` in core.** Reading the active version in one channel and activating it in another is two explicit calls. That is in line with the constitution's explicitness principle, and a core API would not earn its keep. The Elsa module (#115) and `Aster.AspNetCore` (#108) can offer a promote action on top.
 - **F12, core stays explicit; hosting defaults to hiding archived resources.** `ResourceQuery` keeps returning every lifecycle state unless `LifecycleState` is set, because changing that default silently would break existing hosts. `Aster.AspNetCore` list endpoints (#108) and the Elsa module will exclude archived and soft-deleted resources by default, with an opt-in to include them.
-- **Elsa module (#69): go.** Its work starts after #123, #124, #82, #83, #86–#89 and #102 (SQL Server strategy). The first entity to move (#118) should be **agent definitions**: they exercise channels and rollback, which worked best in the spike, and need references, which Phase B delivers.
+- **Elsa module (#69): go.** Its work starts after #123, #124, #82, #83, #86–#89 and #102 (SQL Server strategy). #102 is a prerequisite because epic #69 is gated on the production-provider epic (#65), and Elsa hosts run SQL Server, which neither existing provider covers. The first entity to move (#118) should be **agent definitions**: they exercise channels and rollback, which worked best in the spike, and need references, which Phase B delivers.
 - **Control-plane boundary:** confirmed. Nothing in the spike tempted runtime data into Aster. The boundary ADR (#79) records this.
 
 ## Program changes
