@@ -90,20 +90,24 @@ Register an aspect once in `IAspectDefinitionStore`, then attach it to any numbe
 
 ```csharp
 var aspects = services.GetRequiredService<IAspectDefinitionStore>();
+var tenant = TenantScope.FromTenantId("acme"); // register and resolve in the same tenant
+
+// Register by hand...
 await aspects.RegisterAsync(new AspectDefinition
 {
     AspectDefinitionId = "Seo",
     Id = Guid.NewGuid().ToString(),
     Version = 0, // assigned by the store
     FacetDefinitions = [/* ... */],
-});
-await aspects.RegisterAsync(AspectDefinitionBuilder.FromType<SeoAspect>()); // or derive it from a POCO
+}, tenant);
+// ...or derive it from a POCO; the aspect ID is the type name ("AuditAspect")
+await aspects.RegisterAsync(AspectDefinitionBuilder.FromType<AuditAspect>(requiresName: true), tenant);
 
 var article = await new ResourceDefinitionBuilder()
     .WithDefinitionId("Article")
-    .WithSharedAspect("Seo")              // latest version at build time
-    .WithSharedAspect("Audit", name: "Created")
-    .WithSharedAspect<SeoAspect>(version: 1)
+    .WithSharedAspect("Seo")                                     // latest version at build time
+    .WithSharedAspect<AuditAspect>(version: 1, name: "Created")  // pinned; named because RequiresName
+    .WithSharedAspect<AuditAspect>(version: 1, name: "Updated")
     .BuildAsync(aspects, tenant);
 await definitionStore.RegisterDefinitionAsync(article, tenant, ct);
 ```
