@@ -28,6 +28,8 @@ It provides a headless, backend-agnostic foundation for attaching reusable, cros
 
 ---
 
+> **Scope:** Aster is a control-plane store for authored, versioned configuration and domain objects, not for runtime or high-throughput data. See [ADR 0001](docs/adr/0001-control-plane-boundary.md).
+
 ## Concepts
 
 | Term | Description |

@@ -1,6 +1,6 @@
 # Aster
 
-Aster is a headless SDK for resource definitions, versioned resources, activation state, lifecycle markers, policy workflows, portability, and provider-backed querying.
+Aster is a headless SDK for resource definitions, versioned resources, activation state, lifecycle markers, policy workflows, portability, and provider-backed querying. It is a control-plane store for authored data, not runtime or high-throughput data (docs/adr/0001-control-plane-boundary.md).
 
 ## Language
 
