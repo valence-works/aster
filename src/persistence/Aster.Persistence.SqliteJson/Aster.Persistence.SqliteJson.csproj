@@ -8,7 +8,15 @@
     <Deterministic>true</Deterministic>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <Description>SQLite JSON persistence and query provider for Aster.</Description>
+    <PackageTags>aster;sqlite;json;persistence</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\core\Aster.Core\Aster.Core.csproj" />
