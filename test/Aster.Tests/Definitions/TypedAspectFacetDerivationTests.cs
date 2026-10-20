@@ -5,6 +5,9 @@ using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Querying;
+using Aster.Persistence.SqliteJson;
+using Aster.Tests.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Definitions;
@@ -215,5 +218,62 @@ public sealed class TypedAspectFacetDerivationTests
     private sealed class CountOnly
     {
         public int Int32 { get; init; }
+    }
+
+    private sealed class Headed
+    {
+        [JsonPropertyName("headline")]
+        public required string Title { get; init; }
+    }
+
+    [Fact]
+    public void WithAspectOfT_JsonPropertyName_BecomesTheFacetId()
+    {
+        var definition = new ResourceDefinitionBuilder().WithDefinitionId("Story").WithAspect<Headed>().Build();
+
+        Assert.Equal("headline", Assert.Single(Facets(definition, "Headed")).FacetDefinitionId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JsonPropertyName_FacetValidatesFromPocoAndStoredJsonAndIsQueryable(bool sqlite)
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
+        try
+        {
+            var services = new ServiceCollection().AddAsterCore();
+            if (sqlite)
+                services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
+            await using var provider = services.BuildServiceProvider();
+            await provider.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+                .WithDefinitionId("Story")
+                .WithAspect<Headed>()
+                .WithAspect("Notes")
+                .WithFacet("Text", "string")
+                .Build());
+            var manager = provider.GetRequiredService<IResourceManager>();
+
+            var created = await manager.CreateAsync("Story", new CreateResourceRequest
+            {
+                InitialAspects = new Dictionary<string, object> { ["Headed"] = new Headed { Title = "Launch" } },
+            });
+
+            // The update carries the stored Headed aspect forward and revalidates it.
+            var updated = await manager.UpdateAsync(created.ResourceId, new UpdateResourceRequest
+            {
+                BaseVersion = created.Version,
+                AspectUpdates = new Dictionary<string, object> { ["Notes"] = new Dictionary<string, object> { ["Text"] = "draft" } },
+            });
+            Assert.Equal(2, updated.Version);
+
+            var filter = TypedQuery.For<Headed>().Facet(static aspect => aspect.Title).EqualTo("launch");
+            var results = await provider.GetRequiredService<IResourceQueryService>().QueryAsync(new ResourceQuery { DefinitionId = "Story", Filter = filter });
+            Assert.Equal(created.ResourceId, Assert.Single(results).ResourceId);
+        }
+        finally
+        {
+            SqliteJsonTestDatabase.DeleteFiles(databasePath);
+        }
     }
 }

@@ -243,7 +243,7 @@ var sort = TypedQuery.For<PriceAspect>()
     .Descending();
 ```
 
-By default, the aspect key is the CLR type name and the facet identifier is the selected member name. Override either value per query when targeting named aspects or non-conventional identifiers:
+By default, the aspect key is the CLR type name and the facet identifier is the selected member's `[JsonPropertyName]`, or its name when it has none (the same ID `WithAspect<T>()` derives). Override either value per query when targeting named aspects or non-conventional identifiers:
 
 ```csharp
 var filter = TypedQuery.For<PriceAspect>(aspectKey: "PriceAspect:Sale")

@@ -38,7 +38,7 @@ The aspect key defaults to `typeof(T).Name` — i.e. `"TitleAspect"`, `"PriceAsp
 | `bool` | `bool` |
 | `DateTime`, `DateTimeOffset` | `datetime` |
 
-Properties declared with the C# `required` modifier become required facets. `Guid`, collection, nested-object and enum properties are not derived yet: their facet types arrive with #81, #82, #84 and #131. Decorate a derived facet with metadata by ID:
+The facet ID is the property's `[JsonPropertyName]` when it has one, otherwise the property name, so it matches the key in stored JSON. Properties declared with the C# `required` modifier become required facets. `Guid`, collection, nested-object and enum properties are not derived yet: their facet types arrive with #81, #82, #84 and #131. Decorate a derived facet with metadata by ID:
 
 ```csharp
 new ResourceDefinitionBuilder()

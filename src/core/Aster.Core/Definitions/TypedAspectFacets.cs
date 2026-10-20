@@ -37,7 +37,8 @@ internal static class TypedAspectFacets
 
         return new FacetDefinition
         {
-            FacetDefinitionId = property.Name,
+            // The serialized name, so validation and queries over stored JSON find the value.
+            FacetDefinitionId = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? property.Name,
             Id = Guid.NewGuid().ToString(),
             Version = 1,
             Type = type,
