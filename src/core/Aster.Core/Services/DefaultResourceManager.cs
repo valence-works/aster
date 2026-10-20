@@ -188,7 +188,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Aspects = mergedAspects,
         };
 
-        var definition = await definitionStore.GetDefinitionAsync(updated.DefinitionId, tenant, cancellationToken);
+        var definition = await RecordedDefinitionResolver.ResolveAsync(definitionStore, updated, tenant, cancellationToken);
         if (definition is not null)
         {
             var facetValueDiagnostics = FacetValueValidator.Validate(definition, mergedAspects);

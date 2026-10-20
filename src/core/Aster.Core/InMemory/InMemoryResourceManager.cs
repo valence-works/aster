@@ -137,7 +137,7 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         };
 
         // Facet value validation — must fail before the new version is written.
-        var definition = await definitionStore.GetDefinitionAsync(updated.DefinitionId, tenant, cancellationToken);
+        var definition = await RecordedDefinitionResolver.ResolveAsync(definitionStore, updated, tenant, cancellationToken);
         if (definition is not null)
         {
             var facetValueDiagnostics = FacetValueValidator.Validate(definition, mergedAspects);

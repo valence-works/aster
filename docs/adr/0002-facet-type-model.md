@@ -141,3 +141,15 @@ When index projections (#100) need a type, the mapping is: `string` → `Keyword
   1. [#123](https://github.com/valence-works/aster/issues/123): enforce declared types and `IsRequired` on save (§2–§4);
   2. [#124](https://github.com/valence-works/aster/issues/124): derive facets from typed aspect properties and add `WithFacet` (§8).
 - #86 and #90 are simplified (§6).
+
+## Addenda
+
+### Updates validate against the recorded definition version (#130)
+
+**Decision:** an update validates its merged aspects against the definition version the resource records in `Resource.DefinitionVersion`, not the latest registered version. Creates record, and validate against, the latest version. A resource moves to newer rules only through an explicit schema upgrade (spec 012), after which updates follow the upgraded version.
+
+**Why:** with §3–§4 enforcing types and `IsRequired`, validating against the latest version meant that registering a stricter definition changed the rules for every existing resource on its next update, although none had been upgraded. That contradicts 012, where moving lineage is explicit. The rule also cuts the other way: if a later version relaxes a rule, resources still on the stricter version keep it until they are upgraded.
+
+**Fallback:** a resource that records no definition version (data written before versions were recorded), or whose recorded version is no longer stored, is validated against the latest version, as before.
+
+**Rejected:** validating against the latest version and documenting that registering a definition version changes update rules immediately. It is simpler but makes registration a silent, fleet-wide behaviour change.
