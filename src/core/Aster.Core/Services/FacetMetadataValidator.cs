@@ -342,10 +342,14 @@ public static class FacetMetadataValidator
     /// <summary>
     /// Accepts GUID strings in the <c>D</c> format only (any case). Queries compare stored text
     /// case-insensitively against <see cref="Guid.ToString()"/>, which is the lowercase <c>D</c> form, so
-    /// <c>N</c>, <c>B</c> or <c>P</c> strings would be stored but never match.
+    /// <c>N</c>, <c>B</c> or <c>P</c> strings would be stored but never match. The length check rejects
+    /// whitespace padding, which <see cref="Guid.TryParseExact(string, string, out Guid)"/> trims.
     /// </summary>
-    private static bool TryParseGuidText(string? text, out Guid guid) =>
-        Guid.TryParseExact(text, "D", out guid);
+    private static bool TryParseGuidText(string? text, out Guid guid)
+    {
+        guid = default;
+        return text is { Length: 36 } && Guid.TryParseExact(text, "D", out guid);
+    }
 
     private static bool TryNormalizeJsonElement(JsonElement element, FacetValueType facetType, out object normalized)
     {

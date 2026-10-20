@@ -105,6 +105,8 @@ public sealed class GuidFacetTypeTests : IDisposable
     [InlineData(Sqlite, "3f2504e04f8911d39a0c0305e82c3301")]
     [InlineData(InMemory, "{3f2504e0-4f89-11d3-9a0c-0305e82c3301}")]
     [InlineData(InMemory, "(3f2504e0-4f89-11d3-9a0c-0305e82c3301)")]
+    [InlineData(InMemory, " 3f2504e0-4f89-11d3-9a0c-0305e82c3301 ")]
+    [InlineData(Sqlite, "3f2504e0-4f89-11d3-9a0c-0305e82c3301\n")]
     public async Task CreateAsync_NonGuidOrNonDFormatValue_IsTypeMismatch(string providerKind, object value)
     {
         await using var provider = CreateProvider(providerKind);
