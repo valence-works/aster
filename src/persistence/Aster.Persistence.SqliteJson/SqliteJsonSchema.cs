@@ -54,6 +54,17 @@ internal static class SqliteJsonSchema
         );
         """;
 
+    private static readonly string CreateAspectDefinitionsSql = $$"""
+        CREATE TABLE IF NOT EXISTS aspect_definitions (
+            tenant_id TEXT NOT NULL DEFAULT {{DefaultTenantSqlLiteral}},
+            aspect_definition_id TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            id TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            PRIMARY KEY (tenant_id, aspect_definition_id, version)
+        );
+        """;
+
     // Concurrent initialization of the same fresh database (journal_mode switch to WAL plus
     // BEGIN IMMEDIATE on several connections) intermittently fails inside SQLite with
     // SQLITE_ERROR ("SQL logic error", "cannot start a transaction within a transaction"),
@@ -117,6 +128,13 @@ internal static class SqliteJsonSchema
             CreateLifecycleMarkersSql,
             ["tenant_id", "resource_id", "payload"],
             ["tenant_id", "resource_id"]);
+        EnsureTenantAwareTable(
+            connection,
+            transaction,
+            "aspect_definitions",
+            CreateAspectDefinitionsSql,
+            ["tenant_id", "aspect_definition_id", "version", "id", "payload"],
+            ["tenant_id", "aspect_definition_id", "version"]);
 
         using var index = connection.CreateCommand();
         index.Transaction = transaction;

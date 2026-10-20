@@ -26,6 +26,8 @@ public static class SqliteJsonAsterServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.AddSingleton<SqliteJsonResourceStore>();
+        services.AddSingleton<SqliteJsonAspectDefinitionStore>();
+        services.AddSingleton<IAspectDefinitionStore>(sp => sp.GetRequiredService<SqliteJsonAspectDefinitionStore>());
         services.AddSingleton<SqliteJsonQueryService>();
         services.AddSingleton<SqliteJsonQueryProviderIdentity>();
         services.AddSingleton<SqliteJsonQueryCapabilitiesProvider>();

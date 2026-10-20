@@ -75,6 +75,8 @@ public static class AsterCoreServiceCollectionExtensions
         // Definition store
         services.AddSingleton<InMemoryResourceDefinitionStore>();
         services.AddSingleton<IResourceDefinitionStore>(sp => sp.GetRequiredService<InMemoryResourceDefinitionStore>());
+        services.AddSingleton<InMemoryAspectDefinitionStore>();
+        services.AddSingleton<IAspectDefinitionStore>(sp => sp.GetRequiredService<InMemoryAspectDefinitionStore>());
 
         // Resource backing store
         services.AddSingleton<InMemoryResourceStore>();

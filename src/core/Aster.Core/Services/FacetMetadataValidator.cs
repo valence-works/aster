@@ -25,10 +25,26 @@ public static class FacetMetadataValidator
     public static void Validate(ResourceDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        Validate(definition.AspectDefinitions);
+    }
 
+    /// <summary>
+    /// Validates every metadata-bearing facet of a standalone (shared) aspect definition. Diagnostics use
+    /// the aspect's <see cref="AspectDefinition.AspectDefinitionId"/> as their aspect key.
+    /// </summary>
+    /// <param name="aspect">The aspect definition being registered.</param>
+    /// <exception cref="FacetMetadataValidationException">Thrown when any facet metadata is invalid.</exception>
+    public static void Validate(AspectDefinition aspect)
+    {
+        ArgumentNullException.ThrowIfNull(aspect);
+        Validate(new Dictionary<string, AspectDefinition>(StringComparer.Ordinal) { [aspect.AspectDefinitionId] = aspect });
+    }
+
+    private static void Validate(IReadOnlyDictionary<string, AspectDefinition> aspects)
+    {
         var diagnostics = new List<FacetMetadataDiagnostic>();
 
-        foreach (var (aspectKey, aspectDefinition) in definition.AspectDefinitions)
+        foreach (var (aspectKey, aspectDefinition) in aspects)
         {
             foreach (var facet in aspectDefinition.FacetDefinitions)
             {
