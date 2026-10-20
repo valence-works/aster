@@ -91,6 +91,8 @@ internal static class AspectFacetValueResolver
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToList(),
+        // Kept as an element so a present object is validated (and rejected) like any other value.
+        JsonValueKind.Object => element,
         _ => null,
     };
 

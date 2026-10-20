@@ -32,6 +32,17 @@ public static class FacetMetadataValidator
         {
             foreach (var facet in aspectDefinition.FacetDefinitions)
             {
+                if (ClassifyFacetType(facet.Type) == FacetValueType.Unknown)
+                {
+                    // Metadata applicability depends on the type, so unknown types skip metadata checks.
+                    diagnostics.Add(new FacetMetadataDiagnostic(
+                        FacetMetadataDiagnosticCodes.TypeUnknown,
+                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, or datetime.",
+                        aspectKey,
+                        facet.FacetDefinitionId));
+                    continue;
+                }
+
                 if (facet.Metadata is null)
                     continue;
 
@@ -62,8 +73,6 @@ public static class FacetMetadataValidator
         List<FacetMetadataDiagnostic> diagnostics)
     {
         var facetType = ClassifyFacetType(facet.Type);
-        if (facetType == FacetValueType.Unknown)
-            return; // Unknown declared types apply no metadata applicability assumptions.
 
         void Add(string code, string message) =>
             diagnostics.Add(new FacetMetadataDiagnostic(code, message, aspectKey, facet.FacetDefinitionId));
