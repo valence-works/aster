@@ -109,7 +109,7 @@ Element equality follows the candidate's CLR type (`QueryArrayValue`):
 
 | Candidate | Matches elements that are |
 |---|---|
-| `string`, `Guid` | JSON strings, compared ordinally ignoring case (so GUID formatting and case do not matter) |
+| `string`, `Guid` | JSON strings, compared ordinally ignoring case. `Guid` candidates are formatted in the hyphenated `D` form, so GUID case doesn't matter but the stored form does. Elements of a `guid[]` facet are always `D` form, because saves reject other forms; untyped string elements in `N`, `B` or `P` form don't match. |
 | numeric types | JSON numbers with the same value (`2`, `2L` and `2.0` are equal) |
 | `bool` | JSON `true` or `false` |
 | `DateTime`, `DateTimeOffset` | JSON strings in an accepted ISO-8601 shape denoting the same UTC instant |
