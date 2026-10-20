@@ -96,6 +96,21 @@ public sealed record FacetMetadata
     public bool? UniqueItems { get; init; }
 
     /// <summary>
+    /// Definition IDs a reference may point to. Reference facets only; when declared: non-empty,
+    /// with no blank or duplicate entries. Undeclared means any definition.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? TargetDefinitionIds { get; init; }
+
+    /// <summary>
+    /// How a reference resolves to a target version. Reference facets only. <see langword="null"/> or
+    /// <c>"latest"</c> (case-insensitive) resolves the latest version; any other value names the activation
+    /// channel whose active version is used. Must not be blank when declared.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReferenceResolution { get; init; }
+
+    /// <summary>
     /// Opaque, non-validated string carried verbatim for host interpretation
     /// (e.g., "text", "multiline", "select"). Never affects validation.
     /// </summary>

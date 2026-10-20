@@ -54,7 +54,7 @@ public static class FacetMetadataValidator
                     // Metadata applicability depends on the type, so unknown types skip metadata checks.
                     diagnostics.Add(new FacetMetadataDiagnostic(
                         FacetMetadataDiagnosticCodes.TypeUnknown,
-                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, guid, or object, or an array of a scalar other than object (for example string[]).",
+                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, guid, reference, or object, or an array of a scalar other than object (for example string[]).",
                         aspectKey,
                         facet.FacetDefinitionId));
                     continue;
@@ -103,6 +103,7 @@ public static class FacetMetadataValidator
         var allowedValuesApplicable = facetType is not (FacetValueType.Bool or FacetValueType.Object);
         var defaultValueApplicable = facetType != FacetValueType.Object;
         var itemsApplicable = descriptor.IsArray;
+        var referenceApplicable = facetType == FacetValueType.Reference;
 
         if (!lengthApplicable && (metadata.MinLength is not null || metadata.MaxLength is not null))
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
@@ -127,6 +128,23 @@ public static class FacetMetadataValidator
         if (!itemsApplicable && (metadata.MinItems is not null || metadata.MaxItems is not null || metadata.UniqueItems is not null))
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
                 $"Item constraints (MinItems, MaxItems, UniqueItems) apply to array facets only; facet type is '{facet.Type}'.");
+
+        if (!referenceApplicable && (metadata.TargetDefinitionIds is not null || metadata.ReferenceResolution is not null))
+            Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
+                $"TargetDefinitionIds and ReferenceResolution apply to reference and reference[] facets only; facet type is '{facet.Type}'.");
+
+        if (referenceApplicable && metadata.TargetDefinitionIds is { } targets
+            && (targets.Count == 0
+                || targets.Any(string.IsNullOrWhiteSpace)
+                || targets.Distinct(StringComparer.Ordinal).Count() != targets.Count))
+        {
+            Add(FacetMetadataDiagnosticCodes.ReferenceTargetsInvalid,
+                "TargetDefinitionIds must list at least one definition ID, with no blank or duplicate entries.");
+        }
+
+        if (referenceApplicable && metadata.ReferenceResolution is { } resolution && string.IsNullOrWhiteSpace(resolution))
+            Add(FacetMetadataDiagnosticCodes.ReferenceResolutionInvalid,
+                "ReferenceResolution must be \"latest\" or an activation channel name.");
 
         // Bound coherence for applicable constraints.
         if (lengthApplicable)
@@ -333,6 +351,9 @@ public static class FacetMetadataValidator
 
         /// <summary>Structured values stored as a JSON object; validated by shape only.</summary>
         Object,
+
+        /// <summary>A target <c>ResourceId</c>: a non-blank string, compared ordinally.</summary>
+        Reference,
     }
 
     /// <summary>
@@ -421,6 +442,7 @@ public static class FacetMetadataValidator
         "datetime" or "datetimeoffset" => FacetValueType.DateTime,
         "guid" => FacetValueType.Guid,
         "object" => FacetValueType.Object,
+        "reference" => FacetValueType.Reference,
         _ => FacetValueType.Unknown,
     };
 
@@ -470,6 +492,10 @@ public static class FacetMetadataValidator
 
             case FacetValueType.Object when value is not null && IsObjectShaped(value):
                 normalized = value;
+                return true;
+
+            case FacetValueType.Reference when value is string resourceId && !string.IsNullOrWhiteSpace(resourceId):
+                normalized = resourceId;
                 return true;
 
             default:
@@ -525,6 +551,11 @@ public static class FacetMetadataValidator
 
             case FacetValueType.Object when element.ValueKind == JsonValueKind.Object:
                 normalized = element;
+                return true;
+
+            case FacetValueType.Reference when element.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(element.GetString()):
+                normalized = element.GetString()!;
                 return true;
 
             default:
