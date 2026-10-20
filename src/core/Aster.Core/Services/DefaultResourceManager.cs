@@ -345,6 +345,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             CancellationToken = cancellationToken,
             TenantScope = tenant,
             ResourceId = resourceId,
+            DefinitionId = versions[0].DefinitionId,
             Version = version,
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
@@ -358,6 +359,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             CancellationToken = cancellationToken,
             TenantScope = tenant,
             ResourceId = resourceId,
+            DefinitionId = versions[0].DefinitionId,
             Version = version,
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
@@ -399,6 +401,8 @@ public sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
+        var definitionId = (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken))
+            .FirstOrDefault()?.DefinitionId;
         var activeVersions = (await GetActiveVersionsAsync(resourceId, channel, tenant, cancellationToken))
             .Select(r => r.Version)
             .ToHashSet();
@@ -414,6 +418,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             CancellationToken = cancellationToken,
             TenantScope = tenant,
             ResourceId = resourceId,
+            DefinitionId = definitionId,
             Version = version,
             Channel = channel,
             ActiveVersions = hookActiveVersions,
@@ -426,6 +431,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             CancellationToken = cancellationToken,
             TenantScope = tenant,
             ResourceId = resourceId,
+            DefinitionId = definitionId,
             Version = version,
             Channel = channel,
             ActiveVersions = hookActiveVersions,

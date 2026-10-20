@@ -72,6 +72,13 @@ public sealed record ResourceActivationLifecycleContext : ResourceLifecycleConte
     public required string ResourceId { get; init; }
 
     /// <summary>
+    /// Definition of the resource being activated or deactivated, so hooks can filter by resource
+    /// type without reading the resource. Always set for activation; <see langword="null"/> only when
+    /// deactivating a resource that has no stored versions.
+    /// </summary>
+    public string? DefinitionId { get; init; }
+
+    /// <summary>
     /// Resource version being activated or deactivated.
     /// </summary>
     public required int Version { get; init; }
