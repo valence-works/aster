@@ -141,6 +141,11 @@ public static class FacetValueValidator
         {
             add(FacetValueDiagnosticCodes.ItemsOutOfRange,
                 $"Element count ({values.Count}) is outside the declared item count bounds.", null);
+
+            // An oversized array is rejected outright: skip per-element work (patterns run with a timeout
+            // each), so MaxItems also bounds the validation cost of a hostile payload.
+            if (metadata.MaxItems is { } max && values.Count > max)
+                return;
         }
 
         if (metadata.UniqueItems is true)

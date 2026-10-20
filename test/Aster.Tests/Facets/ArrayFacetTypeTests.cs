@@ -367,6 +367,24 @@ public sealed class ArrayFacetTypeTests : IDisposable
         Assert.Equal(FacetValueDiagnosticCodes.Required, diagnostic.Code);
     }
 
+    [Fact]
+    public async Task CreateAsync_OversizedArray_SkipsPerElementChecks()
+    {
+        await using var provider = CreateProvider(InMemory);
+        var manager = await RegisterAsync(provider, Definition(Facet("Tags", "string[]", metadata: new FacetMetadata
+        {
+            MaxItems = 2,
+            UniqueItems = true,
+            Pattern = "^[a-z]+$",
+        })));
+
+        // Over MaxItems, with duplicates and pattern violations: only the count is reported, so element
+        // work (patterns) stays bounded by MaxItems.
+        var diagnostic = Assert.Single(await SaveDiagnosticsAsync(manager, Tags(new[] { "A1", "A1", "B2", "C3" })));
+
+        Assert.Equal(FacetValueDiagnosticCodes.ItemsOutOfRange, diagnostic.Code);
+    }
+
     [Theory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
