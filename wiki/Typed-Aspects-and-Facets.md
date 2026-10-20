@@ -28,6 +28,39 @@ var definition = new ResourceDefinitionBuilder()
 
 The aspect key defaults to `typeof(T).Name` — i.e. `"TitleAspect"`, `"PriceAspect"`.
 
+`WithAspect<T>()` also declares one facet per public property, so the definition carries a schema that is validated on save (ADR 0002 §8):
+
+| Property type | Facet type |
+|---|---|
+| `string` | `string` |
+| `int`, `long`, `short`, `byte` (and nullable forms) | `int` |
+| `decimal`, `double`, `float` | `decimal` |
+| `bool` | `bool` |
+| `DateTime`, `DateTimeOffset` | `datetime` |
+
+Properties declared with the C# `required` modifier become required facets. `Guid`, collection, nested-object and enum properties are not derived yet: their facet types arrive with #81, #82, #84 and #131. Decorate a derived facet with metadata by ID:
+
+```csharp
+new ResourceDefinitionBuilder()
+    .WithDefinitionId("Product")
+    .WithAspect<TitleAspect>()
+    .WithFacetMetadata("Title", new FacetMetadata { MaxLength = 80 });
+```
+
+### Untyped aspects
+
+Aspects stored as dictionaries declare their facets explicitly:
+
+```csharp
+new ResourceDefinitionBuilder()
+    .WithDefinitionId("Agent")
+    .WithAspect("Prompt")
+    .WithFacet("Template", "string", isRequired: true)
+    .WithFacet("MaxTokens", "int");
+```
+
+`WithTypedFacet<T>()` is obsolete: it names the facet after its CLR type. Use `WithFacet` or a typed aspect instead.
+
 ### Reading a typed aspect
 
 Use the `GetAspect<T>` extension on `Resource`:

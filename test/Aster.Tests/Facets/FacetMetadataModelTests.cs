@@ -47,7 +47,6 @@ public sealed class FacetMetadataModelTests
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(metadata)
             .Build();
 
@@ -81,7 +80,6 @@ public sealed class FacetMetadataModelTests
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<PriceAspect>()
-            .WithTypedFacet<decimal>()
             .WithFacetMetadata(new FacetMetadata
             {
                 Label = "Price",
@@ -114,7 +112,6 @@ public sealed class FacetMetadataModelTests
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(new FacetMetadata
             {
                 Label = "Title",
@@ -175,7 +172,6 @@ public sealed class FacetMetadataModelTests
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .Build();
 
         // Act
@@ -199,7 +195,7 @@ public sealed class FacetMetadataModelTests
         // Arrange
         var builder = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
-            .WithTypedAspect<TitleAspect>();
+            .WithAspect("TitleAspect");
 
         // Act / Assert
         Assert.Throws<InvalidOperationException>(() => builder.WithFacetMetadata(new FacetMetadata { Label = "Title" }));
@@ -222,9 +218,7 @@ public sealed class FacetMetadataModelTests
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithTypedAspect<PriceAspect>()
-            .WithTypedFacet<decimal>()
             .WithFacetMetadata(new FacetMetadata { Label = "Price" })
             .Build();
 

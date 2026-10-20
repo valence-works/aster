@@ -66,7 +66,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(new FacetMetadata
             {
                 Label = "Title",
@@ -113,7 +112,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .Build();
 
         // Act
@@ -131,7 +129,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(new FacetMetadata { Label = "Title" })
             .Build();
         await CreateStore().RegisterDefinitionAsync(definition);
@@ -226,10 +223,8 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId("ParityOrdering")
             .WithTypedAspect<CountAspect>()
-            .WithTypedFacet<int>()
             .WithFacetMetadata(new FacetMetadata { Minimum = 10 })
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(new FacetMetadata { MinLength = 5, Pattern = "^[a-z]+$" })
             .Build();
         var aspects = new Dictionary<string, object>
@@ -280,7 +275,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
             return new ResourceDefinitionBuilder()
                 .WithDefinitionId($"Parity-{caseName}")
                 .WithTypedAspect<TitleAspect>()
-                .WithTypedFacet<string>()
                 .WithFacetMetadata(metadata)
                 .Build();
         }
@@ -289,7 +283,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         return new ResourceDefinitionBuilder()
             .WithDefinitionId($"Parity-{caseName}")
             .WithTypedAspect<CountAspect>()
-            .WithTypedFacet<int>()
             .WithFacetMetadata(new FacetMetadata { AllowedValues = ["not-a-number"] })
             .Build();
     }
@@ -302,7 +295,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
             var numericDefinition = new ResourceDefinitionBuilder()
                 .WithDefinitionId($"ValueParity-{caseName}")
                 .WithTypedAspect<CountAspect>()
-                .WithTypedFacet<int>()
                 .WithFacetMetadata(new FacetMetadata { Minimum = 10, Maximum = 100 })
                 .Build();
             return (numericDefinition, new Dictionary<string, object>
@@ -324,7 +316,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         var definition = new ResourceDefinitionBuilder()
             .WithDefinitionId($"ValueParity-{caseName}")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(metadata)
             .Build();
         return (definition, new Dictionary<string, object>

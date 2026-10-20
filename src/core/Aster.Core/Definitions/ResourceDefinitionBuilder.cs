@@ -47,27 +47,17 @@ public sealed class ResourceDefinitionBuilder
 
     /// <summary>
     /// Attaches an unnamed aspect derived from the type <typeparamref name="T"/>.
-    /// The <c>AspectDefinitionId</c> is set to <c>typeof(T).Name</c>.
+    /// The <c>AspectDefinitionId</c> is set to <c>typeof(T).Name</c>, and one facet is declared per
+    /// public property whose CLR type maps to a supported facet type (ADR 0002 §8).
     /// </summary>
     /// <typeparam name="T">The POCO type representing the aspect.</typeparam>
     /// <returns>This builder for chaining.</returns>
-    public ResourceDefinitionBuilder WithAspect<T>()
-    {
-        var aspectId = typeof(T).Name;
-        var aspect = new AspectDefinition
-        {
-            AspectDefinitionId = aspectId,
-            Id = Guid.NewGuid().ToString(),
-            Version = 1,
-            RequiresName = false,
-        };
-        aspectEntries.Add((aspectId, aspect));
-        return this;
-    }
+    public ResourceDefinitionBuilder WithAspect<T>() =>
+        AddAspect(typeof(T).Name, name: null, TypedAspectFacets.Derive(typeof(T)));
 
     /// <summary>
     /// Attaches a named aspect derived from the type <typeparamref name="T"/>.
-    /// The attachment key is <c>"{typeof(T).Name}:{name}"</c>.
+    /// The attachment key is <c>"{typeof(T).Name}:{name}"</c>; facets are derived as for <see cref="WithAspect{T}()"/>.
     /// </summary>
     /// <typeparam name="T">The POCO type representing the aspect.</typeparam>
     /// <param name="name">The discriminator name for this attachment.</param>
@@ -75,28 +65,55 @@ public sealed class ResourceDefinitionBuilder
     public ResourceDefinitionBuilder WithNamedAspect<T>(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        var aspectId = typeof(T).Name;
-        var key = $"{aspectId}:{name}";
-        var aspect = new AspectDefinition
-        {
-            AspectDefinitionId = aspectId,
-            Id = Guid.NewGuid().ToString(),
-            Version = 1,
-            RequiresName = true,
-        };
-        aspectEntries.Add((key, aspect));
-        return this;
+        return AddAspect(typeof(T).Name, name, TypedAspectFacets.Derive(typeof(T)));
     }
 
     /// <summary>
-    /// Attaches an unnamed named aspect derived from the type <typeparamref name="T"/>,
-    /// recording the CLR type for typed binding.
-    /// Equivalent to <see cref="WithAspect{T}()"/> with additional type registration intent.
-    /// The <c>AspectDefinitionId</c> is set to <c>typeof(T).Name</c>.
+    /// Attaches an unnamed aspect without a CLR type. Declare its facets with
+    /// <see cref="WithFacet(string, string, bool)"/>.
+    /// </summary>
+    /// <param name="aspectDefinitionId">The aspect definition ID (e.g., "Seo").</param>
+    /// <returns>This builder for chaining.</returns>
+    public ResourceDefinitionBuilder WithAspect(string aspectDefinitionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(aspectDefinitionId);
+        return AddAspect(aspectDefinitionId, name: null, []);
+    }
+
+    /// <summary>
+    /// Attaches a named aspect without a CLR type. The attachment key is <c>"{aspectDefinitionId}:{name}"</c>.
+    /// </summary>
+    /// <param name="aspectDefinitionId">The aspect definition ID (e.g., "Price").</param>
+    /// <param name="name">The discriminator name for this attachment.</param>
+    /// <returns>This builder for chaining.</returns>
+    public ResourceDefinitionBuilder WithNamedAspect(string aspectDefinitionId, string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(aspectDefinitionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return AddAspect(aspectDefinitionId, name, []);
+    }
+
+    /// <summary>
+    /// Attaches an unnamed aspect derived from the type <typeparamref name="T"/>.
+    /// Equivalent to <see cref="WithAspect{T}()"/>.
     /// </summary>
     /// <typeparam name="T">The POCO type representing the aspect.</typeparam>
     /// <returns>This builder for chaining.</returns>
     public ResourceDefinitionBuilder WithTypedAspect<T>() => WithAspect<T>();
+
+    private ResourceDefinitionBuilder AddAspect(string aspectDefinitionId, string? name, IReadOnlyList<FacetDefinition> facets)
+    {
+        var key = name is null ? aspectDefinitionId : $"{aspectDefinitionId}:{name}";
+        aspectEntries.Add((key, new AspectDefinition
+        {
+            AspectDefinitionId = aspectDefinitionId,
+            Id = Guid.NewGuid().ToString(),
+            Version = 1,
+            RequiresName = name is not null,
+            FacetDefinitions = facets,
+        }));
+        return this;
+    }
 
     /// <summary>
     /// Attaches an explicit policy declaration to the definition.
@@ -111,17 +128,47 @@ public sealed class ResourceDefinitionBuilder
     }
 
     /// <summary>
-    /// Adds a typed <see cref="FacetDefinition"/> to the most recently registered aspect,
-    /// using <c>typeof(T).Name</c> as the <c>FacetDefinitionId</c>.
+    /// Declares a facet on the most recently registered aspect.
+    /// </summary>
+    /// <param name="facetDefinitionId">The facet ID (e.g., "Title").</param>
+    /// <param name="type">The facet type descriptor (e.g., "string", "int", "datetime"); see ADR 0002.</param>
+    /// <param name="isRequired">Whether a present aspect must carry a non-null value for this facet.</param>
+    /// <returns>This builder for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if no aspect has been registered yet, or the aspect already declares a facet with this ID.
+    /// </exception>
+    public ResourceDefinitionBuilder WithFacet(string facetDefinitionId, string type, bool isRequired = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(facetDefinitionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(type);
+        var (key, lastAspect) = LastAspect(nameof(WithFacet));
+
+        if (lastAspect.FacetDefinitions.Any(facet => facet.FacetDefinitionId == facetDefinitionId))
+            throw new InvalidOperationException($"Aspect '{key}' already declares facet '{facetDefinitionId}'. Use WithFacetMetadata(\"{facetDefinitionId}\", ...) to decorate it.");
+
+        var facet = new FacetDefinition
+        {
+            FacetDefinitionId = facetDefinitionId,
+            Id = Guid.NewGuid().ToString(),
+            Version = 1,
+            Type = type,
+            IsRequired = isRequired,
+        };
+        aspectEntries[^1] = (key, lastAspect with { FacetDefinitions = [.. lastAspect.FacetDefinitions, facet] });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a facet to the most recently registered aspect, using <c>typeof(T).Name</c> as both the
+    /// <c>FacetDefinitionId</c> and (lowercased) the type. Replaces a facet with the same ID.
     /// </summary>
     /// <typeparam name="T">The CLR type representing the facet value (e.g., <c>decimal</c>, <c>string</c>).</typeparam>
     /// <returns>This builder for chaining.</returns>
     /// <exception cref="InvalidOperationException">Thrown if no aspect has been registered yet.</exception>
+    [Obsolete("Names the facet after its CLR type. Use WithFacet(facetDefinitionId, type) or derive facets with WithAspect<T>().")]
     public ResourceDefinitionBuilder WithTypedFacet<T>()
     {
-        if (aspectEntries.Count == 0)
-            throw new InvalidOperationException("Register an aspect (WithAspect or WithTypedAspect) before calling WithTypedFacet.");
-
+        var (key, lastAspect) = LastAspect(nameof(WithTypedFacet));
         var facetDefinitionId = typeof(T).Name;
         var facet = new FacetDefinition
         {
@@ -132,11 +179,40 @@ public sealed class ResourceDefinitionBuilder
             IsRequired = false,
         };
 
-        var (key, lastAspect) = aspectEntries[^1];
-        var updatedFacets = new List<FacetDefinition>(lastAspect.FacetDefinitions) { facet };
+        // Appended last (replacing a derived facet with the same ID) so WithFacetMetadata(metadata) targets it.
+        var updatedFacets = lastAspect.FacetDefinitions.Where(existing => existing.FacetDefinitionId != facetDefinitionId).Append(facet).ToList();
         aspectEntries[^1] = (key, lastAspect with { FacetDefinitions = updatedFacets });
         return this;
     }
+
+    /// <summary>
+    /// Attaches optional display and validation metadata to the facet with the given ID on the most
+    /// recently registered aspect, including facets derived from a typed aspect.
+    /// </summary>
+    /// <param name="facetDefinitionId">The facet ID.</param>
+    /// <param name="metadata">The metadata to attach.</param>
+    /// <returns>This builder for chaining.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if no aspect is registered or the facet is not declared on it.</exception>
+    public ResourceDefinitionBuilder WithFacetMetadata(string facetDefinitionId, FacetMetadata metadata)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(facetDefinitionId);
+        ArgumentNullException.ThrowIfNull(metadata);
+        var (key, lastAspect) = LastAspect(nameof(WithFacetMetadata));
+
+        var index = lastAspect.FacetDefinitions.ToList().FindIndex(facet => facet.FacetDefinitionId == facetDefinitionId);
+        if (index < 0)
+            throw new InvalidOperationException($"Aspect '{key}' does not declare facet '{facetDefinitionId}'.");
+
+        var facets = new List<FacetDefinition>(lastAspect.FacetDefinitions);
+        facets[index] = facets[index] with { Metadata = metadata };
+        aspectEntries[^1] = (key, lastAspect with { FacetDefinitions = facets });
+        return this;
+    }
+
+    private (string Key, AspectDefinition Aspect) LastAspect(string caller) =>
+        aspectEntries.Count == 0
+            ? throw new InvalidOperationException($"Register an aspect (WithAspect) before calling {caller}.")
+            : aspectEntries[^1];
 
     /// <summary>
     /// Attaches optional display and validation metadata to the most recently added facet
@@ -150,7 +226,7 @@ public sealed class ResourceDefinitionBuilder
         ArgumentNullException.ThrowIfNull(metadata);
 
         if (aspectEntries.Count == 0 || aspectEntries[^1].Definition.FacetDefinitions.Count == 0)
-            throw new InvalidOperationException("Add a facet (WithTypedFacet) before calling WithFacetMetadata.");
+            throw new InvalidOperationException("Add a facet (WithFacet or a typed aspect) before calling WithFacetMetadata.");
 
         var (key, lastAspect) = aspectEntries[^1];
         var facets = new List<FacetDefinition>(lastAspect.FacetDefinitions);
