@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json.Serialization;
 using Aster.Core.Models.Querying;
 
 namespace Aster.Core.Extensions;
@@ -70,7 +71,10 @@ public static class TypedQuery
     internal static string ResolveAspectKey<TAspect>(string? aspectKey) =>
         NonEmpty(aspectKey) ?? typeof(TAspect).Name;
 
-    internal static string ResolveMemberName<TAspect, TValue>(Expression<Func<TAspect, TValue>> selector)
+    internal static string ResolveMemberName<TAspect, TValue>(Expression<Func<TAspect, TValue>> selector) =>
+        ResolveMember(selector).Name;
+
+    private static MemberInfo ResolveMember<TAspect, TValue>(Expression<Func<TAspect, TValue>> selector)
     {
         ArgumentNullException.ThrowIfNull(selector);
 
@@ -85,7 +89,7 @@ public static class TypedQuery
             throw new ArgumentException("Typed query selectors must identify a single readable member on the typed aspect.", nameof(selector));
         }
 
-        return member.Member.Name;
+        return member.Member;
     }
 
     internal static string ResolveFacetIdentifier<TAspect, TValue>(
@@ -93,10 +97,12 @@ public static class TypedQuery
         string? facetIdentifier,
         string? defaultFacetIdentifier)
     {
-        var memberName = ResolveMemberName(selector);
+        // Facets derived from typed aspects are keyed by the serialized name ([JsonPropertyName]).
+        var member = ResolveMember(selector);
         var resolved = NonEmpty(facetIdentifier)
             ?? NonEmpty(defaultFacetIdentifier)
-            ?? memberName;
+            ?? member.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
+            ?? member.Name;
 
         return resolved;
     }

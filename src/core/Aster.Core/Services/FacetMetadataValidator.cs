@@ -274,7 +274,7 @@ public static class FacetMetadataValidator
     /// <summary>
     /// Classifies a declared facet type descriptor into typed comparison semantics.
     /// Accepts both documented descriptors ("int", "bool") and CLR-derived spellings
-    /// produced by <c>WithTypedFacet&lt;T&gt;</c> ("int32", "boolean").
+    /// produced by the obsolete <c>WithTypedFacet&lt;T&gt;</c> ("int32", "boolean").
     /// </summary>
     internal static FacetValueType ClassifyFacetType(string? type) => type?.ToLowerInvariant() switch
     {

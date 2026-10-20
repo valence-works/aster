@@ -31,7 +31,6 @@ public sealed class FacetMetadataPortabilityTests
         new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
             .WithTypedAspect<TitleAspect>()
-            .WithTypedFacet<string>()
             .WithFacetMetadata(new FacetMetadata
             {
                 Label = "Title",
@@ -99,7 +98,6 @@ public sealed class FacetMetadataPortabilityTests
             .RegisterDefinitionAsync(new ResourceDefinitionBuilder()
                 .WithDefinitionId("Product")
                 .WithTypedAspect<TitleAspect>()
-                .WithTypedFacet<string>()
                 .Build());
 
         // Act — export and serialize the snapshot exactly as a host would.
@@ -135,7 +133,6 @@ public sealed class FacetMetadataPortabilityTests
                 new ResourceDefinitionBuilder()
                     .WithDefinitionId("Product")
                     .WithTypedAspect<TitleAspect>()
-                    .WithTypedFacet<string>()
                     .WithFacetMetadata(invalidMetadata)
                     .Build() with
                 {

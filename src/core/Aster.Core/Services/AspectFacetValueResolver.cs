@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Aster.Core.Services;
 
@@ -32,9 +33,12 @@ internal static class AspectFacetValueResolver
         if (aspectPayload is JsonElement element)
             return TryGetJsonElementValue(element, facetKey, out value) && value is not null;
 
-        var property = aspectPayload.GetType().GetProperty(
-            facetKey,
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+        // Facet IDs derived from typed aspects use [JsonPropertyName] when present, matched exactly as
+        // serialized; otherwise fall back to the CLR property name, case-insensitively.
+        var properties = aspectPayload.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
+        var property = properties.FirstOrDefault(candidate => string.Equals(
+                candidate.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name, facetKey, StringComparison.Ordinal))
+            ?? aspectPayload.GetType().GetProperty(facetKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
         if (property is null)
             return false;
 
