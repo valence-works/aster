@@ -115,7 +115,7 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 | `bool` | `bool` |
 | `DateTime`, `DateTimeOffset` | `datetime` |
 | `Guid` | `guid` |
-| `enum` | `string`, with `AllowedValues` set to the enum member names |
+| `enum` | not derived in 1.0 (see the Enums bullet) |
 | `Nullable<T>` of any type above | the type for `T` (nullability does not change `IsRequired`) |
 | `T[]`, `IEnumerable<T>`, `List<T>`, `IReadOnlyList<T>`, `ISet<T>` of a scalar above | `T[]` |
 | any other class, record, or struct | `object` |
@@ -123,7 +123,7 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 - **Facet ID:** the property name. Reads already tolerate camelCase storage.
 - **`IsRequired`:** set only from the C# `required` modifier (`RequiredMemberAttribute`). Nullability annotations are not used: too implicit, and value types always have a default.
 - **References:** never inferred. Hosts declare them explicitly.
-- **Enums:** both typed binders add `JsonStringEnumConverter`, so enums are written as names. Reads still accept integers, because `allowIntegerValues` defaults to `true`, so existing stored data keeps binding.
+- **Enums (amended during #124):** enum properties produce no facet for now. The stores serialize typed aspects with the same options as lifecycle markers and policy kinds, which SQLite compares as integers, so writing enums as names would change the stored format. A `string` facet over integer-stored enums would make later updates fail with a type mismatch. The representation is decided in [#131](https://github.com/valence-works/aster/issues/131).
 - **Explicit API:** a new `WithFacet(string facetId, string type, bool isRequired = false)` builder method declares facets on dictionary-style aspects, and `WithFacetMetadata(string facetId, FacetMetadata metadata)` targets a facet by ID. `WithTypedFacet<T>()` becomes `[Obsolete]`.
 
 ### 9. Queries stay definition-agnostic
@@ -135,8 +135,8 @@ When index projections (#100) need a type, the mapping is: `string` → `Keyword
 ## Consequences
 
 - One grammar and one normalization table serve validation, binders, JSON Schema export (#106) and index projections (#100).
-- The definition JSON shape, snapshot envelope, and SQLite schema are unchanged. One stored-value representation changes: enum-typed aspect properties are written as names instead of integers (§8). Reads accept both, so existing data still binds; queries, exports and imports see whichever form a version was written with, and hosts filtering on enum facets should query by name for versions written after #124.
-- The other breaking changes are behavioural and pre-1.0: unknown types rejected, type mismatches rejected, `IsRequired` enforced.
+- Persisted formats are unchanged: the definition JSON shape, the snapshot envelope, the SQLite schema, and the stored representation of facet values, including enums, which stay integers (§8, #131).
+- The breaking changes are behavioural and pre-1.0: unknown types rejected, type mismatches rejected, `IsRequired` enforced.
 - Two prerequisites are added to epic #62 and must land before #81–#84:
   1. [#123](https://github.com/valence-works/aster/issues/123): enforce declared types and `IsRequired` on save (§2–§4);
   2. [#124](https://github.com/valence-works/aster/issues/124): derive facets from typed aspect properties and add `WithFacet` (§8).
