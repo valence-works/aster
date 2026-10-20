@@ -14,6 +14,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceLifecycleMarkerClearStore markerStore;
     private readonly IResourceLifecycleMarkerTransitionService transitions;
+    private readonly IResourceDefinitionStore? definitionStore;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourceLifecycleRestoreService"/>.
@@ -28,10 +29,28 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="ResourceLifecycleRestoreService"/> whose previews report
+    /// inbound references to restorable resources (<see cref="ResourcePolicyDiagnosticCodes.HasInboundReferences"/>).
+    /// </summary>
+    public ResourceLifecycleRestoreService(
+        IResourceVersionReader versionReader,
+        IResourceLifecycleMarkerClearStore markerStore,
+        IResourceDefinitionStore definitionStore)
+        : this(
+            versionReader,
+            markerStore,
+            new ResourceLifecycleMarkerTransitionService(versionReader, markerStore),
+            definitionStore)
+    {
+        ArgumentNullException.ThrowIfNull(definitionStore);
+    }
+
     internal ResourceLifecycleRestoreService(
         IResourceVersionReader versionReader,
         IResourceLifecycleMarkerClearStore markerStore,
-        IResourceLifecycleMarkerTransitionService transitions)
+        IResourceLifecycleMarkerTransitionService transitions,
+        IResourceDefinitionStore? definitionStore = null)
     {
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(markerStore);
@@ -39,6 +58,7 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
         this.versionReader = versionReader;
         this.markerStore = markerStore;
         this.transitions = transitions;
+        this.definitionStore = definitionStore;
     }
 
     /// <inheritdoc />
@@ -57,8 +77,42 @@ public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreS
         return new ResourceLifecycleRestorePreviewResult
         {
             TenantScope = tenant,
-            Candidates = results,
+            Candidates = await AddInboundReferencesAsync(results, tenant, cancellationToken),
         };
+    }
+
+    /// <summary>
+    /// Adds a <see cref="ResourcePolicyDiagnosticCodes.HasInboundReferences"/> diagnostic per referrer to each
+    /// restorable candidate (#90). Reads latest versions and definitions only when a candidate is restorable.
+    /// </summary>
+    private async ValueTask<IReadOnlyList<ResourceLifecycleRestoreCandidateResult>> AddInboundReferencesAsync(
+        IReadOnlyList<ResourceLifecycleRestoreCandidateResult> results,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        var targets = results
+            .Where(static result => result.Status == ResourceLifecycleRestoreCandidateStatus.Restorable && result.ResourceId is not null)
+            .Select(static result => result.ResourceId!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (definitionStore is null || targets.Count == 0)
+            return results;
+
+        var referrers = InboundReferences.Find(
+            await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+            {
+                TenantScope = tenant,
+                Scope = ResourceVersionScope.Latest,
+            }, cancellationToken),
+            await definitionStore.ListDefinitionsAsync(tenant, cancellationToken),
+            targets);
+
+        return results
+            .Select(result => result.Status == ResourceLifecycleRestoreCandidateStatus.Restorable
+                && result.ResourceId is { } resourceId
+                && referrers.TryGetValue(resourceId, out var ids)
+                    ? result with { Diagnostics = [.. result.Diagnostics, .. InboundReferences.Diagnostics(resourceId, ids)] }
+                    : result)
+            .ToList();
     }
 
     /// <inheritdoc />

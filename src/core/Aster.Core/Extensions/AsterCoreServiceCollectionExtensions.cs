@@ -137,7 +137,8 @@ public static class AsterCoreServiceCollectionExtensions
             new ResourceLifecycleRestoreService(
                 sp.GetRequiredService<IResourceVersionReader>(),
                 sp.GetRequiredService<IResourceLifecycleMarkerClearStore>(),
-                sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
+                sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>(),
+                sp.GetRequiredService<IResourceDefinitionStore>()));
         services.AddSingleton<IResourceVersionHistoryService, ResourceVersionHistoryService>();
         services.AddSingleton<IResourceReferenceResolver, ResourceReferenceResolver>();
         services.AddSingleton<IResourceReferenceValidator, ResourceReferenceValidator>();

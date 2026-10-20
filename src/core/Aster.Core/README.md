@@ -445,6 +445,12 @@ if (preview.Candidates.Single().Status == ResourceLifecycleRestoreCandidateStatu
 }
 ```
 
+**Inbound references.** Archive and soft-delete policy previews, and restore previews, flag resources that other resources still point at. Each referrer produces an informational `has-inbound-references` diagnostic.
+- The diagnostic's `ResourceId` is the candidate and its `Path` is `referrers/{referrerId}`.
+- Referrers are found in the latest versions in the tenant.
+- These diagnostics never block application.
+- Use `IResourceReferenceService.GetReferrersAsync` for the full "used by" list, including the facet locations.
+
 Restore preview is non-mutating. Restore application re-reads current marker state before clearing, does not rewrite resource versions, does not change activation state, and does not invoke lifecycle hooks. Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, automatic restore, schedulers, authorization policy engines, destructive pruning writes, provider registries, public SQL, or public `IQueryable<Resource>`.
 
 Hosts can also apply selected version-pruning preview outcomes through `IResourcePolicyPruningApplicationService`. Pruning application is explicit, tenant-scoped, and candidate-bounded: the SDK removes only submitted resource versions after revalidating current policy declarations, latest/active protection, lifecycle and age criteria, and retained-version safety.
