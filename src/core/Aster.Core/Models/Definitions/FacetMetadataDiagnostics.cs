@@ -139,4 +139,7 @@ public static class SharedAspectDiagnosticCodes
 
     /// <summary>The stored aspect has <c>RequiresName</c>, and the attachment is unnamed.</summary>
     public const string AspectNameRequired = "aspect-name-required";
+
+    /// <summary>The selected resource definition does not pin an older version of the aspect.</summary>
+    public const string AspectUpgradeNotApplicable = "aspect-upgrade-not-applicable";
 }
