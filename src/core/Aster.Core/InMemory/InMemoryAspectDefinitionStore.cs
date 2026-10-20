@@ -28,7 +28,7 @@ public sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
         var versions = aspects.GetOrAdd((tenant.TenantId, aspect.AspectDefinitionId), static _ => []);
         lock (versions)
         {
-            var registered = aspect with { Version = versions.Count > 0 ? versions[^1].Version + 1 : 1 };
+            var registered = aspect with { Version = versions.Count > 0 ? versions[^1].Version + 1 : 1, IsShared = false };
             versions.Add(registered);
             return ValueTask.FromResult(registered);
         }

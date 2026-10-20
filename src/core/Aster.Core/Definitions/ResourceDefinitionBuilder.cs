@@ -1,6 +1,8 @@
+using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Policies;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Definitions;
 
@@ -20,6 +22,7 @@ public sealed class ResourceDefinitionBuilder
     private string? definitionId;
     private bool isSingleton;
     private readonly List<(string Key, AspectDefinition Definition)> aspectEntries = [];
+    private readonly Dictionary<string, SharedAttachment> sharedAttachments = new(StringComparer.Ordinal);
     private readonly List<ResourcePolicyDeclaration> policyDeclarations = [];
 
     /// <summary>
@@ -92,6 +95,47 @@ public sealed class ResourceDefinitionBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return AddAspect(aspectDefinitionId, name, []);
     }
+
+    /// <summary>
+    /// Attaches a shared aspect definition from <see cref="IAspectDefinitionStore"/> (ADR 0003). The pinned
+    /// version is resolved and embedded by <see cref="BuildAsync"/>; facets cannot be added or decorated here.
+    /// </summary>
+    /// <param name="aspectDefinitionId">The shared aspect definition ID (e.g., "Seo").</param>
+    /// <param name="version">The version to pin; <see langword="null"/> pins the latest version at build time.</param>
+    /// <param name="name">The discriminator name for a named attachment (key <c>"{aspectDefinitionId}:{name}"</c>).</param>
+    /// <returns>This builder for chaining.</returns>
+    public ResourceDefinitionBuilder WithSharedAspect(string aspectDefinitionId, int? version = null, string? name = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(aspectDefinitionId);
+        if (name is not null)
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (version is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(version), version, "Pinned versions start at 1.");
+
+        var key = name is null ? aspectDefinitionId : $"{aspectDefinitionId}:{name}";
+
+        // Placeholder: keeps attachment order and duplicate detection; replaced by the stored version in BuildAsync.
+        aspectEntries.Add((key, new AspectDefinition
+        {
+            AspectDefinitionId = aspectDefinitionId,
+            Id = string.Empty,
+            Version = version ?? 0,
+            IsShared = true,
+        }));
+        sharedAttachments[key] = new SharedAttachment(aspectDefinitionId, version, name);
+        return this;
+    }
+
+    /// <summary>
+    /// Attaches the shared aspect definition whose ID is <c>typeof(T).Name</c>, as registered from
+    /// <see cref="AspectDefinitionBuilder.FromType{T}"/>. See <see cref="WithSharedAspect(string, int?, string?)"/>.
+    /// </summary>
+    /// <typeparam name="T">The POCO type the shared aspect was registered from.</typeparam>
+    /// <param name="version">The version to pin; <see langword="null"/> pins the latest version at build time.</param>
+    /// <param name="name">The discriminator name for a named attachment.</param>
+    /// <returns>This builder for chaining.</returns>
+    public ResourceDefinitionBuilder WithSharedAspect<T>(int? version = null, string? name = null) =>
+        WithSharedAspect(typeof(T).Name, version, name);
 
     /// <summary>
     /// Attaches an unnamed aspect derived from the type <typeparamref name="T"/>.
@@ -209,10 +253,20 @@ public sealed class ResourceDefinitionBuilder
         return this;
     }
 
-    private (string Key, AspectDefinition Aspect) LastAspect(string caller) =>
-        aspectEntries.Count == 0
-            ? throw new InvalidOperationException($"Register an aspect (WithAspect) before calling {caller}.")
-            : aspectEntries[^1];
+    private (string Key, AspectDefinition Aspect) LastAspect(string caller)
+    {
+        if (aspectEntries.Count == 0)
+            throw new InvalidOperationException($"Register an aspect (WithAspect) before calling {caller}.");
+
+        var last = aspectEntries[^1];
+        if (sharedAttachments.ContainsKey(last.Key))
+        {
+            throw new InvalidOperationException(
+                $"Aspect '{last.Key}' is a shared aspect; its facets come from the aspect definition store. Register a new aspect version to change them.");
+        }
+
+        return last;
+    }
 
     /// <summary>
     /// Attaches optional display and validation metadata to the most recently added facet
@@ -224,6 +278,8 @@ public sealed class ResourceDefinitionBuilder
     public ResourceDefinitionBuilder WithFacetMetadata(FacetMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
+        if (aspectEntries.Count > 0)
+            LastAspect(nameof(WithFacetMetadata));
 
         if (aspectEntries.Count == 0 || aspectEntries[^1].Definition.FacetDefinitions.Count == 0)
             throw new InvalidOperationException("Add a facet (WithFacet or a typed aspect) before calling WithFacetMetadata.");
@@ -239,24 +295,101 @@ public sealed class ResourceDefinitionBuilder
     /// Builds the <see cref="ResourceDefinition"/> from the configured state.
     /// </summary>
     /// <returns>The constructed definition. <c>Version</c> is set to 0 and auto-incremented by the store on registration.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if <c>DefinitionId</c> has not been set.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if <c>DefinitionId</c> has not been set, or a shared aspect is attached (use <see cref="BuildAsync"/>).
+    /// </exception>
     /// <exception cref="DuplicateAspectAttachmentException">
     /// Thrown if the same aspect key is attached more than once.
     /// </exception>
     public ResourceDefinition Build()
+    {
+        if (sharedAttachments.Count > 0)
+            throw new InvalidOperationException("Shared aspects are attached; resolve them with BuildAsync(aspectDefinitionStore).");
+
+        return BuildCore(aspectEntries);
+    }
+
+    /// <summary>
+    /// Builds the <see cref="ResourceDefinition"/>, resolving every shared aspect attachment from
+    /// <paramref name="aspectDefinitionStore"/> in the tenant and embedding the stored version unchanged,
+    /// marked <see cref="AspectDefinition.IsShared"/> (ADR 0003 §3).
+    /// </summary>
+    /// <param name="aspectDefinitionStore">The store to resolve shared aspects from.</param>
+    /// <param name="tenantScope">The tenant to resolve in; the default tenant when <see langword="null"/>.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The constructed definition, as from <see cref="Build"/>.</returns>
+    /// <exception cref="SharedAspectResolutionException">
+    /// An attached aspect or pinned version does not exist (<see cref="SharedAspectDiagnosticCodes.AspectDefinitionNotFound"/>),
+    /// or a stored aspect requires a name and the attachment is unnamed (<see cref="SharedAspectDiagnosticCodes.AspectNameRequired"/>).
+    /// </exception>
+    public async ValueTask<ResourceDefinition> BuildAsync(
+        IAspectDefinitionStore aspectDefinitionStore,
+        TenantScope? tenantScope = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(aspectDefinitionStore);
+
+        var resolved = new List<(string Key, AspectDefinition Definition)>(aspectEntries.Count);
+        var diagnostics = new List<SharedAspectDiagnostic>();
+        foreach (var (key, definition) in aspectEntries)
+        {
+            if (!sharedAttachments.TryGetValue(key, out var attachment))
+            {
+                resolved.Add((key, definition));
+                continue;
+            }
+
+            var stored = attachment.Version is { } version
+                ? await aspectDefinitionStore.GetVersionAsync(attachment.AspectDefinitionId, version, tenantScope, cancellationToken)
+                : await aspectDefinitionStore.GetLatestAsync(attachment.AspectDefinitionId, tenantScope, cancellationToken);
+
+            if (stored is null)
+            {
+                diagnostics.Add(new SharedAspectDiagnostic(
+                    SharedAspectDiagnosticCodes.AspectDefinitionNotFound,
+                    attachment.Version is { } missing
+                        ? $"Aspect definition '{attachment.AspectDefinitionId}' version {missing} does not exist."
+                        : $"Aspect definition '{attachment.AspectDefinitionId}' does not exist.",
+                    key,
+                    attachment.AspectDefinitionId,
+                    attachment.Version));
+                continue;
+            }
+
+            if (stored.RequiresName && attachment.Name is null)
+            {
+                diagnostics.Add(new SharedAspectDiagnostic(
+                    SharedAspectDiagnosticCodes.AspectNameRequired,
+                    $"Aspect definition '{attachment.AspectDefinitionId}' requires a named attachment.",
+                    key,
+                    attachment.AspectDefinitionId,
+                    attachment.Version));
+                continue;
+            }
+
+            resolved.Add((key, stored with { IsShared = true }));
+        }
+
+        if (diagnostics.Count > 0)
+            throw new SharedAspectResolutionException(diagnostics);
+
+        return BuildCore(resolved);
+    }
+
+    private ResourceDefinition BuildCore(IReadOnlyList<(string Key, AspectDefinition Definition)> entries)
     {
         if (string.IsNullOrWhiteSpace(definitionId))
             throw new InvalidOperationException("DefinitionId must be set before calling Build().");
 
         // Validate uniqueness — detect first duplicate key
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var (key, _) in aspectEntries)
+        foreach (var (key, _) in entries)
         {
             if (!seen.Add(key))
                 throw new DuplicateAspectAttachmentException(key);
         }
 
-        var aspectDict = aspectEntries.ToDictionary(e => e.Key, e => e.Definition);
+        var aspectDict = entries.ToDictionary(e => e.Key, e => e.Definition);
 
         return new ResourceDefinition
         {
@@ -268,4 +401,6 @@ public sealed class ResourceDefinitionBuilder
             IsSingleton = isSingleton,
         };
     }
+
+    private sealed record SharedAttachment(string AspectDefinitionId, int? Version, string? Name);
 }

@@ -118,3 +118,25 @@ public static class FacetValueDiagnosticCodes
     /// </summary>
     public const string ItemsNotUnique = "facet-value-items-not-unique";
 }
+
+/// <summary>
+/// A shared aspect attachment that could not be resolved.
+/// </summary>
+/// <param name="Code">Stable code from <see cref="SharedAspectDiagnosticCodes"/>.</param>
+/// <param name="Message">Human-readable explanation.</param>
+/// <param name="AttachmentKey">The attachment key on the resource definition.</param>
+/// <param name="AspectDefinitionId">The shared aspect definition ID.</param>
+/// <param name="Version">The pinned version; <see langword="null"/> when the latest was requested.</param>
+public sealed record SharedAspectDiagnostic(string Code, string Message, string AttachmentKey, string AspectDefinitionId, int? Version);
+
+/// <summary>
+/// Stable diagnostic codes for shared aspect resolution (ADR 0003).
+/// </summary>
+public static class SharedAspectDiagnosticCodes
+{
+    /// <summary>The aspect definition, or the pinned version, does not exist in the tenant.</summary>
+    public const string AspectDefinitionNotFound = "aspect-definition-not-found";
+
+    /// <summary>The stored aspect has <c>RequiresName</c>, and the attachment is unnamed.</summary>
+    public const string AspectNameRequired = "aspect-name-required";
+}
