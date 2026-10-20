@@ -11,8 +11,8 @@ namespace Aster.Core.Definitions;
 /// </summary>
 /// <remarks>
 /// Only facet types that registration currently accepts are derived. Properties whose type maps
-/// to a type that is not supported yet (guid, arrays, object) are skipped, so they stay
-/// unvalidated exactly as before; they are picked up when those types land (#81, #82, #84).
+/// to a type that is not supported yet (arrays, object) are skipped, so they stay
+/// unvalidated exactly as before; they are picked up when those types land (#82, #84).
 /// Enum properties are skipped too: the stores serialize enums as integers, and the facet
 /// representation for enums is decided separately (#131).
 /// </remarks>
@@ -58,6 +58,7 @@ internal static class TypedAspectFacets
                 TypeCode.Boolean => "bool",
                 TypeCode.DateTime => "datetime",
                 _ when clrType == typeof(DateTimeOffset) => "datetime",
+                _ when clrType == typeof(Guid) => "guid",
                 _ => null,
             };
 }

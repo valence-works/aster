@@ -37,7 +37,7 @@ public static class FacetMetadataValidator
                     // Metadata applicability depends on the type, so unknown types skip metadata checks.
                     diagnostics.Add(new FacetMetadataDiagnostic(
                         FacetMetadataDiagnosticCodes.TypeUnknown,
-                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, or datetime.",
+                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, or guid.",
                         aspectKey,
                         facet.FacetDefinitionId));
                     continue;
@@ -269,6 +269,9 @@ public static class FacetMetadataValidator
 
         /// <summary>Date/time values; normalized to a UTC <see cref="DateTime"/> instant.</summary>
         DateTime,
+
+        /// <summary>GUID values; normalized to <see cref="System.Guid"/>.</summary>
+        Guid,
     }
 
     /// <summary>
@@ -283,13 +286,15 @@ public static class FacetMetadataValidator
         "decimal" => FacetValueType.Decimal,
         "bool" or "boolean" => FacetValueType.Bool,
         "datetime" or "datetimeoffset" => FacetValueType.DateTime,
+        "guid" => FacetValueType.Guid,
         _ => FacetValueType.Unknown,
     };
 
     /// <summary>
     /// Normalizes a value to the facet's declared type for comparison:
     /// string (ordinal), int (<see cref="long"/>), <see cref="decimal"/>, <see cref="bool"/>,
-    /// and datetime (UTC <see cref="DateTime"/>), tolerating <see cref="JsonElement"/> inputs
+    /// datetime (UTC <see cref="DateTime"/>), and guid (<see cref="Guid"/>, from a value or a
+    /// <c>D</c>-format string in any case), tolerating <see cref="JsonElement"/> inputs
     /// after JSON round-trips.
     /// </summary>
     internal static bool TryNormalizeValue(object? value, FacetValueType facetType, out object normalized)
@@ -321,9 +326,29 @@ public static class FacetMetadataValidator
                 normalized = instant;
                 return true;
 
+            case FacetValueType.Guid when value is Guid guid:
+                normalized = guid;
+                return true;
+
+            case FacetValueType.Guid when value is string guidText && TryParseGuidText(guidText, out var parsedGuid):
+                normalized = parsedGuid;
+                return true;
+
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Accepts GUID strings in the <c>D</c> format only (any case). Queries compare stored text
+    /// case-insensitively against <see cref="Guid.ToString()"/>, which is the lowercase <c>D</c> form, so
+    /// <c>N</c>, <c>B</c> or <c>P</c> strings would be stored but never match. The length check rejects
+    /// whitespace padding, which <see cref="Guid.TryParseExact(string, string, out Guid)"/> trims.
+    /// </summary>
+    private static bool TryParseGuidText(string? text, out Guid guid)
+    {
+        guid = default;
+        return text is { Length: 36 } && Guid.TryParseExact(text, "D", out guid);
     }
 
     private static bool TryNormalizeJsonElement(JsonElement element, FacetValueType facetType, out object normalized)
@@ -353,6 +378,11 @@ public static class FacetMetadataValidator
             case FacetValueType.DateTime when element.ValueKind == JsonValueKind.String
                 && TryNormalizeDateTime(element.GetString(), out var instant):
                 normalized = instant;
+                return true;
+
+            case FacetValueType.Guid when element.ValueKind == JsonValueKind.String
+                && TryParseGuidText(element.GetString(), out var guid):
+                normalized = guid;
                 return true;
 
             default:

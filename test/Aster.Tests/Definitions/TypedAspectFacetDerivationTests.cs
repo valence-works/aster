@@ -50,8 +50,9 @@ public sealed class TypedAspectFacetDerivationTests
 
         public DateTimeOffset? ExpiresAt { get; init; }
 
-        // Not derived until their facet types land (#81, #82, #84) or are decided (#131).
         public Guid Key { get; init; }
+
+        // Not derived until their facet types land (#82, #84) or are decided (#131).
 
         public List<string> Tags { get; init; } = [];
 
@@ -98,6 +99,7 @@ public sealed class TypedAspectFacetDerivationTests
                 ("Enabled", "bool", false),
                 ("PublishedAt", "datetime", false),
                 ("ExpiresAt", "datetime", false),
+                ("Key", "guid", false),
             ],
             Facets(definition, "EveryShape").Select(static facet => (facet.FacetDefinitionId, facet.Type, facet.IsRequired)));
     }
