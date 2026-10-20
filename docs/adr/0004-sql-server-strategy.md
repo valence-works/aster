@@ -27,7 +27,7 @@ The SQLite provider already holds the hard part: a dialect-specific JSON predica
 ### A. Native SQL Server provider
 
 - **How it queries:** `JSON_VALUE` / `OPENJSON` translation for the portable AST.
-- **How it indexes:** persisted computed columns over `JSON_VALUE` for declared projections, with ordinary indexes on them.
+- **How it indexes:** persisted computed columns over `JSON_VALUE` for scalar projections, with ordinary indexes on them. Array projections use a per-element side table (see Decision §3).
 - **Connectivity:** `Microsoft.Data.SqlClient` only.
 
 ### B. Generic EF Core provider with per-database JSON translators
@@ -71,10 +71,14 @@ The spike gates the Elsa module (#69) on a production provider that Elsa's SQL S
    - array element enumeration
    - existence checks
    - DDL for tables and projection indexes
+   - write-time projection rows, for databases that index array elements through a side table
 3. **SQL Server provider (`Aster.Persistence.SqlServerJson`) on that core.**
    - **JSON storage:** payloads in `nvarchar(max)`, read with `JSON_VALUE` / `OPENJSON`. The native `json` type is not required: it isn't available on SQL Server 2019/2022, which Elsa hosts run.
-   - **Index projections:** persisted computed columns plus indexes.
-   - **Text semantics:** case-insensitive comparison through an explicit `COLLATE` in predicates, so results don't depend on the database's default collation.
+   - **Compatibility level:** `OPENJSON` requires database compatibility level 130 or higher. Schema bootstrap reads `sys.databases.compatibility_level` and fails fast with a clear error below 130, rather than failing later on the first query.
+   - **Scalar index projections:** persisted computed columns over `JSON_VALUE`, each with an ordinary index.
+   - **`Keyword` key size:** a `Keyword` column indexes a bounded prefix of the value (`LEFT(…, 400)`), which stays under the 1,700-byte nonclustered key limit. Predicates seek on the prefix and then recheck the full `JSON_VALUE`. Long values therefore can't fail writes, and shared prefixes can't produce false matches. Projections do not inherit `FacetMetadata.MaxLength`, because that limit is optional and can exceed the key limit.
+   - **`KeywordArray` projections:** `JSON_VALUE` returns `NULL` for arrays, and a computed column yields one key per row, so arrays get a side table, `projection_elements (version_row_id, projection_id, value)`. The provider fills it from `OPENJSON` in the same transaction as the version insert and indexes it on `(projection_id, value)`. `ArrayContains` / `Any` / `All` on an indexed projection translate to `EXISTS` / `NOT EXISTS` against it. Unindexed array paths keep the `OPENJSON` scan. The dialect seam therefore needs a write-time hook for element rows; Postgres uses a GIN index instead and leaves the hook empty.
+   - **Text semantics:** one canonical collation, `Latin1_General_100_CI_AS_SC`, applied identically in computed-column definitions and in predicates. Results then don't depend on the database's default collation, and the optimizer can match predicates to the computed-column indexes. Applying `COLLATE` in predicates alone would defeat those indexes. The conformance suite pins case-folding behavior against the other providers.
    - **Conformance:** it passes the shared conformance suite, like every provider.
 4. **Not planned: MySQL or MongoDB.** The dialect seam makes MySQL a contained follow-up if a consumer asks. MongoDB is not relational and would be a separate ADR.
 
