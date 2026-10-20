@@ -4,7 +4,7 @@ Welcome to the Aster documentation wiki.
 
 **Aster** is a .NET SDK for defining, versioning, and querying composable resources using a **Resource → Aspect → Facet** model. It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities to any resource type.
 
-> **Current Status:** Pre-1.0. Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery and validation, typed query helpers, provider conformance support, explicit index projections, schema upgrades, portability primitives, host lifecycle hooks, tenant scoping, policies and lifecycle markers, version history, and facet validation/UI metadata are available. See the [Roadmap](Roadmap.md) for the Aster 1.0 program.
+> **Current Status:** Pre-1.0. Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery and validation, typed query helpers, provider conformance support, explicit index projections, schema upgrades, portability primitives, host lifecycle hooks, tenant scoping, policies and lifecycle markers, version history, and facet validation/UI metadata are available. See the [Roadmap](Roadmap) for the Aster 1.0 program.
 
 ---
 
@@ -20,7 +20,7 @@ Welcome to the Aster documentation wiki.
 | [DI Registration & Configuration](DI-Registration) | Service registrations and extension points |
 | [Exception Reference](Exception-Reference) | All typed exceptions, when they are thrown, and how to handle them |
 | [Architecture Overview](Architecture-Overview) | Layered design, package layout, key design decisions |
-| [Roadmap](Roadmap) | Phase-by-phase delivery plan with epics and definitions of done |
+| [Roadmap](Roadmap) | Pointer to the Aster 1.0 program (GitHub issues) and the landed-slice history |
 | [Contributing](Contributing) | Coding conventions, PR process, spec workflow |
 
 ---
