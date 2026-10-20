@@ -29,8 +29,16 @@ jobs:
             9.0.x
             10.0.x
 
+      # nuget.org versions are permanent, so reject anything that is not strict SemVer (MAJOR.MINOR.PATCH[-pre][+build]).
       - name: Resolve version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$version" =~ $semver ]]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' is not a SemVer release tag (expected v1.2.3 or v1.2.3-preview.1)."
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build and test
         run: |
