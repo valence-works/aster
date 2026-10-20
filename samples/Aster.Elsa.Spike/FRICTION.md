@@ -1,6 +1,6 @@
 # Elsa spike: friction log
 
-Raw findings from running `Program.cs` against SQLite on `main` (2026-10-20). The spike models three Elsa-like control-plane entities (labels on workflow definitions, agent configurations, secret metadata), plus a workflow-definition stub that carries labels. Every finding below was produced by the run, except F11, which is a code-reading note. Interpretation, prioritisation and the go/no-go call happen in #78.
+Raw findings from running `Program.cs` against SQLite on `main` (2026-10-20). The spike models three Elsa-like control-plane entities (labels on workflow definitions, agent configurations, secret metadata), plus a workflow-definition stub that carries labels. Evidence types: F2–F7, F9 and F12 were observed at runtime. F1 and F8 come from the code the spike had to write or read (no API to call; a context type without the field). F10 combines a runtime result (the import succeeded and preserved IDs) with a conditional, code-reading note about remapping. F11 is a code-reading note. Interpretation, prioritisation and the go/no-go call happen in #78.
 
 | ID | Area | Finding | Evidence | Severity | Program task |
 |---|---|---|---|---|---|

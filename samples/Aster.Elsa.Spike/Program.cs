@@ -220,6 +220,9 @@ var import = await portability.ImportAsync(export.Snapshot!, new PortableImportO
 });
 var importedAgents = await Query(new ResourceQuery { TenantScope = tenantB, DefinitionId = "Agent" });
 var importedSecrets = await Query(new ResourceQuery { TenantScope = tenantB, DefinitionId = "Secret" });
+Check(import.Status == PortableImportStatus.Imported, $"Import into tenant B failed with status {import.Status}.");
+Check(importedAgents.SequenceEqual(["agent-summarizer"]), $"Unexpected agents in tenant B: [{string.Join(", ", importedAgents)}].");
+Check(importedSecrets.Contains("sec-openai") && importedSecrets.Contains("sec-smtp"), $"Unexpected secrets in tenant B: [{string.Join(", ", importedSecrets)}].");
 findings.Observe("F10",
     $"Import into tenant B: status={import.Status}, agents=[{string.Join(", ", importedAgents)}], secrets=[{string.Join(", ", importedSecrets)}]. " +
     "IDs are preserved here, so references stay valid; if an ID were remapped, the SecretIds inside agent payloads would not be rewritten, because references are untyped strings.");
