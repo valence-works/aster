@@ -142,7 +142,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
 
         // Assert — same tables and same resource_definitions shape as SqliteJsonSchema.cs.
         Assert.Equal(
-            (IEnumerable<string>)["activation_states", "lifecycle_markers", "resource_definitions", "resource_versions"],
+            (IEnumerable<string>)["activation_states", "aspect_definitions", "lifecycle_markers", "resource_definitions", "resource_versions"],
             tables);
         Assert.Equal(
             (IEnumerable<string>)["tenant_id", "definition_id", "version", "id", "payload"],

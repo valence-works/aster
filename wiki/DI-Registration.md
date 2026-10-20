@@ -20,6 +20,7 @@ All services are registered as **singletons**.
 |---|---|---|
 | `IIdentityGenerator` | `GuidIdentityGenerator` | Generates `Guid.NewGuid().ToString()` IDs |
 | `IResourceDefinitionStore` | `InMemoryResourceDefinitionStore` | Thread-safe in-memory definition registry |
+| `IAspectDefinitionStore` | `InMemoryAspectDefinitionStore` | Shared aspect definition versions (ADR 0003) |
 | `IResourceManager` | `DefaultResourceManager` | Create / update / activate / retrieve resources |
 | `IResourceVersionWriter` | `InMemoryResourceStore` | Version/activation write primitive |
 | `IResourceVersionReader` | `InMemoryResourceStore` | Query/read candidate version primitive |
@@ -55,6 +56,7 @@ builder.Services.AddAsterSqliteJson(options =>
 | Interface | SQLite JSON implementation | Notes |
 |---|---|---|
 | `IResourceDefinitionStore` | `SqliteJsonResourceStore` | Persists definition versions |
+| `IAspectDefinitionStore` | `SqliteJsonAspectDefinitionStore` | Persists shared aspect definition versions (`aspect_definitions` table) |
 | `IResourceVersionWriter` | `SqliteJsonResourceStore` | Persists resource versions and activation state |
 | `IResourceVersionReader` | `SqliteJsonResourceStore` | Reads persisted version sets |
 | `IResourceQueryService` | `SqliteJsonQueryService` | Translates supported `ResourceQuery` ASTs to SQLite SQL/JSON queries |
