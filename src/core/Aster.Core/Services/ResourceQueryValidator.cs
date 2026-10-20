@@ -262,6 +262,69 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
 
         if (filter.Operator == ComparisonOperator.In)
             ValidateInValue(filter.Value, $"{path}.Value", failures);
+
+        if (filter.Operator == ComparisonOperator.ArrayContains)
+            ValidateArrayElementValue(filter.Value, $"{path}.Value", failures);
+
+        if (filter.Operator is ComparisonOperator.ArrayContainsAny or ComparisonOperator.ArrayContainsAll)
+            ValidateArrayValues(filter.Value, $"{path}.Value", failures);
+    }
+
+    private static void ValidateArrayElementValue(object? value, string path, List<QueryValidationFailure> failures)
+    {
+        if (QueryArrayValue.TryClassify(value, out _))
+            return;
+
+        failures.Add(Failure(
+            "array-value-required",
+            "ArrayContains predicates require a single string, GUID, numeric, boolean, or date/time value.",
+            path,
+            "value shape"));
+    }
+
+    private void ValidateArrayValues(object? value, string path, List<QueryValidationFailure> failures)
+    {
+        if (value is null or string || value is not IEnumerable enumerable)
+        {
+            failures.Add(Failure(
+                "array-values-required",
+                "ArrayContainsAny and ArrayContainsAll predicates require a non-string enumerable value set.",
+                path,
+                "value shape"));
+            return;
+        }
+
+        var count = 0;
+        foreach (var candidate in enumerable)
+        {
+            if (!QueryArrayValue.TryClassify(candidate, out _))
+            {
+                failures.Add(Failure(
+                    "unsupported-array-value-shape",
+                    $"Array candidate at index {count} must be a string, GUID, numeric, boolean, or date/time value.",
+                    $"{path}[{count}]",
+                    "value shape"));
+            }
+
+            count++;
+        }
+
+        if (count == 0)
+        {
+            failures.Add(Failure(
+                "empty-array-values",
+                "ArrayContainsAny and ArrayContainsAll predicates require at least one candidate value.",
+                path,
+                "value shape"));
+        }
+        else if (capabilities!.MaxArrayQueryElements is { } max && count > max)
+        {
+            failures.Add(Failure(
+                "array-values-limit-exceeded",
+                $"Array predicates accept at most {max} candidate values in {capabilities.ProviderName}; received {count}.",
+                path,
+                "value shape"));
+        }
     }
 
     private void ValidateLogicalExpression(LogicalExpression expression, string path, List<QueryValidationFailure> failures)

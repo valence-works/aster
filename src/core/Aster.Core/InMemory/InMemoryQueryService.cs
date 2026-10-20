@@ -14,7 +14,8 @@ namespace Aster.Core.InMemory;
 /// Evaluates <see cref="ResourceQuery"/> ASTs against versions supplied by <see cref="IResourceVersionReader"/>.
 /// </summary>
 /// <remarks>
-/// Supported comparators include equality, membership, text, range, and facet existence predicates.
+/// Supported comparators include equality, membership, text, range, facet existence, and array
+/// containment predicates.
 /// </remarks>
 public sealed partial class InMemoryQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
@@ -148,15 +149,122 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
         if (!resource.Aspects.TryGetValue(filter.AspectKey, out var aspectRaw))
             return false;
 
+        // Presence and array operators inspect the facet's JSON shape rather than its text form.
+        switch (filter.Operator)
+        {
+            case ComparisonOperator.Exists:
+                return ResolveFacetElement(aspectRaw, filter.FacetDefinitionId) is { } present
+                    && present.ValueKind != JsonValueKind.Null
+                    && !(present.ValueKind == JsonValueKind.Array && present.GetArrayLength() == 0);
+
+            case ComparisonOperator.ArrayContains or ComparisonOperator.ArrayContainsAny or ComparisonOperator.ArrayContainsAll:
+                return ResolveFacetElement(aspectRaw, filter.FacetDefinitionId) is { ValueKind: JsonValueKind.Array } array
+                    && ApplyArrayComparator(array, filter.Value, filter.Operator);
+        }
+
         // Resolve the facet value from the aspect payload
         var facetValue = ResolveFacetValue(aspectRaw, filter.FacetDefinitionId);
-        if (filter.Operator == ComparisonOperator.Exists)
-            return facetValue is not null;
-
         if (facetValue is null)
             return false;
 
         return ApplyComparator(facetValue, filter.Value, filter.Operator);
+    }
+
+    private static JsonElement? ResolveFacetElement(object? aspectRaw, string facetDefinitionId)
+    {
+        if (aspectRaw is null || string.IsNullOrEmpty(facetDefinitionId))
+            return null;
+
+        try
+        {
+            return aspectRaw switch
+            {
+                IDictionary<string, object> dictionary => dictionary.TryGetValue(facetDefinitionId, out var value)
+                    ? value is null ? null : JsonSerializer.SerializeToElement(value, JsonOptions)
+                    : null,
+                JsonElement element => TryGetFacetProperty(element, facetDefinitionId),
+                string json => TryGetFacetProperty(JsonSerializer.Deserialize<JsonElement>(json), facetDefinitionId),
+                _ => TryGetFacetProperty(JsonSerializer.SerializeToElement(aspectRaw, JsonOptions), facetDefinitionId),
+            };
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static JsonElement? TryGetFacetProperty(JsonElement aspect, string facetDefinitionId)
+    {
+        if (aspect.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (aspect.TryGetProperty(facetDefinitionId, out var property))
+            return property;
+
+        var camel = char.ToLowerInvariant(facetDefinitionId[0]) + facetDefinitionId[1..];
+        return aspect.TryGetProperty(camel, out var camelProperty) ? camelProperty : null;
+    }
+
+    private static bool ApplyArrayComparator(JsonElement array, object? expected, ComparisonOperator op)
+    {
+        bool ContainsCandidate(object? candidate) =>
+            array.EnumerateArray().Any(element => ArrayElementMatches(element, candidate));
+
+        return op switch
+        {
+            ComparisonOperator.ArrayContains => ContainsCandidate(expected),
+            ComparisonOperator.ArrayContainsAny => ResolveArrayCandidates(expected).Any(ContainsCandidate),
+            _ => ResolveArrayCandidates(expected).All(ContainsCandidate),
+        };
+    }
+
+    private static IReadOnlyList<object?> ResolveArrayCandidates(object? expected)
+    {
+        if (expected is null or string || expected is not IEnumerable enumerable)
+            throw Unsupported(
+                "array-values-required",
+                "value shape",
+                "ArrayContainsAny and ArrayContainsAll predicates require a non-string enumerable value set.",
+                "Filter.Value");
+
+        var candidates = enumerable.Cast<object?>().ToList();
+        if (candidates.Count == 0)
+            throw Unsupported(
+                "empty-array-values",
+                "value shape",
+                "ArrayContainsAny and ArrayContainsAll predicates require at least one candidate value.",
+                "Filter.Value");
+
+        return candidates;
+    }
+
+    // Mirrors the SQLite JSON translation of QueryArrayValue rules element for element.
+    private static bool ArrayElementMatches(JsonElement element, object? candidate)
+    {
+        if (!QueryArrayValue.TryClassify(candidate, out var kind))
+            throw Unsupported(
+                "unsupported-array-value-shape",
+                "value shape",
+                "Array candidates must be string, GUID, numeric, boolean, or date/time values.",
+                "Filter.Value");
+
+        return kind switch
+        {
+            QueryArrayElementKind.Text => element.ValueKind == JsonValueKind.String
+                && string.Equals(element.GetString(), QueryArrayValue.FormatText(candidate!), StringComparison.OrdinalIgnoreCase),
+            QueryArrayElementKind.Numeric => element.ValueKind == JsonValueKind.Number
+                && element.TryGetDouble(out var number)
+                && number == Convert.ToDouble(candidate, System.Globalization.CultureInfo.InvariantCulture),
+            QueryArrayElementKind.Boolean => element.ValueKind == (candidate is true ? JsonValueKind.True : JsonValueKind.False),
+            _ => element.ValueKind == JsonValueKind.String
+                && QueryDateTimeValue.TryNormalizeDateKey(element.GetString(), out var elementKey)
+                && QueryDateTimeValue.TryNormalizeDateKey(candidate, out var candidateKey)
+                && string.Equals(elementKey, candidateKey, StringComparison.Ordinal),
+        };
     }
 
     private static string? ResolveFacetValue(object? aspectRaw, string facetDefinitionId)

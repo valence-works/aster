@@ -43,6 +43,13 @@ public sealed record QueryCapabilityDescription(
     public IReadOnlyList<IndexProjection> IndexProjections { get; init; } = IndexProjections ?? [];
 
     /// <summary>
+    /// Gets the maximum number of candidate values the provider accepts in an
+    /// <see cref="ComparisonOperator.ArrayContainsAny"/> or <see cref="ComparisonOperator.ArrayContainsAll"/>
+    /// predicate; <see langword="null"/> when unbounded.
+    /// </summary>
+    public int? MaxArrayQueryElements { get; init; }
+
+    /// <summary>
     /// Gets whether the provider supports explicit lifecycle-state filtering.
     /// </summary>
     public bool SupportsLifecycleStateFiltering { get; init; }

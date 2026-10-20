@@ -68,7 +68,7 @@ new ResourceDefinitionBuilder()
     .WithFacetMetadata(new FacetMetadata { MaxItems = 10, UniqueItems = true, Pattern = "^[a-z-]+$" });
 ```
 
-Array query operators (`ArrayContains`, `ArrayContainsAny`, `ArrayContainsAll`) arrive with #83.
+Query array facets with `ArrayContains`, `ArrayContainsAny` and `ArrayContainsAll`; see [Querying](Querying#array-operators).
 
 ### Untyped aspects
 

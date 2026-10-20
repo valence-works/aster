@@ -190,6 +190,7 @@ public sealed class ProviderConformanceTests : IDisposable
                 ["Price"] = new { Amount = 25 },
                 ["Inventory"] = new { Count = 10 },
                 ["Schedule"] = new { StartsAt = Utc(2026, 2, 2) },
+                ["Labels"] = new { Tags = new[] { "featured", "sale" } },
             }));
         await writer.SaveVersionAsync(CreateResource(
             "product-b",
@@ -405,10 +406,10 @@ internal static class ProviderConformanceSuite
         var validator = subject.Services.GetRequiredService<IResourceQueryValidator>();
         var queryService = subject.Services.GetRequiredService<IResourceQueryService>();
 
-        foreach (var queryCase in SupportedCases(capabilities))
+        foreach (var queryCase in SupportedCases(capabilities).Concat(ArrayCases(capabilities)))
             await EvaluateSupportedCaseAsync(subject, validator, queryService, queryCase, failures);
 
-        foreach (var queryCase in UnsupportedCases(capabilities))
+        foreach (var queryCase in UnsupportedCases(capabilities).Concat(UnsupportedArrayCases(capabilities)))
             await EvaluateUnsupportedCaseAsync(subject, validator, queryService, queryCase, failures);
 
         return failures;
@@ -696,6 +697,81 @@ internal static class ProviderConformanceSuite
                     Skip = 1,
                     Take = 1,
                 });
+        }
+    }
+
+    private static IEnumerable<ProviderQueryCase> ArrayCases(QueryCapabilityDescription capabilities)
+    {
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.ArrayContains))
+        {
+            yield return new(
+                "Facet array contains filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Labels", "Tags", "Sale", ComparisonOperator.ArrayContains),
+                });
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.ArrayContainsAny))
+        {
+            yield return new(
+                "Facet array contains any filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Labels", "Tags", new[] { "clearance", "featured" }, ComparisonOperator.ArrayContainsAny),
+                });
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.ArrayContainsAll))
+        {
+            yield return new(
+                "Facet array contains all filter",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Labels", "Tags", new[] { "sale", "featured" }, ComparisonOperator.ArrayContainsAll),
+                });
+        }
+    }
+
+    private static IEnumerable<ProviderQueryCase> UnsupportedArrayCases(QueryCapabilityDescription capabilities)
+    {
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.ArrayContainsAny))
+        {
+            yield return new(
+                "Invalid facet array value shape",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Labels", "Tags", "sale", ComparisonOperator.ArrayContainsAny),
+                },
+                RequiresMatch: false);
+        }
+
+        if (capabilities.SupportsComparison(QueryFilterType.FacetValue, ComparisonOperator.ArrayContains))
+        {
+            yield return new(
+                "Invalid facet array candidate",
+                "Facet filter",
+                new ResourceQuery
+                {
+                    Filter = new FacetValueFilter("Labels", "Tags", new[] { "sale" }, ComparisonOperator.ArrayContains),
+                },
+                RequiresMatch: false);
+        }
+
+        if (!capabilities.SupportsComparison(QueryFilterType.Metadata, ComparisonOperator.ArrayContains))
+        {
+            yield return new(
+                "Array operator on metadata",
+                "Metadata filter",
+                new ResourceQuery
+                {
+                    Filter = new MetadataFilter("Owner", "alice", ComparisonOperator.ArrayContains),
+                },
+                RequiresMatch: false);
         }
     }
 
