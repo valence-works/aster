@@ -43,23 +43,26 @@ public static class FacetValueValidator
         }
 
         if (diagnostics.Count > 1)
-        {
-            diagnostics.Sort(static (left, right) =>
-            {
-                var byAspect = string.CompareOrdinal(left.AspectKey, right.AspectKey);
-                if (byAspect != 0)
-                    return byAspect;
-
-                var byFacet = string.CompareOrdinal(left.FacetDefinitionId, right.FacetDefinitionId);
-                if (byFacet != 0)
-                    return byFacet;
-
-                var byCode = string.CompareOrdinal(left.Code, right.Code);
-                return byCode != 0 ? byCode : Nullable.Compare(left.ElementIndex, right.ElementIndex);
-            });
-        }
+            diagnostics.Sort(CompareDiagnostics);
 
         return diagnostics;
+    }
+
+    /// <summary>
+    /// Orders diagnostics by aspect key, then facet definition id, then code (ordinal), then element index.
+    /// </summary>
+    internal static int CompareDiagnostics(FacetValueDiagnostic left, FacetValueDiagnostic right)
+    {
+        var byAspect = string.CompareOrdinal(left.AspectKey, right.AspectKey);
+        if (byAspect != 0)
+            return byAspect;
+
+        var byFacet = string.CompareOrdinal(left.FacetDefinitionId, right.FacetDefinitionId);
+        if (byFacet != 0)
+            return byFacet;
+
+        var byCode = string.CompareOrdinal(left.Code, right.Code);
+        return byCode != 0 ? byCode : Nullable.Compare(left.ElementIndex, right.ElementIndex);
     }
 
     private static void ValidateFacetValue(

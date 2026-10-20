@@ -1,5 +1,7 @@
+using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
+using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Models.Lifecycle;
@@ -59,6 +61,12 @@ public sealed record ResourceSaveLifecycleContext : ResourceLifecycleContext
     /// Proposed or saved resource version.
     /// </summary>
     public Resource? Resource { get; init; }
+
+    /// <summary>
+    /// Reference diagnostics the save let through under <see cref="ReferenceValidationMode.Lenient"/>;
+    /// empty under <see cref="ReferenceValidationMode.Strict"/>, which rejects the save instead.
+    /// </summary>
+    public IReadOnlyList<FacetValueDiagnostic> ReferenceWarnings { get; init; } = [];
 }
 
 /// <summary>

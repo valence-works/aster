@@ -55,6 +55,25 @@ public static class AsterCoreServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers all Aster Core in-memory services, as <see cref="AddAsterCore(IServiceCollection)"/>,
+    /// with host options.
+    /// </summary>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <param name="configure">Configures the <see cref="AsterOptions"/>.</param>
+    /// <returns>The <paramref name="services"/> for chaining.</returns>
+    public static IServiceCollection AddAsterCore(this IServiceCollection services, Action<AsterOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var options = new AsterOptions();
+        configure(options);
+        services.AddSingleton(options);
+
+        return services.AddAsterCore();
+    }
+
+    /// <summary>
     /// Registers all Aster Core in-memory services:
     /// <see cref="InMemoryResourceDefinitionStore"/>, <see cref="InMemoryResourceManager"/>,
     /// <see cref="InMemoryQueryService"/>, <see cref="SystemTextJsonAspectBinder"/>,
@@ -67,6 +86,7 @@ public static class AsterCoreServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        services.TryAddSingleton(new AsterOptions());
 
         // Identity
         services.AddSingleton<GuidIdentityGenerator>();
@@ -120,6 +140,7 @@ public static class AsterCoreServiceCollectionExtensions
                 sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
         services.AddSingleton<IResourceVersionHistoryService, ResourceVersionHistoryService>();
         services.AddSingleton<IResourceReferenceResolver, ResourceReferenceResolver>();
+        services.AddSingleton<IResourceReferenceValidator, ResourceReferenceValidator>();
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();
