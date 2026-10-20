@@ -36,7 +36,7 @@ element := "string" | "int" | "decimal" | "bool" | "datetime" | "guid" | "refere
 ```
 
 - Matching is case-insensitive. The canonical form is lowercase.
-- Existing aliases stay accepted on input (`int32`, `int64`, `long`, `boolean`).
+- Existing aliases stay accepted on input wherever their canonical name is: `int32`, `int64`, `long` for `int`; `boolean` for `bool`; `datetimeoffset` for `datetime`. That includes array descriptors (`int32[]` means `int[]`). Hosts and docs should use the canonical names.
 - One array level only. `object[]` (excluded by `element`) and nested arrays are **not** allowed in 1.0. They have no portable query semantics and no consumer yet.
 - Reference targets and resolution live in `FacetMetadata`, not in the type string (see §6).
 
