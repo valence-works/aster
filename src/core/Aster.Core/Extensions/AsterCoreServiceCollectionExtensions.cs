@@ -141,6 +141,7 @@ public static class AsterCoreServiceCollectionExtensions
         services.AddSingleton<IResourceVersionHistoryService, ResourceVersionHistoryService>();
         services.AddSingleton<IResourceReferenceResolver, ResourceReferenceResolver>();
         services.AddSingleton<IResourceReferenceValidator, ResourceReferenceValidator>();
+        services.AddSingleton<IResourceReferenceService, ResourceReferenceService>();
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();
