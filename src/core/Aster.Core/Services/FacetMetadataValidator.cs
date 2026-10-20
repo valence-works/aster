@@ -37,7 +37,7 @@ public static class FacetMetadataValidator
                     // Metadata applicability depends on the type, so unknown types skip metadata checks.
                     diagnostics.Add(new FacetMetadataDiagnostic(
                         FacetMetadataDiagnosticCodes.TypeUnknown,
-                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, or datetime.",
+                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, or guid.",
                         aspectKey,
                         facet.FacetDefinitionId));
                     continue;
@@ -269,6 +269,9 @@ public static class FacetMetadataValidator
 
         /// <summary>Date/time values; normalized to a UTC <see cref="DateTime"/> instant.</summary>
         DateTime,
+
+        /// <summary>GUID values; normalized to <see cref="System.Guid"/>.</summary>
+        Guid,
     }
 
     /// <summary>
@@ -283,13 +286,15 @@ public static class FacetMetadataValidator
         "decimal" => FacetValueType.Decimal,
         "bool" or "boolean" => FacetValueType.Bool,
         "datetime" or "datetimeoffset" => FacetValueType.DateTime,
+        "guid" => FacetValueType.Guid,
         _ => FacetValueType.Unknown,
     };
 
     /// <summary>
     /// Normalizes a value to the facet's declared type for comparison:
     /// string (ordinal), int (<see cref="long"/>), <see cref="decimal"/>, <see cref="bool"/>,
-    /// and datetime (UTC <see cref="DateTime"/>), tolerating <see cref="JsonElement"/> inputs
+    /// datetime (UTC <see cref="DateTime"/>), and guid (<see cref="Guid"/>, from a value or any
+    /// parseable string), tolerating <see cref="JsonElement"/> inputs
     /// after JSON round-trips.
     /// </summary>
     internal static bool TryNormalizeValue(object? value, FacetValueType facetType, out object normalized)
@@ -319,6 +324,14 @@ public static class FacetMetadataValidator
 
             case FacetValueType.DateTime when TryNormalizeDateTime(value, out var instant):
                 normalized = instant;
+                return true;
+
+            case FacetValueType.Guid when value is Guid guid:
+                normalized = guid;
+                return true;
+
+            case FacetValueType.Guid when value is string guidText && Guid.TryParse(guidText, out var parsedGuid):
+                normalized = parsedGuid;
                 return true;
 
             default:
@@ -353,6 +366,11 @@ public static class FacetMetadataValidator
             case FacetValueType.DateTime when element.ValueKind == JsonValueKind.String
                 && TryNormalizeDateTime(element.GetString(), out var instant):
                 normalized = instant;
+                return true;
+
+            case FacetValueType.Guid when element.ValueKind == JsonValueKind.String
+                && Guid.TryParse(element.GetString(), out var guid):
+                normalized = guid;
                 return true;
 
             default:
