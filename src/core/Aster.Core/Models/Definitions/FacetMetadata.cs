@@ -76,6 +76,26 @@ public sealed record FacetMetadata
     public string? Pattern { get; init; }
 
     /// <summary>
+    /// Minimum number of elements. Array facets only; non-negative.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MinItems { get; init; }
+
+    /// <summary>
+    /// Maximum number of elements. Array facets only; non-negative;
+    /// must be greater than or equal to <see cref="MinItems"/> when both are declared.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxItems { get; init; }
+
+    /// <summary>
+    /// When <see langword="true"/>, elements must be distinct after normalization to the element type.
+    /// Array facets only.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UniqueItems { get; init; }
+
+    /// <summary>
     /// Opaque, non-validated string carried verbatim for host interpretation
     /// (e.g., "text", "multiline", "select"). Never affects validation.
     /// </summary>

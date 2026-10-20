@@ -11,8 +11,11 @@ namespace Aster.Core.Definitions;
 /// </summary>
 /// <remarks>
 /// Only facet types that registration currently accepts are derived. Properties whose type maps
-/// to a type that is not supported yet (arrays, object) are skipped, so they stay
-/// unvalidated exactly as before; they are picked up when those types land (#82, #84).
+/// to a type that is not supported yet (object) are skipped, so they stay unvalidated exactly
+/// as before; they are picked up when that type lands (#84). Collections derive <c>T[]</c> when
+/// their element type is a supported non-nullable scalar; collections of anything else (records,
+/// enums, <c>Nullable&lt;T&gt;</c>, whose null elements an array facet would reject) are skipped,
+/// as is <c>byte[]</c>, which System.Text.Json writes as a base64 string rather than an array.
 /// Enum properties are skipped too: the stores serialize enums as integers, and the facet
 /// representation for enums is decided separately (#131).
 /// </remarks>
@@ -46,7 +49,26 @@ internal static class TypedAspectFacets
         };
     }
 
+    private static readonly HashSet<Type> CollectionDefinitions =
+    [
+        typeof(IEnumerable<>), typeof(IReadOnlyCollection<>), typeof(IReadOnlyList<>),
+        typeof(ICollection<>), typeof(IList<>), typeof(List<>),
+        typeof(ISet<>), typeof(IReadOnlySet<>), typeof(HashSet<>),
+    ];
+
     private static string? Map(Type clrType) =>
+        ElementTypeOf(clrType) is { } elementType
+            ? MapScalar(elementType) is { } element ? element + "[]" : null
+            : MapScalar(clrType);
+
+    private static Type? ElementTypeOf(Type clrType) =>
+        clrType == typeof(byte[]) ? null
+        : clrType.IsArray ? (clrType.GetArrayRank() == 1 ? clrType.GetElementType() : null)
+        : clrType.IsGenericType && CollectionDefinitions.Contains(clrType.GetGenericTypeDefinition())
+            ? clrType.GetGenericArguments()[0]
+            : null;
+
+    private static string? MapScalar(Type clrType) =>
         clrType.IsEnum
             ? null
             : Type.GetTypeCode(clrType) switch

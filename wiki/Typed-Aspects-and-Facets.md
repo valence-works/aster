@@ -38,8 +38,9 @@ The aspect key defaults to `typeof(T).Name` — i.e. `"TitleAspect"`, `"PriceAsp
 | `bool` | `bool` |
 | `DateTime`, `DateTimeOffset` | `datetime` |
 | `Guid` | `guid` |
+| `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `ISet<T>` (and similar) of a type above | `T[]`, e.g. `string[]` |
 
-The facet ID is the property's `[JsonPropertyName]` when it has one, otherwise the property name, so it matches the key in stored JSON. Properties declared with the C# `required` modifier become required facets. Collection, nested-object and enum properties are not derived yet: their facet types arrive with #82, #84 and #131. Decorate a derived facet with metadata by ID:
+The facet ID is the property's `[JsonPropertyName]` when it has one, otherwise the property name, so it matches the key in stored JSON. Properties declared with the C# `required` modifier become required facets; for a collection, required means at least one element. Nested-object and enum properties are not derived yet: their facet types arrive with #84 and #131. Collections of nullable elements (`List<int?>`) and `byte[]` (written as base64) are not derived either. Decorate a derived facet with metadata by ID:
 
 ```csharp
 new ResourceDefinitionBuilder()
@@ -47,6 +48,27 @@ new ResourceDefinitionBuilder()
     .WithAspect<TitleAspect>()
     .WithFacetMetadata("Title", new FacetMetadata { MaxLength = 80 });
 ```
+
+### Array facets
+
+A facet type ending in `[]` holds a JSON array of one element type: `string[]`, `int[]`, `decimal[]`, `bool[]`, `datetime[]` or `guid[]` (aliases work too, so `int32[]` means `int[]`). Nested arrays and `object[]` are not supported.
+
+On save, each element must match the element type; a `null` element is a type mismatch. Element-level diagnostics carry `ElementIndex`. Value constraints (`AllowedValues`, `MinLength`/`MaxLength`, `Pattern`, `Minimum`/`Maximum`) apply to every element, and three constraints apply to the array as a whole:
+
+| Metadata | Rule | Diagnostic |
+|---|---|---|
+| `MinItems`, `MaxItems` | element count bounds (non-negative, `MinItems <= MaxItems`) | `facet-value-items-out-of-range` |
+| `UniqueItems` | no duplicates after normalization (strings compare ordinally, GUIDs case-insensitively, date-times as UTC instants) | `facet-value-items-not-unique` |
+
+```csharp
+new ResourceDefinitionBuilder()
+    .WithDefinitionId("Workflow")
+    .WithAspect("Labels")
+    .WithFacet("Tags", "string[]", isRequired: true)
+    .WithFacetMetadata(new FacetMetadata { MaxItems = 10, UniqueItems = true, Pattern = "^[a-z-]+$" });
+```
+
+Array query operators (`ArrayContains`, `ArrayContainsAny`, `ArrayContainsAll`) arrive with #83.
 
 ### Untyped aspects
 
