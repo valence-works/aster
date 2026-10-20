@@ -1,14 +1,14 @@
 # Aster Execution Roadmap
 
-Last updated: 2026-06-01
+Last updated: 2026-10-20
 
-This roadmap tracks the implementation trail we have already cut through the repo and the next product slices that should stay small enough for Spec Kit-driven PRs. It is intentionally execution-oriented; the broader architecture narrative remains in `docs/Roadmap.md` and the wiki.
+This document records the implementation trail already cut through the repo. **Forward planning now lives in the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58)**, a hierarchy of GitHub issues (program → epics → tasks) where each task maps to roughly one Spec Kit slice and one PR. The broader architecture narrative remains in `docs/Roadmap.md`.
 
 ## Current Position
 
-Aster now has a working Core SDK, in-memory runtime, SQLite JSON persistence/querying, provider capability discovery, provider validation alignment, provider authoring ergonomics, a reusable provider conformance harness, SQLite facet sorting, portable operator expansion, SQLite date-like ranges, explicit provider-declared index projections, explicit definition schema upgrade behavior, deterministic portability primitives, explicit host lifecycle hooks, explicit tenant scoping, policy foundations, host-controlled policy application orchestration, host-controlled lifecycle restore workflows, host-controlled policy pruning application, read-only version history inspection, explicit historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening coverage, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, lifecycle marker result summaries, and SQLite schema idempotency hardening.
+Slices 001–038 have landed, along with the Aster Studio reference host. Aster has a working core SDK, in-memory runtime, SQLite JSON persistence and querying, query capability discovery and validation, provider conformance support, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, tenant scoping, policies and lifecycle markers, version history inspection, historical activation, and facet validation/UI metadata.
 
-The Phase 4 core workstream is complete enough to defer optional recipes. The active workstream is now **Phase 5: Multi-tenancy, Policies, Advanced Versioning** with small cross-cutting host-reporting and operational-hardening follow-ups. Explicit tenant-aware boundaries, policy foundations, policy application orchestration, reversible lifecycle restore, destructive pruning application, version history inspection, historical version activation, policy application summaries, batch version history inspection, version history summaries, operational hardening, lifecycle restore summaries, policy preview summaries, portability result summaries, schema upgrade summaries, query validation summaries, index projection summaries, policy validation summaries, lifecycle hook outcome summaries, portable validation summaries, lifecycle marker result summaries, and SQLite schema idempotency hardening have landed; SQLite startup concurrency hardening is the current bounded operational slice.
+The **summary series is closed.** Slices 022, 024, and 026–035 added pure summary views over result objects. No further summary, reporting, or hardening slices are planned unless a named consumer scenario or a measured problem justifies them (see the program's principles).
 
 ## Landed Slices
 
@@ -50,41 +50,13 @@ The Phase 4 core workstream is complete enough to defer optional recipes. The ac
 | `034-portable-validation-summaries` | Landed | Pure host-facing portable snapshot validation summaries with deterministic validity, error, total diagnostic, diagnostic severity, and diagnostic code counts without storage, provider, service registration, reporting framework, import/export behavior, validation behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 | `035-lifecycle-marker-result-summaries` | Landed | Pure host-facing lifecycle marker result summaries with deterministic success, failure, marker state, marker resource, diagnostic code, diagnostic path, diagnostic resource, total result, and total diagnostic counts without storage, provider, service registration, reporting framework, lifecycle marker service behavior, marker store behavior, public SQL, public `IQueryable<Resource>`, or mutation behavior. |
 | `036-sqlite-schema-idempotency` | Landed | SQLite JSON schema initialization idempotency coverage for repeated provider initialization, legacy pre-tenant upgrade reruns, and `InitializeSchema=false` compatibility without product APIs, storage schema changes, provider registries, public SQL, public `IQueryable<Resource>`, schedulers, benchmark infrastructure, or dependencies. |
+| `037-sqlite-startup-concurrency` | Landed | Bounded concurrency coverage for SQLite JSON schema/provider initialization across fresh databases, existing tenant-aware databases, and passive `InitializeSchema=false` construction. |
+| `038-facet-metadata` | Landed | Optional declarative facet metadata (label, description, display order, default, allowed values, length, range, pattern, UI hint) with registration-time self-validation, save-time value validation, stable diagnostic codes, portability, and in-memory/SQLite parity. |
+| Aster Studio (PR #57) | Landed | Reference host (`src/apps/Aster.AdminDemo`, ASP.NET Core + React) that generates editing forms from facet metadata and demonstrates versioning, channel activation, and field-level validation diagnostics. |
 
-## Near-Term Roadmap
+## What's Next
 
-### 037 — SQLite Startup Concurrency Hardening
-
-**Status:** In progress on `037-sqlite-startup-concurrency`.
-
-**Goal:** Add bounded operational hardening coverage for concurrent SQLite JSON schema/provider initialization.
-
-Scope:
-
-- Verify concurrent fresh-database startup completes and leaves the schema usable.
-- Verify concurrent startup against an existing tenant-aware database preserves persisted data and table shape.
-- Verify concurrent `InitializeSchema=false` construction remains passive.
-- Preserve existing provider behavior, storage format, service registration, public SQL, public `IQueryable<Resource>`, query planner behavior, schedulers, benchmark infrastructure, and dependencies.
-
-### 038 — Next Bounded Slice
-
-**Goal:** Choose one small continuation slice after SQLite startup concurrency hardening lands.
-
-Candidate scope:
-
-- Advanced versioning follow-up only if it stays explicit, append-only, and provider-agnostic.
-- A deliberately bounded policy or lifecycle follow-up, such as reporting or audit-oriented operation views, only after a separate spec defines exact host value.
-- Tenant extension behavior, such as shared definitions or administrative workflows, only if the boundaries stay explicit.
-- Bounded operational hardening such as targeted benchmarks, migration idempotency checks, or concurrency stress tests.
-
-## Later Roadmap
-
-| Area | Intent |
-|---|---|
-| Optional recipes | Separate `Aster.Recipes` package for hosts that want recipe execution over portability primitives. |
-| Multi-tenancy extensions | Shared definitions, tenant hierarchy, and cross-tenant administrative workflows after explicit tenant boundaries exist. |
-| Policies | Optional policy reporting, audit surfaces, or recipe integration after host-controlled application primitives stabilize. |
-| Operational hardening | Benchmarks, migration idempotency, concurrency hardening, and large-data test suites. |
+See the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58) for phases, epics, tasks, dependencies, exit criteria, and explicitly deferred work. Do not plan new slices in this file; add or update issues in the program instead.
 
 ## Guardrails
 
@@ -94,3 +66,4 @@ Candidate scope:
 - Prefer composition and small helpers over framework-shaped extension points.
 - Preserve provider agnosticism in core and provider specificity in provider packages.
 - Keep local development and debugging straightforward.
+- Every new slice names a consumer scenario (an Elsa spike finding, an Aster Studio screen, a reference sample, or an external adopter).
