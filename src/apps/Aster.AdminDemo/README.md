@@ -36,6 +36,13 @@ Open http://localhost:5210. A SQLite database is created at
 `App_Data/aster-demo.db` (gitignored) and seeded on first run with `article`
 and `page` content types plus sample content.
 
+The demo database is disposable. After pulling changes to the seed data or the
+aspect templates, delete `App_Data/aster-demo.db` and restart to reseed. For
+example, the Taggable aspect now stores tags as a `string[]` facet (unique, at
+most 10, each at most 40 characters) instead of a comma-separated string, and
+the content list filters by tag with `ArrayContainsAny`. Databases seeded before
+that change still hold the old definitions.
+
 ### Frontend dev loop
 
 ```bash

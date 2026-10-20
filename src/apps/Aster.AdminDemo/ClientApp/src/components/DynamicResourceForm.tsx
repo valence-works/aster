@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConstraintBadges } from "@/components/FacetBadges";
 import { TagInput } from "@/components/TagInput";
 import type { DefinitionDetailDto, FacetDto, ResourceAspects } from "@/lib/api";
-import { fieldKey, inputDateValue, type FieldErrors } from "@/lib/resourceForm";
+import { fieldKey, inputDateValue, isArrayFacet, toStringArray, type FieldErrors } from "@/lib/resourceForm";
 import { toKebabCase } from "@/lib/utils";
 
 export function DynamicResourceForm({ definition, aspects, errors, onChange, readOnly = false }: { definition: DefinitionDetailDto; aspects: ResourceAspects; errors: FieldErrors; onChange?: (aspects: ResourceAspects) => void; readOnly?: boolean }) {
@@ -58,11 +58,11 @@ export function DynamicResourceForm({ definition, aspects, errors, onChange, rea
 function FieldControl({ facet, id, value, disabled, onValue, onGenerateSlug }: { facet: FacetDto; id: string; value: unknown; disabled: boolean; onValue: (value: unknown) => void; onGenerateSlug: () => void }) {
   const hint = facet.metadata?.uiHint;
   const stringValue = value === null || value === undefined ? "" : String(value);
+  if (hint === "tags" || isArrayFacet(facet)) return <TagInput id={id} value={toStringArray(value)} onChange={onValue} disabled={disabled} />;
   if (facet.metadata?.allowedValues?.length || hint === "select") {
     return <Select value={stringValue} onValueChange={onValue} disabled={disabled}><SelectTrigger id={id}><SelectValue placeholder="Select value" /></SelectTrigger><SelectContent>{(facet.metadata?.allowedValues ?? []).map((option) => <SelectItem key={String(option)} value={String(option)}>{String(option)}</SelectItem>)}</SelectContent></Select>;
   }
   if (hint === "toggle" || facet.type === "boolean") return <div className="flex h-10 items-center"><Switch checked={Boolean(value)} onCheckedChange={onValue} disabled={disabled} /></div>;
-  if (hint === "tags") return <TagInput value={stringValue} onChange={onValue} disabled={disabled} />;
   if (hint === "multiline" || hint === "richtext") return <Textarea id={id} value={stringValue} onChange={(event) => onValue(event.target.value)} disabled={disabled} className={hint === "richtext" ? "min-h-44 font-mono" : undefined} />;
   if (hint === "slug") return <div className="flex gap-2"><Input id={id} value={stringValue} onChange={(event) => onValue(event.target.value)} onBlur={(event) => onValue(toKebabCase(event.currentTarget.value))} disabled={disabled} /><Button type="button" variant="outline" disabled={disabled} onClick={onGenerateSlug}><Wand2 className="h-4 w-4" />Title</Button></div>;
   if (hint === "date" || hint === "datetime") return <Input id={id} type="date" value={inputDateValue(value, "date")} onChange={(event) => onValue(event.target.value)} disabled={disabled} />;

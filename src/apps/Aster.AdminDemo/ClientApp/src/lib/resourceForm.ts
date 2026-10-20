@@ -3,6 +3,18 @@ import { toKebabCase } from "@/lib/utils";
 
 export type FieldErrors = Record<string, string>;
 
+/** Array facets use the ADR 0002 descriptor form, such as `string[]`. */
+export function isArrayFacet(facet: FacetDto) {
+  return facet.type.endsWith("[]");
+}
+
+/** Reads an array facet value; legacy comma-separated strings are split into elements. */
+export function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item));
+  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
 export function fieldKey(aspectKey: string, facetId: string) {
   return `${aspectKey}.${facetId}`;
 }
@@ -13,7 +25,8 @@ export function initialAspects(definition: DefinitionDetailDto, resource?: { asp
     aspects[aspect.aspectKey] = {};
     for (const facet of aspect.facets) {
       const existing = resource?.aspects?.[aspect.aspectKey]?.[facet.facetId];
-      aspects[aspect.aspectKey][facet.facetId] = existing ?? defaultValue(facet);
+      const value = existing ?? defaultValue(facet);
+      aspects[aspect.aspectKey][facet.facetId] = isArrayFacet(facet) ? toStringArray(value) : value;
     }
   }
   return aspects;
@@ -22,7 +35,7 @@ export function initialAspects(definition: DefinitionDetailDto, resource?: { asp
 export function defaultValue(facet: FacetDto): unknown {
   if (facet.metadata?.defaultValue !== undefined) return facet.metadata.defaultValue;
   if (facet.metadata?.uiHint === "toggle" || facet.type === "boolean") return false;
-  if (facet.metadata?.uiHint === "tags") return "";
+  if (facet.metadata?.uiHint === "tags" || isArrayFacet(facet)) return [];
   return "";
 }
 
@@ -37,7 +50,12 @@ export function validateAspects(definition: DefinitionDetailDto, aspects: Resour
         errors[key] = `${metadata?.label ?? facet.facetId} is required.`;
         continue;
       }
-      if (isEmpty(value)) continue;
+      if (isEmpty(value) && !(isArrayFacet(facet) && metadata?.minItems)) continue;
+      if (isArrayFacet(facet)) {
+        const error = validateArray(toStringArray(value), metadata);
+        if (error) errors[key] = error;
+        continue;
+      }
       if (metadata?.minLength !== undefined && String(value).length < metadata.minLength) errors[key] = `Must be at least ${metadata.minLength} characters.`;
       if (metadata?.maxLength !== undefined && String(value).length > metadata.maxLength) errors[key] = `Must be at most ${metadata.maxLength} characters.`;
       const numeric = typeof value === "number" ? value : Number(value);
@@ -55,6 +73,24 @@ export function validateAspects(definition: DefinitionDetailDto, aspects: Resour
     }
   }
   return errors;
+}
+
+function validateArray(items: string[], metadata: FacetDto["metadata"]): string | undefined {
+  if (metadata?.minItems !== undefined && items.length < metadata.minItems) return `Add at least ${metadata.minItems} item(s).`;
+  if (metadata?.maxItems !== undefined && items.length > metadata.maxItems) return `Use at most ${metadata.maxItems} item(s).`;
+  if (metadata?.uniqueItems && new Set(items).size !== items.length) return "Items must be unique.";
+  for (const item of items) {
+    if (metadata?.minLength !== undefined && item.length < metadata.minLength) return `"${item}" must be at least ${metadata.minLength} characters.`;
+    if (metadata?.maxLength !== undefined && item.length > metadata.maxLength) return `"${item}" must be at most ${metadata.maxLength} characters.`;
+    if (metadata?.pattern) {
+      try {
+        if (!new RegExp(metadata.pattern).test(item)) return `"${item}" must match pattern ${metadata.pattern}.`;
+      } catch {
+        return "Configured pattern is invalid.";
+      }
+    }
+  }
+  return undefined;
 }
 
 export function diagnosticsToFieldErrors(diagnostics: DiagnosticDto[]) {
@@ -77,7 +113,10 @@ export function normalizeForSubmit(definition: DefinitionDetailDto, aspects: Res
     normalized[aspect.aspectKey] = {};
     for (const facet of aspect.facets) {
       const value = aspects[aspect.aspectKey]?.[facet.facetId];
-      if (value === "") {
+      if (isArrayFacet(facet)) {
+        const items = toStringArray(value);
+        normalized[aspect.aspectKey][facet.facetId] = items.length ? items : null;
+      } else if (value === "") {
         normalized[aspect.aspectKey][facet.facetId] = null;
       } else if (facet.type === "number" || facet.metadata?.uiHint === "number") {
         normalized[aspect.aspectKey][facet.facetId] = typeof value === "number" ? value : Number(value);

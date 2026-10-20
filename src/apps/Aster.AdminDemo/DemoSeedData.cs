@@ -31,7 +31,7 @@ internal static class DemoSeedData
             ["content"] = new() { ["title"] = "Introducing the Aster SDK", ["summary"] = "A quick tour of horizontal aspects.", ["body"] = "Aster models content as immutable resources composed from reusable aspects." },
             ["seo"] = new() { ["slug"] = "introducing-the-aster-sdk", ["metaTitle"] = "Introducing Aster", ["metaDescription"] = "A short introduction to the Aster SDK demo." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-01" },
-            ["taggable"] = new() { ["tags"] = "sdk,demo,aster" },
+            ["taggable"] = new() { ["tags"] = new[] { "sdk", "demo", "aster" } },
         }, cancellationToken);
         articleIntro = await UpdateAsync(resourceManager, articleIntro.ResourceId, 1, new()
         {
@@ -50,7 +50,7 @@ internal static class DemoSeedData
             ["content"] = new() { ["title"] = "Composing Horizontal Aspects", ["summary"] = "Reuse content, SEO, publishing, and tagging aspects.", ["body"] = "Aspect templates let teams share fields across content types." },
             ["seo"] = new() { ["slug"] = "composing-horizontal-aspects", ["metaTitle"] = "Horizontal Aspects", ["metaDescription"] = "Compose content types from reusable aspect templates." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-02" },
-            ["taggable"] = new() { ["tags"] = "aspects,composition" },
+            ["taggable"] = new() { ["tags"] = new[] { "aspects", "composition" } },
         }, cancellationToken);
         articleAspects = await UpdateAsync(resourceManager, articleAspects.ResourceId, 1, new()
         {
@@ -64,7 +64,7 @@ internal static class DemoSeedData
             ["content"] = new() { ["title"] = "Immutable Resource Versioning", ["summary"] = "Every edit creates a new resource version.", ["body"] = "Version history makes draft, preview, and live workflows explicit." },
             ["seo"] = new() { ["slug"] = "immutable-resource-versioning", ["metaTitle"] = "Immutable Versioning", ["metaDescription"] = "Understand Aster's immutable resource version model." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-03" },
-            ["taggable"] = new() { ["tags"] = "versioning,workflow" },
+            ["taggable"] = new() { ["tags"] = new[] { "versioning", "workflow" } },
         }, cancellationToken);
         await resourceManager.ActivateAsync(articleVersioning.ResourceId, 1, "preview", cancellationToken: cancellationToken);
 
@@ -73,7 +73,7 @@ internal static class DemoSeedData
             ["content"] = new() { ["title"] = "SQLite JSON Persistence", ["summary"] = "Run the demo against a local SQLite database.", ["body"] = "The SQLite JSON provider stores definitions, versions, and activation state." },
             ["seo"] = new() { ["slug"] = "sqlite-json-persistence", ["metaTitle"] = "SQLite JSON", ["metaDescription"] = "Use the Aster SQLite JSON persistence provider." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-04" },
-            ["taggable"] = new() { ["tags"] = "sqlite,persistence" },
+            ["taggable"] = new() { ["tags"] = new[] { "sqlite", "persistence" } },
         }, cancellationToken);
         await resourceManager.ActivateAsync(articleSqlite.ResourceId, 1, "live", cancellationToken: cancellationToken);
 
