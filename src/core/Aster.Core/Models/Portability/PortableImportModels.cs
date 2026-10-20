@@ -118,6 +118,13 @@ public sealed record PortableIdentityMapping
     /// Reason for this mapping.
     /// </summary>
     public required PortableIdentityMappingReason Reason { get; init; }
+
+    /// <summary>
+    /// For <see cref="PortableEntityKind.ReferenceValue"/>, the rewritten value's location:
+    /// <c>resources/{resourceId}/{version}/{aspectKey}/{facetId}</c>, plus <c>/{index}</c> for array elements,
+    /// using source identities. <see langword="null"/> for other kinds.
+    /// </summary>
+    public string? Location { get; init; }
 }
 
 /// <summary>
@@ -145,6 +152,13 @@ public enum PortableEntityKind
 
     /// <summary>Shared aspect definition version.</summary>
     AspectDefinitionVersion,
+
+    /// <summary>
+    /// A <c>reference</c> or <c>reference[]</c> value rewritten because its target resource was remapped;
+    /// <see cref="PortableIdentityMapping.SourceId"/> and <see cref="PortableIdentityMapping.TargetId"/> are the
+    /// old and new target <c>ResourceId</c>s.
+    /// </summary>
+    ReferenceValue,
 }
 
 /// <summary>

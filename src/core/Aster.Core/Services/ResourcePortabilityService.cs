@@ -2,10 +2,13 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Portability;
+using Aster.Core.Models.Querying;
+using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Services;
@@ -19,6 +22,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
     private readonly IResourcePortabilityStore portabilityStore;
     private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
+    private readonly IResourceVersionReader? versionReader;
+    private readonly ReferenceValidationMode referenceValidation;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
@@ -31,6 +36,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     /// <summary>
     /// Initializes a new instance of <see cref="ResourcePortabilityService"/>.
     /// </summary>
+    /// <remarks>
+    /// Without an <see cref="IResourceVersionReader"/>, import cannot see the target store, so
+    /// <see cref="PortableDiagnosticCodes.DanglingReference"/> is not reported.
+    /// </remarks>
     public ResourcePortabilityService(
         IResourcePortabilityStore portabilityStore,
         IResourceLifecycleHookDispatcher lifecycleHooks)
@@ -40,6 +49,25 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
         this.portabilityStore = portabilityStore;
         this.lifecycleHooks = lifecycleHooks;
+        referenceValidation = ReferenceValidationMode.Strict;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="ResourcePortabilityService"/> that reports dangling
+    /// references on import, with the severity <paramref name="options"/> sets.
+    /// </summary>
+    public ResourcePortabilityService(
+        IResourcePortabilityStore portabilityStore,
+        IResourceLifecycleHookDispatcher lifecycleHooks,
+        IResourceVersionReader versionReader,
+        AsterOptions options)
+        : this(portabilityStore, lifecycleHooks)
+    {
+        ArgumentNullException.ThrowIfNull(versionReader);
+        ArgumentNullException.ThrowIfNull(options);
+
+        this.versionReader = versionReader;
+        referenceValidation = options.ReferenceValidation;
     }
 
     /// <inheritdoc />
@@ -86,6 +114,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
                 new PortableStoreReadRequest { ExportRequest = request },
                 cancellationToken);
+            if (request.IncludeReferencedResources)
+                storeSnapshot = await AddReferencedResourcesAsync(storeSnapshot, request, sourceTenant, cancellationToken);
 
             var skippedActivationDiagnostics = storeSnapshot.SkippedActivationEntries
                 .Select(static entry => new PortableDiagnostic
@@ -765,6 +795,10 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             identityMap.Add(Reused(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
         }
 
+        var referenceFacets = new SnapshotReferenceFacets(snapshot.Definitions);
+        var referenceMappings = new List<PortableIdentityMapping>();
+        var plannedReferences = new List<(Resource Source, ReferenceFacetValues.ReferenceValue Value)>();
+
         foreach (var resource in snapshot.Resources)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -774,6 +808,34 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 ResourceId = resourceIdMap.GetValueOrDefault(resource.ResourceId, resource.ResourceId),
                 DefinitionId = definitionIdMap.GetValueOrDefault(resource.DefinitionId, resource.DefinitionId),
             };
+
+            // References follow their remapped targets (#89); reused versions are not rewritten.
+            var facets = referenceFacets.For(resource);
+            var references = ReferenceFacetValues.Read(facets, resource.Aspects).ToList();
+            if (resourceIdMap.ContainsKey(resource.ResourceId)
+                || !existingResources.ContainsKey((resource.ResourceId, resource.Version)))
+            {
+                plannedReferences.AddRange(references.Select(value => (resource, value)));
+                if (references.Any(value => resourceIdMap.ContainsKey(value.TargetResourceId)))
+                {
+                    remappedResource = remappedResource with
+                    {
+                        Aspects = new Dictionary<string, object>(
+                            ReferenceFacetValues.Rewrite(facets, resource.Aspects, resourceIdMap),
+                            StringComparer.Ordinal),
+                    };
+                    referenceMappings.AddRange(references
+                        .Where(value => resourceIdMap.ContainsKey(value.TargetResourceId))
+                        .Select(value => new PortableIdentityMapping
+                        {
+                            EntityKind = PortableEntityKind.ReferenceValue,
+                            SourceId = value.TargetResourceId,
+                            TargetId = resourceIdMap[value.TargetResourceId],
+                            Reason = PortableIdentityMappingReason.RemappedDivergent,
+                            Location = ReferenceLocation(resource, value),
+                        }));
+                }
+            }
 
             if (resourceIdMap.ContainsKey(resource.ResourceId))
             {
@@ -850,6 +912,9 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             identityMap.Add(Reused(PortableEntityKind.LifecycleMarker, LifecycleMarkerId(marker)));
         }
 
+        identityMap.AddRange(referenceMappings);
+        diagnostics.AddRange(await FindDanglingReferencesAsync(snapshot, plannedReferences, targetTenant, cancellationToken));
+
         var plannedSnapshot = new PortableSnapshot
         {
             FormatVersion = PortableSnapshot.CurrentFormatVersion,
@@ -869,7 +934,9 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             ActivationEntries = plannedActivationStates.Count,
             LifecycleMarkers = plannedLifecycleMarkers.Count,
             ReusedIdenticalItems = reusedIdenticalItems,
-            RemappedItems = identityMap.Count(static mapping => mapping.Reason == PortableIdentityMappingReason.RemappedDivergent),
+            RemappedItems = identityMap.Count(static mapping =>
+                mapping.Reason == PortableIdentityMappingReason.RemappedDivergent
+                && mapping.EntityKind != PortableEntityKind.ReferenceValue),
         };
         var actualCounts = new PortableActualImportCounts
         {
@@ -890,6 +957,118 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             identityMap,
             diagnostics);
     }
+
+    /// <summary>
+    /// Reports planned reference values whose target is neither in the snapshot nor in the target tenant,
+    /// in snapshot order. Needs the version reader; without it nothing is reported.
+    /// </summary>
+    private async ValueTask<IReadOnlyList<PortableDiagnostic>> FindDanglingReferencesAsync(
+        PortableSnapshot snapshot,
+        IReadOnlyList<(Resource Source, ReferenceFacetValues.ReferenceValue Value)> plannedReferences,
+        TenantScope targetTenant,
+        CancellationToken cancellationToken)
+    {
+        if (versionReader is null || plannedReferences.Count == 0)
+            return [];
+
+        var snapshotResourceIds = snapshot.Resources.Select(static resource => resource.ResourceId).ToHashSet(StringComparer.Ordinal);
+        var outside = plannedReferences
+            .Select(static reference => reference.Value.TargetResourceId)
+            .Where(id => !snapshotResourceIds.Contains(id))
+            .ToHashSet(StringComparer.Ordinal);
+        if (outside.Count == 0)
+            return [];
+
+        var existing = (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            TenantScope = targetTenant,
+            Scope = ResourceVersionScope.Latest,
+            ResourceIds = outside,
+        }, cancellationToken)).Select(static resource => resource.ResourceId).ToHashSet(StringComparer.Ordinal);
+
+        var severity = referenceValidation == ReferenceValidationMode.Strict
+            ? PortableDiagnosticSeverity.Error
+            : PortableDiagnosticSeverity.Warning;
+
+        return plannedReferences
+            .Where(reference => outside.Contains(reference.Value.TargetResourceId) && !existing.Contains(reference.Value.TargetResourceId))
+            .Select(reference => new PortableDiagnostic
+            {
+                Code = PortableDiagnosticCodes.DanglingReference,
+                Severity = severity,
+                Path = ReferenceLocation(reference.Source, reference.Value),
+                Message = $"Resource '{reference.Source.ResourceId}' version {reference.Source.Version} references '{reference.Value.TargetResourceId}', which is neither in the snapshot nor in the target tenant.",
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Adds the resources that exported resources reference, transitively, reading each round of newly
+    /// referenced IDs through the store's selected-resource export. IDs that do not exist are tried once.
+    /// </summary>
+    private async ValueTask<PortableStoreSnapshot> AddReferencedResourcesAsync(
+        PortableStoreSnapshot storeSnapshot,
+        PortableSnapshotExportRequest request,
+        TenantScope sourceTenant,
+        CancellationToken cancellationToken)
+    {
+        var attempted = storeSnapshot.Resources.Select(static resource => resource.ResourceId).ToHashSet(StringComparer.Ordinal);
+        var scanned = 0;
+
+        while (true)
+        {
+            var referenceFacets = new SnapshotReferenceFacets(storeSnapshot.Definitions);
+            var missing = storeSnapshot.Resources
+                .Skip(scanned)
+                .SelectMany(resource => ReferenceFacetValues.Read(referenceFacets.For(resource), resource.Aspects))
+                .Select(static value => value.TargetResourceId)
+                .Where(attempted.Add)
+                .ToHashSet(StringComparer.Ordinal);
+            scanned = storeSnapshot.Resources.Count;
+            if (missing.Count == 0)
+                return storeSnapshot;
+
+            var added = await portabilityStore.ReadSnapshotAsync(new PortableStoreReadRequest
+            {
+                ExportRequest = new PortableSnapshotExportRequest
+                {
+                    TenantScope = sourceTenant,
+                    ScopeMode = PortableExportScopeMode.SelectedResources,
+                    ResourceIds = missing,
+                    ResourceVersionScope = request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
+                        ? PortableResourceVersionScope.LatestOnly
+                        : request.ResourceVersionScope,
+                },
+            }, cancellationToken);
+
+            storeSnapshot = new PortableStoreSnapshot
+            {
+                Definitions = storeSnapshot.Definitions
+                    .Concat(added.Definitions)
+                    .DistinctBy(static definition => (definition.DefinitionId, definition.Version))
+                    .ToList(),
+                Resources = storeSnapshot.Resources
+                    .Concat(added.Resources)
+                    .DistinctBy(static resource => (resource.ResourceId, resource.Version))
+                    .ToList(),
+                ActivationStates = storeSnapshot.ActivationStates
+                    .Concat(added.ActivationStates)
+                    .DistinctBy(static state => (state.ResourceId, state.Channel))
+                    .ToList(),
+                LifecycleMarkers = storeSnapshot.LifecycleMarkers
+                    .Concat(added.LifecycleMarkers)
+                    .DistinctBy(static marker => marker.ResourceId, StringComparer.Ordinal)
+                    .ToList(),
+                SkippedActivationEntries = storeSnapshot.SkippedActivationEntries
+                    .Concat(added.SkippedActivationEntries)
+                    .ToList(),
+            };
+        }
+    }
+
+    private static string ReferenceLocation(Resource source, ReferenceFacetValues.ReferenceValue value) =>
+        $"resources/{source.ResourceId}/{source.Version}/{value.Facet.AspectKey}/{value.Facet.FacetDefinitionId}"
+        + (value.ElementIndex is { } index ? $"/{index}" : string.Empty);
 
     private static List<PortableDiagnostic> ValidateExportRequest(PortableSnapshotExportRequest request)
     {
@@ -1688,6 +1867,36 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
 
     private static string LifecycleMarkerId(ResourceLifecycleMarker marker) =>
         JsonSerializer.Serialize(new object[] { marker.ResourceId }, JsonOptions);
+
+    /// <summary>
+    /// Reference facets per resource, from the definition version the resource records (or the
+    /// latest one in the set when it records none), cached per definition version.
+    /// </summary>
+    private sealed class SnapshotReferenceFacets(IEnumerable<ResourceDefinition> definitions)
+    {
+        private readonly Dictionary<(string DefinitionId, int Version), ResourceDefinition> byVersion =
+            definitions.DistinctBy(static definition => (definition.DefinitionId, definition.Version))
+                .ToDictionary(static definition => (definition.DefinitionId, definition.Version));
+
+        private readonly Dictionary<(string DefinitionId, int Version), IReadOnlyList<ReferenceFacetValues.ReferenceFacet>> cache = [];
+
+        public IReadOnlyList<ReferenceFacetValues.ReferenceFacet> For(Resource resource)
+        {
+            var definition = resource.DefinitionVersion is { } version && byVersion.TryGetValue((resource.DefinitionId, version), out var recorded)
+                ? recorded
+                : byVersion.Values
+                    .Where(candidate => string.Equals(candidate.DefinitionId, resource.DefinitionId, StringComparison.Ordinal))
+                    .MaxBy(static candidate => candidate.Version);
+            if (definition is null)
+                return [];
+
+            var key = (definition.DefinitionId, definition.Version);
+            if (!cache.TryGetValue(key, out var facets))
+                cache[key] = facets = ReferenceFacetValues.Facets(definition);
+
+            return facets;
+        }
+    }
 
     private sealed record RemappedCollisionDiagnostic(
         PortableEntityKind EntityKind,

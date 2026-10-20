@@ -339,6 +339,12 @@ Import is strict by default. Existing identical content is reused, divergent col
 - **Collisions:** a divergent aspect version is a `divergent-identity-collision` error even under `RemapDivergent`. Shared aspects are a tenant-wide vocabulary, so they are never renamed.
 - **Older snapshots:** snapshots without `AspectDefinitions` import exactly as before.
 
+Reference facets travel with their targets:
+
+- **Remapping.** When `RemapDivergent` remaps a resource, every imported `reference` or `reference[]` value that points at it is rewritten to the new ID. Each rewrite appears in the identity map as a `ReferenceValue` mapping, with the old and new target ID and a `Location` such as `resources/workflow-1/1/Steps/Agents/1`.
+- **Dangling references.** A reference whose target is neither in the snapshot nor in the target tenant is reported as `dangling-reference`. It is an error under `ReferenceValidationMode.Strict` (the default) and a warning under `Lenient`.
+- **Exporting dependencies.** Set `PortableSnapshotExportRequest.IncludeReferencedResources = true` to also export the resources your selection references, transitively.
+
 `IResourcePortabilityStore` is provider-facing infrastructure. Application code should normally use `IResourcePortabilityService`; providers implement `IResourcePortabilityStore` when they need exact snapshot reads and atomic import writes.
 
 ---

@@ -147,4 +147,10 @@ public static class PortableDiagnosticCodes
     /// </summary>
     public const string AspectPinMismatch = "aspect-pin-mismatch";
 
+    /// <summary>
+    /// A planned resource version references a resource that is neither in the snapshot nor in the target
+    /// tenant. An error under <see cref="Aster.Core.Models.References.ReferenceValidationMode.Strict"/>,
+    /// a warning under <see cref="Aster.Core.Models.References.ReferenceValidationMode.Lenient"/>.
+    /// </summary>
+    public const string DanglingReference = "dangling-reference";
 }
