@@ -10,9 +10,10 @@ namespace Aster.Core.Definitions;
 /// the CLR-to-facet type mapping in ADR 0002 §8.
 /// </summary>
 /// <remarks>
-/// Only facet types that registration currently accepts are derived. Properties whose type maps
-/// to a type that is not supported yet (object) are skipped, so they stay unvalidated exactly
-/// as before; they are picked up when that type lands (#84). Collections derive <c>T[]</c> when
+/// Nested classes, records, structs and dictionaries derive <c>object</c>, unless
+/// System.Text.Json writes them as a JSON scalar (<see cref="TimeSpan"/>, <see cref="Uri"/>, types
+/// with a <see cref="JsonConverterAttribute"/>, and similar) or the property is typed as
+/// <see cref="object"/>, whose JSON shape is unknown; those are skipped. Collections derive <c>T[]</c> when
 /// their element type is a supported non-nullable scalar; collections of anything else (records,
 /// enums, <c>Nullable&lt;T&gt;</c>, whose null elements an array facet would reject) are skipped,
 /// as is <c>byte[]</c>, which System.Text.Json writes as a base64 string rather than an array.
@@ -59,7 +60,30 @@ internal static class TypedAspectFacets
     private static string? Map(Type clrType) =>
         ElementTypeOf(clrType) is { } elementType
             ? MapScalar(elementType) is { } element ? element + "[]" : null
-            : MapScalar(clrType);
+            : MapScalar(clrType) ?? MapObject(clrType);
+
+    private static string? MapObject(Type clrType)
+    {
+        if (IsDictionary(clrType))
+            return "object";
+
+        var writtenAsScalar = clrType == typeof(object)
+            || clrType.IsEnum
+            || clrType.IsPrimitive
+            || typeof(System.Collections.IEnumerable).IsAssignableFrom(clrType)
+            || clrType == typeof(TimeSpan) || clrType == typeof(DateOnly) || clrType == typeof(TimeOnly)
+            || clrType == typeof(Uri) || clrType == typeof(Version)
+            || clrType.IsDefined(typeof(JsonConverterAttribute), inherit: true);
+
+        return writtenAsScalar ? null : "object";
+    }
+
+    private static bool IsDictionary(Type clrType) =>
+        typeof(System.Collections.IDictionary).IsAssignableFrom(clrType)
+        || (clrType.IsInterface ? [clrType, .. clrType.GetInterfaces()] : clrType.GetInterfaces())
+            .Any(static contract => contract.IsGenericType
+                && (contract.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                    || contract.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
 
     private static Type? ElementTypeOf(Type clrType) =>
         clrType == typeof(byte[]) ? null

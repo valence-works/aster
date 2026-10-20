@@ -122,7 +122,7 @@ public sealed class FacetTypeEnforcementTests : IDisposable
         var definition = Definition(
             Facet("Zeta", "uuid"),
             Facet("Alpha", "string", metadata: new FacetMetadata { MinLength = 5, MaxLength = 1 }),
-            Facet("Beta", "object", metadata: new FacetMetadata { Pattern = "[" }));
+            Facet("Beta", "json", metadata: new FacetMetadata { Pattern = "[" }));
 
         var exception = await Assert.ThrowsAsync<FacetMetadataValidationException>(async () =>
             await provider.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(definition));

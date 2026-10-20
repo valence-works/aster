@@ -26,6 +26,8 @@ public sealed class TypedAspectFacetDerivationTests
 
     private sealed record Nested(string Value);
 
+    private readonly record struct Point(int X, int Y);
+
     private sealed class EveryShape
     {
         public required string Title { get; init; }
@@ -60,10 +62,15 @@ public sealed class TypedAspectFacetDerivationTests
 
         public ISet<DateTime> Dates { get; init; } = new HashSet<DateTime>();
 
-        // Not derived: object lands in #84, enums are decided in #131, nullable elements would be
-        // rejected by an array facet, and byte[] serializes as a base64 string.
-
         public Nested? Details { get; init; }
+
+        public Dictionary<string, string> Map { get; init; } = [];
+
+        public Point Position { get; init; }
+
+        // Not derived: object[] is outside the grammar, enums are decided in #131, nullable elements
+        // would be rejected by an array facet, byte[] and TimeSpan serialize as strings, and an
+        // object-typed property has no known JSON shape.
 
         public List<Nested> Children { get; init; } = [];
 
@@ -73,7 +80,11 @@ public sealed class TypedAspectFacetDerivationTests
 
         public byte[] Blob { get; init; } = [];
 
-        public Dictionary<string, string> Map { get; init; } = [];
+        public TimeSpan Duration { get; init; }
+
+        public object? Anything { get; init; }
+
+        public Uri? Link { get; init; }
 
         public Status State { get; init; }
 
@@ -121,6 +132,9 @@ public sealed class TypedAspectFacetDerivationTests
                 ("Scores", "int[]", false),
                 ("Owners", "guid[]", false),
                 ("Dates", "datetime[]", false),
+                ("Details", "object", false),
+                ("Map", "object", false),
+                ("Position", "object", false),
             ],
             Facets(definition, "EveryShape").Select(static facet => (facet.FacetDefinitionId, facet.Type, facet.IsRequired)));
     }

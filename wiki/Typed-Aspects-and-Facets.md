@@ -39,8 +39,9 @@ The aspect key defaults to `typeof(T).Name` — i.e. `"TitleAspect"`, `"PriceAsp
 | `DateTime`, `DateTimeOffset` | `datetime` |
 | `Guid` | `guid` |
 | `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `ISet<T>` (and similar) of a type above | `T[]`, e.g. `string[]` |
+| nested classes, records, structs, and dictionaries | `object` |
 
-The facet ID is the property's `[JsonPropertyName]` when it has one, otherwise the property name, so it matches the key in stored JSON. Properties declared with the C# `required` modifier become required facets; for a collection, required means at least one element. Nested-object and enum properties are not derived yet: their facet types arrive with #84 and #131. Collections of nullable elements (`List<int?>`) and `byte[]` (written as base64) are not derived either. Decorate a derived facet with metadata by ID:
+The facet ID is the property's `[JsonPropertyName]` when it has one, otherwise the property name, so it matches the key in stored JSON. Properties declared with the C# `required` modifier become required facets; for a collection, required means at least one element. Enum properties are not derived yet (#131). Also skipped: collections of nullable elements (`List<int?>`) or of nested types (`object[]` is not a facet type), properties typed as `object`, and types System.Text.Json writes as strings, such as `byte[]`, `TimeSpan`, `Uri` and types with a `[JsonConverter]`. Decorate a derived facet with metadata by ID:
 
 ```csharp
 new ResourceDefinitionBuilder()
@@ -69,6 +70,10 @@ new ResourceDefinitionBuilder()
 ```
 
 Query array facets with `ArrayContains`, `ArrayContainsAny` and `ArrayContainsAll`; see [Querying](Querying#array-operators).
+
+### Object facets
+
+An `object` facet stores a structured value, such as model settings or connector configuration, as a JSON object, verbatim. On save the value must be a JSON object, a dictionary, or a POCO; anything else is `facet-value-type-mismatch`. Object facets are opaque in 1.0: nested facet definitions, `AllowedValues`, `DefaultValue` and other value constraints do not apply, and only `Exists` is meaningful in queries (queries are definition-agnostic, so other operators simply do not match object values).
 
 ### Untyped aspects
 

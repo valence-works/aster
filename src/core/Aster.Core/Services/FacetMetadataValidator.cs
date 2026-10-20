@@ -54,7 +54,7 @@ public static class FacetMetadataValidator
                     // Metadata applicability depends on the type, so unknown types skip metadata checks.
                     diagnostics.Add(new FacetMetadataDiagnostic(
                         FacetMetadataDiagnosticCodes.TypeUnknown,
-                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, or guid, or an array of one of them (for example string[]).",
+                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, guid, or object, or an array of a scalar other than object (for example string[]).",
                         aspectKey,
                         facet.FacetDefinitionId));
                     continue;
@@ -100,7 +100,8 @@ public static class FacetMetadataValidator
         var lengthApplicable = facetType == FacetValueType.String;
         var patternApplicable = facetType == FacetValueType.String;
         var rangeApplicable = facetType is FacetValueType.Int or FacetValueType.Decimal;
-        var allowedValuesApplicable = facetType != FacetValueType.Bool;
+        var allowedValuesApplicable = facetType is not (FacetValueType.Bool or FacetValueType.Object);
+        var defaultValueApplicable = facetType != FacetValueType.Object;
         var itemsApplicable = descriptor.IsArray;
 
         if (!lengthApplicable && (metadata.MinLength is not null || metadata.MaxLength is not null))
@@ -117,7 +118,11 @@ public static class FacetMetadataValidator
 
         if (!allowedValuesApplicable && metadata.AllowedValues is not null)
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
-                $"Allowed values do not apply to bool facets; facet type is '{facet.Type}'.");
+                $"Allowed values do not apply to bool or object facets; facet type is '{facet.Type}'.");
+
+        if (!defaultValueApplicable && metadata.DefaultValue is not null)
+            Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
+                $"DefaultValue does not apply to object facets; facet type is '{facet.Type}'.");
 
         if (!itemsApplicable && (metadata.MinItems is not null || metadata.MaxItems is not null || metadata.UniqueItems is not null))
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
@@ -212,8 +217,8 @@ public static class FacetMetadataValidator
             }
         }
 
-        // Default value: declared type plus every declared constraint.
-        if (metadata.DefaultValue is { } defaultValue && descriptor.IsArray)
+        // Default value: declared type plus every declared constraint (object defaults are reported above).
+        if (defaultValueApplicable && metadata.DefaultValue is { } defaultValue && descriptor.IsArray)
         {
             if (!TryNormalizeArray(defaultValue, facetType, out var normalizedElements))
             {
@@ -228,7 +233,7 @@ public static class FacetMetadataValidator
                     "DefaultValue violates one or more declared constraints.");
             }
         }
-        else if (metadata.DefaultValue is { } scalarDefault)
+        else if (defaultValueApplicable && metadata.DefaultValue is { } scalarDefault)
         {
             if (!TryNormalizeValue(scalarDefault, facetType, out var normalizedDefault))
             {
@@ -325,6 +330,9 @@ public static class FacetMetadataValidator
 
         /// <summary>GUID values; normalized to <see cref="System.Guid"/>.</summary>
         Guid,
+
+        /// <summary>Structured values stored as a JSON object; validated by shape only.</summary>
+        Object,
     }
 
     /// <summary>
@@ -342,10 +350,15 @@ public static class FacetMetadataValidator
     /// <c>type := scalar | element "[]"</c>. Aliases are accepted for array elements too
     /// (<c>int32[]</c> means <c>int[]</c>); nested arrays are unknown.
     /// </summary>
-    internal static FacetTypeDescriptor ParseFacetType(string? type) =>
-        type is not null && type.EndsWith("[]", StringComparison.Ordinal)
-            ? new FacetTypeDescriptor(ClassifyFacetType(type[..^2]), IsArray: true)
-            : new FacetTypeDescriptor(ClassifyFacetType(type), IsArray: false);
+    internal static FacetTypeDescriptor ParseFacetType(string? type)
+    {
+        if (type is null || !type.EndsWith("[]", StringComparison.Ordinal))
+            return new FacetTypeDescriptor(ClassifyFacetType(type), IsArray: false);
+
+        // object[] has no portable query semantics and is outside the 1.0 grammar.
+        var element = ClassifyFacetType(type[..^2]);
+        return new FacetTypeDescriptor(element == FacetValueType.Object ? FacetValueType.Unknown : element, IsArray: true);
+    }
 
     /// <summary>
     /// Returns the raw elements of an array-shaped value: a JSON array, or any non-string,
@@ -407,6 +420,7 @@ public static class FacetMetadataValidator
         "bool" or "boolean" => FacetValueType.Bool,
         "datetime" or "datetimeoffset" => FacetValueType.DateTime,
         "guid" => FacetValueType.Guid,
+        "object" => FacetValueType.Object,
         _ => FacetValueType.Unknown,
     };
 
@@ -452,6 +466,10 @@ public static class FacetMetadataValidator
 
             case FacetValueType.Guid when value is string guidText && TryParseGuidText(guidText, out var parsedGuid):
                 normalized = parsedGuid;
+                return true;
+
+            case FacetValueType.Object when value is not null && IsObjectShaped(value):
+                normalized = value;
                 return true;
 
             default:
@@ -505,9 +523,35 @@ public static class FacetMetadataValidator
                 normalized = guid;
                 return true;
 
+            case FacetValueType.Object when element.ValueKind == JsonValueKind.Object:
+                normalized = element;
+                return true;
+
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Whether a CLR value serializes as a JSON object: a dictionary, or any class or struct that
+    /// is not a collection and not a value System.Text.Json writes as a JSON scalar.
+    /// </summary>
+    private static bool IsObjectShaped(object value)
+    {
+        if (value is IDictionary)
+            return true;
+
+        var type = value.GetType();
+        if (type.GetInterfaces().Any(static contract => contract.IsGenericType
+            && contract.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)))
+        {
+            return true;
+        }
+
+        return value is not (string or IEnumerable or Uri or Version)
+            && !type.IsPrimitive
+            && !type.IsEnum
+            && value is not (decimal or DateTime or DateTimeOffset or TimeSpan or Guid or DateOnly or TimeOnly);
     }
 
     private static bool TryNormalizeInteger(object? value, out long result)
