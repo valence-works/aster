@@ -11,11 +11,11 @@
     <IsPackable>true</IsPackable>
     <Description>Core SDK for defining, versioning, activating, and querying composable resources (Resource -> Aspect -> Facet), with an in-memory runtime.</Description>
     <PackageTags>aster;resources;versioning;headless;cms;configuration;workflow</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
