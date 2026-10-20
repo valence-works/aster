@@ -134,7 +134,7 @@ Follow-up TODOs:
 - New abstractions MUST be justified against the "Abstractions Must Earn Their Existence" principle.
 
 ### Spec Kit Compliance
-- Every feature specification MUST include a completed "Consumer Scenario" section (Principle 25); `/speckit.analyze` treats a missing or placeholder consumer scenario as CRITICAL.
+- Every feature specification created under constitution 1.2.0 or later (feature 039 onward) MUST include a completed "Consumer Scenario" section (Principle 25); `/speckit.analyze` treats a missing or placeholder consumer scenario as CRITICAL. Specifications 001–038 predate the gate and are not backfilled.
 - Every implementation plan MUST include a Constitution Check before research/design work proceeds.
 - The Constitution Check MUST explicitly consider simplicity, abstraction justification, dependency justification, provider boundaries, operational impact, and testability.
 - If a feature intentionally violates a SHOULD-level principle, the plan MUST explain why and identify the simpler alternative that was rejected.

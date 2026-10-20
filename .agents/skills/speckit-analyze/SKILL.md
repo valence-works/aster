@@ -138,7 +138,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 
 - Any requirement or plan element conflicting with a MUST principle
 - Missing mandated sections or quality gates from constitution
-- Missing, empty, or placeholder "Consumer Scenario" section in spec.md (Principle 25), which is always CRITICAL
+- Missing, empty, or placeholder "Consumer Scenario" section in spec.md (Principle 25), which is always CRITICAL for specifications 039 onward (001–038 predate the gate)
 
 #### E. Coverage Gaps
 
