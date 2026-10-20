@@ -88,6 +88,8 @@ internal static class AspectFacetValueResolver
         JsonValueKind.String => element.GetString(),
         JsonValueKind.Number when element.TryGetInt64(out var integer) => integer,
         JsonValueKind.Number when element.TryGetDecimal(out var decimalValue) => decimalValue,
+        // Numbers outside long/decimal range stay elements so they are rejected as type mismatches.
+        JsonValueKind.Number => element,
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToList(),

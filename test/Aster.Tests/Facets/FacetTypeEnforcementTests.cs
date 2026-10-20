@@ -191,6 +191,22 @@ public sealed class FacetTypeEnforcementTests : IDisposable
     }
 
     [Theory]
+    [InlineData(InMemory, "decimal")]
+    [InlineData(InMemory, "int")]
+    [InlineData(Sqlite, "decimal")]
+    public async Task CreateAsync_JsonNumberOutsideSupportedRange_IsRejected(string providerKind, string type)
+    {
+        await using var provider = CreateProvider(providerKind);
+        var manager = await RegisterAsync(provider, Definition(Facet("Amount", type)));
+        var payload = JsonSerializer.Deserialize<JsonElement>("""{ "Amount": 1e400 }""");
+
+        var diagnostic = await AssertSingleSaveDiagnosticAsync(async () =>
+            await manager.CreateAsync("Product", new CreateResourceRequest { InitialAspects = Details(payload) }));
+
+        Assert.Equal(FacetValueDiagnosticCodes.TypeMismatch, diagnostic.Code);
+    }
+
+    [Theory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     public async Task CreateAsync_MismatchInTypedPayload_IsRejected(string providerKind)
