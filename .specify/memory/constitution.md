@@ -1,24 +1,19 @@
 <!--
 SYNC IMPACT REPORT
-Version Change: 1.1.0 -> 1.1.1
+Version Change: 1.1.1 -> 1.2.0
 Modified Principles:
-- 16. Simplicity First (added rationale)
-- 17. Modern C# Idioms (added rationale)
-- 18. Readability Over Cleverness (added rationale)
-- 19. Explicitness Over Magic (added rationale)
-- 20. Abstractions Must Earn Their Existence (added rationale)
-- 21. Optimize For Deletion (added rationale)
-- 22. Favor Composition Over Inheritance (added rationale)
-- 23. Dependencies Should Remain Intentional (added rationale)
-- 24. Operational Simplicity Matters (added rationale)
-Added Sections:
 - None
+Added Principles:
+- 25. Consumer-Driven Scope
+Modified Sections:
+- Governance > Spec Kit Compliance (consumer scenario gate)
 Removed Sections:
 - None
 Templates Requiring Updates:
+- ✅ .specify/templates/spec-template.md (added mandatory Consumer Scenario section)
 - ✅ .specify/templates/plan-template.md (no changes required)
-- ✅ .specify/templates/spec-template.md (no changes required)
 - ✅ .specify/templates/tasks-template.md (no changes required)
+- ✅ .github/agents/speckit.analyze.agent.md and .agents/skills/speckit-analyze/SKILL.md (missing consumer scenario is CRITICAL)
 Follow-up TODOs:
 - None
 -->
@@ -112,6 +107,13 @@ Follow-up TODOs:
 - Provider setup, migrations/provisioning, logs, and local test workflows SHOULD be understandable without specialized infrastructure.
 - Rationale: A headless SDK should be easy to embed and diagnose in many host applications, including small local and test environments.
 
+### 25. Consumer-Driven Scope
+**Every feature slice MUST be justified by a named consumer scenario.**
+- A consumer scenario is a concrete need from a real or reference consumer: an Elsa spike finding, an Aster Studio screen, a reference sample under `samples/`, an external adopter, or a measured problem (failing test, benchmark, incident).
+- Slices whose only value is reporting over existing results, additional summaries, or hardening without a measured problem MUST NOT be specified unless such a scenario exists.
+- The consumer scenario SHOULD link to the program task (GitHub issue) that tracks the slice.
+- Rationale: Slices 022, 024, and 026–035 added summary views no consumer requested while product gaps (array facets, references, a production provider) stayed open. Tying every slice to a consumer keeps effort on what makes Aster usable.
+
 ## Governance
 
 ### Coding Standards
@@ -132,8 +134,9 @@ Follow-up TODOs:
 - New abstractions MUST be justified against the "Abstractions Must Earn Their Existence" principle.
 
 ### Spec Kit Compliance
+- Every feature specification MUST include a completed "Consumer Scenario" section (Principle 25); `/speckit.analyze` treats a missing or placeholder consumer scenario as CRITICAL.
 - Every implementation plan MUST include a Constitution Check before research/design work proceeds.
 - The Constitution Check MUST explicitly consider simplicity, abstraction justification, dependency justification, provider boundaries, operational impact, and testability.
 - If a feature intentionally violates a SHOULD-level principle, the plan MUST explain why and identify the simpler alternative that was rejected.
 
-**Version**: 1.1.1 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-05-15
+**Version**: 1.2.0 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-10-20

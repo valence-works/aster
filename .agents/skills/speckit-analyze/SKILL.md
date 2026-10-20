@@ -79,6 +79,7 @@ Load only the minimal necessary context from each artifact:
 
 **From spec.md:**
 
+- Consumer Scenario
 - Overview/Context
 - Functional Requirements
 - Success Criteria (measurable outcomes — e.g., performance, security, availability, user success, business impact)
@@ -137,6 +138,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 
 - Any requirement or plan element conflicting with a MUST principle
 - Missing mandated sections or quality gates from constitution
+- Missing, empty, or placeholder "Consumer Scenario" section in spec.md (Principle 25), which is always CRITICAL
 
 #### E. Coverage Gaps
 
