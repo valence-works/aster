@@ -80,7 +80,6 @@ public sealed class GuidFacetTypeTests : IDisposable
             data.Add(providerKind, OwnerA);
             data.Add(providerKind, OwnerA.ToString());
             data.Add(providerKind, OwnerA.ToString("D").ToUpperInvariant());
-            data.Add(providerKind, OwnerA.ToString("N"));
         }
 
         return data;
@@ -88,7 +87,7 @@ public sealed class GuidFacetTypeTests : IDisposable
 
     [Theory]
     [MemberData(nameof(ValidValues))]
-    public async Task CreateAsync_GuidOrParseableString_Saves(string providerKind, object value)
+    public async Task CreateAsync_GuidOrDFormatString_Saves(string providerKind, object value)
     {
         await using var provider = CreateProvider(providerKind);
         var manager = await RegisterAsync(provider);
@@ -102,7 +101,11 @@ public sealed class GuidFacetTypeTests : IDisposable
     [InlineData(InMemory, "not-a-guid")]
     [InlineData(Sqlite, "not-a-guid")]
     [InlineData(InMemory, 42)]
-    public async Task CreateAsync_NonGuidValue_IsTypeMismatch(string providerKind, object value)
+    [InlineData(InMemory, "3f2504e04f8911d39a0c0305e82c3301")]
+    [InlineData(Sqlite, "3f2504e04f8911d39a0c0305e82c3301")]
+    [InlineData(InMemory, "{3f2504e0-4f89-11d3-9a0c-0305e82c3301}")]
+    [InlineData(InMemory, "(3f2504e0-4f89-11d3-9a0c-0305e82c3301)")]
+    public async Task CreateAsync_NonGuidOrNonDFormatValue_IsTypeMismatch(string providerKind, object value)
     {
         await using var provider = CreateProvider(providerKind);
         var manager = await RegisterAsync(provider);
@@ -132,7 +135,7 @@ public sealed class GuidFacetTypeTests : IDisposable
     public async Task AllowedValues_ComparesGuidsRegardlessOfFormatting()
     {
         await using var provider = CreateProvider(InMemory);
-        var manager = await RegisterAsync(provider, new FacetMetadata { AllowedValues = [OwnerA.ToString()], DefaultValue = OwnerA.ToString("N") });
+        var manager = await RegisterAsync(provider, new FacetMetadata { AllowedValues = [OwnerA.ToString()], DefaultValue = OwnerA.ToString().ToUpperInvariant() });
 
         await manager.CreateAsync("Workflow", new CreateResourceRequest { InitialAspects = Ownership(OwnerA.ToString().ToUpperInvariant()) });
 
@@ -143,6 +146,7 @@ public sealed class GuidFacetTypeTests : IDisposable
 
     [Theory]
     [InlineData("not-a-guid", FacetMetadataDiagnosticCodes.AllowedValueTypeMismatch)]
+    [InlineData("3f2504e04f8911d39a0c0305e82c3301", FacetMetadataDiagnosticCodes.AllowedValueTypeMismatch)]
     public async Task Registration_AllowedValueThatIsNotAGuid_IsRejected(string allowedValue, string expectedCode)
     {
         await using var provider = CreateProvider(InMemory);

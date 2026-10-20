@@ -293,8 +293,8 @@ public static class FacetMetadataValidator
     /// <summary>
     /// Normalizes a value to the facet's declared type for comparison:
     /// string (ordinal), int (<see cref="long"/>), <see cref="decimal"/>, <see cref="bool"/>,
-    /// datetime (UTC <see cref="DateTime"/>), and guid (<see cref="Guid"/>, from a value or any
-    /// parseable string), tolerating <see cref="JsonElement"/> inputs
+    /// datetime (UTC <see cref="DateTime"/>), and guid (<see cref="Guid"/>, from a value or a
+    /// <c>D</c>-format string in any case), tolerating <see cref="JsonElement"/> inputs
     /// after JSON round-trips.
     /// </summary>
     internal static bool TryNormalizeValue(object? value, FacetValueType facetType, out object normalized)
@@ -330,7 +330,7 @@ public static class FacetMetadataValidator
                 normalized = guid;
                 return true;
 
-            case FacetValueType.Guid when value is string guidText && Guid.TryParse(guidText, out var parsedGuid):
+            case FacetValueType.Guid when value is string guidText && TryParseGuidText(guidText, out var parsedGuid):
                 normalized = parsedGuid;
                 return true;
 
@@ -338,6 +338,14 @@ public static class FacetMetadataValidator
                 return false;
         }
     }
+
+    /// <summary>
+    /// Accepts GUID strings in the <c>D</c> format only (any case). Queries compare stored text
+    /// case-insensitively against <see cref="Guid.ToString()"/>, which is the lowercase <c>D</c> form, so
+    /// <c>N</c>, <c>B</c> or <c>P</c> strings would be stored but never match.
+    /// </summary>
+    private static bool TryParseGuidText(string? text, out Guid guid) =>
+        Guid.TryParseExact(text, "D", out guid);
 
     private static bool TryNormalizeJsonElement(JsonElement element, FacetValueType facetType, out object normalized)
     {
@@ -369,7 +377,7 @@ public static class FacetMetadataValidator
                 return true;
 
             case FacetValueType.Guid when element.ValueKind == JsonValueKind.String
-                && Guid.TryParse(element.GetString(), out var guid):
+                && TryParseGuidText(element.GetString(), out var guid):
                 normalized = guid;
                 return true;
 
