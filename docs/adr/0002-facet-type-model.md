@@ -123,7 +123,7 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 - **Facet ID:** the property name. Reads already tolerate camelCase storage.
 - **`IsRequired`:** set only from the C# `required` modifier (`RequiredMemberAttribute`). Nullability annotations are not used: too implicit, and value types always have a default.
 - **References:** never inferred. Hosts declare them explicitly.
-- **Enums (amended during #124):** enum properties produce no facet for now. The stores serialize typed aspects with the same options as lifecycle markers and policy kinds, which SQLite compares as integers, so writing enums as names would change the stored format. A `string` facet over integer-stored enums would make later updates fail with a type mismatch. The representation is decided in [#131](https://github.com/valence-works/aster/issues/131).
+- **Enums (amended during #124):** enum properties produce no facet for now. The stores serialize typed aspects with the same options as lifecycle markers and policy kinds, which SQLite compares as integers, so writing enums as names would change the stored format. A `string` facet over integer-stored enums would make later updates fail with a type mismatch. [#131](https://github.com/valence-works/aster/issues/131) decided to keep skipping them for 1.0; see the addendum below.
 - **Explicit API:** a new `WithFacet(string facetId, string type, bool isRequired = false)` builder method declares facets on dictionary-style aspects, and `WithFacetMetadata(string facetId, FacetMetadata metadata)` targets a facet by ID. `WithTypedFacet<T>()` becomes `[Obsolete]`.
 
 ### 9. Queries stay definition-agnostic
@@ -153,3 +153,14 @@ When index projections (#100) need a type, the mapping is: `string` → `Keyword
 **Fallback:** a resource that records no definition version (data written before versions were recorded), or whose recorded version is no longer stored, is validated against the latest version, as before.
 
 **Rejected:** validating against the latest version and documenting that registering a definition version changes update rules immediately. It is simpler but makes registration a silent, fleet-wide behaviour change.
+
+### Enum properties stay underived in 1.0 (#131)
+
+**Decision:** typed-aspect enum properties keep producing no facet (option C in #131). Their values are stored as before, as integers, and are not validated. The decision is revisited when a consumer needs validated or rendered enum facets.
+
+**Why:**
+- No consumer needs them yet. The Elsa spike and the planned Elsa entities use strings for their closed sets, which `string` facets with `AllowedValues` already cover. Constitution Principle 25 keeps unrequested work out.
+- **Option A** (an `int` facet with the defined numeric values as `AllowedValues`) matches today's storage, but gives UIs and JSON Schema export (#106) numbers without names. Presenting names would need new metadata. `[Flags]` enums also break it, because their valid values are combinations, not members.
+- **Option B** (store enum names) changes the stored format. It needs a converter scoped to aspect payloads only (lifecycle markers and policy kinds must stay integers, which SQLite compares as such), plus a migration or dual-read story for existing integer data. The cost isn't justified without a consumer.
+
+**When a consumer appears:** prefer option B for new definitions, because names are stable across enum reordering and readable in exports. Scope the converter to aspect payloads and accept both forms on read.
