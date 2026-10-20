@@ -4,17 +4,17 @@ using static Aster.Core.Services.FacetMetadataValidator;
 namespace Aster.Core.Services;
 
 /// <summary>
-/// Save-time validation of present facet values against declared metadata constraints.
-/// Invoked by <c>DefaultResourceManager</c> and <c>InMemoryResourceManager</c> create/update
-/// paths before any before-save lifecycle hook and before any write, so a violation means
-/// nothing was persisted. Absent or null values are skipped entirely — missing-value handling
-/// remains governed exclusively by the existing <c>IsRequired</c> flag.
+/// Save-time validation of facet values against their declared type, <c>IsRequired</c>, and
+/// declared metadata constraints. Invoked by <c>DefaultResourceManager</c> and
+/// <c>InMemoryResourceManager</c> create/update paths before any before-save lifecycle hook and
+/// before any write, so a violation means nothing was persisted. Portability import and schema
+/// upgrades do not call it, so historical versions stay importable and upgradable.
 /// </summary>
 public static class FacetValueValidator
 {
     /// <summary>
-    /// Validates every metadata-bearing facet's present value across all aspect attachments
-    /// with a matching payload.
+    /// Validates every facet of every aspect attachment that has a payload: missing required
+    /// values, values that do not match the declared type, then declared metadata constraints.
     /// </summary>
     /// <param name="definition">The resolved resource definition.</param>
     /// <param name="aspects">The resource's aspect payloads keyed by attachment key.</param>
@@ -37,12 +37,7 @@ public static class FacetValueValidator
                 continue;
 
             foreach (var facet in aspectDefinition.FacetDefinitions)
-            {
-                if (facet.Metadata is null)
-                    continue;
-
-                ValidateFacetValue(aspectKey, facet, facet.Metadata, payload, diagnostics);
-            }
+                ValidateFacetValue(aspectKey, facet, payload, diagnostics);
         }
 
         if (diagnostics.Count > 1)
@@ -64,25 +59,33 @@ public static class FacetValueValidator
     private static void ValidateFacetValue(
         string aspectKey,
         FacetDefinition facet,
-        FacetMetadata metadata,
         object payload,
         List<FacetValueDiagnostic> diagnostics)
     {
+        // Unknown types are rejected at registration; definitions stored before that rule are skipped.
         var facetType = ClassifyFacetType(facet.Type);
         if (facetType == FacetValueType.Unknown)
             return;
 
-        // Absent or null values skip all constraint checks (IsRequired semantics unchanged).
-        if (!AspectFacetValueResolver.TryResolveValue(payload, facet.FacetDefinitionId, out var rawValue))
-            return;
-
-        // Values that cannot be normalized to the declared type are skipped (no new rejection
-        // channel in this slice; type enforcement is a candidate future slice).
-        if (!TryNormalizeValue(rawValue, facetType, out var value))
-            return;
-
         void Add(string code, string message) =>
             diagnostics.Add(new FacetValueDiagnostic(code, message, aspectKey, facet.FacetDefinitionId));
+
+        if (!AspectFacetValueResolver.TryResolveValue(payload, facet.FacetDefinitionId, out var rawValue))
+        {
+            if (facet.IsRequired)
+                Add(FacetValueDiagnosticCodes.Required, "A value is required.");
+
+            return;
+        }
+
+        if (!TryNormalizeValue(rawValue, facetType, out var value))
+        {
+            Add(FacetValueDiagnosticCodes.TypeMismatch, $"Value does not match the declared type '{facet.Type}'.");
+            return;
+        }
+
+        if (facet.Metadata is not { } metadata)
+            return;
 
         // AllowedValues.
         if (facetType != FacetValueType.Bool && metadata.AllowedValues is { Count: > 0 } allowedValues)

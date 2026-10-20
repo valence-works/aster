@@ -49,6 +49,11 @@ public static class FacetMetadataDiagnosticCodes
     /// <c>Pattern</c> is not a well-formed .NET regular expression.
     /// </summary>
     public const string PatternInvalid = "facet-metadata-pattern-invalid";
+
+    /// <summary>
+    /// The facet's declared <c>Type</c> is not a supported facet type descriptor.
+    /// </summary>
+    public const string TypeUnknown = "facet-type-unknown";
 }
 
 /// <summary>
@@ -84,4 +89,14 @@ public static class FacetValueDiagnosticCodes
     /// A present string value does not match <c>Pattern</c> (including bounded-evaluation timeout).
     /// </summary>
     public const string PatternMismatch = "facet-value-pattern-mismatch";
+
+    /// <summary>
+    /// A present, non-null value does not normalize to the facet's declared type.
+    /// </summary>
+    public const string TypeMismatch = "facet-value-type-mismatch";
+
+    /// <summary>
+    /// A required facet is missing or null on a present aspect instance.
+    /// </summary>
+    public const string Required = "facet-value-required";
 }

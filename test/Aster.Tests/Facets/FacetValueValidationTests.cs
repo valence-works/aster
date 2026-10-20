@@ -337,24 +337,28 @@ public sealed class FacetValueValidationTests
     }
 
     [Fact]
-    public async Task CreateAsync_AbsentValue_SkipsConstraintsWithIsRequiredSemanticsUnchanged()
+    public async Task CreateAsync_AbsentRequiredValue_IsRejectedAsRequiredWithoutConstraintDiagnostics()
     {
-        // Constraint-bearing facet, but the aspect payload omits the value entirely,
-        // and IsRequired stays governed by the existing flag (no new rejection).
+        // Constraint-bearing required facet, but the aspect payload omits the value entirely:
+        // the save fails with facet-value-required only; constraint checks do not run.
         var definition = Definition(
             ("TitleAspect", [Facet("Title", "string", new FacetMetadata { MinLength = 2 }, isRequired: true)]));
         var (provider, manager) = await CreateDefaultManagerAsync(definition);
         await using var _ = provider;
 
-        var resource = await manager.CreateAsync("Product", new CreateResourceRequest
-        {
-            InitialAspects = new Dictionary<string, object>
+        var exception = await Assert.ThrowsAsync<FacetValueValidationException>(async () =>
+            await manager.CreateAsync("Product", new CreateResourceRequest
             {
-                ["TitleAspect"] = new Dictionary<string, object>(),
-            },
-        });
+                InitialAspects = new Dictionary<string, object>
+                {
+                    ["TitleAspect"] = new Dictionary<string, object>(),
+                },
+            }));
 
-        Assert.Equal(1, resource.Version);
+        var diagnostic = Assert.Single(exception.Diagnostics);
+        Assert.Equal(FacetValueDiagnosticCodes.Required, diagnostic.Code);
+        Assert.Equal("TitleAspect", diagnostic.AspectKey);
+        Assert.Equal("Title", diagnostic.FacetDefinitionId);
     }
 
     [Fact]
@@ -414,21 +418,23 @@ public sealed class FacetValueValidationTests
     }
 
     [Fact]
-    public async Task CreateAsync_UnnormalizableValue_SkipsChecksAndSavesAsToday()
+    public async Task CreateAsync_UnnormalizableValue_IsRejectedAsTypeMismatchWithoutConstraintDiagnostics()
     {
-        // An int value on a string facet cannot be normalized to the declared type —
-        // constraint checks are skipped and the save proceeds exactly as today.
+        // An int value on a string facet does not match the declared type: the save fails with
+        // facet-value-type-mismatch only; constraint checks do not run for that facet.
         var definition = Definition(
             ("TitleAspect", [Facet("Title", "string", new FacetMetadata { MinLength = 100 })]));
         var (provider, manager) = await CreateDefaultManagerAsync(definition);
         await using var _ = provider;
 
-        var resource = await manager.CreateAsync("Product", new CreateResourceRequest
-        {
-            InitialAspects = TitleAspects(42),
-        });
+        var exception = await Assert.ThrowsAsync<FacetValueValidationException>(async () =>
+            await manager.CreateAsync("Product", new CreateResourceRequest
+            {
+                InitialAspects = TitleAspects(42),
+            }));
 
-        Assert.Equal(1, resource.Version);
+        var diagnostic = Assert.Single(exception.Diagnostics);
+        Assert.Equal(FacetValueDiagnosticCodes.TypeMismatch, diagnostic.Code);
     }
 
     [Fact]
