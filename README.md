@@ -1,12 +1,14 @@
 # Aster
 
+[![CI](https://github.com/valence-works/aster/actions/workflows/ci.yml/badge.svg)](https://github.com/valence-works/aster/actions/workflows/ci.yml)
+
 ![ster](./branding/banner2.jpg)
 
 **Aster** is a .NET SDK for defining, versioning, and querying composable resources using a **Resource → Aspect → Facet** model.
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Phase 5 in progress — Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery, preflight validation, typed query helpers, provider conformance support, portable operators, SQLite date-like ranges, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, and explicit tenant scoping are available. See [Roadmap](#roadmap) for future phases.
+> **Status:** Pre-1.0. Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery and validation, typed query helpers, provider conformance support, portable operators, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, tenant scoping, policies and lifecycle markers, version history, and facet validation/UI metadata are available. Aster Studio (`src/apps/Aster.AdminDemo`) is the reference host. Work toward 1.0 is tracked in the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58).
 
 ---
 
@@ -173,9 +175,15 @@ var query = new ResourceQuery
 var results = await queryService.QueryAsync(query);
 ```
 
-The in-memory evaluator supports `Equals`, `Contains`, and `Range`, plus latest/all/active/draft version scopes.
+Both built-in providers (in-memory and SQLite JSON) execute the same `ResourceQuery` AST:
 
-The SQLite JSON provider executes the same `ResourceQuery` AST in SQLite for its supported subset: metadata filters/sorts, version scopes, paging, aspect presence, scalar facet `Equals`/`Contains`, and numeric facet `Range`. Unsupported provider query shapes throw `UnsupportedQueryFeatureException`.
+- Version scopes: latest, all versions, active (per channel), and draft.
+- Filters: metadata, aspect presence, facet values, lifecycle state, and `And`/`Or`/`Not` composition.
+- Metadata operators: `Equals`, `NotEquals`, `In`, `Contains`, `StartsWith`.
+- Facet operators: `Equals`, `NotEquals`, `In`, `Contains`, `StartsWith`, `Range` (numeric and date-like), `Exists`.
+- Metadata and facet sorting, plus `Skip`/`Take` paging.
+
+The SQLite JSON provider does not support metadata range filters. Unsupported query shapes fail validation, and execution throws `UnsupportedQueryFeatureException`.
 
 Inspect provider support and validate before execution:
 
@@ -279,7 +287,8 @@ src/
     Aster.Persistence.SqliteJson/
       ← SQLite JSON definition/resource version/query provider
   apps/
-    Aster.Web/               ← Workbench / playground (ASP.NET Core minimal API)
+    Aster.AdminDemo/         ← Aster Studio: reference host (ASP.NET Core + React SPA)
+    Aster.Web/               ← Legacy workbench (to be retired, see #109)
 test/
   Aster.Tests/               ← xUnit tests (unit + integration)
 docs/                        ← Architecture review, coding conventions, roadmap
@@ -290,29 +299,22 @@ specs/                       ← Feature specs (001-core-sdk-foundation, …)
 
 ## Roadmap
 
-| Phase | Title | Status |
+Execution is tracked in the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58), a hierarchy of GitHub issues (program → epics → tasks):
+
+| Phase | Focus | Epics |
 |---|---|---|
-| **1** | Core SDK & In-Memory Engine | ✅ Complete |
-| **2A** | SQLite JSON Persistence & Querying | ✅ Complete |
-| **3** | Query Capabilities & Typed Querying | ✅ Complete |
-| **4** | Portability & Integration Hooks | ✅ Core Complete |
-| **5** | Multi-tenancy, Policies, Advanced Versioning | 🚧 In Progress |
-| **6** | Operational Hardening (concurrency, perf, migrations) | 📋 Planned |
+| **A** | Reset & foundation | Delivery process, CI/packaging/API stability, Elsa consumer spike |
+| **B** | Model completeness | Facet types (guid, arrays, object), resource references, shared aspect definitions |
+| **C** | Production readiness | PostgreSQL JSONB provider, performance & scale |
+| **D** | Integration & experience | JSON Schema export and `Aster.AspNetCore`, Aster Studio, Elsa integration, reference samples |
 
-See [`docs/Roadmap.md`](docs/Roadmap.md) and [`wiki/Roadmap.md`](wiki/Roadmap.md) for the full phase breakdown with epics and definitions of done.
+[`docs/Roadmap.md`](docs/Roadmap.md) remains the architecture narrative; [`docs/ExecutionRoadmap.md`](docs/ExecutionRoadmap.md) records the slices that have landed.
 
-### Planned package layout (future)
+### Packages
 
-```
-Aster.Abstractions
-Aster.Definitions
-Aster.Runtime
-Aster.Querying
-Aster.Indexing
-Aster.Persistence.<Backend>   (e.g., SqliteJson, PostgresJsonb, Mongo)
-Aster.Hosting
-Aster.Recipes                 (optional)
-```
+Current: `Aster.Core`, `Aster.Persistence.SqliteJson`.
+
+Planned for 1.0: `Aster.Persistence.PostgresJsonb`, `Aster.AspNetCore`. Splitting `Aster.Core` into smaller packages is deferred.
 
 ---
 

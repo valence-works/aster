@@ -1,5 +1,7 @@
 # Aster — Architecture & Roadmap for Spec-Kit
 
+> **Execution tracking:** This file is the architecture narrative. Delivery status and upcoming work are tracked in the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58); landed slices are listed in [`docs/ExecutionRoadmap.md`](ExecutionRoadmap.md).
+
 This roadmap is written as a **spec-generation scaffold**: each phase contains clear epics, concrete deliverables, and “Definition of Done” criteria that can be turned into Spec Kit feature specs.
 
 ---
