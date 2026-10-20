@@ -2,7 +2,8 @@ namespace Aster.Core.Models.Definitions;
 
 /// <summary>
 /// Defines a reusable piece of data structure (e.g., "PriceAspect").
-/// Embedded as a snapshot within <see cref="ResourceDefinition"/>; not stored independently.
+/// Embedded as a snapshot within <see cref="ResourceDefinition"/>. ADR 0003 adds independently stored,
+/// versioned shared aspect definitions that resource definitions pin and embed.
 /// </summary>
 public sealed record AspectDefinition
 {
