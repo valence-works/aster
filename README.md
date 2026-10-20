@@ -15,6 +15,7 @@ It provides a headless, backend-agnostic foundation for attaching reusable, cros
 ## Table of Contents
 
 - [Concepts](#concepts)
+- [Installation](#installation)
 - [Quick Start](#quick-start)
 - [DI Registration](#di-registration)
 - [Querying](#querying)
@@ -43,6 +44,15 @@ It provides a headless, backend-agnostic foundation for attaching reusable, cros
 Resources follow an **append-only versioning model** — versions are never mutated. A version with no activation entry is implicitly a draft.
 
 ---
+
+## Installation
+
+```bash
+dotnet add package Aster.Core
+dotnet add package Aster.Persistence.SqliteJson   # optional: SQLite persistence
+```
+
+Packages target .NET 8, 9 and 10. Until 1.0 they are published as `0.x` releases and the API may change between minor versions.
 
 ## Quick Start
 

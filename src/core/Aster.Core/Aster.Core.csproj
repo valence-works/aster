@@ -8,7 +8,15 @@
     <Deterministic>true</Deterministic>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <Description>Core SDK for defining, versioning, activating, and querying composable resources (Resource -> Aspect -> Facet), with an in-memory runtime.</Description>
+    <PackageTags>aster;resources;versioning;headless;cms;configuration;workflow</PackageTags>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="PACKAGE.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />

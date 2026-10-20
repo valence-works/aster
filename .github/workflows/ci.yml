@@ -64,6 +64,17 @@ jobs:
           path: TestResults/*.trx
           if-no-files-found: ignore
 
+      - name: Pack
+        run: |
+          dotnet pack src/core/Aster.Core/Aster.Core.csproj --configuration Release --no-build --output artifacts
+          dotnet pack src/persistence/Aster.Persistence.SqliteJson/Aster.Persistence.SqliteJson.csproj --configuration Release --no-build --output artifacts
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/*
+
   studio-spa:
     name: Build Aster Studio SPA
     runs-on: ubuntu-latest
