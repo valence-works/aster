@@ -5,6 +5,19 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
+## Consumer Scenario *(mandatory)*
+
+<!--
+  Constitution Principle 25: every feature slice MUST name the consumer that needs it.
+  A consumer is an Elsa spike finding, an Aster Studio screen, a reference sample under samples/,
+  an external adopter, or a measured problem (failing test, benchmark, incident).
+  Specs without a concrete consumer scenario are rejected by /speckit.analyze.
+-->
+
+- **Consumer**: [Who needs this, e.g. "Aster Studio tag filter", "Elsa spike finding F3", "prompt registry sample"]
+- **Need**: [What they cannot do today, in one or two sentences]
+- **Program task**: [GitHub issue link, e.g. https://github.com/valence-works/aster/issues/NN]
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
