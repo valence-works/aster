@@ -38,6 +38,11 @@ Aster is a **control-plane store**. It holds data that people or tools **author*
 | Secret values | API keys, passwords | a secret store (Key Vault, Secrets Manager); Aster holds metadata only |
 | Large binaries | files, images, video | blob storage; Aster stores references |
 
+**Rejected: storing these categories in Aster as well.** Each one conflicts with a property Aster is built on:
+- **Runtime execution state and high-frequency writes** change many times per second per record. Every Aster save appends a full immutable snapshot, so these workloads would multiply storage and write cost while gaining nothing from history, channels or portability, which they never use.
+- **Secret values** must not travel. Aster exports, imports, versions and keeps every historical snapshot, which is the opposite of what a secret store guarantees: rotation, revocation, access auditing and encryption at rest under a managed key.
+- **Large binaries** inflate every snapshot and every export, and JSON payloads are the wrong container for them. A reference to blob storage keeps resources small and portable.
+
 ### Heuristics
 
 A resource type belongs in Aster when most of these hold:
@@ -50,9 +55,11 @@ A resource type belongs in Aster when most of these hold:
 
 Indicative volumes will be recorded once benchmarks exist (#103, #104). Until then, plan for **tens of thousands of resources per definition on SQLite**, and treat an order of magnitude more as needing the Postgres provider with declared index projections.
 
+Latency targets are also deferred to the performance epic (#66). The interim rule: **keep Aster off per-execution hot paths.** Read control-plane data when it changes (through lifecycle hooks) or at startup, and cache the resolved version in the host. If a host would need an Aster query on every request or workflow step to meet its latency budget, that data is runtime data, or the host needs a cache in front of Aster.
+
 ### Combining Aster with a host's own model
 
-Hosts keep runtime data in their own store and point at Aster resources by `ResourceId`, plus a version or channel where it matters. For Elsa, a workflow instance row stores the workflow definition's `ResourceId` and the version it ran; the definition itself lives in Aster. Lifecycle hooks (`IResourceLifecycleHook`) let the host react to control-plane changes without polling.
+Hosts keep runtime data in their own store and point at Aster resources by `ResourceId`. A runtime record that depends on a specific snapshot must also persist that snapshot's exact `Version` (or the version-specific `Id`) **before execution starts**. A channel is only a way to *select* a version: one channel can hold several active versions, and it moves when someone promotes or rolls back, so it cannot identify what a past execution used. For Elsa, a workflow instance row stores the workflow definition's `ResourceId` and the exact version it ran, resolved from the `production` channel when the instance started; the definition itself lives in Aster. Lifecycle hooks (`IResourceLifecycleHook`) let the host react to control-plane changes without polling.
 
 ## Consequences
 
