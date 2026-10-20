@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -32,12 +33,12 @@ public static class FacetMetadataValidator
         {
             foreach (var facet in aspectDefinition.FacetDefinitions)
             {
-                if (ClassifyFacetType(facet.Type) == FacetValueType.Unknown)
+                if (!ParseFacetType(facet.Type).IsKnown)
                 {
                     // Metadata applicability depends on the type, so unknown types skip metadata checks.
                     diagnostics.Add(new FacetMetadataDiagnostic(
                         FacetMetadataDiagnosticCodes.TypeUnknown,
-                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, or guid.",
+                        $"Facet type '{facet.Type}' is not supported; expected string, int, decimal, bool, datetime, or guid, or an array of one of them (for example string[]).",
                         aspectKey,
                         facet.FacetDefinitionId));
                     continue;
@@ -72,7 +73,9 @@ public static class FacetMetadataValidator
         FacetMetadata metadata,
         List<FacetMetadataDiagnostic> diagnostics)
     {
-        var facetType = ClassifyFacetType(facet.Type);
+        // Value constraints apply to the element type of array facets, per element.
+        var descriptor = ParseFacetType(facet.Type);
+        var facetType = descriptor.Element;
 
         void Add(string code, string message) =>
             diagnostics.Add(new FacetMetadataDiagnostic(code, message, aspectKey, facet.FacetDefinitionId));
@@ -82,22 +85,27 @@ public static class FacetMetadataValidator
         var patternApplicable = facetType == FacetValueType.String;
         var rangeApplicable = facetType is FacetValueType.Int or FacetValueType.Decimal;
         var allowedValuesApplicable = facetType != FacetValueType.Bool;
+        var itemsApplicable = descriptor.IsArray;
 
         if (!lengthApplicable && (metadata.MinLength is not null || metadata.MaxLength is not null))
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
-                $"Length bounds apply to string facets only; facet type is '{facet.Type}'.");
+                $"Length bounds apply to string and string[] facets only; facet type is '{facet.Type}'.");
 
         if (!patternApplicable && metadata.Pattern is not null)
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
-                $"Pattern applies to string facets only; facet type is '{facet.Type}'.");
+                $"Pattern applies to string and string[] facets only; facet type is '{facet.Type}'.");
 
         if (!rangeApplicable && (metadata.Minimum is not null || metadata.Maximum is not null))
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
-                $"Numeric range bounds apply to int and decimal facets only; facet type is '{facet.Type}'.");
+                $"Numeric range bounds apply to int and decimal facets and their arrays only; facet type is '{facet.Type}'.");
 
         if (!allowedValuesApplicable && metadata.AllowedValues is not null)
             Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
                 $"Allowed values do not apply to bool facets; facet type is '{facet.Type}'.");
+
+        if (!itemsApplicable && (metadata.MinItems is not null || metadata.MaxItems is not null || metadata.UniqueItems is not null))
+            Add(FacetMetadataDiagnosticCodes.ConstraintInapplicable,
+                $"Item constraints (MinItems, MaxItems, UniqueItems) apply to array facets only; facet type is '{facet.Type}'.");
 
         // Bound coherence for applicable constraints.
         if (lengthApplicable)
@@ -122,6 +130,15 @@ public static class FacetMetadataValidator
                 Add(FacetMetadataDiagnosticCodes.RangeInvalid,
                     "Numeric bounds on an int facet must be whole numbers.");
             }
+        }
+
+        if (itemsApplicable)
+        {
+            if (metadata.MinItems is < 0 || metadata.MaxItems is < 0)
+                Add(FacetMetadataDiagnosticCodes.RangeInvalid, "Item count bounds must be non-negative.");
+            else if (metadata is { MinItems: { } minItems, MaxItems: { } maxItems } && minItems > maxItems)
+                Add(FacetMetadataDiagnosticCodes.RangeInvalid,
+                    $"MinItems ({minItems}) must be less than or equal to MaxItems ({maxItems}).");
         }
 
         // Pattern well-formedness.
@@ -180,9 +197,24 @@ public static class FacetMetadataValidator
         }
 
         // Default value: declared type plus every declared constraint.
-        if (metadata.DefaultValue is { } defaultValue)
+        if (metadata.DefaultValue is { } defaultValue && descriptor.IsArray)
         {
-            if (!TryNormalizeValue(defaultValue, facetType, out var normalizedDefault))
+            if (!TryNormalizeArray(defaultValue, facetType, out var normalizedElements))
+            {
+                Add(FacetMetadataDiagnosticCodes.DefaultValueInvalid,
+                    $"DefaultValue does not normalize to declared type '{facet.Type}'.");
+            }
+            else if (!ItemsSatisfyConstraints(normalizedElements, metadata)
+                || normalizedElements.Any(element => !DefaultSatisfiesConstraints(
+                    element, facetType, metadata, normalizedAllowedValues, patternWellFormed)))
+            {
+                Add(FacetMetadataDiagnosticCodes.DefaultValueInvalid,
+                    "DefaultValue violates one or more declared constraints.");
+            }
+        }
+        else if (metadata.DefaultValue is { } scalarDefault)
+        {
+            if (!TryNormalizeValue(scalarDefault, facetType, out var normalizedDefault))
             {
                 Add(FacetMetadataDiagnosticCodes.DefaultValueInvalid,
                     $"DefaultValue does not normalize to declared type '{facet.Type}'.");
@@ -195,6 +227,11 @@ public static class FacetMetadataValidator
             }
         }
     }
+
+    private static bool ItemsSatisfyConstraints(List<object> elements, FacetMetadata metadata) =>
+        (metadata.MinItems is not { } minItems || elements.Count >= minItems)
+        && (metadata.MaxItems is not { } maxItems || elements.Count <= maxItems)
+        && (metadata.UniqueItems is not true || elements.Distinct().Count() == elements.Count);
 
     private static bool DefaultSatisfiesConstraints(
         object normalizedDefault,
@@ -272,6 +309,73 @@ public static class FacetMetadataValidator
 
         /// <summary>GUID values; normalized to <see cref="System.Guid"/>.</summary>
         Guid,
+    }
+
+    /// <summary>
+    /// A parsed facet type descriptor: the element type, and whether the facet is a
+    /// single-level array of that element type (<c>T[]</c>).
+    /// </summary>
+    internal readonly record struct FacetTypeDescriptor(FacetValueType Element, bool IsArray)
+    {
+        /// <summary>Whether the descriptor is inside the supported grammar.</summary>
+        public bool IsKnown => Element != FacetValueType.Unknown;
+    }
+
+    /// <summary>
+    /// Parses a declared facet type descriptor per the ADR 0002 grammar:
+    /// <c>type := scalar | element "[]"</c>. Aliases are accepted for array elements too
+    /// (<c>int32[]</c> means <c>int[]</c>); nested arrays are unknown.
+    /// </summary>
+    internal static FacetTypeDescriptor ParseFacetType(string? type) =>
+        type is not null && type.EndsWith("[]", StringComparison.Ordinal)
+            ? new FacetTypeDescriptor(ClassifyFacetType(type[..^2]), IsArray: true)
+            : new FacetTypeDescriptor(ClassifyFacetType(type), IsArray: false);
+
+    /// <summary>
+    /// Returns the raw elements of an array-shaped value: a JSON array, or any non-string,
+    /// non-dictionary enumerable. Returns <see langword="false"/> for every other shape.
+    /// </summary>
+    internal static bool TryGetArrayElements(object? value, out List<object?> elements)
+    {
+        switch (value)
+        {
+            case JsonElement { ValueKind: JsonValueKind.Array } array:
+                elements = array.EnumerateArray().Select(static element => (object?)element).ToList();
+                return true;
+
+            case JsonElement or string or IDictionary:
+                elements = [];
+                return false;
+
+            case IEnumerable enumerable:
+                elements = enumerable.Cast<object?>().ToList();
+                return true;
+
+            default:
+                elements = [];
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Normalizes an array-shaped value element by element. Fails when the value is not
+    /// array-shaped or any element is null or does not normalize to <paramref name="elementType"/>.
+    /// </summary>
+    internal static bool TryNormalizeArray(object? value, FacetValueType elementType, out List<object> normalized)
+    {
+        normalized = [];
+        if (!TryGetArrayElements(value, out var elements))
+            return false;
+
+        foreach (var element in elements)
+        {
+            if (!TryNormalizeValue(element, elementType, out var normalizedElement))
+                return false;
+
+            normalized.Add(normalizedElement);
+        }
+
+        return true;
     }
 
     /// <summary>

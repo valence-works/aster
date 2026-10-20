@@ -52,11 +52,28 @@ public sealed class TypedAspectFacetDerivationTests
 
         public Guid Key { get; init; }
 
-        // Not derived until their facet types land (#82, #84) or are decided (#131).
-
         public List<string> Tags { get; init; } = [];
 
+        public int[] Scores { get; init; } = [];
+
+        public IReadOnlyList<Guid> Owners { get; init; } = [];
+
+        public ISet<DateTime> Dates { get; init; } = new HashSet<DateTime>();
+
+        // Not derived: object lands in #84, enums are decided in #131, nullable elements would be
+        // rejected by an array facet, and byte[] serializes as a base64 string.
+
         public Nested? Details { get; init; }
+
+        public List<Nested> Children { get; init; } = [];
+
+        public List<Status> States { get; init; } = [];
+
+        public List<int?> Sparse { get; init; } = [];
+
+        public byte[] Blob { get; init; } = [];
+
+        public Dictionary<string, string> Map { get; init; } = [];
 
         public Status State { get; init; }
 
@@ -100,6 +117,10 @@ public sealed class TypedAspectFacetDerivationTests
                 ("PublishedAt", "datetime", false),
                 ("ExpiresAt", "datetime", false),
                 ("Key", "guid", false),
+                ("Tags", "string[]", false),
+                ("Scores", "int[]", false),
+                ("Owners", "guid[]", false),
+                ("Dates", "datetime[]", false),
             ],
             Facets(definition, "EveryShape").Select(static facet => (facet.FacetDefinitionId, facet.Type, facet.IsRequired)));
     }

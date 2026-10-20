@@ -16,7 +16,8 @@ public static class FacetMetadataDiagnosticCodes
 {
     /// <summary>
     /// <c>MinLength</c> exceeds <c>MaxLength</c>, a length bound is negative, <c>Minimum</c> exceeds
-    /// <c>Maximum</c>, or a numeric bound on an int facet is not a whole number.
+    /// <c>Maximum</c>, a numeric bound on an int facet is not a whole number, or an item count bound
+    /// (<c>MinItems</c>, <c>MaxItems</c>) is negative or inverted.
     /// </summary>
     public const string RangeInvalid = "facet-metadata-range-invalid";
 
@@ -63,7 +64,14 @@ public static class FacetMetadataDiagnosticCodes
 /// <param name="Message">Human-readable, actionable explanation.</param>
 /// <param name="AspectKey">Attachment key of the offending aspect on the resource.</param>
 /// <param name="FacetDefinitionId">Offending facet identifier.</param>
-public sealed record FacetValueDiagnostic(string Code, string Message, string AspectKey, string FacetDefinitionId);
+public sealed record FacetValueDiagnostic(string Code, string Message, string AspectKey, string FacetDefinitionId)
+{
+    /// <summary>
+    /// Zero-based index of the offending element when the violation concerns one element of an
+    /// array facet; <see langword="null"/> when it concerns the facet value as a whole.
+    /// </summary>
+    public int? ElementIndex { get; init; }
+}
 
 /// <summary>
 /// Stable diagnostic codes for save-time facet value validation failures.
@@ -96,7 +104,17 @@ public static class FacetValueDiagnosticCodes
     public const string TypeMismatch = "facet-value-type-mismatch";
 
     /// <summary>
-    /// A required facet is missing or null on a present aspect instance.
+    /// A required facet is missing or null on a present aspect instance, or a required array facet is empty.
     /// </summary>
     public const string Required = "facet-value-required";
+
+    /// <summary>
+    /// An array value has fewer elements than <c>MinItems</c> or more than <c>MaxItems</c>.
+    /// </summary>
+    public const string ItemsOutOfRange = "facet-value-items-out-of-range";
+
+    /// <summary>
+    /// An array value declared with <c>UniqueItems</c> contains duplicate elements after normalization.
+    /// </summary>
+    public const string ItemsNotUnique = "facet-value-items-not-unique";
 }

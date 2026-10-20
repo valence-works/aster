@@ -14,13 +14,15 @@ public static class FacetValueValidator
 {
     /// <summary>
     /// Validates every facet of every aspect attachment that has a payload: missing required
-    /// values, values that do not match the declared type, then declared metadata constraints.
+    /// values, values that do not match the declared type, then declared metadata constraints. Array
+    /// facets are checked element by element; element diagnostics carry
+    /// <see cref="FacetValueDiagnostic.ElementIndex"/>.
     /// </summary>
     /// <param name="definition">The resolved resource definition.</param>
     /// <param name="aspects">The resource's aspect payloads keyed by attachment key.</param>
     /// <returns>
-    /// All violations, ordered by aspect key, then facet definition id, then code (ordinal);
-    /// empty when every present value conforms.
+    /// All violations, ordered by aspect key, then facet definition id, then code (ordinal), then
+    /// element index; empty when every present value conforms.
     /// </returns>
     public static IReadOnlyList<FacetValueDiagnostic> Validate(
         ResourceDefinition definition,
@@ -49,7 +51,11 @@ public static class FacetValueValidator
                     return byAspect;
 
                 var byFacet = string.CompareOrdinal(left.FacetDefinitionId, right.FacetDefinitionId);
-                return byFacet != 0 ? byFacet : string.CompareOrdinal(left.Code, right.Code);
+                if (byFacet != 0)
+                    return byFacet;
+
+                var byCode = string.CompareOrdinal(left.Code, right.Code);
+                return byCode != 0 ? byCode : Nullable.Compare(left.ElementIndex, right.ElementIndex);
             });
         }
 
@@ -63,12 +69,15 @@ public static class FacetValueValidator
         List<FacetValueDiagnostic> diagnostics)
     {
         // Unknown types are rejected at registration; definitions stored before that rule are skipped.
-        var facetType = ClassifyFacetType(facet.Type);
-        if (facetType == FacetValueType.Unknown)
+        var descriptor = ParseFacetType(facet.Type);
+        if (!descriptor.IsKnown)
             return;
 
-        void Add(string code, string message) =>
-            diagnostics.Add(new FacetValueDiagnostic(code, message, aspectKey, facet.FacetDefinitionId));
+        void Add(string code, string message, int? elementIndex = null) =>
+            diagnostics.Add(new FacetValueDiagnostic(code, message, aspectKey, facet.FacetDefinitionId)
+            {
+                ElementIndex = elementIndex,
+            });
 
         if (!AspectFacetValueResolver.TryResolveValue(payload, facet.FacetDefinitionId, out var rawValue))
         {
@@ -78,15 +87,94 @@ public static class FacetValueValidator
             return;
         }
 
-        if (!TryNormalizeValue(rawValue, facetType, out var value))
+        if (descriptor.IsArray)
+        {
+            ValidateArrayValue(facet, descriptor.Element, rawValue, Add);
+            return;
+        }
+
+        if (!TryNormalizeValue(rawValue, descriptor.Element, out var value))
         {
             Add(FacetValueDiagnosticCodes.TypeMismatch, $"Value does not match the declared type '{facet.Type}'.");
             return;
         }
 
-        if (facet.Metadata is not { } metadata)
+        if (facet.Metadata is { } metadata)
+            ValidateConstraints(value, descriptor.Element, metadata, (code, message) => Add(code, message));
+    }
+
+    private static void ValidateArrayValue(
+        FacetDefinition facet,
+        FacetValueType elementType,
+        object? rawValue,
+        Action<string, string, int?> add)
+    {
+        if (!TryGetArrayElements(rawValue, out var elements))
+        {
+            add(FacetValueDiagnosticCodes.TypeMismatch, $"Value does not match the declared type '{facet.Type}'; expected an array.", null);
+            return;
+        }
+
+        // Required means at least one element, matching the portable Exists semantics for arrays.
+        if (elements.Count == 0 && facet.IsRequired)
+        {
+            add(FacetValueDiagnosticCodes.Required, "At least one element is required.", null);
+            return;
+        }
+
+        var values = new List<object>(elements.Count);
+        for (var index = 0; index < elements.Count; index++)
+        {
+            if (TryNormalizeValue(elements[index], elementType, out var normalized))
+                values.Add(normalized);
+            else
+                add(FacetValueDiagnosticCodes.TypeMismatch,
+                    $"Element [{index}] does not match the declared type '{facet.Type}'.", index);
+        }
+
+        // Constraints apply only to well-typed values, as for scalar facets.
+        if (values.Count != elements.Count || facet.Metadata is not { } metadata)
             return;
 
+        if ((metadata.MinItems is { } minItems && values.Count < minItems)
+            || (metadata.MaxItems is { } maxItems && values.Count > maxItems))
+        {
+            add(FacetValueDiagnosticCodes.ItemsOutOfRange,
+                $"Element count ({values.Count}) is outside the declared item count bounds.", null);
+        }
+
+        if (metadata.UniqueItems is true)
+        {
+            var seen = new HashSet<object>();
+            for (var index = 0; index < values.Count; index++)
+            {
+                if (!seen.Add(values[index]))
+                {
+                    add(FacetValueDiagnosticCodes.ItemsNotUnique,
+                        $"Element [{index}] duplicates an earlier element.", index);
+                    break;
+                }
+            }
+        }
+
+        for (var index = 0; index < values.Count; index++)
+        {
+            var elementIndex = index;
+            ValidateConstraints(values[index], elementType, metadata,
+                (code, message) => add(code, $"Element [{elementIndex}]: {message}", elementIndex));
+        }
+    }
+
+    /// <summary>
+    /// Checks a normalized scalar value (or one normalized array element) against the declared
+    /// value constraints: AllowedValues, string length and pattern, and numeric range.
+    /// </summary>
+    private static void ValidateConstraints(
+        object value,
+        FacetValueType facetType,
+        FacetMetadata metadata,
+        Action<string, string> add)
+    {
         // AllowedValues.
         if (facetType != FacetValueType.Bool && metadata.AllowedValues is { Count: > 0 } allowedValues)
         {
@@ -101,7 +189,7 @@ public static class FacetValueValidator
             }
 
             if (!allowed)
-                Add(FacetValueDiagnosticCodes.NotAllowed, "Value is not in the declared AllowedValues list.");
+                add(FacetValueDiagnosticCodes.NotAllowed, "Value is not in the declared AllowedValues list.");
         }
 
         // String length bounds and pattern.
@@ -110,7 +198,7 @@ public static class FacetValueValidator
             if ((metadata.MinLength is { } minLength && text.Length < minLength)
                 || (metadata.MaxLength is { } maxLength && text.Length > maxLength))
             {
-                Add(FacetValueDiagnosticCodes.LengthOutOfRange,
+                add(FacetValueDiagnosticCodes.LengthOutOfRange,
                     $"Value length ({text.Length}) is outside the declared length bounds.");
             }
 
@@ -129,7 +217,7 @@ public static class FacetValueValidator
                 }
 
                 if (!matches)
-                    Add(FacetValueDiagnosticCodes.PatternMismatch, "Value does not match the declared pattern.");
+                    add(FacetValueDiagnosticCodes.PatternMismatch, "Value does not match the declared pattern.");
             }
         }
 
@@ -148,7 +236,7 @@ public static class FacetValueValidator
                 && ((metadata.Minimum is { } minimum && numericValue < minimum)
                     || (metadata.Maximum is { } maximum && numericValue > maximum)))
             {
-                Add(FacetValueDiagnosticCodes.OutOfRange,
+                add(FacetValueDiagnosticCodes.OutOfRange,
                     $"Value ({numericValue}) is outside the declared numeric range.");
             }
         }
