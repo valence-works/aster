@@ -30,13 +30,14 @@ The program needs `guid`, arrays, `object`, and references (epics #62 and #63), 
 `FacetDefinition.Type` stays a `string`. Persisted definitions, portable snapshots, and the SQLite schema are unchanged. The accepted grammar for 1.0 is:
 
 ```
-type    := scalar | scalar "[]"
-scalar  := "string" | "int" | "decimal" | "bool" | "datetime" | "guid" | "reference" | "object"
+type    := scalar | element "[]"
+scalar  := element | "object"
+element := "string" | "int" | "decimal" | "bool" | "datetime" | "guid" | "reference"
 ```
 
 - Matching is case-insensitive. The canonical form is lowercase.
 - Existing aliases stay accepted on input (`int32`, `int64`, `long`, `boolean`).
-- One array level only. `object[]` and nested arrays are **not** allowed in 1.0. They have no portable query semantics and no consumer yet.
+- One array level only. `object[]` (excluded by `element`) and nested arrays are **not** allowed in 1.0. They have no portable query semantics and no consumer yet.
 - Reference targets and resolution live in `FacetMetadata`, not in the type string (see §6).
 
 **Rejected:** a structured `FacetType` record (`{ Kind, ElementType, ReferenceTargets }`). It is more expressive, but it changes the JSON shape of every persisted definition and snapshot and needs a migration story. Nothing in 1.0 needs generic nesting.
@@ -69,9 +70,9 @@ Aspect-level presence is not governed in 1.0. A missing aspect instance is not a
 |---|---|---|---|
 | `string` | `string` | string | Ordinal comparison; UTF-16 length. |
 | `int` | integral numbers within `long` | number | Normalized to `long`. |
-| `decimal` | any number | number | Normalized to `decimal`. |
+| `decimal` | any number representable as a CLR `decimal` (±7.9×10^28, 28–29 significant digits) | number | Normalized to `decimal`. Values outside that range, `NaN` and infinities are type mismatches. |
 | `bool` | `bool` | `true`/`false` | |
-| `datetime` | `DateTime`, `DateTimeOffset`, ISO-8601 string with offset or `Z` | ISO-8601 UTC string (`yyyy-MM-ddTHH:mm:ss.fffffffZ`) | Same format as `QueryDateTimeValue`. No implicit local-time conversion. |
+| `datetime` | `DateTime`, `DateTimeOffset`, invariant-culture date string | ISO-8601 UTC string (`yyyy-MM-ddTHH:mm:ss.fffffffZ`) | Same format as `QueryDateTimeValue`. `DateTimeOffset` and strings with an offset convert by that offset. `DateTime` with `Kind = Utc` is used as is, `Kind = Local` converts through `ToUniversalTime()`, and `Kind = Unspecified` (and strings without an offset) is read as UTC. These are the rules `FacetMetadataValidator` already applies; no other time-zone inference happens. |
 | `guid` | `Guid`, or a string parseable as a GUID | lowercase `D` string | Matches the roadmap's portable GUID rule. |
 | `reference` | non-empty `string` (a `ResourceId`) | string | See §6. |
 | `object` | JSON object, dictionary, or POCO | JSON object | Stored verbatim; no nested facet definitions in 1.0. |
@@ -115,6 +116,7 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 | `DateTime`, `DateTimeOffset` | `datetime` |
 | `Guid` | `guid` |
 | `enum` | `string`, with `AllowedValues` set to the enum member names |
+| `Nullable<T>` of any type above | the type for `T` (nullability does not change `IsRequired`) |
 | `T[]`, `IEnumerable<T>`, `List<T>`, `IReadOnlyList<T>`, `ISet<T>` of a scalar above | `T[]` |
 | any other class, record, or struct | `object` |
 
@@ -126,14 +128,15 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 
 ### 9. Queries stay definition-agnostic
 
-The query AST, validator, and providers keep operating on the stored JSON shape. They do not look up facet definitions. Array operators (#83) apply to JSON arrays. This keeps querying independent of definition lookups and caching, and it means type enforcement on write (§3) is what makes query results trustworthy.
+The query AST, validator, and providers keep operating on the stored JSON shape. They do not look up facet definitions. Array operators (#83) apply to JSON arrays. This keeps querying independent of definition lookups and caching. Type enforcement on write (§3) is what makes query results trustworthy, **for values written through validated saves**. Imported versions, versions carried forward by schema upgrades, and versions written before this ADR can still hold mismatched values. Queries treat such values exactly as today: a value whose JSON shape does not fit an operator simply does not match it.
 
 When index projections (#100) need a type, the mapping is: `string` → `Keyword`, `int` → `Integer`, `decimal` → `Decimal`, `bool` → `Boolean`, `datetime` → `DateTime`, `guid` → `Guid`, `reference` → `Keyword`, `string[]` / `reference[]` → `KeywordArray`. Other array element types get `IndexFieldType` members when a provider implements them. `object` is not indexable.
 
 ## Consequences
 
 - One grammar and one normalization table serve validation, binders, JSON Schema export (#106) and index projections (#100).
-- Persisted formats are unchanged. The breaking changes are behavioural and pre-1.0: unknown types rejected, type mismatches rejected, `IsRequired` enforced, enums written as names.
+- The definition JSON shape, snapshot envelope, and SQLite schema are unchanged. One stored-value representation changes: enum-typed aspect properties are written as names instead of integers (§8). Reads accept both, so existing data still binds; queries, exports and imports see whichever form a version was written with, and hosts filtering on enum facets should query by name for versions written after #124.
+- The other breaking changes are behavioural and pre-1.0: unknown types rejected, type mismatches rejected, `IsRequired` enforced.
 - Two prerequisites are added to epic #62 and must land before #81–#84:
   1. [#123](https://github.com/valence-works/aster/issues/123): enforce declared types and `IsRequired` on save (§2–§4);
   2. [#124](https://github.com/valence-works/aster/issues/124): derive facets from typed aspect properties and add `WithFacet` (§8).
