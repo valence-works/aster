@@ -577,7 +577,8 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 continue;
             }
 
-            if (ContentEquals(definition, existing))
+            // Compared as it would be stored: an earlier import of it embeds the target's copies of its pins.
+            if (ContentEquals(PinToTargetAspects(definition, existingAspects), existing))
             {
                 if (options.CollisionMode == PortableImportCollisionMode.Strict)
                     strictFailureIdentityMap.Add(Reused(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
@@ -1238,6 +1239,11 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/facetDefinitions", "Snapshot aspect definition facet definitions collection cannot be null."));
                 isMalformed = true;
             }
+            else if (aspect.FacetDefinitions.Any(static facet => facet is null))
+            {
+                diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/facetDefinitions", "Snapshot aspect definition facet definition entries cannot be null."));
+                isMalformed = true;
+            }
 
             if (!isMalformed)
                 validAspects.Add(aspect);
@@ -1439,6 +1445,12 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             if (string.IsNullOrWhiteSpace(pin.AspectDefinitionId) || pin.Version <= 0)
             {
                 diagnostics.Add(MalformedSnapshot(PinPath(definition, key), "A pinned shared aspect requires an aspect definition ID and a version greater than zero."));
+                continue;
+            }
+
+            if (pin.FacetDefinitions is null || pin.FacetDefinitions.Any(static facet => facet is null))
+            {
+                diagnostics.Add(MalformedSnapshot($"{PinPath(definition, key)}/facetDefinitions", "A pinned shared aspect's facet definitions collection and its entries cannot be null."));
                 continue;
             }
 

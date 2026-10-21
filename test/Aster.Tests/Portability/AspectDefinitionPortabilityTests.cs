@@ -289,6 +289,64 @@ public sealed class AspectDefinitionPortabilityTests : IDisposable
     }
 
     [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task ReimportAfterPinningTheTargetCopy_ReusesTheDefinition(string providerKind)
+    {
+        // The first import stores Article with the target's copy of Seo, so the snapshot's Article no longer matches
+        // it byte for byte. Importing the same snapshot again must still find it identical, not divergent.
+        await using var provider = CreateProvider(providerKind);
+        await SeedSourceAsync(provider, pinnedVersion: 1);
+        var snapshot = await ExportArticleAsync(provider);
+        await provider.GetRequiredService<IAspectDefinitionStore>().RegisterAsync(Seo() with
+        {
+            FacetDefinitions = [new FacetDefinition { FacetDefinitionId = "Slug", Id = Guid.NewGuid().ToString(), Version = 1, Type = "string" }],
+        }, Target);
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+        var options = new PortableImportOptions { TargetTenantScope = Target, CollisionMode = PortableImportCollisionMode.Strict };
+        Assert.Equal(PortableImportStatus.Imported, (await portability.ImportAsync(snapshot, options)).Status);
+
+        var again = await portability.ImportAsync(snapshot, options);
+
+        Assert.Equal(PortableImportStatus.NoOp, again.Status);
+        Assert.Empty(again.Diagnostics);
+        Assert.All(again.IdentityMap, static mapping => Assert.Equal(PortableIdentityMappingReason.ReusedIdentical, mapping.Reason));
+    }
+
+    [Fact]
+    public async Task Validate_ReportsNullFacetEntries_InAspectsAndPins()
+    {
+        await using var provider = CreateProvider(InMemory);
+        await SeedSourceAsync(provider, pinnedVersion: 1);
+        var snapshot = await ExportArticleAsync(provider);
+        var definition = snapshot.Definitions[0];
+        var tampered = snapshot with
+        {
+            AspectDefinitions = [snapshot.AspectDefinitions[0] with { FacetDefinitions = [null!] }],
+            Definitions =
+            [
+                definition with
+                {
+                    AspectDefinitions = new Dictionary<string, AspectDefinition>(StringComparer.Ordinal)
+                    {
+                        ["Seo"] = definition.AspectDefinitions["Seo"] with { FacetDefinitions = [null!] },
+                    },
+                },
+            ],
+        };
+
+        var result = await provider.GetRequiredService<IResourcePortabilityService>().ValidateAsync(tampered);
+
+        Assert.Equal(
+            new[]
+            {
+                (PortableDiagnosticCodes.MalformedSnapshot, "aspectDefinitions/0/facetDefinitions"),
+                (PortableDiagnosticCodes.MalformedSnapshot, $"{PinPath}/facetDefinitions"),
+            },
+            result.Diagnostics.Select(static d => (d.Code, d.Path!)));
+    }
+
+    [Theory]
     [InlineData(InMemory, PortableImportCollisionMode.Strict)]
     [InlineData(InMemory, PortableImportCollisionMode.RemapDivergent)]
     [InlineData(Sqlite, PortableImportCollisionMode.Strict)]
