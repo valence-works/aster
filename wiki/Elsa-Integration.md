@@ -80,7 +80,7 @@ The result is a `ResourceLifecycleEvent`: kind, Elsa tenant, resource ID, defini
 - **Filters.** An empty filter matches every value. A trigger only fires for changes in its workflow's Elsa tenant.
 - **How it works.** An Aster lifecycle hook queues each committed change, and a background worker sends Elsa a stimulus through `IStimulusSender`, in the Elsa tenant of the change (`ITenantAccessor.PushContext`). The stimulus, `ResourceLifecycleStimulus(TenantId, DefinitionId, Channel)`, hashes like the trigger's indexed payload and its bookmark, so only workflows whose filters fit start or resume. The package README has the [full contract](https://github.com/valence-works/aster/blob/main/src/integrations/Aster.Elsa/README.md#stimulus-contract).
 - **Only committed changes fire.** The hook sends only when the after hook's `OperationStatus` is `Succeeded`; a failed write fires nothing.
-- **In the background.** The Aster call returns once the change is committed. Matching workflows run afterwards, one event at a time, in commit order, so a resumed workflow can save a resource that matches its own trigger without waiting on Elsa's resume lock.
+- **In the background.** The Aster call returns once the change is committed. Matching workflows run afterwards, one event at a time, in the order the writes queued them (commit order for one caller's writes), so a resumed workflow can save a resource that matches its own trigger without waiting on Elsa's resume lock.
 
 ### Delivery is at-most-once
 

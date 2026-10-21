@@ -24,8 +24,9 @@ namespace Aster.Elsa;
 /// is not <see cref="LifecycleOperationStatus.Succeeded"/> queues nothing.</item>
 /// <item>Events are sent in the background, never in the flow of the Aster call. Elsa holds a lock per stimulus while
 /// it resumes the matching bookmarks, so a resumed workflow whose own write sent the same stimulus inline would wait on
-/// that lock until it timed out. One worker sends the events in the order they were queued, one at a time, outside the
-/// execution context of the Aster call. It starts with the hook and stops when the container disposes it.</item>
+/// that lock until it timed out. One worker sends the events one at a time, outside the execution context of the Aster
+/// call, in the order they were queued: commit order for one caller's writes, while concurrent writes from different
+/// callers have no defined order. It starts with the hook and stops when the container disposes it.</item>
 /// <item>Each event is sent in the Elsa tenant of the Aster write (<see cref="AsterTenantMapping.ToElsaTenantId"/>),
 /// pushed with <see cref="ITenantAccessor.PushContext"/>. An Aster tenant with no Elsa tenant sends nothing.</item>
 /// <item>One stimulus per combination of filled and empty filters (<see cref="ResourceLifecycleStimulus"/>), so each
@@ -215,6 +216,12 @@ internal sealed partial class AsterLifecycleTriggerHook : ResourceLifecycleHook,
         }
         catch (OperationCanceledException) when (stopping.IsCancellationRequested)
         {
+        }
+        finally
+        {
+            // Events abandoned by the stop count as done, so WhenAllSentAsync completes.
+            while (queue.Reader.TryRead(out _))
+                MarkSent();
         }
     }
 
