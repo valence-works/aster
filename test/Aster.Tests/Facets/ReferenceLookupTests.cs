@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
@@ -342,9 +343,28 @@ public sealed class ReferenceLookupTests : IDisposable
             new FixedCapabilities(provider.GetRequiredService<IResourceQueryCapabilitiesProvider>().Capabilities with
             {
                 SupportsReverseReferenceLookup = false,
-            }));
+            }),
+            provider.GetRequiredService<IResourceQueryValidator>());
 
         await Assert.ThrowsAsync<NotSupportedException>(async () => await service.GetReferrersAsync("agent-a"));
+    }
+
+    [Theory]
+    [InlineData(InMemory, 0)]
+    [InlineData(InMemory, 5)]
+    [InlineData(Sqlite, 0)]
+    [InlineData(Sqlite, 5)]
+    public async Task GetReferrers_ActiveScopeWithoutChannel_IsRejectedEvenForAnEmptyPage(string providerKind, int take)
+    {
+        await using var provider = CreateProvider(providerKind);
+        await SeedAsync(provider);
+
+        var exception = await Assert.ThrowsAsync<UnsupportedQueryFeatureException>(async () =>
+            await provider.GetRequiredService<IResourceReferenceService>().GetReferrersAsync(
+                "agent-a",
+                new ResourceReferrerQuery { Scope = ResourceVersionScope.Active, Take = take }));
+
+        Assert.Equal("activation-channel-required", exception.Code);
     }
 
     [Theory]

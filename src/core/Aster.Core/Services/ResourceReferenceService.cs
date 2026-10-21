@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
@@ -23,7 +24,8 @@ namespace Aster.Core.Services;
 public sealed class ResourceReferenceService(
     IResourceDefinitionStore definitionStore,
     IResourceQueryService queryService,
-    IResourceQueryCapabilitiesProvider capabilitiesProvider) : IResourceReferenceService
+    IResourceQueryCapabilitiesProvider capabilitiesProvider,
+    IResourceQueryValidator queryValidator) : IResourceReferenceService
 {
     /// <inheritdoc />
     public async ValueTask<ResourceReferrerPage> GetReferrersAsync(
@@ -44,10 +46,23 @@ public sealed class ResourceReferenceService(
                 $"The query provider '{capabilitiesProvider.Capabilities.ProviderKey}' does not support reverse reference lookup.");
         }
 
+        var tenant = TenantScope.Resolve(query.TenantScope);
+        var scope = new ResourceQuery
+        {
+            TenantScope = tenant,
+            Scope = query.Scope,
+            ActivationChannel = query.ActivationChannel,
+            LifecycleState = query.LifecycleState,
+        };
+
+        // Validate the scope before the empty-result shortcuts, so Take = 0 or a tenant without reference
+        // facets rejects the same requests as a lookup that queries.
+        var validation = queryValidator.Validate(scope);
+        if (!validation.IsValid)
+            throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
+
         if (query.Take == 0)
             return new ResourceReferrerPage([], false);
-
-        var tenant = TenantScope.Resolve(query.TenantScope);
 
         var facetsByDefinition = new Dictionary<string, IReadOnlyList<ReferenceFacet>>(StringComparer.Ordinal);
         var branches = new List<FilterExpression>();
@@ -72,12 +87,8 @@ public sealed class ResourceReferenceService(
         if (branches.Count == 0)
             return new ResourceReferrerPage([], false);
 
-        var candidates = new ResourceQuery
+        var candidates = scope with
         {
-            TenantScope = tenant,
-            Scope = query.Scope,
-            ActivationChannel = query.ActivationChannel,
-            LifecycleState = query.LifecycleState,
             Filter = AnyOf(branches),
             Sorts = [new SortExpression("ResourceId"), new SortExpression("Version")],
         };
@@ -90,10 +101,10 @@ public sealed class ResourceReferenceService(
         var wanted = query.Take is { } take ? (long)skip + take + 1 : long.MaxValue;
         int? batchSize = query.Take is null ? null : (int)Math.Min(wanted, int.MaxValue);
         var referrers = new List<ResourceReferrer>();
-        var offset = 0;
-        while (true)
+        var offset = 0L;
+        while (offset <= int.MaxValue)
         {
-            var batch = (await queryService.QueryAsync(candidates with { Skip = offset, Take = batchSize }, cancellationToken)).ToList();
+            var batch = (await queryService.QueryAsync(candidates with { Skip = (int)offset, Take = batchSize }, cancellationToken)).ToList();
             foreach (var version in batch)
             {
                 if (!facetsByDefinition.TryGetValue(version.DefinitionId, out var facets))
