@@ -31,10 +31,10 @@ Elsa's own agent storage is an in-memory store plus an EF Core store with one pa
 | **Elsa 3.9, EF Core migrations** (generated, two per provider plus snapshots) | 20 | 1,823 | 1,465 |
 | *Elsa 3.9, in-memory store (`MemoryAgentStore`, kept as Elsa's default)* | *1* | *53* | *46* |
 | **Aster.Elsa.Agents, store** (store, aspect mapping, definition and its registration, options, registration extensions) | 10 | 687 | 439 |
-| **Aster.Elsa.Agents, migration** (importer, result types) | 5 | 196 | 128 |
+| **Aster.Elsa.Agents, migration** (importer, result types) | 5 | 197 | 128 |
 | **Aster.Elsa.Agents, tests** (all providers, in-process Elsa host, migration, latency) | 8 | 1,168 | — |
 
-- **Lines added:** 883 lines of library code (567 code lines) in one package, plus tests.
+- **Lines added:** 884 lines of library code (567 code lines) in one package, plus tests.
 - **Lines a host no longer needs:** 298 hand-written lines (205 code lines) and 1,823 lines of generated migrations, across five Elsa packages.
 - **Lines removed from Elsa:** none, by design. The store uses Elsa's existing seam.
 - **Why the store is larger than Elsa's EF Core store:**
