@@ -39,7 +39,7 @@ internal sealed class AsterFormState
         foreach (var field in model.Fields)
         {
             var aspect = aspects?[field.AspectKey] as JsonObject;
-            var key = StoredKey(aspect, field.FacetId);
+            var key = StoredKey(aspect, field.FacetId, model.FindField(field.AspectKey, ToCamelCase(field.FacetId)) is not null);
             state.storedKeys[field.Key] = key;
             state.loaded[field.Key] = aspect?[key]?.DeepClone();
             state.values[field.Key] = aspects is null ? field.DefaultValue?.DeepClone() : aspect?[key]?.DeepClone();
@@ -93,7 +93,7 @@ internal sealed class AsterFormState
                 // One key per facet: the one the value was read from, without the other spelling.
                 var key = storedKeys[field.Key];
                 var other = key == field.FacetId ? ToCamelCase(field.FacetId) : field.FacetId;
-                if (other != key)
+                if (other != key && Model.FindField(section.AspectKey, other) is null)
                     payload.Remove(other);
                 payload[key] = values.GetValueOrDefault(field.Key)?.DeepClone();
             }
@@ -105,11 +105,12 @@ internal sealed class AsterFormState
     }
 
     // The server reads a facet from its ID or, when the payload has no such key, from the camel-case form (how typed
-    // aspects are stored: Title as title). The form reads and writes the same key.
-    private static string StoredKey(JsonObject? aspect, string facetId)
+    // aspects are stored: Title as title). The form reads and writes the same key, except when the camel-case form is
+    // itself a facet of the aspect: that key is the other facet's, so each keeps its own.
+    private static string StoredKey(JsonObject? aspect, string facetId, bool camelIsAFacet)
     {
         var camel = ToCamelCase(facetId);
-        return aspect is not null && !aspect.ContainsKey(facetId) && aspect.ContainsKey(camel) ? camel : facetId;
+        return aspect is not null && !camelIsAFacet && !aspect.ContainsKey(facetId) && aspect.ContainsKey(camel) ? camel : facetId;
     }
 
     // As the server's AspectFacetValueResolver: the first character lower-cased, the rest unchanged.

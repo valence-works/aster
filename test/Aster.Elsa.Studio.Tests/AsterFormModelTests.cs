@@ -158,6 +158,26 @@ public sealed class AsterFormModelTests
     }
 
     [Fact]
+    public void FacetsThatDifferOnlyInTheFirstLetter_KeepTheirOwnKeys()
+    {
+        var model = AsterFormModel.FromSchema(JsonNode.Parse("""
+            { "title": "T", "properties": { "A": { "type": "object", "properties": {
+                "Name": { "type": "string", "x-aster-type": "string" },
+                "name": { "type": "string", "x-aster-type": "string" } } } } }
+            """)!.AsObject());
+        var state = AsterFormState.Create(model, JsonNode.Parse("""{ "A": { "name": "lower" } }""")!.AsObject());
+
+        // "name" is the second facet's key, not a camel-case spelling of "Name".
+        var upper = model.FindField("A", "Name")!;
+        Assert.Null(state.GetValue(upper));
+        Assert.True(state.SetEditorValue(upper, AsterEditorMapping.Resolve(upper), "Upper"));
+        var aspect = state.BuildAspects()["A"]!.AsObject();
+
+        Assert.Equal("Upper", aspect["Name"]!.GetValue<string>());
+        Assert.Equal("lower", aspect["name"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void UpdatePayload_KeepsFacetsTheFormDoesNotKnow()
     {
         var model = AsterFormModel.FromSchema(JsonNode.Parse("""
