@@ -62,28 +62,23 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     {
         Task task;
         lock (startupGate)
-            // Off the first caller's synchronization context: the run is shared, so it shouldn't post to a UI thread.
-            task = startup ??= Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
-
-        return task.IsCompletedSuccessfully ? ValueTask.CompletedTask : WaitAsync(task, cancellationToken);
-    }
-
-    private async ValueTask WaitAsync(Task task, CancellationToken cancellationToken)
-    {
-        try
         {
-            await task.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch when (task.IsFaulted || task.IsCanceled)
-        {
-            lock (startupGate)
+            // Checked here rather than by the waiters: every waiter may have stopped waiting before the run failed.
+            if (startup is { IsFaulted: true } or { IsCanceled: true })
+                startup = null;
+
+            // Shared, so it takes nothing from the first caller: no synchronization context to post to, and no
+            // execution context, which could carry an ambient TransactionScope the run's connection would enlist in.
+            if (startup is null)
             {
-                if (startup == task)
-                    startup = null;
+                using (ExecutionContext.SuppressFlow())
+                    startup = Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
             }
 
-            throw;
+            task = startup;
         }
+
+        return task.IsCompletedSuccessfully ? ValueTask.CompletedTask : new(task.WaitAsync(cancellationToken));
     }
 
     /// <inheritdoc />

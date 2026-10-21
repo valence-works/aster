@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Transactions;
 using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
 using Aster.Persistence.PostgresJsonb;
@@ -137,6 +138,18 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
         await Task.WhenAll(running);
 
         Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), $"Startup took {elapsed.Elapsed}.");
+        Assert.True((await provider.GetRequiredService<IInfrastructureRunner>().VerifyAsync()).IsCurrent);
+    }
+
+    [SkippableFact]
+    public async Task FirstRequest_InsideATransactionScope_AppliesTheSchemaOutsideIt()
+    {
+        // The first request's ambient transaction must not reach the shared run: its connection would enlist, and
+        // the run's own transaction would then fail for every request waiting on it.
+        await using var provider = database.CreateProvider();
+        using (new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+            await provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync();
+
         Assert.True((await provider.GetRequiredService<IInfrastructureRunner>().VerifyAsync()).IsCurrent);
     }
 
