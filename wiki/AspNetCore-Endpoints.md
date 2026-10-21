@@ -47,6 +47,8 @@ app.MapAster("/api/aster", options =>
 
 Shared aspect attachments in `POST /definitions` are pins: for every attachment with `isShared: true`, the endpoint embeds the stored aspect version named by `(aspectDefinitionId, version)`, whatever facets the client sent (ADR 0003). An unknown pin returns `400` with `aspect-definition-not-found`.
 
+IDs may contain `/`, `%` and any other character, so clients escape an `{id}` as one path segment with `Uri.EscapeDataString` (or `encodeURIComponent`): resource `a/b` is `GET /resources/a%2Fb`. The endpoints decode the `%2F` that the server leaves escaped in route values. Where the server exposes the raw request target (Kestrel does), an ID that holds the text `%2F`, sent as `%252F`, round-trips as well; without one (TestServer), every `%2F` reads as `/`.
+
 ## Options
 
 | Option | Default | Effect |

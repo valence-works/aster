@@ -109,17 +109,23 @@ public static class AsterEndpointRouteBuilderExtensions
             .Produces<IReadOnlyList<ResourceDefinition>>();
 
         group.MapGet("/{definitionId}", async (string definitionId, int? version, HttpContext http, IResourceDefinitionStore store, CancellationToken ct) =>
-                await FindDefinitionAsync(store, definitionId, version, Tenant(http), ct) is { } definition
+            {
+                definitionId = AsterRouteIds.Decode(http, definitionId, nameof(definitionId));
+                return await FindDefinitionAsync(store, definitionId, version, Tenant(http), ct) is { } definition
                     ? AsterJson.Ok(definition)
-                    : DefinitionNotFound(definitionId, version))
+                    : DefinitionNotFound(definitionId, version);
+            })
             .WithSummary("Get a resource definition: the latest version, or the one named by ?version.")
             .Produces<ResourceDefinition>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{definitionId}/schema", async (string definitionId, int? version, HttpContext http, IResourceDefinitionStore store, IResourceSchemaExporter exporter, CancellationToken ct) =>
-                await FindDefinitionAsync(store, definitionId, version, Tenant(http), ct) is { } definition
+            {
+                definitionId = AsterRouteIds.Decode(http, definitionId, nameof(definitionId));
+                return await FindDefinitionAsync(store, definitionId, version, Tenant(http), ct) is { } definition
                     ? AsterJson.Schema(exporter.Export(definition))
-                    : DefinitionNotFound(definitionId, version))
+                    : DefinitionNotFound(definitionId, version);
+            })
             .WithSummary("Export a resource definition as a JSON Schema 2020-12 document.")
             .Produces<object>(contentType: "application/schema+json")
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -220,25 +226,34 @@ public static class AsterEndpointRouteBuilderExtensions
             .Produces<IReadOnlyList<AspectDefinition>>();
 
         group.MapGet("/{aspectId}", async (string aspectId, int? version, HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
-                await FindAspectAsync(store, aspectId, version, Tenant(http), ct) is { } aspect
+            {
+                aspectId = AsterRouteIds.Decode(http, aspectId, nameof(aspectId));
+                return await FindAspectAsync(store, aspectId, version, Tenant(http), ct) is { } aspect
                     ? AsterJson.Ok(aspect)
-                    : AspectNotFound(aspectId, version))
+                    : AspectNotFound(aspectId, version);
+            })
             .WithSummary("Get a shared aspect definition: the latest version, or the one named by ?version.")
             .Produces<AspectDefinition>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{aspectId}/versions", async (string aspectId, HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
-                await store.ListVersionsAsync(aspectId, Tenant(http), ct) is { Count: > 0 } versions
+            {
+                aspectId = AsterRouteIds.Decode(http, aspectId, nameof(aspectId));
+                return await store.ListVersionsAsync(aspectId, Tenant(http), ct) is { Count: > 0 } versions
                     ? AsterJson.Ok(versions)
-                    : AspectNotFound(aspectId, null))
+                    : AspectNotFound(aspectId, null);
+            })
             .WithSummary("List every version of a shared aspect definition.")
             .Produces<IReadOnlyList<AspectDefinition>>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{aspectId}/schema", async (string aspectId, int? version, HttpContext http, IAspectDefinitionStore store, IResourceSchemaExporter exporter, CancellationToken ct) =>
-                await FindAspectAsync(store, aspectId, version, Tenant(http), ct) is { } aspect
+            {
+                aspectId = AsterRouteIds.Decode(http, aspectId, nameof(aspectId));
+                return await FindAspectAsync(store, aspectId, version, Tenant(http), ct) is { } aspect
                     ? AsterJson.Schema(exporter.ExportAspect(aspect))
-                    : AspectNotFound(aspectId, version))
+                    : AspectNotFound(aspectId, version);
+            })
             .WithSummary("Export a shared aspect definition's payload as a JSON Schema 2020-12 document.")
             .Produces<object>(contentType: "application/schema+json")
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -352,6 +367,7 @@ public static class AsterEndpointRouteBuilderExtensions
 
         group.MapGet("/{resourceId}", async (string resourceId, int? version, HttpContext http, IResourceManager manager, CancellationToken ct) =>
             {
+                resourceId = AsterRouteIds.Decode(http, resourceId, nameof(resourceId));
                 var tenant = Tenant(http);
                 var resource = version is { } specific
                     ? await manager.GetVersionAsync(resourceId, specific, tenant, ct)
@@ -370,6 +386,7 @@ public static class AsterEndpointRouteBuilderExtensions
 
         group.MapGet("/{resourceId}/versions", async (string resourceId, HttpContext http, IResourceManager manager, IResourceVersionHistoryService history, CancellationToken ct) =>
             {
+                resourceId = AsterRouteIds.Decode(http, resourceId, nameof(resourceId));
                 var tenant = Tenant(http);
                 if (await manager.GetLatestVersionAsync(resourceId, tenant, ct) is not { } latest)
                     return ResourceNotFound(resourceId, null);
@@ -428,6 +445,7 @@ public static class AsterEndpointRouteBuilderExtensions
                 if (request is null)
                     return bodyProblem!;
 
+                resourceId = AsterRouteIds.Decode(http, resourceId, nameof(resourceId));
                 var tenant = Tenant(http);
                 if (await manager.GetLatestVersionAsync(resourceId, tenant, ct) is not { } latest)
                     return ResourceNotFound(resourceId, null);
@@ -552,6 +570,7 @@ public static class AsterEndpointRouteBuilderExtensions
         if (string.IsNullOrWhiteSpace(request.Channel))
             return AsterProblems.Validation("channel-required", "channel is required.");
 
+        resourceId = AsterRouteIds.Decode(http, resourceId, nameof(resourceId));
         var tenant = Tenant(http);
         if (await manager.GetVersionAsync(resourceId, request.Version, tenant, ct) is not { } version)
             return ResourceNotFound(resourceId, request.Version);

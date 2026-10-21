@@ -38,12 +38,15 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
     private readonly List<WebApplication> apps = [];
+    private readonly List<HttpClient> clients = [];
     private readonly List<string> databases = [];
 
     public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()
     {
+        foreach (var client in clients)
+            client.Dispose();
         foreach (var app in apps)
             await app.DisposeAsync();
         foreach (var database in databases)
@@ -57,10 +60,17 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         string provider = InMemory,
         Action<AsterEndpointOptions>? configure = null,
         Action<IServiceCollection>? services = null,
-        Action<WebApplication>? map = null)
+        Action<WebApplication>? map = null,
+        bool loopback = false,
+        string? pathBase = null)
     {
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
+
+        // Kestrel on a loopback port, for what TestServer doesn't model, such as the raw request target.
+        if (loopback)
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+        else
+            builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
         builder.Services.AddAsterCore();
         if (provider == Sqlite)
@@ -75,6 +85,12 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         services?.Invoke(builder.Services);
 
         var app = builder.Build();
+        if (pathBase is not null)
+        {
+            app.UsePathBase(pathBase);
+            app.UseRouting();
+        }
+
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapAster("/api/aster", configure);
@@ -82,7 +98,9 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         await app.StartAsync();
         apps.Add(app);
 
-        return (app.GetTestClient(), app.Services);
+        var client = loopback ? new HttpClient { BaseAddress = new Uri(app.Urls.Single()) } : app.GetTestClient();
+        clients.Add(client);
+        return (client, app.Services);
     }
 
     private static ResourceDefinition Article() => new ResourceDefinitionBuilder()
@@ -751,6 +769,110 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         var noContentType = await client.PostAsync("/api/aster/resources/query", null);
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, noContentType.StatusCode);
         Assert.Equal("application/problem+json", noContentType.Content.Headers.ContentType?.MediaType);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Escaped IDs in routes (#239)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// IDs with characters a path segment must escape, each over TestServer and over Kestrel. TestServer has no raw
+    /// request target, so an ID holding the text <c>%2F</c> only round-trips over Kestrel.
+    /// </summary>
+    public static TheoryData<string, bool> ReservedCharacterIds()
+    {
+        var data = new TheoryData<string, bool>();
+        foreach (var id in new[] { "a/b", "/lead//trail/", "100%", "%", "a+b", "a b", "a#b", "a?b&c=d", "ünï/cødé ✓", "a%2Fb", "a%252F%2fb", "a%2Fb/c", "%41" })
+        {
+            if (!id.Contains("%2F", StringComparison.OrdinalIgnoreCase))
+                data.Add(id, false);
+            data.Add(id, true);
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(ReservedCharacterIds))]
+    public async Task Resources_IdsWithReservedCharacters_RoundTripThroughEscapedPaths(string resourceId, bool loopback)
+    {
+        var (client, _) = await StartAsync(loopback: loopback);
+        await RegisterAsync(client, Article());
+        var path = $"/api/aster/resources/{Uri.EscapeDataString(resourceId)}";
+
+        var created = await CreateAsync(client, resourceId, "Hello");
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(path, created.Headers.Location?.OriginalString);
+
+        var latest = await client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.OK, latest.StatusCode);
+        Assert.Equal(resourceId, (await ReadAsync(latest)).GetProperty("resourceId").GetString());
+
+        var updated = await client.PutAsJsonAsync(path, new { baseVersion = 1, aspects = Content("Hello again") }, Web);
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var second = await ReadAsync(updated);
+        Assert.Equal((resourceId, 2), (second.GetProperty("resourceId").GetString(), second.GetProperty("version").GetInt32()));
+
+        var first = await ReadAsync(await client.GetAsync($"{path}?version=1"));
+        Assert.Equal("Hello", first.GetProperty("aspects").GetProperty("Content").GetProperty("Title").GetString());
+
+        async Task<string[]> ActiveChannels(int version)
+        {
+            var history = await client.GetAsync($"{path}/versions");
+            Assert.Equal(HttpStatusCode.OK, history.StatusCode);
+            var body = await ReadAsync(history);
+            Assert.Equal(resourceId, body.GetProperty("resourceId").GetString());
+            return body.GetProperty("versions").EnumerateArray()
+                .Single(entry => entry.GetProperty("version").GetInt32() == version)
+                .GetProperty("activeChannels").EnumerateArray().Select(static channel => channel.GetString()!).ToArray();
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"{path}/activate", new { version = 1, channel = "Published" }, Web)).StatusCode);
+        Assert.Equal(new[] { "Published" }, await ActiveChannels(1));
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"{path}/deactivate", new { version = 1, channel = "Published" }, Web)).StatusCode);
+        Assert.Empty(await ActiveChannels(1));
+
+        // The message names the ID as stored, not as escaped.
+        var missing = await client.GetAsync($"{path}?version=9");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        Assert.Contains($"'{resourceId}'", (await ReadAsync(missing)).GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Resources_IdsWithReservedCharacters_RoundTripUnderAPathBase()
+    {
+        var (client, _) = await StartAsync(loopback: true, pathBase: "/host/app");
+        await RegisterAsync(client, Article());
+        Assert.Equal(HttpStatusCode.Created, (await CreateAsync(client, "a%2Fb/c", "Hello")).StatusCode);
+
+        var path = $"/host/app/api/aster/resources/{Uri.EscapeDataString("a%2Fb/c")}";
+        Assert.Equal("a%2Fb/c", (await ReadAsync(await client.GetAsync(path))).GetProperty("resourceId").GetString());
+        Assert.Equal("a%2Fb/c", (await ReadAsync(await client.GetAsync($"{path}/versions"))).GetProperty("resourceId").GetString());
+    }
+
+    [Theory]
+    [MemberData(nameof(ReservedCharacterIds))]
+    public async Task DefinitionsAndAspects_IdsWithReservedCharacters_RoundTripThroughEscapedPaths(string id, bool loopback)
+    {
+        var (client, _) = await StartAsync(loopback: loopback);
+
+        var definitionPath = $"/api/aster/definitions/{Uri.EscapeDataString(id)}";
+        var registered = await RegisterAsync(client, Article() with { DefinitionId = id });
+        Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
+        Assert.Equal(definitionPath, registered.Headers.Location?.OriginalString);
+        Assert.Equal(id, (await ReadAsync(await client.GetAsync(definitionPath))).GetProperty("definitionId").GetString());
+        Assert.Equal(1, (await ReadAsync(await client.GetAsync($"{definitionPath}?version=1"))).GetProperty("version").GetInt32());
+        var schema = await client.GetAsync($"{definitionPath}/schema");
+        Assert.Equal(HttpStatusCode.OK, schema.StatusCode);
+        Assert.Equal("object", (await ReadAsync(schema)).GetProperty("type").GetString());
+
+        var aspectPath = $"/api/aster/aspects/{Uri.EscapeDataString(id)}";
+        var aspect = await client.PostAsJsonAsync("/api/aster/aspects", Seo() with { AspectDefinitionId = id }, Web);
+        Assert.Equal(HttpStatusCode.Created, aspect.StatusCode);
+        Assert.Equal(aspectPath, aspect.Headers.Location?.OriginalString);
+        Assert.Equal(id, (await ReadAsync(await client.GetAsync($"{aspectPath}?version=1"))).GetProperty("aspectDefinitionId").GetString());
+        Assert.Equal(1, (await ReadAsync(await client.GetAsync($"{aspectPath}/versions"))).GetArrayLength());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"{aspectPath}/schema")).StatusCode);
     }
 
     private sealed class HideSecrets : IAsterResourceAuthorizer
