@@ -25,7 +25,7 @@ Each version is about 2.6 KB of aspect payload. The edits follow a control-plane
 - one body sentence changes every 10th version
 - the owner changes every 50th version
 
-Setup: cloud VM, Xeon 2.80 GHz, 4 cores, .NET 10.0.13, `ShortRun`. The raw reports are in [`docs/performance/raw/`](../performance/raw/) (`2026-10-21-version-history-*`).
+Setup: cloud VM, Xeon 2.80 GHz, 4 cores, .NET 10.0.13, `ShortRun`. The raw reports are in [`docs/performance/raw/`](../performance/raw/): `2026-10-21-version-history-*` from before #166 and #169, and `2026-10-21-version-history-post-169-*` from after them.
 
 **Storage** (`dotnet run -c Release --project bench/Aster.Benchmarks -- storage 100,1000`):
 
@@ -37,7 +37,7 @@ Setup: cloud VM, Xeon 2.80 GHz, 4 cores, .NET 10.0.13, `ShortRun`. The raw repor
 - **SQLite file:** the file size after a WAL checkpoint.
 - **Delta columns:** the average serialized payload per version that a delta scheme would store instead of a snapshot. "Changed aspect" stores every aspect that changed, in full. "Changed facet" stores only the changed facets.
 
-**Read and write latency** (`--filter '*VersionHistory*'`):
+**Read and write latency** (`--filter '*VersionHistory*'`), measured before #166 and #169:
 
 | Operation | In-memory, 100 | In-memory, 1,000 | SQLite, 100 | SQLite, 1,000 |
 |---|---:|---:|---:|---:|
@@ -47,6 +47,22 @@ Setup: cloud VM, Xeon 2.80 GHz, 4 cores, .NET 10.0.13, `ShortRun`. The raw repor
 | Version history | 19 µs | 515 µs | 1.24 ms | 12.6 ms |
 | Update (get latest, then append) | 545 µs | 619 µs | 4.2 ms | 27.4 ms |
 
+**After #166 and #169**, single-version operations read one row:
+
+| Operation | In-memory, 100 | In-memory, 1,000 | SQLite, 100 | SQLite, 1,000 |
+|---|---:|---:|---:|---:|
+| Get latest | 0.89 µs | 0.93 µs | 49 µs | 43 µs |
+| Get oldest version | 2.6 µs | 36 µs | 35 µs | 30 µs |
+| Get all versions | 8.7 µs | 286 µs | 1.11 ms | 11.9 ms |
+| Version history | 22 µs | 487 µs | 1.19 ms | 12.9 ms |
+| Update (get latest, then append) | 28 µs | 28 µs | 0.85 ms | 0.77 ms |
+
+- **On SQLite,** get latest, get version and update no longer depend on history length.
+- **In-memory get version** still scans that resource's version list. It is a development provider, and the cost stays under 40 µs at 1,000 versions.
+- **Reading a whole history** stays linear, because it returns every version.
+
+The storage report is unchanged by these fixes.
+
 ### What the numbers say
 
 1. **Storage is linear and modest:** about 4.2 KB per version on SQLite, flat from 100 to 1,000 versions per resource.
@@ -54,14 +70,14 @@ Setup: cloud VM, Xeon 2.80 GHz, 4 cores, .NET 10.0.13, `ShortRun`. The raw repor
    - About 1.6 KB of each row is not aspect payload: the resource envelope (IDs, definition, timestamps, hash) plus SQLite row and index overhead. A delta row keeps all of that.
 2. **Aspect-level deltas save almost nothing (2%)** for this edit pattern, because the facet that changes on every version (the title) shares an aspect with the large body. Aspects group facets by meaning, not by how often they change, so this is the common case.
 3. **Facet-level deltas cut the payload 8.7×, but the file only about 2.2×.** The estimate is 4,182 − 2,578 + 318 ≈ 1.9 KB per version, because the per-row overhead stays.
-4. **Read latency grows with history length, but not because of snapshots.** Get latest and get version cost the same as reading all versions. The cause is that `DefaultResourceManager` loads the resource's whole history and picks one row (#166). With keyed reads, a snapshot store answers both from one row whatever the history length. A delta store cannot: it has to replay a chain or maintain checkpoints.
+4. **Read latency grew with history length, but not because of snapshots.** Before #166, get latest and get version cost the same as reading all versions, because `DefaultResourceManager` loaded the resource's whole history and picked one row. #166 and #169 made them keyed reads. On SQLite they are now flat (43–49 µs) from 100 to 1,000 versions. A delta store could not do that: it would have to replay a chain or maintain checkpoints.
 
 ## Decision
 
 **Keep full snapshots.** No delta storage, no compaction and no storage format change.
 
 1. **Growth control is pruning.** Version-pruning policies (016, applied through 019) bound history per resource. Hosts that keep everything accept about 4 KB per version for this edit pattern.
-2. **Read cost is fixed in the read path, not the storage format.** #166 makes single-version operations keyed reads: get latest, get version, update, activate and deactivate.
+2. **Read cost is fixed in the read path, not the storage format.** #166 (merged) made single-version operations keyed reads: get latest, get version, update, activate and deactivate. #169 made SQLite's latest-by-ID read seek by key.
 3. **The first storage lever, if one is ever needed, is payload compression,** not deltas. It is per row, keeps every version self-contained, and hides behind the provider. It has not been measured: the benchmark body text is synthetic and too repetitive to give an honest ratio.
 
 ### Rejected alternatives
@@ -89,5 +105,5 @@ Reopen this decision only if one of these holds. Re-measure with the same comman
 ## Consequences
 
 - No migration, provider or portability format change.
-- #166 is a prerequisite for the latency claim in decision 2. Its acceptance criteria use `VersionHistoryBenchmarks`.
+- The latency claim in decision 2 rests on #166 and #169, both merged, and is measured above.
 - `VersionHistoryBenchmarks` and the `storage` report stay in the harness, so the triggers can be checked with one command each.

@@ -76,6 +76,8 @@ internal sealed class HistoryData : IAsyncDisposable
 
         var data = new HistoryData(services.BuildServiceProvider(), databasePath);
         await data.SeedAsync(versionsPerResource);
+        if (databasePath is not null)
+            BenchmarkData.CheckpointWal(databasePath);
         return data;
     }
 
@@ -160,14 +162,7 @@ internal sealed class HistoryData : IAsyncDisposable
 
     private static long Checkpoint(string databasePath)
     {
-        using (var connection = new SqliteConnection($"Data Source={databasePath}"))
-        {
-            connection.Open();
-            using var command = connection.CreateCommand();
-            command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
-            command.ExecuteNonQuery();
-        }
-
+        BenchmarkData.CheckpointWal(databasePath);
         return new FileInfo(databasePath).Length + (File.Exists(databasePath + "-wal") ? new FileInfo(databasePath + "-wal").Length : 0);
     }
 
