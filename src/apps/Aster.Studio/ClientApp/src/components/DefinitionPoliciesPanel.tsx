@@ -25,7 +25,9 @@ const isLifecycleOutcome = (candidate: PolicyCandidateDto) => candidate.outcome 
 function protectionReasons(candidate: PolicyCandidateDto): string[] {
   const version = candidate.targetVersion;
   if (!version?.isProtectedFromPruning) return [];
-  return [...(version.isLatest ? ["latest"] : []), ...version.activeChannels.map((channel) => `active on ${channel}`)];
+  const reasons = [...(version.isLatest ? ["latest"] : []), ...version.activeChannels.map((channel) => `active on ${channel}`)];
+  // The SDK protects exactly latest and active versions today; a reason it adds later still blocks selection.
+  return reasons.length ? reasons : ["protected"];
 }
 
 /** A .NET TimeSpan ("365.00:00:00") as days or hours. */
