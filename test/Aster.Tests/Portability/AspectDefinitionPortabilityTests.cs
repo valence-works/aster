@@ -16,6 +16,8 @@ namespace Aster.Tests.Portability;
 /// #95: portable snapshots carry the shared aspect definition versions their definitions pin; import registers
 /// them with versions preserved before the definitions, reports unresolved and mismatched pins with stable
 /// codes, never remaps a divergent aspect version, and leaves snapshots without aspect definitions unchanged.
+/// #195: aspect versions compare by content, not by their generated IDs, so a tenant that registered the same
+/// aspect independently reuses its own copy.
 /// </summary>
 public sealed class AspectDefinitionPortabilityTests : IDisposable
 {
@@ -237,6 +239,111 @@ public sealed class AspectDefinitionPortabilityTests : IDisposable
         Assert.False(preview.CanImport);
         var diagnostic = Assert.Single(preview.Diagnostics);
         Assert.Equal((PortableDiagnosticCodes.AspectPinMismatch, PinPath), (diagnostic.Code, diagnostic.Path));
+    }
+
+    [Theory]
+    [InlineData(InMemory, false)]
+    [InlineData(InMemory, true)]
+    [InlineData(Sqlite, false)]
+    [InlineData(Sqlite, true)]
+    public async Task AspectRegisteredIndependentlyInTheTarget_IsReused_AndImportedPinsUseTheTargetCopy(string providerKind, bool targetHasArticle)
+    {
+        await using var provider = CreateProvider(providerKind);
+        await SeedSourceAsync(provider, pinnedVersion: 1);
+        var snapshot = await ExportArticleAsync(provider);
+
+        // The same aspect content with its own generated aspect and facet IDs, as a separate registration produces.
+        var aspects = provider.GetRequiredService<IAspectDefinitionStore>();
+        var own = await aspects.RegisterAsync(Seo() with
+        {
+            FacetDefinitions = [new FacetDefinition { FacetDefinitionId = "Slug", Id = Guid.NewGuid().ToString(), Version = 1, Type = "string" }],
+        }, Target);
+        Assert.NotEqual(snapshot.AspectDefinitions[0].Id, own.Id);
+        if (targetHasArticle)
+        {
+            // Its own Article too, so the snapshot's Article collides and is remapped.
+            await provider.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(
+                await new ResourceDefinitionBuilder().WithDefinitionId("Article").WithSharedAspect("Seo", 1).BuildAsync(aspects, Target),
+                Target,
+                CancellationToken.None);
+        }
+
+        var result = await provider.GetRequiredService<IResourcePortabilityService>().ImportAsync(
+            snapshot,
+            new PortableImportOptions { TargetTenantScope = Target, CollisionMode = PortableImportCollisionMode.RemapDivergent });
+
+        Assert.Equal(PortableImportStatus.Imported, result.Status);
+        Assert.Contains(result.IdentityMap, static mapping =>
+            mapping.EntityKind == PortableEntityKind.AspectDefinitionVersion
+            && mapping.Reason == PortableIdentityMappingReason.ReusedIdentical);
+        Assert.Equal(own.Id, Assert.Single(await aspects.ListVersionsAsync("Seo", Target)).Id);
+
+        var importedId = targetHasArticle
+            ? Assert.Single(result.IdentityMap, static mapping =>
+                mapping.EntityKind == PortableEntityKind.DefinitionVersion && mapping.Reason == PortableIdentityMappingReason.RemappedDivergent).TargetId
+            : null;
+        var definitionId = importedId is null ? "Article" : JsonSerializer.Deserialize<JsonArray>(importedId)![0]!.GetValue<string>();
+        var imported = await provider.GetRequiredService<IResourceDefinitionStore>().GetDefinitionAsync(definitionId, Target, CancellationToken.None);
+        var pin = imported!.AspectDefinitions["Seo"];
+        Assert.Equal((own.Id, own.FacetDefinitions[0].Id, true), (pin.Id, pin.FacetDefinitions[0].Id, pin.IsShared));
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task ReimportAfterPinningTheTargetCopy_ReusesTheDefinition(string providerKind)
+    {
+        // The first import stores Article with the target's copy of Seo, so the snapshot's Article no longer matches
+        // it byte for byte. Importing the same snapshot again must still find it identical, not divergent.
+        await using var provider = CreateProvider(providerKind);
+        await SeedSourceAsync(provider, pinnedVersion: 1);
+        var snapshot = await ExportArticleAsync(provider);
+        await provider.GetRequiredService<IAspectDefinitionStore>().RegisterAsync(Seo() with
+        {
+            FacetDefinitions = [new FacetDefinition { FacetDefinitionId = "Slug", Id = Guid.NewGuid().ToString(), Version = 1, Type = "string" }],
+        }, Target);
+        var portability = provider.GetRequiredService<IResourcePortabilityService>();
+        var options = new PortableImportOptions { TargetTenantScope = Target, CollisionMode = PortableImportCollisionMode.Strict };
+        Assert.Equal(PortableImportStatus.Imported, (await portability.ImportAsync(snapshot, options)).Status);
+
+        var again = await portability.ImportAsync(snapshot, options);
+
+        Assert.Equal(PortableImportStatus.NoOp, again.Status);
+        Assert.Empty(again.Diagnostics);
+        Assert.All(again.IdentityMap, static mapping => Assert.Equal(PortableIdentityMappingReason.ReusedIdentical, mapping.Reason));
+    }
+
+    [Fact]
+    public async Task Validate_ReportsNullFacetEntries_InAspectsAndPins()
+    {
+        await using var provider = CreateProvider(InMemory);
+        await SeedSourceAsync(provider, pinnedVersion: 1);
+        var snapshot = await ExportArticleAsync(provider);
+        var definition = snapshot.Definitions[0];
+        var tampered = snapshot with
+        {
+            AspectDefinitions = [snapshot.AspectDefinitions[0] with { FacetDefinitions = [null!] }],
+            Definitions =
+            [
+                definition with
+                {
+                    AspectDefinitions = new Dictionary<string, AspectDefinition>(StringComparer.Ordinal)
+                    {
+                        ["Seo"] = definition.AspectDefinitions["Seo"] with { FacetDefinitions = [null!] },
+                    },
+                },
+            ],
+        };
+
+        var result = await provider.GetRequiredService<IResourcePortabilityService>().ValidateAsync(tampered);
+
+        Assert.Equal(
+            new[]
+            {
+                (PortableDiagnosticCodes.MalformedSnapshot, "aspectDefinitions/0/facetDefinitions"),
+                (PortableDiagnosticCodes.MalformedSnapshot, $"{PinPath}/facetDefinitions"),
+            },
+            result.Diagnostics.Select(static d => (d.Code, d.Path!)));
     }
 
     [Theory]

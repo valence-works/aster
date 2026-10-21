@@ -86,13 +86,13 @@ Registering aspect version 2 changes nothing else. To move a resource definition
 2. **Apply.** `ApplyAsync(selection)` re-pins only the selected definitions, which registers **new resource definition versions** with the new snapshot embedded. Old definition versions and their resources are untouched.
 3. **Upgrade resources.** Resources then move with the existing `IResourceSchemaVersionService` flow (012): append-only, with carry-forward diagnostics.
 
-### 7. Portability carries aspect definitions; aspect IDs are never remapped
+### 7. Portability carries aspect definitions; aspect versions match by content and are never remapped
 
 - **Export:** `PortableSnapshot` gains `AspectDefinitions` (#95). Export includes the versions that the exported resource definitions pin, or every version when requested.
 - **Import order:** aspect definitions, then resource definitions, then resources.
-- **Collisions:** aspect versions follow the existing rules. Identical content is reused; a divergent collision fails under `Strict`.
-- **`RemapDivergent`:** a divergent aspect version is imported as the target's next version, and pins in the imported resource definitions are rewritten to that version.
-  - The `AspectDefinitionId` is never remapped, because it is part of resource payload keys (see Context).
+- **Identity is content (#195):** an aspect version matches the target's version with the same `(AspectDefinitionId, Version)` when their content is equal: `RequiresName` and each facet's ID, type, requiredness, version and metadata. The version `Id` and the facet `Id`s are generated per registration and ignored, so a tenant that registered the same aspect independently matches.
+- **Collisions:** a matching version is reused, and the imported definitions' pins are rewritten to embed the target's copy. A version with different content fails as `divergent-identity-collision` in every collision mode, `RemapDivergent` included: a shared aspect is never remapped.
+  - Renaming or renumbering it would fork the tenant's vocabulary and orphan every pin to it, and the `AspectDefinitionId` is part of resource payload keys (see Context).
   - Embedded snapshots keep resources valid whatever happens to the pin.
 - **Legacy and partial snapshots:** a snapshot without aspect definitions imports exactly as before. A shared pin that resolves neither in the snapshot nor in the target tenant is reported as `unresolved-aspect-pin`. It is a warning, not an error, because the embedded snapshot still makes the definition valid; only upgrade previews lose the link.
 
