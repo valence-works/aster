@@ -217,6 +217,8 @@ function UpgradePanel({ aspect, onUpgraded }: { aspect: SharedAspectDto; onUpgra
         if (outcome.status === "upgraded") toast.success(`${outcome.definitionId} now pins v${result.targetVersion}`, { description: `Content type version ${outcome.newDefinitionVersion}; its editor form uses the new facets.` });
         else if (outcome.status === "failed") toast.error(`${outcome.definitionId} was not upgraded`, { description: outcome.diagnostics.map((diagnostic) => diagnostic.message).join(" ") });
       }
+      // An upgrade re-pins content types but leaves the aspect version unchanged, so the preview must refetch itself.
+      preview.reload();
       onUpgraded();
     } catch (error) {
       toast.error("Upgrade failed", { description: error instanceof Error ? error.message : String(error) });
