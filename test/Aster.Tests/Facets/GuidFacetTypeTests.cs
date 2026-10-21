@@ -5,7 +5,9 @@ using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Persistence.PostgresJsonb;
 using Aster.Persistence.SqliteJson;
+using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,19 +21,28 @@ public sealed class GuidFacetTypeTests : IDisposable
 {
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
+    private const string Postgres = "postgres";
 
     private static readonly Guid OwnerA = Guid.Parse("6f9619ff-8b86-d011-b42d-00cf4fc964ff");
     private static readonly Guid OwnerB = Guid.Parse("1b4e28ba-2fa1-11d2-883f-0016d3cca427");
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
 
-    public void Dispose() => SqliteJsonTestDatabase.DeleteFiles(databasePath);
+    private readonly PostgresTestDatabase postgres = new();
+
+    public void Dispose()
+    {
+        SqliteJsonTestDatabase.DeleteFiles(databasePath);
+        postgres.Dispose();
+    }
 
     private ServiceProvider CreateProvider(string providerKind)
     {
         var services = new ServiceCollection().AddAsterCore();
         if (providerKind == Sqlite)
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
+        else if (providerKind == Postgres)
+            services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
 
         return services.BuildServiceProvider();
     }
@@ -75,7 +86,7 @@ public sealed class GuidFacetTypeTests : IDisposable
     public static TheoryData<string, object> ValidValues()
     {
         var data = new TheoryData<string, object>();
-        foreach (var providerKind in new[] { InMemory, Sqlite })
+        foreach (var providerKind in new[] { InMemory, Sqlite, Postgres })
         {
             data.Add(providerKind, OwnerA);
             data.Add(providerKind, OwnerA.ToString());
@@ -85,7 +96,7 @@ public sealed class GuidFacetTypeTests : IDisposable
         return data;
     }
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(ValidValues))]
     public async Task CreateAsync_GuidOrDFormatString_Saves(string providerKind, object value)
     {
@@ -97,16 +108,19 @@ public sealed class GuidFacetTypeTests : IDisposable
         Assert.Equal(1, resource.Version);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory, "not-a-guid")]
     [InlineData(Sqlite, "not-a-guid")]
+    [InlineData(Postgres, "not-a-guid")]
     [InlineData(InMemory, 42)]
     [InlineData(InMemory, "3f2504e04f8911d39a0c0305e82c3301")]
     [InlineData(Sqlite, "3f2504e04f8911d39a0c0305e82c3301")]
+    [InlineData(Postgres, "3f2504e04f8911d39a0c0305e82c3301")]
     [InlineData(InMemory, "{3f2504e0-4f89-11d3-9a0c-0305e82c3301}")]
     [InlineData(InMemory, "(3f2504e0-4f89-11d3-9a0c-0305e82c3301)")]
     [InlineData(InMemory, " 3f2504e0-4f89-11d3-9a0c-0305e82c3301 ")]
     [InlineData(Sqlite, "3f2504e0-4f89-11d3-9a0c-0305e82c3301\n")]
+    [InlineData(Postgres, "3f2504e0-4f89-11d3-9a0c-0305e82c3301\n")]
     public async Task CreateAsync_NonGuidOrNonDFormatValue_IsTypeMismatch(string providerKind, object value)
     {
         await using var provider = CreateProvider(providerKind);
@@ -146,7 +160,7 @@ public sealed class GuidFacetTypeTests : IDisposable
         Assert.Equal(FacetValueDiagnosticCodes.NotAllowed, Assert.Single(exception.Diagnostics).Code);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData("not-a-guid", FacetMetadataDiagnosticCodes.AllowedValueTypeMismatch)]
     [InlineData("3f2504e04f8911d39a0c0305e82c3301", FacetMetadataDiagnosticCodes.AllowedValueTypeMismatch)]
     public async Task Registration_AllowedValueThatIsNotAGuid_IsRejected(string allowedValue, string expectedCode)
@@ -171,9 +185,10 @@ public sealed class GuidFacetTypeTests : IDisposable
         Assert.Equal(2, exception.Diagnostics.Count);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task Query_GuidFacet_SupportsEqualsNotEqualsInAndExists(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);

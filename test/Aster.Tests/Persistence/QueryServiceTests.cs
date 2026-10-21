@@ -1,4 +1,3 @@
-using System.Linq;
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
@@ -6,24 +5,20 @@ using Aster.Core.InMemory;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Services;
-using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonQueryServiceTests : IDisposable
+/// <summary>
+/// The query provider suite every persistent provider runs: the same data and queries, the same results.
+/// </summary>
+public abstract class QueryServiceTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath =
-        Path.Combine(Path.GetTempPath(), $"aster-query-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose()
-    {
-        TryDelete(databasePath);
-        TryDelete($"{databasePath}-shm");
-        TryDelete($"{databasePath}-wal");
-    }
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_WithFreshQueryOnlyProvider_InitializesSchemaAndReturnsEmptyResults()
     {
         await using var provider = CreateServiceProvider();
@@ -34,10 +29,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Empty(results);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_MetadataFilters_ReturnMatchingPersistedResources()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "alice", aspects: new()
         {
             ["Title"] = new { Title = "Alpha" },
@@ -61,10 +57,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-a", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_Scopes_SelectLatestAllActiveAndDraftVersions()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", version: 1));
         await store.SaveVersionAsync(CreateResource("product-a", "Product", version: 2));
         await store.SaveVersionAsync(CreateResource("product-b", "Product", version: 1));
@@ -109,10 +106,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal([("product-a", 1), ("product-b", 1)], draft.Select(r => (r.ResourceId, r.Version)).ToList());
     }
 
-    [Fact]
-    public async Task QueryAsync_MetadataSortSkipAndTake_AreExecutedInSqlite()
+    [SkippableFact]
+    public async Task QueryAsync_MetadataSortSkipAndTake_AreExecutedInTheDatabase()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-c", "Product", created: Utc(2026, 1, 3)));
         await store.SaveVersionAsync(CreateResource("product-a", "Product", created: Utc(2026, 1, 1)));
         await store.SaveVersionAsync(CreateResource("product-b", "Product", created: Utc(2026, 1, 2)));
@@ -132,10 +130,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-b", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_MetadataSorts_UseStableTieBreakerForPaging()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-c", "Product", owner: "same"));
         await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "same"));
         await store.SaveVersionAsync(CreateResource("product-b", "Product", owner: "same"));
@@ -155,10 +154,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-b", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_FacetSorts_OrderByTextFacetValue()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             ["Title"] = new { Title = "Bravo" },
@@ -181,10 +181,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal(["product-b", "product-a", "product-c"], results.Select(r => r.ResourceId).ToList());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_FacetSorts_OrderByNumericFacetValueDescending()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             ["Price"] = new { Amount = 20 },
@@ -207,10 +208,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal(["product-b", "product-a", "product-c"], results.Select(r => r.ResourceId).ToList());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_AspectPresenceAndFacetFilters_ReadPersistedJson()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             ["Title"] = new { Title = "Super Gadget" },
@@ -247,10 +249,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-a", results[0].ResourceId);
     }
 
-    [Fact]
-    public async Task QueryAsync_LogicalOrAndNot_AreExecutedInSqlite()
+    [SkippableFact]
+    public async Task QueryAsync_LogicalOrAndNot_AreExecutedInTheDatabase()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             ["Title"] = new { Title = "Gadget" },
@@ -286,10 +289,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-a", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_NumericFacetPredicates_IgnoreNonNumericJsonValues()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             ["Price"] = new { Amount = "not a number" },
@@ -320,10 +324,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal(["product-a"], notEqualsResults.Select(r => r.ResourceId).ToList());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_DateLikeFacetRanges_FilterAcceptedStoredValues()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("event-a", "Event", aspects: new()
         {
             ["Schedule"] = new { StartsAt = new DateTimeOffset(2026, 2, 1, 10, 0, 0, TimeSpan.Zero) },
@@ -402,7 +407,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal(["event-a", "event-b", "event-b-offset", "event-c"], stringBounds);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_DateOnlyStringRangeBound_FailsClosed()
     {
         await using var provider = CreateServiceProvider();
@@ -422,10 +427,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             "Filter.Value.Min");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_TextComparisons_UseOrdinalIgnoreCaseForNonAsciiValues()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "Élodie", aspects: new()
         {
             ["Title"] = new { Title = "Crème Gadget" },
@@ -447,10 +453,11 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Single(facetResults);
     }
 
-    [Fact]
-    public async Task QueryAsync_PortableOperators_AreTranslatedToSqlite()
+    [SkippableFact]
+    public async Task QueryAsync_PortableOperators_AreTranslatedToSql()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "alice", aspects: new()
         {
             ["Title"] = new { Title = "Alpha Gadget" },
@@ -485,12 +492,13 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-a", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_JsonPathEscaping_SupportsNamedAndSpecialCharacterAspectKeys()
     {
         const string specialAspectKey = "PriceAspect:Sale\\\"Quoted";
 
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             [specialAspectKey] = new { Amount = 10 },
@@ -511,10 +519,45 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-a", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
+    public async Task QueryAsync_KeysAndValuesWithSqlSyntax_AreBoundAsParameters()
+    {
+        const string aspectKey = "x'); DROP TABLE resource_versions; --";
+        const string facetId = "f' OR '1'='1";
+        const string value = "v'; SELECT 1; --";
+
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", owner: "' OR 1=1 --", aspects: new()
+        {
+            [aspectKey] = new Dictionary<string, object> { [facetId] = value },
+        }));
+        await store.SaveVersionAsync(CreateResource("product-b", "Product", owner: "bob"));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        var matches = (await query.QueryAsync(new ResourceQuery
+        {
+            Filter = new LogicalExpression(LogicalOperator.And, [
+                new AspectPresenceFilter(aspectKey),
+                new FacetValueFilter(aspectKey, facetId, value, ComparisonOperator.Equals),
+                new FacetValueFilter(aspectKey, facetId, "SELECT", ComparisonOperator.Contains),
+                new MetadataFilter("Owner", "' OR 1=1 --", ComparisonOperator.Equals),
+            ]),
+            Sorts = [new SortExpression(facetId, AspectKey: aspectKey)],
+        })).ToList();
+        var all = await query.QueryAsync(new ResourceQuery { DefinitionId = "Product" });
+
+        Assert.Equal(["product-a"], matches.Select(r => r.ResourceId).ToList());
+        Assert.Equal(2, all.Count());
+    }
+
+    [SkippableFact]
     public async Task QueryAsync_MissingAspectOrFacet_DoesNotMatch()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product", aspects: new()
         {
             ["Title"] = new { Title = "Gadget" },
@@ -531,7 +574,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Empty(results);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_UnsupportedQueryShapes_ThrowTypedException()
     {
         await using var provider = CreateServiceProvider();
@@ -577,8 +620,8 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             "Filter.Value");
     }
 
-    [Fact]
-    public async Task QueryAsync_UnsupportedSqliteShapes_MatchValidationFailureDetails()
+    [SkippableFact]
+    public async Task QueryAsync_UnsupportedShapes_MatchValidationFailureDetails()
     {
         await using var provider = CreateServiceProvider();
         var validator = provider.GetRequiredService<IResourceQueryValidator>();
@@ -617,7 +660,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             "Filter.Value");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_ProviderSpecificUnsupportedFailure_ReportsPath()
     {
         await using var provider = CreateServiceProvider();
@@ -633,16 +676,15 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
             "Filter.Value");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_DoesNotUseInMemoryReaderFallback()
     {
-        var store = CreateStore();
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
         await store.SaveVersionAsync(CreateResource("product-a", "Product"));
 
-        var services = CreateServices();
-        services.AddSingleton<IResourceVersionReader, ThrowingVersionReader>();
-
-        await using var provider = services.BuildServiceProvider();
+        await using var provider = Database.CreateProvider(
+            services => services.AddSingleton<IResourceVersionReader, ThrowingVersionReader>());
         var query = provider.GetRequiredService<IResourceQueryService>();
 
         var results = (await query.QueryAsync(new ResourceQuery
@@ -654,7 +696,7 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal("product-a", results[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_AfterValidationAgainstDifferentProvider_AllowsSharedDateLikeRanges()
     {
         var queryShape = new ResourceQuery
@@ -670,37 +712,21 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         await using var provider = CreateServiceProvider();
         var query = provider.GetRequiredService<IResourceQueryService>();
 
-        var sqliteResults = await query.QueryAsync(queryShape);
+        var results = await query.QueryAsync(queryShape);
 
         Assert.True(inMemoryValidation.IsValid);
-        Assert.Empty(sqliteResults);
+        Assert.Empty(results);
     }
 
-    [Fact]
-    public void SqliteJsonQueryService_DoesNotExposeQueryableApi()
+    [SkippableFact]
+    public async Task QueryService_DoesNotExposeQueryableApi()
     {
-        Assert.False(typeof(IQueryable<Resource>).IsAssignableFrom(typeof(SqliteJsonQueryService)));
+        await using var provider = CreateServiceProvider();
+
+        Assert.False(provider.GetRequiredService<IResourceQueryService>() is IQueryable<Resource>);
     }
 
-    private ServiceProvider CreateServiceProvider() => CreateServices().BuildServiceProvider();
-
-    private ServiceCollection CreateServices()
-    {
-        var services = new ServiceCollection();
-        services.AddAsterCore();
-        services.AddAsterSqliteJson(options =>
-        {
-            options.ConnectionString = $"Data Source={databasePath}";
-        });
-
-        return services;
-    }
-
-    private SqliteJsonResourceStore CreateStore() =>
-        new(new SqliteJsonAsterOptions
-        {
-            ConnectionString = $"Data Source={databasePath}",
-        });
+    private ServiceProvider CreateServiceProvider() => Database.CreateProvider();
 
     private static Resource CreateResource(
         string resourceId,
@@ -779,21 +805,15 @@ public sealed class SqliteJsonQueryServiceTests : IDisposable
         Assert.Equal(expectedPath, exception.Path);
     }
 
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-    }
-
     private sealed class ThrowingVersionReader : IResourceVersionReader
     {
         public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(
             ResourceVersionReadRequest request,
             CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("SQLite query service should execute SQL directly.");
+            throw new InvalidOperationException("The query service should execute SQL directly.");
     }
 }
+
+public sealed class SqliteJsonQueryServiceTests() : QueryServiceTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbQueryServiceTests() : QueryServiceTests(new PostgresTestDatabase());

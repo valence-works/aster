@@ -1,7 +1,7 @@
-using System.Collections;
 using System.Globalization;
-using Aster.Core.Exceptions;
 using Aster.Core.Models.Querying;
+using Aster.Persistence.Relational.Querying;
+using static Aster.Persistence.Relational.Querying.RelationalQueryValues;
 
 namespace Aster.Persistence.SqliteJson.Querying;
 
@@ -20,21 +20,7 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
             "Filter")
     };
 
-    public void Validate(FilterExpression expression)
-    {
-        if (expression is FacetValueFilter { Operator: ComparisonOperator.Range, Value: RangeValue { Min: null, Max: null } })
-            throw Unsupported(
-                "empty-range",
-                "value shape",
-                "Range predicates require at least one bound.",
-                "Filter.Value");
-
-        if (expression is LogicalExpression logical)
-        {
-            foreach (var operand in logical.Operands)
-                Validate(operand);
-        }
-    }
+    public void Validate(FilterExpression expression) => ValidateRange(expression);
 
     private string TranslateMetadata(MetadataFilter filter)
     {
@@ -113,14 +99,8 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
                 TranslateArrayContains(value, ResolveArrayCandidates(filter.Value), requireAll: false),
             ComparisonOperator.ArrayContainsAll =>
                 TranslateArrayContains(value, ResolveArrayCandidates(filter.Value), requireAll: true),
-            ComparisonOperator.Range when filter.Value is RangeValue range =>
-                TranslateRange(value, range),
             ComparisonOperator.Range =>
-                throw Unsupported(
-                    "range-value-required",
-                    "value shape",
-                    "Range predicates require a RangeValue.",
-                    "Filter.Value"),
+                TranslateRange(value, RequireRange(filter.Value)),
             _ => throw Unsupported(
                 "unsupported-comparison-operator",
                 "comparison operator",
@@ -164,7 +144,7 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
     private string TranslateRange(SqliteFacetValueExpression value, RangeValue range)
     {
         var rangeKind = ResolveRangeKind(range);
-        if (rangeKind == RangeKind.DateTime)
+        if (rangeKind == RelationalRangeKind.DateTime)
             return TranslateDateTimeRange(value, range);
 
         var predicates = new List<string> { value.IsNumeric };
@@ -258,191 +238,19 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         return $"CASE WHEN {value.Type} = 'array' THEN ({predicate}) ELSE 0 END";
     }
 
-    private string TranslateArrayElementMatch(object? candidate)
+    private string TranslateArrayElementMatch(object? candidate) => ClassifyArrayCandidate(candidate) switch
     {
-        if (!QueryArrayValue.TryClassify(candidate, out var kind))
-            throw Unsupported(
-                "unsupported-array-value-shape",
-                "value shape",
-                "Array candidates must be string, GUID, numeric, boolean, or date/time values.",
-                "Filter.Value");
-
-        return kind switch
-        {
-            QueryArrayElementKind.Text =>
-                $"element.type = 'text' AND {SqliteTextBehavior.EqualsFunction}(element.value, CAST({parameters.Add(QueryArrayValue.FormatText(candidate!))} AS TEXT))",
-            // Whole numbers bind as INTEGER so integer elements compare exactly beyond 2^53; SQLite still
-            // compares an INTEGER parameter with a REAL element (e.g. 2.0) numerically.
-            QueryArrayElementKind.Numeric when QueryArrayValue.TryGetIntegral(candidate!, out var integral) =>
-                $"element.type IN ('integer', 'real') AND element.value = {parameters.Add(integral)}",
-            QueryArrayElementKind.Numeric =>
-                $"element.type IN ('integer', 'real') AND CAST(element.value AS REAL) = {parameters.Add(Convert.ToDouble(candidate, CultureInfo.InvariantCulture))}",
-            QueryArrayElementKind.Boolean =>
-                candidate is true ? "element.type = 'true'" : "element.type = 'false'",
-            _ =>
-                $"element.type = 'text' AND {SqliteDateTimeBehavior.DateKeyFunction}(element.value) = {parameters.Add(ConvertToDateKey(candidate!, "array candidate", "Filter.Value"))}",
-        };
-    }
-
-    private static IReadOnlyList<object?> ResolveArrayCandidates(object? value)
-    {
-        if (value is null or string || value is not IEnumerable enumerable)
-            throw Unsupported(
-                "array-values-required",
-                "value shape",
-                "ArrayContainsAny and ArrayContainsAll predicates require a non-string enumerable value set.",
-                "Filter.Value");
-
-        var candidates = enumerable.Cast<object?>().ToList();
-        if (candidates.Count == 0)
-            throw Unsupported(
-                "empty-array-values",
-                "value shape",
-                "ArrayContainsAny and ArrayContainsAll predicates require at least one candidate value.",
-                "Filter.Value");
-
-        return candidates;
-    }
-
-    private static IReadOnlyList<object?> ResolveInValues(object? value)
-    {
-        if (value is string || value is not IEnumerable enumerable)
-            throw Unsupported(
-                "in-values-required",
-                "value shape",
-                "In predicates require a non-string enumerable value set.",
-                "Filter.Value");
-
-        var values = new List<object?>();
-        foreach (var item in enumerable)
-            values.Add(item);
-
-        if (values.Count == 0)
-            throw Unsupported(
-                "empty-in-values",
-                "value shape",
-                "In predicates require at least one candidate value.",
-                "Filter.Value");
-
-        return values;
-    }
-
-    private static int ParseInt(object? value, string field) =>
-        int.TryParse(FormatValue(value), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : throw Unsupported(
-                "invalid-metadata-value",
-                "metadata value",
-                $"Metadata field '{field}' requires an integer value.",
-                "Filter.Value");
-
-    private static bool TryConvertDouble(object? value, out double result)
-    {
-        if (value is null)
-        {
-            result = default;
-            return false;
-        }
-
-        try
-        {
-            result = Convert.ToDouble(value, CultureInfo.InvariantCulture);
-            return value is not string || double.TryParse((string)value, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
-        }
-        catch (FormatException)
-        {
-            result = default;
-            return false;
-        }
-        catch (InvalidCastException)
-        {
-            result = default;
-            return false;
-        }
-        catch (OverflowException)
-        {
-            result = default;
-            return false;
-        }
-    }
-
-    private static double ConvertToDouble(object value, string description) =>
-        TryConvertDouble(value, out var result)
-            ? result
-            : throw Unsupported(
-                "unsupported-range-value-shape",
-                "value shape",
-                $"{description} must be numeric.",
-                "Filter.Value");
-
-    private static string ConvertToDateKey(object value, string description, string path) =>
-        SqliteDateTimeBehavior.TryNormalizeDateKey(value, out var key)
-            ? key
-            : throw Unsupported(
-                "unsupported-range-value-shape",
-                "value shape",
-                $"{description} must be a date-like value.",
-                path);
-
-    private static RangeKind ResolveRangeKind(RangeValue range)
-    {
-        var minKind = ResolveRangeBoundKind(range.Min, "minimum range bound", "Filter.Value.Min");
-        var maxKind = ResolveRangeBoundKind(range.Max, "maximum range bound", "Filter.Value.Max");
-
-        return (minKind, maxKind) switch
-        {
-            (null, null) => throw Unsupported(
-                "empty-range",
-                "value shape",
-                "Range predicates require at least one bound.",
-                "Filter.Value"),
-            (RangeKind.Numeric, null) or (null, RangeKind.Numeric) or (RangeKind.Numeric, RangeKind.Numeric) =>
-                RangeKind.Numeric,
-            (RangeKind.DateTime, null) or (null, RangeKind.DateTime) or (RangeKind.DateTime, RangeKind.DateTime) =>
-                RangeKind.DateTime,
-            _ => throw Unsupported(
-                "mixed-range-value-shapes",
-                "value shape",
-                "Range bounds must use the same value shape.",
-                "Filter.Value"),
-        };
-    }
-
-    private static RangeKind? ResolveRangeBoundKind(object? value, string description, string path)
-    {
-        if (value is null)
-            return null;
-
-        if (TryConvertDouble(value, out _))
-            return RangeKind.Numeric;
-
-        if (SqliteDateTimeBehavior.TryNormalizeDateKey(value, out _))
-            return RangeKind.DateTime;
-
-        throw Unsupported(
-            "unsupported-range-value-shape",
-            "value shape",
-            $"{description} must be numeric or date-like.",
-            path);
-    }
-
-    private static string? FormatValue(object? value) => value switch
-    {
-        null => null,
-        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => value.ToString()
+        QueryArrayElementKind.Text =>
+            $"element.type = 'text' AND {SqliteTextBehavior.EqualsFunction}(element.value, CAST({parameters.Add(QueryArrayValue.FormatText(candidate!))} AS TEXT))",
+        // Whole numbers bind as INTEGER so integer elements compare exactly beyond 2^53; SQLite still
+        // compares an INTEGER parameter with a REAL element (e.g. 2.0) numerically.
+        QueryArrayElementKind.Numeric when QueryArrayValue.TryGetIntegral(candidate!, out var integral) =>
+            $"element.type IN ('integer', 'real') AND element.value = {parameters.Add(integral)}",
+        QueryArrayElementKind.Numeric =>
+            $"element.type IN ('integer', 'real') AND CAST(element.value AS REAL) = {parameters.Add(Convert.ToDouble(candidate, CultureInfo.InvariantCulture))}",
+        QueryArrayElementKind.Boolean =>
+            candidate is true ? "element.type = 'true'" : "element.type = 'false'",
+        _ =>
+            $"element.type = 'text' AND {SqliteDateTimeBehavior.DateKeyFunction}(element.value) = {parameters.Add(ConvertToDateKey(candidate!, "array candidate", "Filter.Value"))}",
     };
-
-    private static UnsupportedQueryFeatureException Unsupported(
-        string code,
-        string feature,
-        string message,
-        string? path = null) =>
-        new(code, feature, message, path);
-
-    private enum RangeKind
-    {
-        Numeric,
-        DateTime,
-    }
 }

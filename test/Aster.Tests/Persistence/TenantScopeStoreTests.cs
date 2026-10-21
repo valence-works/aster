@@ -84,6 +84,45 @@ public abstract class TenantScopeStoreTests(IAsterTestDatabase database) : IDisp
         Assert.Equal("product-1", active.Single().ResourceId);
     }
 
+    [SkippableFact]
+    public async Task QueryAsync_FiltersLatestActiveAndDraftByTenant()
+    {
+        await using var provider = Database.CreateProvider();
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant A", TenantScopeTestFixtures.TenantA));
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant B v1", TenantScopeTestFixtures.TenantB));
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("shared-product", "Tenant B v2", TenantScopeTestFixtures.TenantB, version: 2));
+        await writer.UpdateActivationAsync("shared-product", "Published", new ActivationState
+        {
+            TenantScope = TenantScopeTestFixtures.TenantB,
+            ResourceId = "shared-product",
+            Channel = "Published",
+            ActiveVersions = [2],
+            LastUpdated = DateTime.UtcNow,
+        });
+
+        var latest = (await query.QueryAsync(TenantScopeTestFixtures.ProductQuery(TenantScopeTestFixtures.TenantB))).ToList();
+        var active = (await query.QueryAsync(new ResourceQuery
+        {
+            TenantScope = TenantScopeTestFixtures.TenantB,
+            DefinitionId = "Product",
+            Scope = ResourceVersionScope.Active,
+            ActivationChannel = "Published",
+        })).ToList();
+        var draft = (await query.QueryAsync(new ResourceQuery
+        {
+            TenantScope = TenantScopeTestFixtures.TenantB,
+            DefinitionId = "Product",
+            Scope = ResourceVersionScope.Draft,
+        })).ToList();
+
+        Assert.Equal(2, latest.Single().Version);
+        Assert.Equal(2, active.Single().Version);
+        Assert.Equal(1, draft.Single().Version);
+    }
+
     private static Aster.Core.Models.Definitions.ResourceDefinition CreateDefinition() =>
         new ResourceDefinitionBuilder().WithDefinitionId("Product").Build();
 }
