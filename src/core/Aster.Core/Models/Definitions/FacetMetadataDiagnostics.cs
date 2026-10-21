@@ -127,6 +127,22 @@ public static class FacetValueDiagnosticCodes
     /// An array value declared with <c>UniqueItems</c> contains duplicate elements after normalization.
     /// </summary>
     public const string ItemsNotUnique = "facet-value-items-not-unique";
+
+    /// <summary>
+    /// A reference value names a <c>ResourceId</c> that does not exist in the saving tenant.
+    /// </summary>
+    public const string ReferenceTargetMissing = "reference-target-missing";
+
+    /// <summary>
+    /// A reference value names a resource whose definition is not in the facet's <c>TargetDefinitionIds</c>.
+    /// </summary>
+    public const string ReferenceTargetTypeMismatch = "reference-target-type-mismatch";
+
+    /// <summary>
+    /// A reference facet resolves through a channel (<c>ReferenceResolution</c>), and the referenced
+    /// resource has no version active in it.
+    /// </summary>
+    public const string ReferencePinMissing = "reference-pin-missing";
 }
 
 /// <summary>

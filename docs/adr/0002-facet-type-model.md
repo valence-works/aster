@@ -164,3 +164,11 @@ When index projections (#100) need a type, the mapping is: `string` → `Keyword
 - **Option B** (store enum names) changes the stored format. It needs a converter scoped to aspect payloads only (lifecycle markers and policy kinds must stay integers, which SQLite compares as such), plus a migration or dual-read story for existing integer data. The cost isn't justified without a consumer.
 
 **When a consumer appears:** prefer option B for new definitions, because names are stable across enum reordering and readable in exports. Scope the converter to aspect payloads and accept both forms on read.
+
+### Saves validate reference targets; strict by default (#87)
+
+Saves check every reference value: the target must exist in the saving tenant, have a definition in `TargetDefinitionIds`, and have a version active in the `ReferenceResolution` channel when one is declared. Per-value version pins stay out (§6), so the channel is the only pin to check.
+
+- **Mode:** `AsterOptions.ReferenceValidation` is `Strict` (the default; the save is rejected) or `Lenient` (the save proceeds; diagnostics are logged and passed to save hooks as `ReferenceWarnings`). Strict is the default because references are new in 1.0, so no existing data depends on dangling targets. `IResourceManager` return types stay unchanged, so lenient warnings reach hosts through hooks or an explicit `IResourceReferenceValidator` preview rather than through the save result.
+- **Updates check only the aspects they write.** Otherwise a target that is deleted or deactivated later would block every unrelated edit of the referrer. Finding such dangling references belongs to reverse lookup (#88).
+- **Reads are bounded:** one latest-version read for all targets, plus one active-version read per channel.

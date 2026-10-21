@@ -1,6 +1,9 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
+using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
 using Aster.Core.Services;
 using Microsoft.Extensions.Logging;
@@ -16,6 +19,8 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     private readonly InMemoryResourceStore store;
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IIdentityGenerator identityGenerator;
+    private readonly IResourceReferenceValidator referenceValidator;
+    private readonly ReferenceValidationMode referenceValidation;
     private readonly ILogger<InMemoryResourceManager> logger;
 
     /// <summary>
@@ -30,15 +35,36 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
         IResourceDefinitionStore definitionStore,
         IIdentityGenerator identityGenerator,
         ILogger<InMemoryResourceManager> logger)
+        : this(store, definitionStore, identityGenerator, new AsterOptions(), logger)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="InMemoryResourceManager"/>.
+    /// </summary>
+    /// <param name="store">The backing in-memory resource store.</param>
+    /// <param name="definitionStore">The definition store (used for singleton enforcement).</param>
+    /// <param name="identityGenerator">Generator for new resource and version IDs.</param>
+    /// <param name="options">Host options; supplies the reference validation mode.</param>
+    /// <param name="logger">The logger.</param>
+    public InMemoryResourceManager(
+        InMemoryResourceStore store,
+        IResourceDefinitionStore definitionStore,
+        IIdentityGenerator identityGenerator,
+        AsterOptions options,
+        ILogger<InMemoryResourceManager> logger)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(identityGenerator);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
 
         this.store = store;
         this.definitionStore = definitionStore;
         this.identityGenerator = identityGenerator;
+        referenceValidator = new ResourceReferenceValidator(store);
+        referenceValidation = options.ReferenceValidation;
         this.logger = logger;
     }
 
@@ -77,6 +103,8 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
             if (facetValueDiagnostics.Count > 0)
                 throw new FacetValueValidationException(facetValueDiagnostics);
         }
+
+        await ValidateReferencesAsync(definition, request.InitialAspects, resourceId, tenant, cancellationToken);
 
         // Atomic duplicate ID check - TryAdd is atomic so only one creator can win.
         var versionList = new List<Resource>();
@@ -144,6 +172,9 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
             if (facetValueDiagnostics.Count > 0)
                 throw new FacetValueValidationException(facetValueDiagnostics);
         }
+
+        await ValidateReferencesAsync(
+            definition, DefaultResourceManager.UpdatedAspects(mergedAspects, request), resourceId, tenant, cancellationToken);
 
         return await SaveVersionAsync(updated, cancellationToken);
     }
@@ -414,6 +445,34 @@ public sealed partial class InMemoryResourceManager : IResourceManager, IResourc
     // ──────────────────────────────────────────────────────────────────────────
     // Structured log methods (source generated)
     // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Validates reference targets (ADR 0002 §6, #87): strict mode throws, lenient mode logs warnings.
+    /// </summary>
+    private async ValueTask ValidateReferencesAsync(
+        ResourceDefinition? definition,
+        IReadOnlyDictionary<string, object> aspects,
+        string resourceId,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        if (definition is null)
+            return;
+
+        var diagnostics = await referenceValidator.ValidateAsync(definition, aspects, tenant, cancellationToken);
+        if (diagnostics.Count == 0)
+            return;
+
+        if (referenceValidation == ReferenceValidationMode.Strict)
+            throw new FacetValueValidationException(diagnostics);
+
+        foreach (var diagnostic in diagnostics)
+            LogReferenceWarning(resourceId, diagnostic.Code, diagnostic.AspectKey, diagnostic.FacetDefinitionId, diagnostic.Message);
+    }
+
+    [LoggerMessage(EventId = 1003, Level = LogLevel.Warning,
+        Message = "Saving resource '{ResourceId}' with an invalid reference [{Code}] at {AspectKey}/{FacetDefinitionId}: {Message}")]
+    private partial void LogReferenceWarning(string resourceId, string code, string aspectKey, string facetDefinitionId, string message);
 
     [LoggerMessage(EventId = 1000, Level = LogLevel.Information,
         Message = "Saved resource '{ResourceId}' version {Version} (Id={Id}).")]

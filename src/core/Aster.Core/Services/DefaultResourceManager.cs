@@ -1,8 +1,11 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
+using Aster.Core.Extensions;
+using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +22,8 @@ public sealed partial class DefaultResourceManager : IResourceManager
     private readonly IResourceVersionWriter versionWriter;
     private readonly IIdentityGenerator identityGenerator;
     private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
+    private readonly IResourceReferenceValidator referenceValidator;
+    private readonly ReferenceValidationMode referenceValidation;
     private readonly ILogger<DefaultResourceManager> logger;
 
     /// <summary>
@@ -50,12 +55,35 @@ public sealed partial class DefaultResourceManager : IResourceManager
         IIdentityGenerator identityGenerator,
         IResourceLifecycleHookDispatcher lifecycleHooks,
         ILogger<DefaultResourceManager> logger)
+        : this(
+            definitionStore,
+            versionReader,
+            versionWriter,
+            identityGenerator,
+            lifecycleHooks,
+            new AsterOptions(),
+            logger)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="DefaultResourceManager"/>.
+    /// </summary>
+    public DefaultResourceManager(
+        IResourceDefinitionStore definitionStore,
+        IResourceVersionReader versionReader,
+        IResourceVersionWriter versionWriter,
+        IIdentityGenerator identityGenerator,
+        IResourceLifecycleHookDispatcher lifecycleHooks,
+        AsterOptions options,
+        ILogger<DefaultResourceManager> logger)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(versionReader);
         ArgumentNullException.ThrowIfNull(versionWriter);
         ArgumentNullException.ThrowIfNull(identityGenerator);
         ArgumentNullException.ThrowIfNull(lifecycleHooks);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
 
         this.definitionStore = definitionStore;
@@ -63,6 +91,8 @@ public sealed partial class DefaultResourceManager : IResourceManager
         this.versionWriter = versionWriter;
         this.identityGenerator = identityGenerator;
         this.lifecycleHooks = lifecycleHooks;
+        referenceValidator = new ResourceReferenceValidator(versionReader);
+        referenceValidation = options.ReferenceValidation;
         this.logger = logger;
     }
 
@@ -102,6 +132,8 @@ public sealed partial class DefaultResourceManager : IResourceManager
                 throw new FacetValueValidationException(facetValueDiagnostics);
         }
 
+        var referenceWarnings = await ValidateReferencesAsync(definition, request.InitialAspects, resourceId, tenant, cancellationToken);
+
         var resource = new Resource
         {
             TenantScope = tenant,
@@ -125,6 +157,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             DefinitionId = definitionId,
             ResourceId = resourceId,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(resource),
+            ReferenceWarnings = referenceWarnings,
         }, cancellationToken);
 
         var afterContext = new ResourceSaveLifecycleContext
@@ -137,6 +170,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             DefinitionId = definitionId,
             ResourceId = resourceId,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(resource),
+            ReferenceWarnings = referenceWarnings,
         };
 
         Resource persisted;
@@ -197,6 +231,9 @@ public sealed partial class DefaultResourceManager : IResourceManager
                 throw new FacetValueValidationException(facetValueDiagnostics);
         }
 
+        var referenceWarnings = await ValidateReferencesAsync(
+            definition, UpdatedAspects(mergedAspects, request), resourceId, tenant, cancellationToken);
+
         var operationId = Guid.NewGuid();
         await lifecycleHooks.InvokeBeforeSaveAsync(new ResourceSaveLifecycleContext
         {
@@ -209,6 +246,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ResourceId = resourceId,
             BaseVersion = request.BaseVersion,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(updated),
+            ReferenceWarnings = referenceWarnings,
         }, cancellationToken);
 
         var afterContext = new ResourceSaveLifecycleContext
@@ -222,6 +260,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ResourceId = updated.ResourceId,
             BaseVersion = request.BaseVersion,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(updated),
+            ReferenceWarnings = referenceWarnings,
         };
 
         Resource persisted;
@@ -574,6 +613,48 @@ public sealed partial class DefaultResourceManager : IResourceManager
         {
         }
     }
+
+    /// <summary>
+    /// Validates reference targets (ADR 0002 §6, #87). Strict mode throws; lenient mode logs and
+    /// returns the diagnostics so the save hooks receive them as warnings.
+    /// </summary>
+    private async ValueTask<IReadOnlyList<FacetValueDiagnostic>> ValidateReferencesAsync(
+        ResourceDefinition? definition,
+        IReadOnlyDictionary<string, object> aspects,
+        string resourceId,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        if (definition is null)
+            return [];
+
+        var diagnostics = await referenceValidator.ValidateAsync(definition, aspects, tenant, cancellationToken);
+        if (diagnostics.Count == 0)
+            return [];
+
+        if (referenceValidation == ReferenceValidationMode.Strict)
+            throw new FacetValueValidationException(diagnostics);
+
+        foreach (var diagnostic in diagnostics)
+            LogReferenceWarning(resourceId, diagnostic.Code, diagnostic.AspectKey, diagnostic.FacetDefinitionId, diagnostic.Message);
+
+        return diagnostics;
+    }
+
+    /// <summary>
+    /// The aspects an update writes. References in untouched aspects were validated when written, so a
+    /// target that later disappears does not block unrelated edits.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, object> UpdatedAspects(
+        IReadOnlyDictionary<string, object> mergedAspects,
+        UpdateResourceRequest request) =>
+        request.AspectUpdates.Keys
+            .Where(mergedAspects.ContainsKey)
+            .ToDictionary(static key => key, key => mergedAspects[key], StringComparer.Ordinal);
+
+    [LoggerMessage(EventId = 1003, Level = LogLevel.Warning,
+        Message = "Saving resource '{ResourceId}' with an invalid reference [{Code}] at {AspectKey}/{FacetDefinitionId}: {Message}")]
+    private partial void LogReferenceWarning(string resourceId, string code, string aspectKey, string facetDefinitionId, string message);
 
     [LoggerMessage(EventId = 1000, Level = LogLevel.Information,
         Message = "Saved resource '{ResourceId}' version {Version} (Id={Id}).")]

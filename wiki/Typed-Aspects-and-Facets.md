@@ -85,17 +85,41 @@ A `reference` facet holds the `ResourceId` of another resource; `reference[]` ho
 | `ReferenceResolution` | `null` or `"latest"`: resolve the target's latest version. Any other value names the activation channel whose active version is used. |
 
 ```csharp
-new ResourceDefinitionBuilder()
+var definition = new ResourceDefinitionBuilder()
     .WithDefinitionId("Agent")
     .WithAspect("Links")
     .WithFacet("Secret", "reference", isRequired: true)
-    .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = ["Secret"], ReferenceResolution = "production" });
+    .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = ["Secret"], ReferenceResolution = "production" })
+    .Build();
 
 var resolution = await referenceResolver.ResolveAsync(definition, "Links", "Secret", "sec-openai", tenant);
 // resolution.Status: Resolved, TargetNotFound, TargetTypeMismatch, or NotActiveInChannel
 ```
 
 `IResourceReferenceResolver` looks targets up in the given tenant only (cross-tenant references are not supported). With channel resolution, if several versions are active (activated with `allowMultipleActive: true`), the newest one wins. References are stored as plain strings, so they can be queried with `Equals`, `In` and the array operators. Per-value version pins are not supported (ADR 0002 §6): store an exact version in a sibling `int` facet when you need one. References are never derived from typed aspect properties; declare them explicitly.
+
+#### Save-time reference validation
+
+Creates and updates also check each well-typed reference value against the store, in the saving tenant:
+
+| Code | When |
+|---|---|
+| `reference-target-missing` | No resource with that `ResourceId` exists. |
+| `reference-target-type-mismatch` | The target's definition is not in `TargetDefinitionIds`. |
+| `reference-pin-missing` | The facet resolves through a channel, and the target has no version active in it. |
+
+Diagnostics carry the aspect key, facet ID and, for `reference[]`, the element index. The checks cost one bounded latest-version read for every referenced resource, plus one active-version read per declared channel, so there are no per-value reads. An update checks only the aspects it writes: a target that disappears or is deactivated later does not block unrelated edits.
+
+The host chooses what a failing reference does:
+
+```csharp
+services.AddAsterCore(options => options.ReferenceValidation = ReferenceValidationMode.Lenient);
+```
+
+- `Strict` (the default) rejects the save with a `FacetValueValidationException`; nothing is persisted.
+- `Lenient` saves. The diagnostics are logged as warnings and passed to lifecycle hooks as `ResourceSaveLifecycleContext.ReferenceWarnings`.
+
+To show the same diagnostics before saving (for example, in an editor), call `IResourceReferenceValidator.ValidateAsync(definition, aspects, tenant)`. Portability import and schema upgrades skip these checks, as they do for facet value validation.
 
 ### Untyped aspects
 
