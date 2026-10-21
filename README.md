@@ -55,7 +55,7 @@ dotnet add package Aster.Persistence.SqliteJson   # optional: SQLite persistence
 dotnet add package Aster.Persistence.PostgresJsonb # optional: PostgreSQL persistence
 dotnet add package Aster.Persistence.SqlServerJson # optional: SQL Server persistence
 dotnet add package Aster.AspNetCore               # optional: REST endpoints
-dotnet add package Aster.Elsa                     # optional: Elsa Workflows 3 activities
+dotnet add package Aster.Elsa                     # optional: Elsa Workflows 3 activities and triggers
 ```
 
 Packages target .NET 8, 9 and 10. Until 1.0 they are published as `0.x` releases and the API may change between minor versions.
@@ -332,7 +332,7 @@ src/
   hosting/
     Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
   integrations/
-    Aster.Elsa/              ← Elsa Workflows 3 module: activities over Aster resources (UseAster)
+    Aster.Elsa/              ← Elsa Workflows 3 module: activities and lifecycle triggers over Aster resources (UseAster)
   apps/
     Aster.Studio/            ← Aster Studio: the reference host (ASP.NET Core + React SPA)
 samples/                     ← Runnable use-case samples (see samples/README.md)
@@ -341,7 +341,7 @@ samples/                     ← Runnable use-case samples (see samples/README.m
 test/
   Aster.Tests/               ← xUnit tests (unit + integration)
   Aster.AspNetCore.Tests/    ← HTTP integration tests for Aster.AspNetCore (TestServer)
-  Aster.Elsa.Tests/          ← Elsa workflows run in process over the Aster activities
+  Aster.Elsa.Tests/          ← Elsa workflows run in process over the Aster activities and triggers
   Aster.Samples.*.Tests/     ← Tests that keep the samples working
 docs/                        ← Architecture review, coding conventions, roadmap
 specs/                       ← Feature specs (001-core-sdk-foundation, …)
