@@ -36,14 +36,14 @@ if (app.Environment.IsDevelopment())
 await DemoSeedData.InitializeAsync(app.Services, app.Logger, app.Lifetime.ApplicationStopping);
 app.UseStudioTenants();
 
-// Resource and definition operations come from the package; Studio adds only its view endpoints (#110).
+// Resource, definition and aspect operations come from the package; Studio adds only its view endpoints (#110).
 // Studio keeps two write rules the package endpoints leave to the host:
-// - Shared aspects are written only through Studio's create-only and base-version checks, so the package's
-//   unconditional aspect registration is not mapped (#175 adds a conditional one).
+// - Shared aspects register only conditionally: a registration must name expectedLatestVersion (#175), so creating
+//   never appends to an existing aspect and saving never supersedes a concurrent edit.
 // - Content types are create-only: registering a definition must name expectedLatestVersion=0.
 app.MapAster("/api/aster", options =>
 {
-    options.Groups = AsterEndpointGroups.Definitions | AsterEndpointGroups.Resources;
+    options.Groups = AsterEndpointGroups.Definitions | AsterEndpointGroups.Aspects | AsterEndpointGroups.Resources;
     // The package endpoints have their own JSON options (camelCase enums); keep the SPA's kebab-case enum names there too.
     options.SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
     {
@@ -53,6 +53,8 @@ app.MapAster("/api/aster", options =>
     {
         if (group == AsterEndpointGroups.Definitions)
             builder.AddEndpointFilter(RequireCreateOnlyDefinitionRegistration);
+        else if (group == AsterEndpointGroups.Aspects)
+            builder.AddEndpointFilter(RequireConditionalAspectRegistration);
     };
 });
 app.MapStudioApi();
@@ -88,6 +90,20 @@ static ValueTask<object?> RequireCreateOnlyDefinitionRegistration(EndpointFilter
             statusCode: StatusCodes.Status400BadRequest,
             title: "Content types are create-only in Studio.",
             detail: "Register a definition with ?expectedLatestVersion=0."));
+    }
+
+    return next(context);
+}
+
+static ValueTask<object?> RequireConditionalAspectRegistration(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+{
+    var request = context.HttpContext.Request;
+    if (HttpMethods.IsPost(request.Method) && !request.Query.ContainsKey("expectedLatestVersion"))
+    {
+        return ValueTask.FromResult<object?>(Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Shared aspects register conditionally in Studio.",
+            detail: "Register an aspect with ?expectedLatestVersion= (0 to create)."));
     }
 
     return next(context);

@@ -3343,3 +3343,23 @@ override Aster.Core.Models.Policies.ResourceVersionPruneFloor.GetHashCode() -> i
 override Aster.Core.Models.Policies.ResourceVersionPruneFloor.ToString() -> string!
 static Aster.Core.Models.Policies.ResourceVersionPruneFloor.operator !=(Aster.Core.Models.Policies.ResourceVersionPruneFloor? left, Aster.Core.Models.Policies.ResourceVersionPruneFloor? right) -> bool
 static Aster.Core.Models.Policies.ResourceVersionPruneFloor.operator ==(Aster.Core.Models.Policies.ResourceVersionPruneFloor? left, Aster.Core.Models.Policies.ResourceVersionPruneFloor? right) -> bool
+Aster.Core.Abstractions.IAspectDefinitionStore.RegisterIfLatestAsync(Aster.Core.Models.Definitions.AspectDefinition! aspect, int expectedLatestVersion, Aster.Core.Models.Tenancy.TenantScope? tenantScope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult!>
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.<Clone>$() -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult!
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Aspect.get -> Aster.Core.Models.Definitions.AspectDefinition?
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Aspect.init -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.AspectDefinitionRegistrationResult() -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Equals(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? other) -> bool
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.IsRegistered.get -> bool
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.LatestVersion.get -> int
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.LatestVersion.init -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Status.get -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Status.init -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus.Registered = 0 -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus.VersionConflict = 1 -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Equals(object? obj) -> bool
+override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.GetHashCode() -> int
+override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.ToString() -> string!
+static Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.operator !=(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? left, Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? right) -> bool
+static Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.operator ==(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? left, Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? right) -> bool

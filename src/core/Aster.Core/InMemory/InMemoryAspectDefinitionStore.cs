@@ -18,7 +18,21 @@ internal sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
     public ValueTask<AspectDefinition> RegisterAsync(
         AspectDefinition aspect,
         TenantScope? tenantScope = null,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(Register(aspect, expectedLatestVersion: null, tenantScope).Aspect!);
+
+    /// <inheritdoc />
+    public ValueTask<AspectDefinitionRegistrationResult> RegisterIfLatestAsync(
+        AspectDefinition aspect,
+        int expectedLatestVersion,
+        TenantScope? tenantScope = null,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(expectedLatestVersion);
+        return ValueTask.FromResult(Register(aspect, expectedLatestVersion, tenantScope));
+    }
+
+    private AspectDefinitionRegistrationResult Register(AspectDefinition aspect, int? expectedLatestVersion, TenantScope? tenantScope)
     {
         ArgumentNullException.ThrowIfNull(aspect);
         ArgumentException.ThrowIfNullOrWhiteSpace(aspect.AspectDefinitionId);
@@ -28,16 +42,20 @@ internal sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
         var versions = aspects.GetOrAdd((tenant.TenantId, aspect.AspectDefinitionId), static _ => []);
         lock (versions)
         {
+            var latest = versions.Count > 0 ? versions[^1].Version : 0;
+            if (expectedLatestVersion is { } expected && expected != latest)
+                return new() { Status = AspectDefinitionRegistrationStatus.VersionConflict, LatestVersion = latest };
+
             // Snapshot the facet list so a caller mutating the collection it registered can't change a stored
             // version (and every definition pinned to it), matching the detached copies SQLite returns.
             var registered = aspect with
             {
-                Version = versions.Count > 0 ? versions[^1].Version + 1 : 1,
+                Version = latest + 1,
                 IsShared = false,
                 FacetDefinitions = Array.AsReadOnly(aspect.FacetDefinitions.ToArray()),
             };
             versions.Add(registered);
-            return ValueTask.FromResult(registered);
+            return new() { Status = AspectDefinitionRegistrationStatus.Registered, Aspect = registered, LatestVersion = registered.Version };
         }
     }
 

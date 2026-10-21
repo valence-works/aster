@@ -5,8 +5,6 @@ namespace Aster.Studio;
 
 internal static class DemoDefinitions
 {
-    private static readonly JsonSerializerOptions ShapeOptions = new(JsonSerializerDefaults.Web);
-
     /// <summary>
     /// Builds an aspect definition from Studio facet rows; the store assigns the version.
     /// </summary>
@@ -18,14 +16,6 @@ internal static class DemoDefinitions
         RequiresName = requiresName,
         FacetDefinitions = facets.Select(ToFacetDefinition).ToList(),
     };
-
-    /// <summary>
-    /// Whether two aspect versions declare the same facets, ignoring version-specific IDs. Versions are
-    /// append-only, so Studio compares before registering instead of appending an identical version.
-    /// </summary>
-    public static bool HasSameShape(AspectDefinition left, AspectDefinition right) =>
-        left.RequiresName == right.RequiresName
-        && string.Equals(ShapeOf(left), ShapeOf(right), StringComparison.Ordinal);
 
     public static SharedAspectDto ToSharedAspectDto(
         AspectDefinition aspect,
@@ -42,10 +32,6 @@ internal static class DemoDefinitions
     private static IEnumerable<FacetDefinition> OrderFacets(IEnumerable<FacetDefinition> facets) => facets
         .OrderBy(static facet => facet.Metadata?.DisplayOrder ?? int.MaxValue)
         .ThenBy(static facet => facet.FacetDefinitionId, StringComparer.Ordinal);
-
-    private static string ShapeOf(AspectDefinition aspect) => JsonSerializer.Serialize(
-        aspect.FacetDefinitions.Select(static facet => new { facet.FacetDefinitionId, facet.Type, facet.IsRequired, facet.Metadata }),
-        ShapeOptions);
 
     public static FacetDto ToFacetDto(FacetDefinition facet) => new(
         facet.FacetDefinitionId,

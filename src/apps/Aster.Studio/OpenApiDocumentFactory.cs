@@ -11,8 +11,8 @@ internal static class OpenApiDocumentFactory
         {
             // Studio's own view endpoints. Resource, definition and aspect operations are the Aster.AspNetCore
             // endpoints under /api/aster (src/hosting/Aster.AspNetCore/README.md).
-            ["/api/studio/aspects"] = Path(Get: Operation("List shared aspects with versions and usage"), Post: Operation("Create a shared aspect (409 if it exists)")),
-            ["/api/studio/aspects/{aspectId}"] = Path(Get: Operation("Get a shared aspect with versions and usage"), Put: Operation("Save a shared aspect as a new version, based on baseVersion")),
+            ["/api/studio/aspects"] = Path(Get: Operation("List shared aspects with versions and usage")),
+            ["/api/studio/aspects/{aspectId}"] = Path(Get: Operation("Get a shared aspect with versions and usage")),
             ["/api/studio/aspects/{aspectId}/upgrade-preview"] = Path(Get: Operation("Preview content types on older aspect versions")),
             ["/api/studio/aspects/{aspectId}/upgrade"] = Path(Post: Operation("Re-pin selected content types to an aspect version")),
             ["/api/studio/definitions"] = Path(Get: Operation("List definitions with resource counts")),
