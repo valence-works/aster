@@ -35,7 +35,7 @@ internal static class AspectTemplateCatalog
             "Taggable",
             "Simple tagging metadata.",
             [
-                new("tags", "string", false, new FacetMetadataDto { UiHint = "tags", Description = "Comma-separated tags", DisplayOrder = 1 }),
+                new("tags", "string[]", false, new FacetMetadataDto { UiHint = "tags", Description = "Up to 10 distinct tags", MaxLength = 40, MaxItems = 10, UniqueItems = true, DisplayOrder = 1 }),
             ]),
         new(
             "navigation",

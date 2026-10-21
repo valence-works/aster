@@ -31,6 +31,12 @@ internal sealed record FacetMetadataDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Pattern { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MinItems { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxItems { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UniqueItems { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UiHint { get; init; }
 }
 
@@ -91,7 +97,8 @@ internal sealed record ResourceListItemDto(
     int Version,
     DateTime Created,
     string Title,
-    IReadOnlyList<string> ActiveChannels);
+    IReadOnlyList<string> ActiveChannels,
+    IReadOnlyList<string> Tags);
 
 internal sealed record ResourceDetailDto(
     string ResourceId,

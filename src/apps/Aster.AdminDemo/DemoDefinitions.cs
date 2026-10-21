@@ -97,6 +97,9 @@ internal static class DemoDefinitions
             Minimum = metadata.MinValue,
             Maximum = metadata.MaxValue,
             Pattern = metadata.Pattern,
+            MinItems = metadata.MinItems,
+            MaxItems = metadata.MaxItems,
+            UniqueItems = metadata.UniqueItems,
             UiHint = metadata.UiHint,
         };
     }
@@ -118,11 +121,19 @@ internal static class DemoDefinitions
             MinValue = metadata.Minimum,
             MaxValue = metadata.Maximum,
             Pattern = metadata.Pattern,
+            MinItems = metadata.MinItems,
+            MaxItems = metadata.MaxItems,
+            UniqueItems = metadata.UniqueItems,
             UiHint = metadata.UiHint,
         };
     }
 
-    private static string ToSdkFacetType(string type) => type.ToLowerInvariant() switch
+    // Studio's UI types map element-wise for arrays: "number[]" is "decimal[]".
+    private static string ToSdkFacetType(string type) => type.EndsWith("[]", StringComparison.Ordinal)
+        ? ToSdkScalarType(type[..^2]) + "[]"
+        : ToSdkScalarType(type);
+
+    private static string ToSdkScalarType(string type) => type.ToLowerInvariant() switch
     {
         "number" => "decimal",
         "boolean" => "bool",
@@ -131,7 +142,11 @@ internal static class DemoDefinitions
         var other => other,
     };
 
-    private static string ToDtoFacetType(string type) => type.ToLowerInvariant() switch
+    private static string ToDtoFacetType(string type) => type.EndsWith("[]", StringComparison.Ordinal)
+        ? ToDtoScalarType(type[..^2]) + "[]"
+        : ToDtoScalarType(type);
+
+    private static string ToDtoScalarType(string type) => type.ToLowerInvariant() switch
     {
         "decimal" or "int" or "int32" or "int64" or "long" => "number",
         "bool" or "boolean" => "boolean",

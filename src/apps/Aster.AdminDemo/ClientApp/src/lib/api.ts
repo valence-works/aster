@@ -9,6 +9,9 @@ export type FacetMetadata = {
   minValue?: number;
   maxValue?: number;
   pattern?: string;
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
   uiHint?: "text" | "multiline" | "richtext" | "slug" | "email" | "url" | "date" | "datetime" | "number" | "toggle" | "select" | "tags" | string;
 };
 
@@ -70,6 +73,7 @@ export type ResourceSummaryDto = {
   created: string;
   title: string;
   activeChannels: string[];
+  tags: string[];
 };
 
 export type ResourceListDto = {
@@ -163,7 +167,8 @@ export const api = {
   getDefinitions: () => request<DefinitionSummaryDto[]>("/api/definitions"),
   getDefinition: (definitionId: string) => request<DefinitionDetailDto>(`/api/definitions/${encodeURIComponent(definitionId)}`),
   createDefinition: (body: CreateDefinitionRequest) => request<DefinitionDetailDto>("/api/definitions", { method: "POST", body: JSON.stringify(body) }),
-  getResources: (definitionId: string, skip = 0, take = 20) => request<ResourceListDto>(`/api/resources?definitionId=${encodeURIComponent(definitionId)}&skip=${skip}&take=${take}`),
+  getResources: (definitionId: string, skip = 0, take = 20, tags: string[] = []) =>
+    request<ResourceListDto>(`/api/resources?definitionId=${encodeURIComponent(definitionId)}&skip=${skip}&take=${take}${tags.map((tag) => `&tag=${encodeURIComponent(tag)}`).join("")}`),
   getResource: (resourceId: string) => request<ResourceDetailDto>(`/api/resources/${encodeURIComponent(resourceId)}`),
   getResourceVersions: (resourceId: string) => request<VersionSummaryDto[]>(`/api/resources/${encodeURIComponent(resourceId)}/versions`),
   getResourceVersion: (resourceId: string, version: number) => request<ResourceDetailDto>(`/api/resources/${encodeURIComponent(resourceId)}/versions/${version}`),

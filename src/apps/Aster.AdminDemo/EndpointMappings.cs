@@ -4,12 +4,15 @@ using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Aster.AdminDemo;
 
 internal static class EndpointMappings
 {
     private static readonly string[] FixedChannels = ["preview", "live"];
+    private const string TaggableAspectKey = "taggable";
+    private const string TagsFacetId = "tags";
 
     public static RouteGroupBuilder MapAdminDemoApi(this WebApplication app)
     {
@@ -145,6 +148,7 @@ internal static class EndpointMappings
         string? definitionId,
         int? skip,
         int? take,
+        [FromQuery] string[]? tag,
         IResourceDefinitionStore definitionStore,
         IResourceQueryService queryService,
         IResourceVersionHistoryService historyService,
@@ -153,15 +157,24 @@ internal static class EndpointMappings
         if (string.IsNullOrWhiteSpace(definitionId))
             return Results.BadRequest(new ErrorEnvelope("definitionId is required."));
 
-        if (await definitionStore.GetDefinitionAsync(definitionId, cancellationToken) is null)
+        if (await definitionStore.GetDefinitionAsync(definitionId, cancellationToken) is not { } definition)
             return Results.NotFound(new ErrorEnvelope($"Definition '{definitionId}' was not found."));
+
+        // Tag filtering runs in the provider as ArrayContainsAny over the Taggable aspect's string[] facet.
+        var tags = tag?.Select(static value => value.Trim()).Where(static value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
+        FilterExpression? filter = tags.Length == 0
+            ? null
+            : definition.AspectDefinitions.ContainsKey(TaggableAspectKey)
+                ? new FacetValueFilter(TaggableAspectKey, TagsFacetId, tags, ComparisonOperator.ArrayContainsAny)
+                : new AspectPresenceFilter(TaggableAspectKey);
 
         var normalizedSkip = Math.Max(0, skip ?? 0);
         var normalizedTake = Math.Clamp(take ?? 20, 1, 100);
-        var all = (await queryService.QueryAsync(new ResourceQuery { DefinitionId = definitionId }, cancellationToken)).ToList();
+        var all = (await queryService.QueryAsync(new ResourceQuery { DefinitionId = definitionId, Filter = filter }, cancellationToken)).ToList();
         var paged = (await queryService.QueryAsync(new ResourceQuery
         {
             DefinitionId = definitionId,
+            Filter = filter,
             Skip = normalizedSkip,
             Take = normalizedTake,
         }, cancellationToken)).ToList();
@@ -173,7 +186,8 @@ internal static class EndpointMappings
             resource.Version,
             resource.Created,
             GetTitle(resource),
-            GetActiveChannels(histories[resource.ResourceId]).ToList()))
+            GetActiveChannels(histories[resource.ResourceId]).ToList(),
+            GetTags(resource)))
             .ToList();
 
         return Results.Ok(new ResourceListResponse(items, all.Count));
@@ -369,6 +383,13 @@ internal static class EndpointMappings
 
         return resource.ResourceId;
     }
+
+    private static IReadOnlyList<string> GetTags(Resource resource) =>
+        resource.Aspects.TryGetValue(TaggableAspectKey, out var taggable)
+        && DemoJsonValues.ToFacetDictionary(taggable).TryGetValue(TagsFacetId, out var tags)
+        && tags is IEnumerable<object?> values
+            ? values.OfType<string>().ToList()
+            : [];
 
     private static IEnumerable<string> GetActiveChannels(ResourceVersionHistoryResult history) =>
         OrderChannels(history.Versions.SelectMany(static version => version.ActiveChannels).Distinct(StringComparer.Ordinal));

@@ -19,5 +19,8 @@ export function buildConstraintBadges(isRequired: boolean, metadata: FacetMetada
   if (metadata.maxValue !== undefined) badges.push(`≤ ${metadata.maxValue}`);
   if (metadata.pattern) badges.push("pattern");
   if (metadata.allowedValues?.length) badges.push(`${metadata.allowedValues.length} values`);
+  if (metadata.minItems !== undefined) badges.push(`≥ ${metadata.minItems} items`);
+  if (metadata.maxItems !== undefined) badges.push(`≤ ${metadata.maxItems} items`);
+  if (metadata.uniqueItems) badges.push("unique");
   return badges;
 }
