@@ -97,10 +97,30 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 })
                 .ToList();
 
+            var aspectDefinitions = storeSnapshot.AspectDefinitions
+                .Select(static aspect => aspect with { IsShared = false })
+                .OrderBy(static aspect => aspect.AspectDefinitionId, StringComparer.Ordinal)
+                .ThenBy(static aspect => aspect.Version)
+                .ToList();
+            var exportedAspectVersions = aspectDefinitions
+                .Select(static aspect => (aspect.AspectDefinitionId, aspect.Version))
+                .ToHashSet();
+            var unresolvedPinDiagnostics = SharedAspectPins(storeSnapshot.Definitions)
+                .Where(pin => !exportedAspectVersions.Contains((pin.Aspect.AspectDefinitionId, pin.Aspect.Version)))
+                .Select(static pin => new PortableDiagnostic
+                {
+                    Code = PortableDiagnosticCodes.UnresolvedAspectPin,
+                    Severity = PortableDiagnosticSeverity.Warning,
+                    Path = PinPath(pin.Definition, pin.Key),
+                    Message = $"Definition '{pin.Definition.DefinitionId}' version {pin.Definition.Version} pins aspect definition '{pin.Aspect.AspectDefinitionId}' version {pin.Aspect.Version}, which is not in the source tenant's aspect definition store; importing the snapshot requires that version in the target tenant.",
+                })
+                .ToList();
+
             snapshot = new PortableSnapshot
             {
                 FormatVersion = PortableSnapshot.CurrentFormatVersion,
                 SourceTenantScope = sourceTenant,
+                AspectDefinitions = aspectDefinitions,
                 Definitions = storeSnapshot.Definitions.Select(definition => definition with { TenantScope = sourceTenant }).ToList(),
                 Resources = storeSnapshot.Resources.Select(resource => resource with { TenantScope = sourceTenant }).ToList(),
                 ActivationStates = storeSnapshot.ActivationStates.Select(state => state with { TenantScope = sourceTenant }).ToList(),
@@ -111,7 +131,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             {
                 SourceTenantScope = sourceTenant,
                 Snapshot = snapshot,
-                Diagnostics = diagnostics.Concat(skippedActivationDiagnostics).ToList(),
+                Diagnostics = diagnostics.Concat(unresolvedPinDiagnostics).Concat(skippedActivationDiagnostics).ToList(),
                 SkippedActivationEntries = storeSnapshot.SkippedActivationEntries,
             };
         }
@@ -448,6 +468,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var targetState = await portabilityStore.ReadTargetStateAsync(targetSnapshot, cancellationToken);
         var identityMap = new List<PortableIdentityMapping>();
         var strictFailureIdentityMap = new List<PortableIdentityMapping>();
+        var existingAspects = targetState.AspectDefinitions.ToDictionary(static aspect => (aspect.AspectDefinitionId, aspect.Version));
+        var snapshotAspects = snapshot.AspectDefinitions.ToDictionary(static aspect => (aspect.AspectDefinitionId, aspect.Version));
         var existingDefinitions = targetState.Definitions.ToDictionary(static definition => (definition.DefinitionId, definition.Version));
         var existingResources = targetState.Resources.ToDictionary(static resource => (resource.ResourceId, resource.Version));
         var existingActivationStates = targetState.ActivationStates.ToDictionary(static state => (state.ResourceId, state.Channel));
@@ -455,6 +477,61 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         var definitionIdsToRemap = new HashSet<string>(StringComparer.Ordinal);
         var resourceIdsToRemap = new HashSet<string>(StringComparer.Ordinal);
         var remappedCollisionDiagnostics = new List<RemappedCollisionDiagnostic>();
+
+        // Shared aspect definitions are a tenant-wide vocabulary that definitions pin by (id, version), so a divergent
+        // version is never remapped: renaming it would silently fork the vocabulary and orphan every pin to it.
+        foreach (var aspect in snapshot.AspectDefinitions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!existingAspects.TryGetValue((aspect.AspectDefinitionId, aspect.Version), out var existing))
+            {
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Preserved(PortableEntityKind.AspectDefinitionVersion, AspectVersionId(aspect)));
+
+                continue;
+            }
+
+            if (AspectContentEquals(aspect, existing))
+            {
+                if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                    strictFailureIdentityMap.Add(Reused(PortableEntityKind.AspectDefinitionVersion, AspectVersionId(aspect)));
+
+                continue;
+            }
+
+            if (options.CollisionMode == PortableImportCollisionMode.Strict)
+                strictFailureIdentityMap.Add(Collided(PortableEntityKind.AspectDefinitionVersion, AspectVersionId(aspect)));
+
+            diagnostics.Add(DivergentCollision(
+                $"aspectDefinitions/{aspect.AspectDefinitionId}/{aspect.Version}",
+                $"Aspect definition '{aspect.AspectDefinitionId}' version {aspect.Version} already exists with different content. Shared aspect definitions are never remapped."));
+        }
+
+        foreach (var (definition, key, pin) in SharedAspectPins(snapshot.Definitions))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Pins to versions the snapshot carries were checked against them during snapshot validation.
+            var pinKey = (pin.AspectDefinitionId, pin.Version);
+            if (snapshotAspects.ContainsKey(pinKey))
+                continue;
+
+            if (!existingAspects.TryGetValue(pinKey, out var existing))
+            {
+                diagnostics.Add(new PortableDiagnostic
+                {
+                    Code = PortableDiagnosticCodes.UnresolvedAspectPin,
+                    Severity = PortableDiagnosticSeverity.Error,
+                    Path = PinPath(definition, key),
+                    Message = $"Definition '{definition.DefinitionId}' version {definition.Version} pins aspect definition '{pin.AspectDefinitionId}' version {pin.Version}, which is in neither the snapshot nor the target tenant.",
+                });
+                continue;
+            }
+
+            if (!AspectContentEquals(pin, existing))
+                diagnostics.Add(AspectPinMismatch(definition, key, pin));
+        }
 
         foreach (var definition in snapshot.Definitions)
         {
@@ -639,11 +716,27 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostic.Message,
                 RemappedCollisionTargetId(diagnostic, definitionIdMap, resourceIdMap))));
 
+        var plannedAspects = new List<AspectDefinition>();
         var plannedDefinitions = new List<ResourceDefinition>();
         var plannedResources = new List<Resource>();
         var plannedActivationStates = new List<ActivationState>();
         var plannedLifecycleMarkers = new List<ResourceLifecycleMarker>();
         var reusedIdenticalItems = 0;
+
+        foreach (var aspect in snapshot.AspectDefinitions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!existingAspects.ContainsKey((aspect.AspectDefinitionId, aspect.Version)))
+            {
+                plannedAspects.Add(aspect with { IsShared = false });
+                identityMap.Add(Preserved(PortableEntityKind.AspectDefinitionVersion, AspectVersionId(aspect)));
+                continue;
+            }
+
+            reusedIdenticalItems++;
+            identityMap.Add(Reused(PortableEntityKind.AspectDefinitionVersion, AspectVersionId(aspect)));
+        }
 
         foreach (var definition in snapshot.Definitions)
         {
@@ -761,6 +854,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         {
             FormatVersion = PortableSnapshot.CurrentFormatVersion,
             SourceTenantScope = targetTenant,
+            AspectDefinitions = plannedAspects,
             Definitions = plannedDefinitions.Select(definition => definition with { TenantScope = targetTenant }).ToList(),
             Resources = plannedResources.Select(resource => resource with { TenantScope = targetTenant }).ToList(),
             ActivationStates = plannedActivationStates.Select(state => state with { TenantScope = targetTenant }).ToList(),
@@ -768,6 +862,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         };
         var plannedCounts = new PortablePlannedImportCounts
         {
+            AspectDefinitions = plannedAspects.Count,
             Definitions = plannedDefinitions.Count,
             Resources = plannedResources.Select(static resource => resource.ResourceId).Distinct(StringComparer.Ordinal).Count(),
             ResourceVersions = plannedResources.Count,
@@ -778,6 +873,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         };
         var actualCounts = new PortableActualImportCounts
         {
+            AspectDefinitions = plannedCounts.AspectDefinitions,
             Definitions = plannedCounts.Definitions,
             Resources = plannedCounts.Resources,
             ResourceVersions = plannedCounts.ResourceVersions,
@@ -889,6 +985,7 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
     {
         var diagnostics = new List<PortableDiagnostic>();
         var sourceTenant = ResolveTenantForDiagnostics(snapshot.SourceTenantScope, "sourceTenantScope", diagnostics);
+        var validAspects = new List<AspectDefinition>();
         var validDefinitions = new List<ResourceDefinition>();
         var validResources = new List<Resource>();
         var validActivationStates = new List<ActivationState>();
@@ -905,15 +1002,60 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             });
         }
 
+        var aspectDefinitions = snapshot.AspectDefinitions;
         var definitions = snapshot.Definitions;
         var resources = snapshot.Resources;
         var activationStates = snapshot.ActivationStates;
         var lifecycleMarkers = snapshot.LifecycleMarkers;
 
+        if (aspectDefinitions is null)
+        {
+            diagnostics.Add(MalformedSnapshot("aspectDefinitions", "Snapshot aspect definitions collection cannot be null."));
+            aspectDefinitions = [];
+        }
+
         if (definitions is null)
         {
             diagnostics.Add(MalformedSnapshot("definitions", "Snapshot definitions collection cannot be null."));
             definitions = [];
+        }
+
+        for (var i = 0; i < aspectDefinitions.Count; i++)
+        {
+            var aspect = aspectDefinitions[i];
+            if (aspect is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}", "Snapshot aspect definition entry cannot be null."));
+                continue;
+            }
+
+            var isMalformed = false;
+            if (string.IsNullOrWhiteSpace(aspect.AspectDefinitionId))
+            {
+                diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/aspectDefinitionId", "Snapshot aspect definition ID is required."));
+                isMalformed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(aspect.Id))
+            {
+                diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/id", "Snapshot aspect definition version ID is required."));
+                isMalformed = true;
+            }
+
+            if (aspect.Version <= 0)
+            {
+                diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/version", "Snapshot aspect definition version must be greater than zero."));
+                isMalformed = true;
+            }
+
+            if (aspect.FacetDefinitions is null)
+            {
+                diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/facetDefinitions", "Snapshot aspect definition facet definitions collection cannot be null."));
+                isMalformed = true;
+            }
+
+            if (!isMalformed)
+                validAspects.Add(aspect);
         }
 
         if (resources is null)
@@ -1098,6 +1240,26 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         }
 
         diagnostics.AddRange(ValidateSnapshotIdentityUniqueness(validDefinitions, validResources, validActivationStates, validLifecycleMarkers));
+        diagnostics.AddRange(FindDuplicateKeys(
+            validAspects.Select(static aspect => AspectVersionId(aspect)),
+            "aspectDefinitions",
+            "Snapshot contains duplicate aspect definition version identities."));
+
+        var aspectVersions = validAspects
+            .GroupBy(static aspect => (aspect.AspectDefinitionId, aspect.Version))
+            .ToDictionary(static group => group.Key, static group => group.First());
+
+        foreach (var (definition, key, pin) in SharedAspectPins(validDefinitions))
+        {
+            if (string.IsNullOrWhiteSpace(pin.AspectDefinitionId) || pin.Version <= 0)
+            {
+                diagnostics.Add(MalformedSnapshot(PinPath(definition, key), "A pinned shared aspect requires an aspect definition ID and a version greater than zero."));
+                continue;
+            }
+
+            if (aspectVersions.TryGetValue((pin.AspectDefinitionId, pin.Version), out var aspect) && !AspectContentEquals(pin, aspect))
+                diagnostics.Add(AspectPinMismatch(definition, key, pin));
+        }
 
         var definitionVersions = validDefinitions
             .Select(static definition => (definition.DefinitionId, definition.Version))
@@ -1489,6 +1651,32 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
             Reason = PortableIdentityMappingReason.RemappedDivergent,
         };
 
+    private static IEnumerable<(ResourceDefinition Definition, string Key, AspectDefinition Aspect)> SharedAspectPins(
+        IEnumerable<ResourceDefinition> definitions) =>
+        definitions.SelectMany(static definition => definition.AspectDefinitions
+            .Where(static entry => entry.Value is { IsShared: true })
+            .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => (definition, entry.Key, entry.Value)));
+
+    private static string PinPath(ResourceDefinition definition, string key) =>
+        $"definitions/{definition.DefinitionId}/{definition.Version}/aspectDefinitions/{key}";
+
+    private static PortableDiagnostic AspectPinMismatch(ResourceDefinition definition, string key, AspectDefinition pin) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.AspectPinMismatch,
+            Severity = PortableDiagnosticSeverity.Error,
+            Path = PinPath(definition, key),
+            Message = $"Definition '{definition.DefinitionId}' version {definition.Version} pins aspect definition '{pin.AspectDefinitionId}' version {pin.Version} with content that differs from that version.",
+        };
+
+    // A pin is the registered version embedded with IsShared set, so the flag is not content.
+    private static bool AspectContentEquals(AspectDefinition left, AspectDefinition right) =>
+        JsonContentEquals(left with { IsShared = false }, right with { IsShared = false });
+
+    private static string AspectVersionId(AspectDefinition aspect) =>
+        JsonSerializer.Serialize(new object[] { aspect.AspectDefinitionId, aspect.Version }, JsonOptions);
+
     private static string DefinitionVersionId(ResourceDefinition definition) =>
         JsonSerializer.Serialize(new object[] { definition.DefinitionId, definition.Version }, JsonOptions);
 
@@ -1517,7 +1705,8 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
         IReadOnlyList<PortableDiagnostic> Diagnostics)
     {
         public bool HasWrites =>
-            PlannedCounts.Definitions > 0
+            PlannedCounts.AspectDefinitions > 0
+            || PlannedCounts.Definitions > 0
             || PlannedCounts.ResourceVersions > 0
             || PlannedCounts.ActivationEntries > 0
             || PlannedCounts.LifecycleMarkers > 0;

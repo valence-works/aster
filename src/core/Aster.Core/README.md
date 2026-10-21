@@ -331,6 +331,14 @@ if (preview.CanImport)
 
 Import is strict by default. Existing identical content is reused, divergent collisions fail before writing, and explicit `PortableImportCollisionMode.RemapDivergent` produces deterministic replacement identifiers while rewriting imported definition/resource references consistently. Preview and import return planned/actual counts, identity mappings, and diagnostics such as `duplicate-snapshot-identity`, `malformed-snapshot`, `missing-definition-reference`, `missing-resource-reference`, and `divergent-identity-collision`.
 
+**Shared aspect definitions.** A snapshot's `AspectDefinitions` holds the shared aspect versions that its definitions pin, and only those versions.
+- **Import order:** aspects are registered first, with their version numbers and IDs preserved, then the definitions that pin them. A target that has `Seo` v1 and imports v3 ends up with both; its next registration is v4.
+- **Pin checks:** every pin must resolve, either to a version in the snapshot or to an identical version already in the target tenant.
+  - `unresolved-aspect-pin`: the pinned version is in neither. Export reports it as a warning when the source store lacks a pinned version.
+  - `aspect-pin-mismatch`: the definition's embedded copy differs from the version it names.
+- **Collisions:** a divergent aspect version is a `divergent-identity-collision` error even under `RemapDivergent`. Shared aspects are a tenant-wide vocabulary, so they are never renamed.
+- **Older snapshots:** snapshots without `AspectDefinitions` import exactly as before.
+
 `IResourcePortabilityStore` is provider-facing infrastructure. Application code should normally use `IResourcePortabilityService`; providers implement `IResourcePortabilityStore` when they need exact snapshot reads and atomic import writes.
 
 ---

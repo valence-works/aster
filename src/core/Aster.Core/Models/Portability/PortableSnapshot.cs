@@ -25,6 +25,13 @@ public sealed record PortableSnapshot
     public TenantScope SourceTenantScope { get; init; } = TenantScope.Default;
 
     /// <summary>
+    /// Shared aspect definition versions pinned by <see cref="Definitions"/> (ADR 0003). Import registers them
+    /// with their versions preserved before the definitions that pin them. Empty in snapshots that predate
+    /// shared aspects.
+    /// </summary>
+    public IReadOnlyList<AspectDefinition> AspectDefinitions { get; init; } = [];
+
+    /// <summary>
     /// Definition versions included in the snapshot.
     /// </summary>
     public IReadOnlyList<ResourceDefinition> Definitions { get; init; } = [];

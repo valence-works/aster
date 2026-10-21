@@ -528,15 +528,17 @@ public sealed class SqliteJsonResourceStore :
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var tenant = TenantScopeResolver.Resolve(request.ExportRequest.TenantScope);
         if (request.ExportRequest.ScopeMode == PortableExportScopeMode.DefinitionsOnly)
         {
+            var selectedDefinitions = await SelectDefinitionsAsync(request.ExportRequest, [], cancellationToken);
             return new PortableStoreSnapshot
             {
-                Definitions = await SelectDefinitionsAsync(request.ExportRequest, [], cancellationToken),
+                AspectDefinitions = await ReadAspectVersionsAsync(PinnedAspectVersions(selectedDefinitions), tenant, cancellationToken),
+                Definitions = selectedDefinitions,
             };
         }
 
-        var tenant = TenantScopeResolver.Resolve(request.ExportRequest.TenantScope);
         var resources = SelectResourceVersions(
             request.ExportRequest,
             await ReadScopedResourceVersionsAsync(request.ExportRequest, tenant, cancellationToken));
@@ -553,6 +555,7 @@ public sealed class SqliteJsonResourceStore :
 
         return new PortableStoreSnapshot
         {
+            AspectDefinitions = await ReadAspectVersionsAsync(PinnedAspectVersions(definitions), tenant, cancellationToken),
             Definitions = definitions,
             Resources = resources,
             ActivationStates = includedActivationStates,
@@ -582,9 +585,16 @@ public sealed class SqliteJsonResourceStore :
             cancellationToken);
         var activationStates = await ReadSpecificActivationStatesAsync(snapshot.ActivationStates, tenant, cancellationToken);
         var lifecycleMarkers = await ReadSpecificLifecycleMarkersAsync(snapshot.LifecycleMarkers, tenant, cancellationToken);
+        var aspectDefinitions = await ReadAspectVersionsAsync(
+            snapshot.AspectDefinitions
+                .Select(static aspect => (aspect.AspectDefinitionId, aspect.Version))
+                .Concat(PinnedAspectVersions(snapshot.Definitions)),
+            tenant,
+            cancellationToken);
 
         return new PortableTargetState
         {
+            AspectDefinitions = aspectDefinitions,
             Definitions = definitions,
             Resources = resources,
             ActivationStates = activationStates,
@@ -605,6 +615,9 @@ public sealed class SqliteJsonResourceStore :
 
         try
         {
+            foreach (var aspect in plannedSnapshot.AspectDefinitions)
+                await InsertAspectDefinitionAsync(connection, transaction, aspect, tenant, cancellationToken);
+
             foreach (var definition in plannedSnapshot.Definitions)
                 await InsertDefinitionAsync(connection, transaction, definition with { TenantScope = tenant }, cancellationToken);
 
@@ -1267,6 +1280,77 @@ public sealed class SqliteJsonResourceStore :
             command.Parameters.AddWithValue("$channel", channel);
 
         return await ReadPayloadsAsync<ActivationState>(command, cancellationToken);
+    }
+
+    private static IEnumerable<(string AspectDefinitionId, int Version)> PinnedAspectVersions(
+        IEnumerable<ResourceDefinition> definitions) =>
+        definitions
+            .SelectMany(static definition => definition.AspectDefinitions.Values)
+            .Where(static aspect => aspect is { IsShared: true })
+            .Select(static aspect => (aspect.AspectDefinitionId, aspect.Version));
+
+    private async Task<List<AspectDefinition>> ReadAspectVersionsAsync(
+        IEnumerable<(string AspectDefinitionId, int Version)> versions,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        var references = versions.ToHashSet();
+        if (references.Count == 0)
+            return [];
+
+        var results = new List<AspectDefinition>();
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in references
+            .OrderBy(static reference => reference.AspectDefinitionId, StringComparer.Ordinal)
+            .ThenBy(static reference => reference.Version)
+            .Chunk(MaxSqliteParametersPerQuery / 2))
+        {
+            await using var command = connection.CreateCommand();
+            var predicates = new List<string>(batch.Length);
+            for (var index = 0; index < batch.Length; index++)
+            {
+                command.Parameters.AddWithValue($"$aspectDefinitionId{index}", batch[index].AspectDefinitionId);
+                command.Parameters.AddWithValue($"$aspectVersion{index}", batch[index].Version);
+                predicates.Add($"(aspect_definition_id = $aspectDefinitionId{index} AND version = $aspectVersion{index})");
+            }
+
+            command.CommandText = $"""
+                SELECT payload
+                FROM aspect_definitions
+                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)});
+                """;
+            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+
+            results.AddRange(await ReadPayloadsAsync<AspectDefinition>(command, cancellationToken));
+        }
+
+        return results
+            .OrderBy(static aspect => aspect.AspectDefinitionId, StringComparer.Ordinal)
+            .ThenBy(static aspect => aspect.Version)
+            .ToList();
+    }
+
+    private static async Task InsertAspectDefinitionAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        AspectDefinition aspect,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        var imported = aspect with { IsShared = false };
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO aspect_definitions (tenant_id, aspect_definition_id, version, id, payload)
+            VALUES ($tenantId, $aspectDefinitionId, $version, $id, $payload);
+            """;
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        command.Parameters.AddWithValue("$aspectDefinitionId", imported.AspectDefinitionId);
+        command.Parameters.AddWithValue("$version", imported.Version);
+        command.Parameters.AddWithValue("$id", imported.Id);
+        command.Parameters.AddWithValue("$payload", Serialize(imported));
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private async Task InsertDefinitionAsync(

@@ -137,4 +137,14 @@ public static class PortableDiagnosticCodes
     /// </summary>
     public const string LifecycleHookFailed = "lifecycle-hook-failed";
 
+    /// <summary>
+    /// A definition pins a shared aspect definition version that is in neither the snapshot nor the target tenant.
+    /// </summary>
+    public const string UnresolvedAspectPin = "unresolved-aspect-pin";
+
+    /// <summary>
+    /// A definition's pinned aspect snapshot differs from the shared aspect definition version it names.
+    /// </summary>
+    public const string AspectPinMismatch = "aspect-pin-mismatch";
+
 }

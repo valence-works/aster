@@ -39,6 +39,9 @@ public enum PortableImportCollisionMode
 /// </summary>
 public sealed record PortablePlannedImportCounts
 {
+    /// <summary>Shared aspect definition versions planned for import.</summary>
+    public int AspectDefinitions { get; init; }
+
     /// <summary>Definition versions planned for import.</summary>
     public int Definitions { get; init; }
 
@@ -66,6 +69,9 @@ public sealed record PortablePlannedImportCounts
 /// </summary>
 public sealed record PortableActualImportCounts
 {
+    /// <summary>Shared aspect definition versions imported.</summary>
+    public int AspectDefinitions { get; init; }
+
     /// <summary>Definition versions imported.</summary>
     public int Definitions { get; init; }
 
@@ -136,6 +142,9 @@ public enum PortableEntityKind
 
     /// <summary>Lifecycle marker.</summary>
     LifecycleMarker,
+
+    /// <summary>Shared aspect definition version.</summary>
+    AspectDefinitionVersion,
 }
 
 /// <summary>

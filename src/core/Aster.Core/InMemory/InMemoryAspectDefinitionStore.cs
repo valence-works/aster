@@ -95,6 +95,58 @@ public sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
         return ValueTask.FromResult<IReadOnlyList<AspectDefinition>>(Versions(aspectDefinitionId, tenantScope));
     }
 
+    /// <summary>
+    /// Inserts an imported version with its version number preserved, keeping versions ordered. Later
+    /// registrations continue from the highest version.
+    /// </summary>
+    internal void ImportVersion(AspectDefinition aspect, TenantScope tenantScope)
+    {
+        ArgumentNullException.ThrowIfNull(aspect);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+
+        var versions = aspects.GetOrAdd((tenant.TenantId, aspect.AspectDefinitionId), static _ => []);
+        lock (versions)
+        {
+            var insertIndex = versions.FindIndex(existing => existing.Version >= aspect.Version);
+            if (insertIndex >= 0 && versions[insertIndex].Version == aspect.Version)
+                throw new InvalidOperationException($"Aspect definition '{aspect.AspectDefinitionId}' version {aspect.Version} already exists.");
+
+            var imported = aspect with
+            {
+                IsShared = false,
+                FacetDefinitions = Array.AsReadOnly(aspect.FacetDefinitions.ToArray()),
+            };
+
+            if (insertIndex < 0)
+                versions.Add(imported);
+            else
+                versions.Insert(insertIndex, imported);
+        }
+    }
+
+    /// <summary>
+    /// Removes a version written by <see cref="ImportVersion"/>, to roll back a failed import.
+    /// </summary>
+    internal void RemoveImportedVersion(AspectDefinition aspect, TenantScope tenantScope)
+    {
+        ArgumentNullException.ThrowIfNull(aspect);
+        var tenant = TenantScopeResolver.Resolve(tenantScope);
+
+        if (!aspects.TryGetValue((tenant.TenantId, aspect.AspectDefinitionId), out var versions))
+            return;
+
+        lock (versions)
+            versions.RemoveAll(existing =>
+                existing.Version == aspect.Version
+                && string.Equals(existing.Id, aspect.Id, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Returns one version synchronously, or <see langword="null"/> when it does not exist.
+    /// </summary>
+    internal AspectDefinition? GetVersion(string aspectDefinitionId, int version, TenantScope tenantScope) =>
+        Versions(aspectDefinitionId, tenantScope).FirstOrDefault(candidate => candidate.Version == version);
+
     private List<AspectDefinition> Versions(string aspectDefinitionId, TenantScope? tenantScope)
     {
         var tenant = TenantScopeResolver.Resolve(tenantScope);
