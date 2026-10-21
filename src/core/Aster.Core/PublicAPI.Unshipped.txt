@@ -3276,3 +3276,4 @@ virtual Aster.Core.Models.Querying.FilterExpression.Equals(Aster.Core.Models.Que
 virtual Aster.Core.Models.Querying.FilterExpression.PrintMembers(System.Text.StringBuilder! builder) -> bool
 ~override Aster.Core.Abstractions.ResourceVersionReadResourceIdSelection.Equals(object obj) -> bool
 ~override Aster.Core.Abstractions.ResourceVersionReadResourceIdSelection.ToString() -> string
+const Aster.Core.Models.Definitions.FacetValueDiagnosticCodes.StoredNameMismatch = "facet-value-stored-name-mismatch" -> string!
