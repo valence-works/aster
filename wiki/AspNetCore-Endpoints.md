@@ -37,6 +37,8 @@ app.MapAster("/api/aster", options =>
 | `POST /aspects[?expectedLatestVersion=]` | Register a new shared aspect version; with `expectedLatestVersion`, only if the latest version is still that one (`0`: must not exist), otherwise `409` (`aspect-version-conflict`) |
 | `GET /resources?definitionId=&scope=&channel=&lifecycle=&skip=&take=` | List resources |
 | `POST /resources/query` | Query with filters, sorting and paging (see below) |
+| `POST /resources/query/validate` | Check a query without running it: `{ isValid, diagnostics }` |
+| `GET /resources/query/capabilities` | The active query provider's `QueryCapabilityDescription` (`404` when it declares none) |
 | `GET /resources/{id}[?version=]` | One resource: the latest version, or a specific one |
 | `GET /resources/{id}/versions` | Version history with active channels and lifecycle state |
 | `POST /resources` | Create version 1: `{ definitionId, resourceId?, aspects }` |
@@ -62,7 +64,7 @@ Errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses, e
 
 | Status | When | Extensions |
 |---|---|---|
-| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies, rejected schema upgrades (below) | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
+| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies, rejected schema upgrades (below) | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex, path, feature }]` |
 | `403` | Denied by `IAsterResourceAuthorizer` | |
 | `404` | Missing definition, aspect, resource or version | |
 | `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition or aspect version conflict (`definition-version-conflict`, `aspect-version-conflict`), lifecycle hook veto | `code` |
@@ -100,9 +102,20 @@ The package maps no schema upgrade endpoint, but an endpoint a host maps inside 
   - `exists` (aspect presence)
   - `field` + `op` + `value` (a metadata field)
   - `aspect` + `facet` + `op` + `value` (a facet value)
+  - `aspect` + `facet` + `references` (a reference facet naming a resource: a `reference` facet equal to it, or a `reference[]` facet containing it), as `ReferenceQuery.Targets` builds:
+
+    ```json
+    { "aspect": "Links", "facet": "Author", "references": "author-1" }
+    ```
 - **`op`:** names a `ComparisonOperator`, case-insensitively.
 - **`scope`:** `latest` (default), `allVersions`, `active` (requires `channel`) or `draft`.
 - **`lifecycle`:** `active` (default), `archived`, `softDeleted` or `all`. List and query endpoints therefore exclude archived and soft-deleted resources unless asked; `ResourceQuery` itself stays explicit.
+- **Validation:** the endpoint checks the query against the wire format, then against the active provider's capabilities with `IResourceQueryValidator`, before running it.
+  - A wire-format error returns `400` with that one diagnostic.
+  - Otherwise every validator failure is returned at once, so a client can mark each offending node.
+  - Each diagnostic has a `code`, a `path` into the request body (such as `filter.and[1].op` or `sort[0].field`) and, for validator failures, the `feature` it concerns (such as `paging` or `metadata field`).
+  - `path` is `null` when the failure concerns no member of the body, such as the tenant.
+  - `POST /resources/query/validate` returns the same diagnostics with `200` and `isValid`, without running the query.
 - **Response:** `{ items, hasMore }`. The endpoint fetches one row beyond the page to compute `hasMore`, and returns no total count, because counting is a second full query on most providers.
 
 ## Tenancy and authorization

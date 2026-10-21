@@ -11,6 +11,7 @@ using Aster.Core.Definitions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Persistence.SqliteJson;
 using Microsoft.AspNetCore.Authentication;
@@ -377,6 +378,132 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, tooLarge.StatusCode);
     }
 
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task Query_ReportsEveryValidationFailure_WithRequestPaths(string provider)
+    {
+        var (client, _) = await StartAsync(provider);
+        var body = new
+        {
+            scope = "active",
+            filter = new { and = new object[] { new { exists = "Content" }, new { field = "Bogus", op = "equals", value = "x" } } },
+            sort = new[] { new { field = "ResourceId" }, new { field = "Bogus" } },
+        };
+
+        var query = await client.PostAsJsonAsync("/api/aster/resources/query", body, Web);
+        var validate = await client.PostAsJsonAsync("/api/aster/resources/query/validate", body, Web);
+
+        Assert.Equal(HttpStatusCode.BadRequest, query.StatusCode);
+        var expected = new (string?, string?, string?)[]
+        {
+            ("activation-channel-required", "channel", "scope"),
+            ("unsupported-metadata-field", "filter.and[1].field", "metadata field"),
+            ("unsupported-metadata-sort-field", "sort[1].field", "metadata field"),
+        };
+        Assert.Equal(expected, Diagnostics((await ReadAsync(query)).GetProperty("diagnostics")));
+        Assert.Equal(HttpStatusCode.OK, validate.StatusCode);
+        var validation = await ReadAsync(validate);
+        Assert.False(validation.GetProperty("isValid").GetBoolean());
+        Assert.Equal(expected, Diagnostics(validation.GetProperty("diagnostics")));
+
+        // The wire format's own errors carry their path too, and a query that passes reports no diagnostics.
+        var badOperator = await ReadAsync(await client.PostAsJsonAsync("/api/aster/resources/query/validate", new { filter = new { or = new object[] { new { exists = "Content" }, new { field = "ResourceId", op = "like", value = "a" } } } }, Web));
+        Assert.Equal(("query-operator-invalid", "filter.or[1].op"), (badOperator.GetProperty("diagnostics")[0].GetProperty("code").GetString(), badOperator.GetProperty("diagnostics")[0].GetProperty("path").GetString()));
+        var badBound = await ReadAsync(await client.PostAsJsonAsync("/api/aster/resources/query/validate", new { filter = new { not = new { aspect = "Content", facet = "Views", op = "range", value = new { min = true } } } }, Web));
+        Assert.Equal("filter.not.value.min", badBound.GetProperty("diagnostics")[0].GetProperty("path").GetString());
+        var valid = await ReadAsync(await client.PostAsJsonAsync("/api/aster/resources/query/validate", new { filter = new { exists = "Content" } }, Web));
+        Assert.True(valid.GetProperty("isValid").GetBoolean());
+        Assert.Empty(valid.GetProperty("diagnostics").EnumerateArray());
+
+        static (string?, string?, string?)[] Diagnostics(JsonElement diagnostics) =>
+            diagnostics.EnumerateArray()
+                .Select(static d => (d.GetProperty("code").GetString(), d.GetProperty("path").GetString(), d.GetProperty("feature").GetString()))
+                .ToArray();
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task Query_ReferencesFilter_MatchesReferenceAndReferenceArrayFacets(string provider)
+    {
+        var (client, _) = await StartAsync(provider);
+        await RegisterAsync(client, Article());
+        await CreateAsync(client, "a-1", "Alpha");
+        await CreateAsync(client, "a-2", "Beta");
+        await RegisterAsync(client, new ResourceDefinitionBuilder()
+            .WithDefinitionId("Note")
+            .WithAspect("Links")
+                .WithFacet("Primary", "reference")
+                .WithFacet("Related", "reference[]")
+            .Build());
+        async Task CreateNoteAsync(string resourceId, string? primary, params string[] related) =>
+            Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/aster/resources", new
+            {
+                definitionId = "Note",
+                resourceId,
+                aspects = new Dictionary<string, object?> { ["Links"] = new Dictionary<string, object?> { ["Primary"] = primary, ["Related"] = related } },
+            }, Web)).StatusCode);
+        await CreateNoteAsync("n-1", "a-1");
+        await CreateNoteAsync("n-2", "a-2", "a-1");
+        await CreateNoteAsync("n-3", "a-2");
+
+        async Task<string?[]> Referrers(string facet) =>
+            (await ReadAsync(await client.PostAsJsonAsync("/api/aster/resources/query", new
+            {
+                definitionId = "Note",
+                filter = new { aspect = "Links", facet, references = "a-1" },
+                sort = new[] { new { field = "ResourceId" } },
+            }, Web))).GetProperty("items").EnumerateArray().Select(static item => item.GetProperty("resourceId").GetString()).ToArray();
+
+        Assert.Equal(new[] { "n-1" }, await Referrers("Primary"));
+        Assert.Equal(new[] { "n-2" }, await Referrers("Related"));
+
+        var withOp = await client.PostAsJsonAsync("/api/aster/resources/query", new { filter = new { aspect = "Links", facet = "Primary", references = "a-1", op = "equals" } }, Web);
+        Assert.Equal(HttpStatusCode.BadRequest, withOp.StatusCode);
+        var diagnostic = (await ReadAsync(withOp)).GetProperty("diagnostics")[0];
+        Assert.Equal(("query-filter-invalid", "filter"), (diagnostic.GetProperty("code").GetString(), diagnostic.GetProperty("path").GetString()));
+
+        // A blank member is reported at that member.
+        foreach (var (body, expectedPath) in new (object, string)[]
+        {
+            (new { aspect = " ", facet = "Primary", references = "a-1" }, "filter.aspect"),
+            (new { aspect = "Links", facet = " ", references = "a-1" }, "filter.facet"),
+            (new { aspect = "Links", facet = "Primary", references = " " }, "filter.references"),
+        })
+        {
+            var blank = (await ReadAsync(await client.PostAsJsonAsync("/api/aster/resources/query/validate", new { filter = body }, Web))).GetProperty("diagnostics")[0];
+            Assert.Equal(("query-value-required", expectedPath), (blank.GetProperty("code").GetString(), blank.GetProperty("path").GetString()));
+        }
+    }
+
+    [Theory]
+    [InlineData(InMemory, "in-memory")]
+    [InlineData(Sqlite, "sqlite-json")]
+    public async Task Query_Capabilities_DescribeTheActiveProvider(string provider, string providerKey)
+    {
+        var (client, services) = await StartAsync(provider);
+
+        var capabilities = await ReadAsync(await client.GetAsync("/api/aster/resources/query/capabilities"));
+
+        Assert.Equal(providerKey, capabilities.GetProperty("providerKey").GetString());
+        Assert.Equal(services.GetRequiredService<IResourceQueryValidator>().Capabilities!.ProviderName, capabilities.GetProperty("providerName").GetString());
+    }
+
+    [Fact]
+    public async Task Query_Capabilities_NotFound_WhenTheValidatorDeclaresNone()
+    {
+        // A validator written before IResourceQueryValidator.Capabilities existed still compiles and reports none.
+        var (client, _) = await StartAsync(services: static services => services.AddSingleton<IResourceQueryValidator, AcceptEverything>());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/aster/resources/query/capabilities")).StatusCode);
+    }
+
+    private sealed class AcceptEverything : IResourceQueryValidator
+    {
+        public QueryValidationResult Validate(ResourceQuery query) => QueryValidationResult.Success;
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Options and host hooks
     // ──────────────────────────────────────────────────────────────────────────
@@ -448,7 +575,7 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
             .Where(static endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/aster", StringComparison.Ordinal) == true)
             .ToList();
 
-        Assert.Equal(17, endpoints.Count);
+        Assert.Equal(19, endpoints.Count);
         Assert.All(endpoints, static endpoint =>
         {
             Assert.False(string.IsNullOrWhiteSpace(endpoint.Metadata.GetMetadata<IEndpointSummaryMetadata>()?.Summary), endpoint.DisplayName);

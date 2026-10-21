@@ -9,8 +9,9 @@ namespace Aster.Studio;
 
 /// <summary>
 /// The query builder's API: the active provider's capabilities, <see cref="IResourceQueryValidator"/> failures with
-/// their paths, and execution of queries that pass validation. The package's <c>POST /resources/query</c> runs a
-/// query too, but it reports only the first failure, without its path.
+/// their paths, and execution of queries that pass validation. It takes the builder's flat condition list, so its
+/// paths name the translated query (<c>Filter.Operands[1]</c>); the package's query endpoints take the nested
+/// <c>AsterFilter</c> format and report request-body paths.
 /// </summary>
 internal static class QueryEndpoints
 {
@@ -30,10 +31,9 @@ internal static class QueryEndpoints
         return api;
     }
 
-    // Core registers in-memory capabilities next to the provider's own; the validator matches them to the active
-    // query service by provider key, and so does this.
-    private static IResult GetCapabilities(IEnumerable<IResourceQueryCapabilitiesProvider> providers, IResourceQueryProviderIdentity activeProvider) =>
-        Results.Ok(providers.Last(provider => provider.Capabilities.ProviderKey == activeProvider.ProviderKey).Capabilities);
+    // The declaration the validator checks queries against.
+    private static IResult GetCapabilities(IResourceQueryValidator validator) =>
+        validator.Capabilities is { } capabilities ? Results.Ok(capabilities) : Results.NotFound();
 
     private static IResult ValidateQuery(QueryRequestDto request, HttpContext http, IResourceQueryValidator validator)
     {
