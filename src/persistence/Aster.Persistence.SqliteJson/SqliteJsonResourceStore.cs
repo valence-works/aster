@@ -1011,7 +1011,10 @@ public sealed class SqliteJsonResourceStore :
 
         var results = new List<Resource>();
         await using var connection = await OpenConnectionAsync(cancellationToken);
+        // The caller's set may use any comparer; the VALUES join returns a row per key, so collapse equal keys.
         foreach (var batch in references
+            .Select(static reference => (reference.ResourceId, reference.Version))
+            .Distinct()
             .OrderBy(static reference => reference.ResourceId, StringComparer.Ordinal)
             .ThenBy(static reference => reference.Version)
             .Chunk(MaxSqliteParametersPerQuery / 2))
