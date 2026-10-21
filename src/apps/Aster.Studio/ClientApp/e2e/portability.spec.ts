@@ -104,6 +104,15 @@ test("switching tenant scopes every screen and survives a reload", async ({ page
   expect((await page.request.get(`/api/aster/resources/${resourceId}`, { headers: { "X-Aster-Tenant": "acme" } })).ok()).toBe(true);
 });
 
+test("recovers from a stored tenant the host no longer seeds", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("aster-studio.tenant", "retired-tenant"));
+  await page.reload();
+  // The tenant list stays readable with the stale header, so the shell falls back to the default tenant.
+  await expect(page.getByRole("combobox", { name: "Tenant" })).toHaveText("Default");
+  await expect(sidebarLink(page, "Article")).toBeVisible();
+});
+
 test("runs a valid query and shows path-precise validation failures for an invalid one", async ({ page }) => {
   const tag = unique("query");
   const title = unique("Queried article");

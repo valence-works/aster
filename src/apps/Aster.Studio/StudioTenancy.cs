@@ -18,12 +18,21 @@ internal static class StudioTenants
     public static TenantScope GetTenantScope(this HttpContext http) =>
         http.RequestServices.GetRequiredService<ITenantScopeAccessor>().GetTenantScope(http);
 
+    private const string TenantsPath = "/api/studio/tenants";
+
     /// <summary>
     /// Rejects a tenant Studio doesn't seed. Studio has no sign-in to check the header against, so its seeded tenants
     /// are the allow-list; a real host resolves the tenant from the caller's identity instead.
     /// </summary>
     public static void UseStudioTenants(this WebApplication app) => app.Use(async (context, next) =>
     {
+        // The tenant list stays readable, so the SPA can recover from a stored tenant the host no longer seeds.
+        if (context.Request.Path.Equals(TenantsPath, StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
         var named = context.Request.Headers[HeaderName].ToString();
         if (named.Length > 0 && !All.Any(tenant => tenant.TenantId == named))
         {

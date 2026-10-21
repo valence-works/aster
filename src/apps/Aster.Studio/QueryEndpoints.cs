@@ -114,7 +114,7 @@ internal static class QueryEndpoints
                     sort.Descending ? SortDirection.Descending : SortDirection.Ascending,
                     string.IsNullOrWhiteSpace(sort.AspectKey) ? null : sort.AspectKey))
                 .ToList(),
-            Take = Math.Min(request.Take ?? 20, MaxTake),
+            Take = Math.Clamp(request.Take ?? 20, 1, MaxTake),
         };
         return true;
     }

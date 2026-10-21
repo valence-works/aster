@@ -72,7 +72,7 @@ export function QueryBuilder() {
   const [conditions, setConditions] = useState<ConditionRow[]>([]);
   const [sorts, setSorts] = useState<SortRow[]>([]);
   const [take, setTake] = useState(20);
-  const [validation, setValidation] = useState<{ key: string; result: QueryValidationDto } | null>(null);
+  const [validation, setValidation] = useState<{ key: string; result: QueryValidationDto | null; error?: string } | null>(null);
   const [results, setResults] = useState<QueryResultDto | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -106,6 +106,7 @@ export function QueryBuilder() {
   };
   const queryKey = JSON.stringify(query);
   const current = validation?.key === queryKey ? validation.result : null;
+  const validationError = validation?.key === queryKey ? validation.error : undefined;
 
   useEffect(() => {
     if (!sources.data || incomplete) return;
@@ -113,7 +114,12 @@ export function QueryBuilder() {
     const timer = setTimeout(() => {
       api.validateQuery(query)
         .then((result) => { if (!cancelled) setValidation({ key: queryKey, result }); })
-        .catch((error: unknown) => { if (!cancelled) toast.error("Validation failed", { description: error instanceof Error ? error.message : String(error) }); });
+        .catch((error: unknown) => {
+          if (cancelled) return;
+          const message = error instanceof Error ? error.message : String(error);
+          setValidation({ key: queryKey, result: null, error: message });
+          toast.error("Validation failed", { description: message });
+        });
     }, 250);
     return () => {
       cancelled = true;
@@ -208,6 +214,7 @@ export function QueryBuilder() {
             <CardContent>
               <section aria-label="Validation" className="space-y-3 text-sm">
                 {incomplete ? <p className="text-muted-foreground">Complete condition {incomplete} to validate.</p>
+                  : validationError ? <p className="flex items-center gap-2 text-destructive"><XCircle className="h-4 w-4" />Could not validate: {validationError}</p>
                   : !current ? <p className="text-muted-foreground">Validating…</p>
                   : current.summary.isValid ? <p className="flex items-center gap-2 text-emerald-300"><CheckCircle2 className="h-4 w-4" />Valid for {capabilities.providerName}</p>
                   : <><p className="flex items-center gap-2 text-destructive"><XCircle className="h-4 w-4" />{current.summary.totalFailureCount} validation failures</p><FailureList failures={current.failures} /></>}

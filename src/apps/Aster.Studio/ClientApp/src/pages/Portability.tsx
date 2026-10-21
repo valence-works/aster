@@ -67,7 +67,11 @@ function ExportCard({ tenantName }: { tenantName: string }) {
     setBusy(true);
     try {
       // With specific versions, each entry names one version as "id@version".
-      const versions = specific ? resources.map((entry) => { const at = entry.lastIndexOf("@"); return { resourceId: entry.slice(0, at), version: Number(entry.slice(at + 1)) }; }) : [];
+      const versions = specific ? resources.map((entry) => { const at = entry.lastIndexOf("@"); return { resourceId: at > 0 ? entry.slice(0, at) : "", version: at > 0 ? Number(entry.slice(at + 1)) : Number.NaN }; }) : [];
+      if (versions.some((entry) => !entry.resourceId || !Number.isInteger(entry.version) || entry.version < 1)) {
+        toast.error("Export failed", { description: "Enter each resource as id@version, for example page-home@1." });
+        return;
+      }
       const result = await api.exportSnapshot({
         scopeMode,
         definitionIds: bySelectedResources ? [] : definitionIds,
