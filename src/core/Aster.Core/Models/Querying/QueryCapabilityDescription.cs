@@ -55,6 +55,13 @@ public sealed record QueryCapabilityDescription(
     public bool SupportsLifecycleStateFiltering { get; init; }
 
     /// <summary>
+    /// Gets whether <see cref="Abstractions.IResourceReferenceService"/> can find referrers through this
+    /// provider. It needs <c>DefinitionId</c> metadata filters, facet <see cref="ComparisonOperator.Equals"/>
+    /// and <see cref="ComparisonOperator.ArrayContains"/>, and <c>ResourceId</c> sorting.
+    /// </summary>
+    public bool SupportsReverseReferenceLookup { get; init; }
+
+    /// <summary>
     /// Returns whether the provider supports the supplied comparison operator for the filter type.
     /// </summary>
     /// <param name="filterType">The filter category.</param>

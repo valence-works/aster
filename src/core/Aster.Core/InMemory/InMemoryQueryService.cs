@@ -566,7 +566,11 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
 
             foreach (var sort in sorts)
             {
-                var comparison = CompareValues(ResolveSortValue(x, sort), ResolveSortValue(y, sort));
+                // ResourceIds are ordinal identifiers: compare them ordinally, as SQLite's binary collation does,
+                // rather than with the culture-aware comparison used for other values.
+                var comparison = IsResourceIdSort(sort)
+                    ? string.CompareOrdinal(x.ResourceId, y.ResourceId)
+                    : CompareValues(ResolveSortValue(x, sort), ResolveSortValue(y, sort));
                 if (comparison == 0)
                     continue;
 
@@ -575,6 +579,10 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
 
             return 0;
         }
+
+        private static bool IsResourceIdSort(SortExpression sort) =>
+            string.IsNullOrWhiteSpace(sort.AspectKey)
+            && string.Equals(sort.Field, "ResourceId", StringComparison.OrdinalIgnoreCase);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

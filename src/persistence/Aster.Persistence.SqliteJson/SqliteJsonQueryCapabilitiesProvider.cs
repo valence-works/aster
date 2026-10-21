@@ -94,6 +94,7 @@ public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabili
         ])
     {
         SupportsLifecycleStateFiltering = true,
+        SupportsReverseReferenceLookup = true,
         MaxArrayQueryElements = 100,
     };
 }

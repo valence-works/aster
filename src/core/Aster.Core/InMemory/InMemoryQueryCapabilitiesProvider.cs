@@ -92,5 +92,6 @@ public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabiliti
         UnsupportedFeatures: [])
     {
         SupportsLifecycleStateFiltering = true,
+        SupportsReverseReferenceLookup = true,
     };
 }

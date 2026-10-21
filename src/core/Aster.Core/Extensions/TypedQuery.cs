@@ -263,6 +263,15 @@ public sealed class TypedFacetQuery<TValue>
         new FacetValueFilter(aspectKey, facetIdentifier, elements, ComparisonOperator.ArrayContainsAll);
 
     /// <summary>
+    /// Creates a filter matching resources whose <c>reference</c> or <c>reference[]</c> facet names
+    /// <paramref name="targetResourceId"/>.
+    /// </summary>
+    /// <param name="targetResourceId">The referenced <c>ResourceId</c>.</param>
+    /// <returns>A portable filter; see <see cref="ReferenceQuery.Targets"/>.</returns>
+    public FilterExpression References(string targetResourceId) =>
+        ReferenceQuery.Targets(aspectKey, facetIdentifier, targetResourceId);
+
+    /// <summary>
     /// Creates a facet existence filter. Missing values, JSON <c>null</c>, and empty arrays do not exist.
     /// </summary>
     /// <returns>A portable facet value filter.</returns>

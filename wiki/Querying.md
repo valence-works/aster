@@ -310,6 +310,52 @@ var results = await queryService.QueryAsync(new ResourceQuery
 
 ---
 
+## Querying References
+
+`reference` and `reference[]` facets store target `ResourceId`s as plain strings, so the ordinary operators query them. The helpers below build those filters for you.
+
+**Forward: resources that reference a target.**
+
+```csharp
+// A reference facet equals the target, or a reference[] facet contains it.
+var filter = ReferenceQuery.Targets("Steps", "Agents", "agent-a");
+
+// Typed equivalent.
+var typed = TypedQuery.For<WorkflowSteps>("Steps").Facet(steps => steps.Agents).References("agent-a");
+```
+
+As with other text predicates, providers compare case-insensitively. If two `ResourceId`s differ only in letter case, a forward filter matches both.
+
+**Reverse: everything that references a target.** Use this, for example, to check which workflows use agent X before changing or archiving it.
+
+```csharp
+var page = await referenceService.GetReferrersAsync("agent-a", new ResourceReferrerQuery
+{
+    Scope = ResourceVersionScope.Latest, // or Active with ActivationChannel
+    DefinitionId = "Workflow",           // optional: only this referrer definition
+    Skip = 0,
+    Take = 50,
+});
+
+foreach (var referrer in page.Items)
+    foreach (var location in referrer.Locations)
+        Console.WriteLine($"{referrer.Resource.ResourceId}: {location.AspectKey}/{location.FacetDefinitionId}[{location.ElementIndex}]");
+// page.HasMore tells whether another page exists.
+```
+
+How `IResourceReferenceService` searches:
+
+- **Which facets:** every reference facet declared by the latest version of each definition in the tenant. A facet whose `TargetDefinitionIds` excludes the target's definition still counts, so references saved in lenient mode are found too.
+- **How it queries:** it combines those facets into one portable query (`DefinitionId`, plus `Equals` or `ArrayContains` per facet), ordered by `ResourceId` and paged by the provider.
+- **What it returns:** each match is confirmed ordinally, and each referrer lists every aspect, facet and element index that names the target.
+- **Tenancy:** results come from the given tenant only.
+
+**Cost.** The SQLite provider evaluates the predicates as JSON path expressions on every row of the searched scope, so a lookup is a table scan. That is fine for moderate data sets. Index projections (#100, and the Postgres provider in #65) are the extension point: a provider can serve the same `FacetValueFilter` predicates from an index without changing callers.
+
+**Capabilities.** Providers declare support through `QueryCapabilityDescription.SupportsReverseReferenceLookup`; both built-in providers support it. The service throws `NotSupportedException` when the active provider does not.
+
+---
+
 ## SQLite JSON Provider
 
 `Aster.Persistence.SqliteJson` registers `SqliteJsonQueryService` as `IResourceQueryService` when `AddAsterSqliteJson()` is called after `AddAsterCore()`.
