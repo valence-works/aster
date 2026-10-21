@@ -8,6 +8,7 @@ Baselines from the [benchmark harness](../../bench/README.md) (#103), part of ep
 | Baseline | Data size | Providers | Notes |
 |---|---|---|---|
 | [2026-10-21](baseline-2026-10-21.md) | 10k versions | in-memory, SQLite | First baseline. Single-resource operations scale with tenant size (#154). |
+| [2026-10-21 after #156](baseline-2026-10-21-post-156.md) | 10k versions | in-memory, SQLite | #154 fixed: SQLite get-latest 249 ms → 75 µs. Import preview is the next SQLite hotspot. |
 
 ## Comparing a run against a baseline
 
