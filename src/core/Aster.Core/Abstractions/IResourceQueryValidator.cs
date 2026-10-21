@@ -8,6 +8,13 @@ namespace Aster.Core.Abstractions;
 public interface IResourceQueryValidator
 {
     /// <summary>
+    /// Gets the active provider's capability declaration that <see cref="Validate"/> checks queries against, or
+    /// <see langword="null"/> when the active provider declares none (every query then fails with
+    /// <c>capabilities-not-declared</c>).
+    /// </summary>
+    QueryCapabilityDescription? Capabilities { get; }
+
+    /// <summary>
     /// Validates a query without mutating it.
     /// </summary>
     /// <param name="query">The resource query to validate.</param>

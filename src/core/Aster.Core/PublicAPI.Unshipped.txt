@@ -109,6 +109,7 @@ Aster.Core.Abstractions.IResourceQueryProviderIdentity.ProviderKey.get -> string
 Aster.Core.Abstractions.IResourceQueryService
 Aster.Core.Abstractions.IResourceQueryService.QueryAsync(Aster.Core.Models.Querying.ResourceQuery! query, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IEnumerable<Aster.Core.Models.Instances.Resource!>!>
 Aster.Core.Abstractions.IResourceQueryValidator
+Aster.Core.Abstractions.IResourceQueryValidator.Capabilities.get -> Aster.Core.Models.Querying.QueryCapabilityDescription?
 Aster.Core.Abstractions.IResourceQueryValidator.Validate(Aster.Core.Models.Querying.ResourceQuery! query) -> Aster.Core.Models.Querying.QueryValidationResult!
 Aster.Core.Abstractions.IResourceReferenceResolver
 Aster.Core.Abstractions.IResourceReferenceResolver.ResolveAsync(Aster.Core.Models.Definitions.ResourceDefinition! definition, string! aspectKey, string! facetDefinitionId, string! targetResourceId, Aster.Core.Models.Tenancy.TenantScope? tenantScope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.References.ResourceReferenceResolution!>
@@ -2401,6 +2402,7 @@ Aster.Core.Services.IndexProjectionValidator
 Aster.Core.Services.IndexProjectionValidator.IndexProjectionValidator() -> void
 Aster.Core.Services.IndexProjectionValidator.Validate(System.Collections.Generic.IEnumerable<Aster.Core.Models.Querying.IndexProjection!>! projections) -> Aster.Core.Models.Querying.IndexProjectionValidationResult!
 Aster.Core.Services.ResourceQueryValidator
+Aster.Core.Services.ResourceQueryValidator.Capabilities.get -> Aster.Core.Models.Querying.QueryCapabilityDescription?
 Aster.Core.Services.ResourceQueryValidator.ResourceQueryValidator(System.Collections.Generic.IEnumerable<Aster.Core.Abstractions.IResourceQueryCapabilitiesProvider!>! capabilityProviders) -> void
 Aster.Core.Services.ResourceQueryValidator.ResourceQueryValidator(System.Collections.Generic.IEnumerable<Aster.Core.Abstractions.IResourceQueryCapabilitiesProvider!>! capabilityProviders, Aster.Core.Abstractions.IResourceQueryService! queryService) -> void
 Aster.Core.Services.ResourceQueryValidator.Validate(Aster.Core.Models.Querying.ResourceQuery! query) -> Aster.Core.Models.Querying.QueryValidationResult!

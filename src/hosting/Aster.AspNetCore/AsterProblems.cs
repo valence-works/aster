@@ -12,7 +12,20 @@ namespace Aster.AspNetCore;
 /// <param name="FacetId">The facet ID, when the diagnostic concerns one.</param>
 /// <param name="Message">A human-readable explanation.</param>
 /// <param name="ElementIndex">The array element index, when the diagnostic concerns one element.</param>
-public sealed record AsterDiagnostic(string Code, string? AspectKey, string? FacetId, string Message, int? ElementIndex = null);
+public sealed record AsterDiagnostic(string Code, string? AspectKey, string? FacetId, string Message, int? ElementIndex = null)
+{
+    /// <summary>
+    /// Gets the location in the request body the diagnostic concerns, such as <c>filter.and[1].op</c>, when it
+    /// concerns one. Query diagnostics set it.
+    /// </summary>
+    public string? Path { get; init; }
+
+    /// <summary>
+    /// Gets the query feature a query diagnostic concerns, such as <c>paging</c> or <c>sort</c>, as the query validator
+    /// names it.
+    /// </summary>
+    public string? Feature { get; init; }
+}
 
 /// <summary>
 /// Maps Aster outcomes and exceptions onto ProblemDetails responses: validation failures to <c>400</c> with
@@ -49,7 +62,7 @@ internal static class AsterProblems
         SharedAspectResolutionException e => Validation(
             "Shared aspects could not be resolved.",
             e.Diagnostics.Select(static d => new AsterDiagnostic(d.Code, d.AttachmentKey, null, d.Message))),
-        UnsupportedQueryFeatureException e => Validation(e.Code, e.Message),
+        UnsupportedQueryFeatureException e => Validation(e.Message, [new AsterDiagnostic(e.Code, null, null, e.Message) { Feature = e.Feature }]),
         TenantScopeException e => Validation(e.Code, e.Message),
         DuplicateAspectAttachmentException e => Validation("duplicate-aspect-attachment", e.Message),
         ConcurrencyException e => Conflict("concurrency-conflict", e.Message),

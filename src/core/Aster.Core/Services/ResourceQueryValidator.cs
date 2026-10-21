@@ -55,6 +55,9 @@ public sealed class ResourceQueryValidator : IResourceQueryValidator
     }
 
     /// <inheritdoc />
+    public QueryCapabilityDescription? Capabilities => capabilities;
+
+    /// <inheritdoc />
     public QueryValidationResult Validate(ResourceQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
