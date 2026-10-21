@@ -140,7 +140,12 @@ public sealed class PolicyApplicationDiagnosticsTests : IDisposable
     [Fact]
     public async Task ApplyAsync_DuplicateMarkerConflictPropagatesFailureDiagnostics()
     {
-        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.SoftDeletePolicy()]);
+        // The policy targets archived resources, so the candidate matches it, but archived can't become soft-deleted.
+        var softDeleteArchived = PolicyTestFixtures.SoftDeletePolicy() with
+        {
+            Criteria = new ResourcePolicyCriteria { LifecycleState = ResourceLifecycleMarkerState.Archived },
+        };
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [softDeleteArchived]);
         await PolicyTestFixtures.SaveResourceAsync(provider, "product-1");
         await provider.GetRequiredService<IResourceLifecycleMarkerService>().ApplyAsync(new ResourceLifecycleMarkerRequest
         {

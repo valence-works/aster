@@ -91,6 +91,7 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
                 await markerStore.GetMarkersAsync(candidateResourceIds, tenant, cancellationToken),
                 StringComparer.Ordinal);
         var definitions = new Dictionary<string, ResourceDefinition?>(StringComparer.Ordinal);
+        var activationKeys = new ActivationKeys(versionReader, tenant, candidateResourceIds);
         var conflictIndexes = FindConflictingLifecycleCandidates(candidates, shapeFailures);
         var results = new ResourcePolicyApplicationCandidateResult?[candidates.Count];
         var processedLifecycleResults = new Dictionary<LifecycleCandidateKey, ResourcePolicyApplicationCandidateResult>();
@@ -154,7 +155,17 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
 
             if (latest is not null)
             {
-                var policyFailure = await ValidatePolicyAsync(index, candidate, latest, tenant, definitions, cancellationToken);
+                var policyFailure = await ValidatePolicyAsync(
+                    index,
+                    candidate,
+                    latest,
+                    markerState,
+                    tenant,
+                    request.AppliedAt,
+                    markers,
+                    definitions,
+                    activationKeys,
+                    cancellationToken);
                 if (policyFailure is not null)
                 {
                     results[index] = policyFailure;
@@ -195,8 +206,12 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
         int index,
         ResourcePolicyApplicationCandidate candidate,
         Resource latest,
+        ResourceLifecycleMarkerState outcomeState,
         TenantScope tenant,
+        DateTimeOffset appliedAt,
+        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
         IDictionary<string, ResourceDefinition?> definitions,
+        ActivationKeys activationKeys,
         CancellationToken cancellationToken)
     {
         if (!definitions.TryGetValue(latest.DefinitionId, out var definition))
@@ -227,6 +242,60 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
                 ResourcePolicyDiagnosticCodes.PolicyApplicationPolicyMismatch,
                 $"Policy '{candidate.PolicyId}' no longer matches the submitted kind and outcome.",
                 path);
+        }
+
+        // A resource already in the outcome's state needs nothing, whatever has changed since: the transition
+        // reports it AlreadySatisfied, so retries stay idempotent.
+        if (markers.TryGetValue(latest.ResourceId, out var existing) && existing.State == outcomeState)
+            return null;
+
+        // The submitted candidate is only a claim: the resource must still match the policy's criteria now, as the
+        // preview evaluates them, or any declared policy could archive any resource.
+        var mismatch = await MismatchedCriterionAsync(policy, latest, appliedAt, markers, activationKeys, cancellationToken);
+        if (mismatch is not null)
+        {
+            return Failure(
+                index,
+                candidate,
+                ResourcePolicyDiagnosticCodes.PolicyApplicationPolicyMismatch,
+                $"Resource '{candidate.ResourceId}' version {latest.Version} no longer matches policy '{candidate.PolicyId}'.",
+                mismatch);
+        }
+
+        return null;
+    }
+
+    // Returns the path of the first criterion the latest version fails, or null when it matches every one.
+    private static async ValueTask<string?> MismatchedCriterionAsync(
+        ResourcePolicyDeclaration policy,
+        Resource latest,
+        DateTimeOffset appliedAt,
+        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
+        ActivationKeys activationKeys,
+        CancellationToken cancellationToken)
+    {
+        var criteria = policy.Criteria;
+        if (!string.IsNullOrWhiteSpace(criteria.UnsupportedFacetPredicate))
+            return "criteria";
+
+        if (criteria.MinimumAge is { } minimumAge
+            && appliedAt - new DateTimeOffset(DateTime.SpecifyKind(latest.Created, DateTimeKind.Utc)) < minimumAge)
+            return "criteria/minimumAge";
+
+        if (criteria.ActivationState is { } activationState)
+        {
+            var keys = activationState == ResourcePolicyActivationState.Draft
+                ? await activationKeys.DraftAsync(cancellationToken)
+                : await activationKeys.ActiveAsync(criteria.ActivationChannel!, cancellationToken);
+            if (!keys.Contains((latest.ResourceId, latest.Version)))
+                return "criteria/activationState";
+        }
+
+        if (criteria.LifecycleState is { } expected)
+        {
+            var actual = markers.TryGetValue(latest.ResourceId, out var marker) ? marker.State : ResourceLifecycleMarkerState.None;
+            if (actual != expected)
+                return "criteria/lifecycleState";
         }
 
         return null;
@@ -451,4 +520,36 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
         };
 
     private readonly record struct LifecycleCandidateKey(string ResourceId, ResourceLifecycleMarkerState State);
+
+    /// <summary>
+    /// The candidates' draft versions and per-channel active versions, each read once per request when a policy
+    /// first needs them.
+    /// </summary>
+    private sealed class ActivationKeys(IResourceVersionReader versionReader, TenantScope tenant, IReadOnlyCollection<string> resourceIds)
+    {
+        private readonly Dictionary<string, HashSet<(string, int)>> activeByChannel = new(StringComparer.Ordinal);
+        private HashSet<(string, int)>? draft;
+
+        public async ValueTask<HashSet<(string, int)>> DraftAsync(CancellationToken cancellationToken) =>
+            draft ??= await ReadAsync(ResourceVersionScope.Draft, null, cancellationToken);
+
+        public async ValueTask<HashSet<(string, int)>> ActiveAsync(string channel, CancellationToken cancellationToken)
+        {
+            if (!activeByChannel.TryGetValue(channel, out var keys))
+                activeByChannel[channel] = keys = await ReadAsync(ResourceVersionScope.Active, channel, cancellationToken);
+
+            return keys;
+        }
+
+        private async ValueTask<HashSet<(string, int)>> ReadAsync(ResourceVersionScope scope, string? channel, CancellationToken cancellationToken) =>
+            (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+            {
+                TenantScope = tenant,
+                Scope = scope,
+                ActivationChannel = channel,
+                ResourceIds = resourceIds,
+            }, cancellationToken))
+            .Select(static resource => (resource.ResourceId, resource.Version))
+            .ToHashSet();
+    }
 }
