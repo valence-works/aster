@@ -130,3 +130,66 @@ static Aster.Elsa.AsterActivityDiagnostic.operator ==(Aster.Elsa.AsterActivityDi
 static Aster.Elsa.AsterModuleExtensions.UseAster(this Elsa.Features.Services.IModule! module, System.Action<Aster.Elsa.Features.AsterFeature!>? configure = null) -> Elsa.Features.Services.IModule!
 static Aster.Elsa.AsterTenantMapping.FromElsaTenantId(string? elsaTenantId) -> Aster.Core.Models.Tenancy.TenantScope!
 static Aster.Elsa.AsterTenantMapping.FromTenantAccessor(Elsa.Common.Multitenancy.ITenantAccessor? tenantAccessor) -> Aster.Core.Models.Tenancy.TenantScope!
+Aster.Elsa.Activities.ResourceActivated
+Aster.Elsa.Activities.ResourceActivated.Channel.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.ResourceActivated.Channel.set -> void
+Aster.Elsa.Activities.ResourceActivated.ResourceActivated(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.ResourceArchived
+Aster.Elsa.Activities.ResourceArchived.ResourceArchived(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.ResourceDeactivated
+Aster.Elsa.Activities.ResourceDeactivated.Channel.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.ResourceDeactivated.Channel.set -> void
+Aster.Elsa.Activities.ResourceDeactivated.ResourceDeactivated(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent
+Aster.Elsa.Activities.ResourceLifecycleEvent.<Clone>$() -> Aster.Elsa.Activities.ResourceLifecycleEvent!
+Aster.Elsa.Activities.ResourceLifecycleEvent.Channel.get -> string?
+Aster.Elsa.Activities.ResourceLifecycleEvent.Channel.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.DefinitionId.get -> string?
+Aster.Elsa.Activities.ResourceLifecycleEvent.DefinitionId.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.Equals(Aster.Elsa.Activities.ResourceLifecycleEvent? other) -> bool
+Aster.Elsa.Activities.ResourceLifecycleEvent.Kind.get -> Aster.Elsa.Activities.ResourceLifecycleEventKind
+Aster.Elsa.Activities.ResourceLifecycleEvent.Kind.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.OperationId.get -> System.Guid
+Aster.Elsa.Activities.ResourceLifecycleEvent.OperationId.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.ResourceId.get -> string!
+Aster.Elsa.Activities.ResourceLifecycleEvent.ResourceId.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.ResourceLifecycleEvent() -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.ResourceVersion.get -> int?
+Aster.Elsa.Activities.ResourceLifecycleEvent.ResourceVersion.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.SaveKind.get -> Aster.Core.Models.Lifecycle.ResourceSaveKind?
+Aster.Elsa.Activities.ResourceLifecycleEvent.SaveKind.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEvent.TenantId.get -> string!
+Aster.Elsa.Activities.ResourceLifecycleEvent.TenantId.init -> void
+Aster.Elsa.Activities.ResourceLifecycleEventKind
+Aster.Elsa.Activities.ResourceLifecycleEventKind.Activated = 1 -> Aster.Elsa.Activities.ResourceLifecycleEventKind
+Aster.Elsa.Activities.ResourceLifecycleEventKind.Archived = 3 -> Aster.Elsa.Activities.ResourceLifecycleEventKind
+Aster.Elsa.Activities.ResourceLifecycleEventKind.Deactivated = 2 -> Aster.Elsa.Activities.ResourceLifecycleEventKind
+Aster.Elsa.Activities.ResourceLifecycleEventKind.Saved = 0 -> Aster.Elsa.Activities.ResourceLifecycleEventKind
+Aster.Elsa.Activities.ResourceLifecycleStimulus
+Aster.Elsa.Activities.ResourceLifecycleStimulus.<Clone>$() -> Aster.Elsa.Activities.ResourceLifecycleStimulus!
+Aster.Elsa.Activities.ResourceLifecycleStimulus.Channel.get -> string?
+Aster.Elsa.Activities.ResourceLifecycleStimulus.Channel.init -> void
+Aster.Elsa.Activities.ResourceLifecycleStimulus.Deconstruct(out string! TenantId, out string? DefinitionId, out string? Channel) -> void
+Aster.Elsa.Activities.ResourceLifecycleStimulus.DefinitionId.get -> string?
+Aster.Elsa.Activities.ResourceLifecycleStimulus.DefinitionId.init -> void
+Aster.Elsa.Activities.ResourceLifecycleStimulus.Equals(Aster.Elsa.Activities.ResourceLifecycleStimulus? other) -> bool
+Aster.Elsa.Activities.ResourceLifecycleStimulus.ResourceLifecycleStimulus(string! TenantId, string? DefinitionId = null, string? Channel = null) -> void
+Aster.Elsa.Activities.ResourceLifecycleStimulus.TenantId.get -> string!
+Aster.Elsa.Activities.ResourceLifecycleStimulus.TenantId.init -> void
+Aster.Elsa.Activities.ResourceLifecycleTrigger
+Aster.Elsa.Activities.ResourceLifecycleTrigger.DefinitionId.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.ResourceLifecycleTrigger.DefinitionId.set -> void
+Aster.Elsa.Activities.ResourceSaved
+Aster.Elsa.Activities.ResourceSaved.ResourceSaved(string? source = null, int? line = null) -> void
+const Aster.Elsa.Activities.ResourceLifecycleEvent.WorkflowInputKey = "Aster.ResourceLifecycleEvent" -> string!
+override Aster.Elsa.Activities.ResourceLifecycleEvent.Equals(object? obj) -> bool
+override Aster.Elsa.Activities.ResourceLifecycleEvent.GetHashCode() -> int
+override Aster.Elsa.Activities.ResourceLifecycleEvent.ToString() -> string!
+override Aster.Elsa.Activities.ResourceLifecycleStimulus.Equals(object? obj) -> bool
+override Aster.Elsa.Activities.ResourceLifecycleStimulus.GetHashCode() -> int
+override Aster.Elsa.Activities.ResourceLifecycleStimulus.ToString() -> string!
+static Aster.Elsa.Activities.ResourceLifecycleEvent.operator !=(Aster.Elsa.Activities.ResourceLifecycleEvent? left, Aster.Elsa.Activities.ResourceLifecycleEvent? right) -> bool
+static Aster.Elsa.Activities.ResourceLifecycleEvent.operator ==(Aster.Elsa.Activities.ResourceLifecycleEvent? left, Aster.Elsa.Activities.ResourceLifecycleEvent? right) -> bool
+static Aster.Elsa.Activities.ResourceLifecycleStimulus.operator !=(Aster.Elsa.Activities.ResourceLifecycleStimulus? left, Aster.Elsa.Activities.ResourceLifecycleStimulus? right) -> bool
+static Aster.Elsa.Activities.ResourceLifecycleStimulus.operator ==(Aster.Elsa.Activities.ResourceLifecycleStimulus? left, Aster.Elsa.Activities.ResourceLifecycleStimulus? right) -> bool
+static Aster.Elsa.AsterTenantMapping.ToElsaTenantId(Aster.Core.Models.Tenancy.TenantScope? tenantScope) -> string!
