@@ -52,6 +52,7 @@ Resources follow an **append-only versioning model** — versions are never muta
 ```bash
 dotnet add package Aster.Core
 dotnet add package Aster.Persistence.SqliteJson   # optional: SQLite persistence
+dotnet add package Aster.Persistence.PostgresJsonb # optional: PostgreSQL persistence
 ```
 
 Packages target .NET 8, 9 and 10. Until 1.0 they are published as `0.x` releases and the API may change between minor versions.
@@ -73,6 +74,16 @@ builder.Services.AddAsterCore();
 builder.Services.AddAsterSqliteJson(options =>
 {
     options.ConnectionString = "Data Source=aster.db";
+});
+```
+
+For PostgreSQL, call `AddAsterPostgresJsonb(...)` instead. Until the Postgres query translator lands (#98), queries run through the in-memory query service over Postgres reads.
+
+```csharp
+builder.Services.AddAsterCore();
+builder.Services.AddAsterPostgresJsonb(options =>
+{
+    options.ConnectionString = "Host=localhost;Database=aster;Username=aster;Password=...";
 });
 ```
 
@@ -298,6 +309,9 @@ src/
   persistence/
     Aster.Persistence.SqliteJson/
       ← SQLite JSON definition/resource version/query provider
+    Aster.Persistence.PostgresJsonb/
+      ← PostgreSQL jsonb definition/resource version provider
+    Relational/              ← Store core shared by the relational providers (linked source, ADR 0004)
   hosting/
     Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
   apps/
@@ -327,9 +341,9 @@ Execution is tracked in the [Aster 1.0 program](https://github.com/valence-works
 
 ### Packages
 
-Current: `Aster.Core`, `Aster.Persistence.SqliteJson`.
+Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb` (stores; its query translator is #98), `Aster.AspNetCore`.
 
-Planned for 1.0: `Aster.Persistence.PostgresJsonb`, `Aster.AspNetCore`. Splitting `Aster.Core` into smaller packages is deferred.
+Splitting `Aster.Core` into smaller packages is deferred.
 
 ---
 

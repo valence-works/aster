@@ -3,24 +3,18 @@ using Aster.Core.Models.Portability;
 using Aster.Tests.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonTenantPortabilityStoreTests : IDisposable
+public abstract class TenantPortabilityStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath =
-        Path.Combine(Path.GetTempPath(), $"aster-tenant-portability-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose()
-    {
-        TryDelete(databasePath);
-        TryDelete($"{databasePath}-shm");
-        TryDelete($"{databasePath}-wal");
-    }
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task ExportAsync_UsesTenantScopedSqliteStoreReads()
     {
-        await using var provider = TenantScopeTestFixtures.CreateSqliteProvider(databasePath);
+        await using var provider = Database.CreateProvider();
         await TenantScopeTestFixtures.RegisterProductDefinitionAsync(provider, TenantScopeTestFixtures.TenantA);
         await TenantScopeTestFixtures.RegisterProductDefinitionAsync(provider, TenantScopeTestFixtures.TenantB);
         await TenantScopeTestFixtures.CreateProductAsync(provider, "shared-product", "Tenant A", TenantScopeTestFixtures.TenantA);
@@ -38,14 +32,8 @@ public sealed class SqliteJsonTenantPortabilityStoreTests : IDisposable
         var resource = Assert.Single(result.Snapshot.Resources);
         Assert.Equal(TenantScopeTestFixtures.TenantB, resource.TenantScope);
     }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-    }
 }
+
+public sealed class SqliteJsonTenantPortabilityStoreTests() : TenantPortabilityStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbTenantPortabilityStoreTests() : TenantPortabilityStoreTests(new PostgresTestDatabase());

@@ -1,6 +1,3 @@
-using Aster.Core.Abstractions;
-using Aster.Core.Models.Instances;
-using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Persistence.SqliteJson;
 using Microsoft.Data.Sqlite;
@@ -9,6 +6,7 @@ namespace Aster.Tests.SqliteJson;
 
 /// <summary>
 /// #169: the latest version of a bounded set of resources is read by key, not by walking the tenant.
+/// The behaviour itself is covered for every provider by ResourceStoreTests.
 /// </summary>
 public sealed class SqliteJsonLatestByIdReadTests : IDisposable
 {
@@ -16,26 +14,6 @@ public sealed class SqliteJsonLatestByIdReadTests : IDisposable
 
     private SqliteJsonResourceStore CreateStore() =>
         new(new SqliteJsonAsterOptions { ConnectionString = $"Data Source={databasePath}" });
-
-    [Fact]
-    public async Task LatestByIds_ReturnsEachResourcesLatestVersion_AndSkipsMissingIds()
-    {
-        var store = CreateStore();
-        await SaveAsync(store, "a", 1);
-        await SaveAsync(store, "a", 2);
-        await SaveAsync(store, "b", 1);
-        await SaveAsync(store, "c", 1);
-        await SaveAsync(store, "a", 1, TenantScope.FromTenantId("other"));
-        await SaveAsync(store, "a", 5, TenantScope.FromTenantId("other"));
-
-        var latest = await store.ReadVersionsAsync(new ResourceVersionReadRequest
-        {
-            Scope = ResourceVersionScope.Latest,
-            ResourceIds = ["b", "missing", "a"],
-        });
-
-        Assert.Equal(new[] { ("a", 2), ("b", 1) }, latest.Select(static r => (r.ResourceId, r.Version)));
-    }
 
     [Fact]
     public void LatestByIds_QueryPlan_SeeksByResourceId()
@@ -62,17 +40,6 @@ public sealed class SqliteJsonLatestByIdReadTests : IDisposable
         Assert.NotEmpty(tableAccesses);
         Assert.All(tableAccesses, detail => Assert.Contains("tenant_id=? AND resource_id=?", detail));
     }
-
-    private static Task<Resource> SaveAsync(SqliteJsonResourceStore store, string resourceId, int version, TenantScope? tenant = null) =>
-        store.SaveVersionAsync(new Resource
-        {
-            ResourceId = resourceId,
-            Id = $"{resourceId}-{version}-{tenant?.TenantId}",
-            DefinitionId = "Article",
-            Version = version,
-            Created = DateTime.UtcNow,
-            TenantScope = tenant ?? TenantScope.Default,
-        }).AsTask();
 
     public void Dispose()
     {

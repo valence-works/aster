@@ -5,18 +5,18 @@ using Aster.Core.Models.Querying;
 using Aster.Tests.Policies;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonPolicyApplicationTests : IDisposable
+public abstract class PolicyApplicationStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-policy-application-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose() => PolicyTestFixtures.DeleteSqliteFiles(databasePath);
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task ApplyAsync_UsesSqliteJsonProviderStoresThroughCoreRegistration()
     {
-        await using (var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath))
+        await using (var provider = Database.CreateProvider())
         {
             await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [PolicyTestFixtures.ArchivePolicy()]);
             await PolicyTestFixtures.SaveResourceAsync(provider, "archived");
@@ -30,7 +30,7 @@ public sealed class SqliteJsonPolicyApplicationTests : IDisposable
             Assert.Equal(1, result.AppliedCount);
         }
 
-        await using var secondProvider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var secondProvider = Database.CreateProvider();
         var results = (await secondProvider.GetRequiredService<IResourceQueryService>().QueryAsync(new ResourceQuery
         {
             LifecycleState = ResourceLifecycleMarkerState.Archived,
@@ -40,3 +40,7 @@ public sealed class SqliteJsonPolicyApplicationTests : IDisposable
         Assert.Equal("archived", resource.ResourceId);
     }
 }
+
+public sealed class SqliteJsonPolicyApplicationTests() : PolicyApplicationStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbPolicyApplicationTests() : PolicyApplicationStoreTests(new PostgresTestDatabase());

@@ -1,0 +1,9 @@
+#nullable enable
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.ConnectionString.get -> string!
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.ConnectionString.set -> void
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.InitializeSchema.get -> bool
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.InitializeSchema.set -> void
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.PostgresJsonbAsterOptions() -> void
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterServiceCollectionExtensions
+static Aster.Persistence.PostgresJsonb.PostgresJsonbAsterServiceCollectionExtensions.AddAsterPostgresJsonb(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

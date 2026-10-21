@@ -7,18 +7,18 @@ using Aster.Tests.Policies;
 using Aster.Tests.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonLifecycleRestoreTests : IDisposable
+public abstract class LifecycleRestoreStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-restore-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose() => PolicyTestFixtures.DeleteSqliteFiles(databasePath);
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task RestoreAsync_ClearsPersistedMarkerAndUpdatesLifecycleQueries()
     {
-        await using (var provider = LifecycleRestoreTestFixtures.CreateSqliteProvider(databasePath))
+        await using (var provider = Database.CreateProvider())
         {
             await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "archived");
             await LifecycleRestoreTestFixtures.MarkAsync(provider, "archived", ResourceLifecycleMarkerState.Archived);
@@ -28,7 +28,7 @@ public sealed class SqliteJsonLifecycleRestoreTests : IDisposable
             });
         }
 
-        await using var secondProvider = LifecycleRestoreTestFixtures.CreateSqliteProvider(databasePath);
+        await using var secondProvider = Database.CreateProvider();
         var query = secondProvider.GetRequiredService<IResourceQueryService>();
 
         var archived = (await query.QueryAsync(new ResourceQuery
@@ -39,10 +39,10 @@ public sealed class SqliteJsonLifecycleRestoreTests : IDisposable
         Assert.Empty(archived);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task RestoreAsync_SqliteMarkerDeletesAreTenantScoped()
     {
-        await using var provider = LifecycleRestoreTestFixtures.CreateSqliteProvider(databasePath);
+        await using var provider = Database.CreateProvider();
         await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "shared", TenantScopeTestFixtures.TenantA);
         await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "shared", TenantScopeTestFixtures.TenantB);
         await LifecycleRestoreTestFixtures.MarkAsync(provider, "shared", ResourceLifecycleMarkerState.SoftDeleted, TenantScopeTestFixtures.TenantA);
@@ -59,10 +59,10 @@ public sealed class SqliteJsonLifecycleRestoreTests : IDisposable
         Assert.NotNull(await LifecycleRestoreTestFixtures.ReadMarkerAsync(provider, "shared", TenantScopeTestFixtures.TenantB));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ClearMarkerAsync_OnlyDeletesMatchingExpectedState()
     {
-        await using var provider = LifecycleRestoreTestFixtures.CreateSqliteProvider(databasePath);
+        await using var provider = Database.CreateProvider();
         await LifecycleRestoreTestFixtures.SaveProductAsync(provider, "archived");
         await LifecycleRestoreTestFixtures.MarkAsync(provider, "archived", ResourceLifecycleMarkerState.Archived);
         var clearStore = provider.GetRequiredService<IResourceLifecycleMarkerClearStore>();
@@ -80,3 +80,7 @@ public sealed class SqliteJsonLifecycleRestoreTests : IDisposable
         Assert.True(rightStateRemoved);
     }
 }
+
+public sealed class SqliteJsonLifecycleRestoreTests() : LifecycleRestoreStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbLifecycleRestoreTests() : LifecycleRestoreStoreTests(new PostgresTestDatabase());

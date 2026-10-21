@@ -7,18 +7,18 @@ using Aster.Tests.Policies;
 using Aster.Tests.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonPolicyPruningApplicationTests : IDisposable
+public abstract class PolicyPruningApplicationStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-pruning-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose() => PolicyTestFixtures.DeleteSqliteFiles(databasePath);
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task ApplyAsync_PrunesPersistedVersionWithinRequestedTenantOnly()
     {
-        await using (var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath))
+        await using (var provider = Database.CreateProvider())
         {
             await RegisterTenantResourceAsync(provider, TenantScopeTestFixtures.TenantA);
             await RegisterTenantResourceAsync(provider, TenantScopeTestFixtures.TenantB);
@@ -38,16 +38,16 @@ public sealed class SqliteJsonPolicyPruningApplicationTests : IDisposable
             Assert.NotNull(await provider.GetRequiredService<IResourceDefinitionStore>().GetDefinitionAsync("Product", TenantScopeTestFixtures.TenantA, CancellationToken.None));
         }
 
-        await using var secondProvider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var secondProvider = Database.CreateProvider();
 
         Assert.Equal([2, 3], await ReadVersionsAsync(secondProvider, TenantScopeTestFixtures.TenantA));
         Assert.Equal([1, 2, 3], await ReadVersionsAsync(secondProvider, TenantScopeTestFixtures.TenantB));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task PruneVersionAsync_FailsClosedForPersistedLatestVersion()
     {
-        await using var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var provider = Database.CreateProvider();
         await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
         await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 1);
         await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 2);
@@ -59,10 +59,10 @@ public sealed class SqliteJsonPolicyPruningApplicationTests : IDisposable
         Assert.Equal([1, 2], (await PolicyTestFixtures.ReadVersionsAsync(provider, "versioned")).Select(static version => version.Version).ToList());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task PruneVersionAsync_FailsClosedForPersistedActiveVersion()
     {
-        await using var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var provider = Database.CreateProvider();
         await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
         await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 1);
         await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version: 2);
@@ -109,3 +109,7 @@ public sealed class SqliteJsonPolicyPruningApplicationTests : IDisposable
         })).Select(static version => version.Version).Order().ToList();
     }
 }
+
+public sealed class SqliteJsonPolicyPruningApplicationTests() : PolicyPruningApplicationStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbPolicyPruningApplicationTests() : PolicyPruningApplicationStoreTests(new PostgresTestDatabase());

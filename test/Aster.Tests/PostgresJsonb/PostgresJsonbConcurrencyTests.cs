@@ -1,0 +1,193 @@
+using Aster.Core.Abstractions;
+using Aster.Core.Definitions;
+using Aster.Core.Exceptions;
+using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Instances;
+using Aster.Tests.Persistence;
+using Aster.Tests.Tenancy;
+using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
+
+namespace Aster.Tests.PostgresJsonb;
+
+/// <summary>
+/// #97: concurrent writers against one Postgres database. Each writer has its own provider, as separate
+/// processes would.
+/// </summary>
+public sealed class PostgresJsonbConcurrencyTests : IDisposable
+{
+    private const int Writers = 8;
+
+    private readonly PostgresTestDatabase database = new();
+
+    public void Dispose() => database.Dispose();
+
+    [SkippableFact]
+    public async Task UpdateAsync_ConcurrentWritersOnOneBaseVersion_OneWinsTheRestGetConcurrencyException()
+    {
+        await using (var setup = database.CreateProvider())
+        {
+            await TenantScopeTestFixtures.RegisterProductDefinitionAsync(setup);
+            await TenantScopeTestFixtures.CreateProductAsync(setup, "contended", "v1");
+        }
+
+        var providers = Enumerable.Range(0, Writers).Select(_ => database.CreateProvider()).ToList();
+        try
+        {
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var running = providers.Select((provider, index) => Task.Run(async () =>
+            {
+                await start.Task;
+                try
+                {
+                    await provider.GetRequiredService<IResourceManager>().UpdateAsync("contended", new UpdateResourceRequest
+                    {
+                        BaseVersion = 1,
+                        AspectUpdates = { ["Title"] = new { Title = $"writer {index}" } },
+                    });
+                    return (Exception?)null;
+                }
+                catch (Exception exception)
+                {
+                    return exception;
+                }
+            })).ToList();
+            start.SetResult();
+            var outcomes = await Task.WhenAll(running);
+
+            Assert.Single(outcomes, static outcome => outcome is null);
+            Assert.All(outcomes.Where(static outcome => outcome is not null), static outcome => Assert.IsType<ConcurrencyException>(outcome));
+
+            var versions = await providers[0].GetRequiredService<IResourceManager>().GetVersionsAsync("contended");
+            Assert.Equal([1, 2], versions.Select(static version => version.Version));
+        }
+        finally
+        {
+            foreach (var provider in providers)
+                await provider.DisposeAsync();
+        }
+    }
+
+    [SkippableFact]
+    public async Task RegisterDefinitionAsync_ConcurrentRegistrations_GetDistinctConsecutiveVersions()
+    {
+        var versions = await RunConcurrentlyAsync(async provider =>
+        {
+            var store = provider.GetRequiredService<IResourceDefinitionStore>();
+            await store.RegisterDefinitionAsync(new ResourceDefinitionBuilder().WithDefinitionId("Contended").Build());
+        }, async provider =>
+        {
+            // Probe one past the expected range, so a lost or duplicated version shows up as a gap or an extra.
+            var store = provider.GetRequiredService<IResourceDefinitionStore>();
+            var found = new List<int>();
+            for (var version = 1; version <= Writers + 1; version++)
+            {
+                if (await store.GetDefinitionVersionAsync("Contended", version) is not null)
+                    found.Add(version);
+            }
+
+            return found;
+        });
+
+        Assert.Equal(Enumerable.Range(1, Writers), versions);
+    }
+
+    [SkippableFact]
+    public async Task AspectRegisterAsync_ConcurrentRegistrations_GetDistinctConsecutiveVersions()
+    {
+        var versions = await RunConcurrentlyAsync(async provider =>
+        {
+            await provider.GetRequiredService<IAspectDefinitionStore>().RegisterAsync(new AspectDefinition
+            {
+                AspectDefinitionId = "Contended",
+                Id = Guid.NewGuid().ToString("N"),
+                Version = 0,
+            });
+        }, async provider =>
+            (await provider.GetRequiredService<IAspectDefinitionStore>().ListVersionsAsync("Contended")).Select(static aspect => aspect.Version).ToList());
+
+        Assert.Equal(Enumerable.Range(1, Writers), versions);
+    }
+
+    [SkippableFact]
+    public async Task SchemaBootstrap_ConcurrentProvidersOnAFreshDatabase_AllStart()
+    {
+        // Every provider bootstraps the schema when its stores are first resolved.
+        var providers = Enumerable.Range(0, Writers).Select(_ => database.CreateProvider()).ToList();
+        try
+        {
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var running = providers.Select(provider => Task.Run(async () =>
+            {
+                await start.Task;
+                _ = provider.GetRequiredService<IResourceDefinitionStore>();
+                _ = provider.GetRequiredService<IAspectDefinitionStore>();
+            })).ToList();
+            start.SetResult();
+            await Task.WhenAll(running);
+        }
+        finally
+        {
+            foreach (var provider in providers)
+                await provider.DisposeAsync();
+        }
+
+        Assert.Equal(
+            ["activation_states", "aspect_definitions", "lifecycle_markers", "resource_definitions", "resource_versions"],
+            ReadTableNames());
+    }
+
+    [SkippableFact]
+    public async Task SchemaBootstrap_RepeatedOnAPopulatedDatabase_KeepsData()
+    {
+        await using (var first = database.CreateProvider())
+        {
+            await TenantScopeTestFixtures.RegisterProductDefinitionAsync(first);
+            await TenantScopeTestFixtures.CreateProductAsync(first, "kept", "Kept");
+        }
+
+        await using var second = database.CreateProvider();
+        var resource = await second.GetRequiredService<IResourceManager>().GetLatestVersionAsync("kept");
+
+        Assert.NotNull(resource);
+        Assert.Equal("kept", resource.ResourceId);
+    }
+
+    private async Task<List<int>> RunConcurrentlyAsync(Func<ServiceProvider, Task> write, Func<ServiceProvider, Task<List<int>>> read)
+    {
+        var providers = Enumerable.Range(0, Writers).Select(_ => database.CreateProvider()).ToList();
+        try
+        {
+            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var running = providers.Select(provider => Task.Run(async () =>
+            {
+                await start.Task;
+                await write(provider);
+            })).ToList();
+            start.SetResult();
+            await Task.WhenAll(running);
+
+            return (await read(providers[0])).Order().ToList();
+        }
+        finally
+        {
+            foreach (var provider in providers)
+                await provider.DisposeAsync();
+        }
+    }
+
+    private List<string> ReadTableNames()
+    {
+        using var connection = new NpgsqlConnection(database.ConnectionString);
+        connection.Open();
+        using var command = new NpgsqlCommand(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;",
+            connection);
+        using var reader = command.ExecuteReader();
+        var names = new List<string>();
+        while (reader.Read())
+            names.Add(reader.GetString(0));
+
+        return names;
+    }
+}

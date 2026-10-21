@@ -4,18 +4,18 @@ using Aster.Core.Models.Querying;
 using Aster.Tests.Policies;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonLifecycleMarkerTests : IDisposable
+public abstract class LifecycleMarkerStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-marker-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose() => PolicyTestFixtures.DeleteSqliteFiles(databasePath);
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task LifecycleMarkers_PersistAndCanBeQueried()
     {
-        await using (var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath))
+        await using (var provider = Database.CreateProvider())
         {
             await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
             await PolicyTestFixtures.SaveResourceAsync(provider, "archived");
@@ -28,7 +28,7 @@ public sealed class SqliteJsonLifecycleMarkerTests : IDisposable
             });
         }
 
-        await using var secondProvider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var secondProvider = Database.CreateProvider();
         var query = secondProvider.GetRequiredService<IResourceQueryService>();
 
         var results = (await query.QueryAsync(new ResourceQuery
@@ -40,10 +40,10 @@ public sealed class SqliteJsonLifecycleMarkerTests : IDisposable
         Assert.Equal("archived", result.ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task QueryAsync_LifecycleStateFilterRunsBeforePaging()
     {
-        await using var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var provider = Database.CreateProvider();
         await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
         await PolicyTestFixtures.SaveResourceAsync(provider, "a-unmarked");
         await PolicyTestFixtures.SaveResourceAsync(provider, "b-archived");
@@ -65,3 +65,7 @@ public sealed class SqliteJsonLifecycleMarkerTests : IDisposable
         Assert.Equal("b-archived", result.ResourceId);
     }
 }
+
+public sealed class SqliteJsonLifecycleMarkerTests() : LifecycleMarkerStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbLifecycleMarkerTests() : LifecycleMarkerStoreTests(new PostgresTestDatabase());

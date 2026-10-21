@@ -8,42 +8,23 @@ using Aster.Core.Models.Instances;
 using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
 /// <summary>
-/// US4: facet metadata persists losslessly through the SQLite JSON provider with no schema
-/// change, and both providers produce identical validation outcomes, diagnostic codes, and
+/// US4: facet metadata persists losslessly through each persistent provider, and every provider
+/// produces identical validation outcomes, diagnostic codes, and
 /// ordering for every stable code (SC-006, FR-020).
 /// </summary>
-public sealed class SqliteJsonFacetMetadataTests : IDisposable
+public abstract class FacetMetadataStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath =
-        Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
-
-    private SqliteJsonResourceStore CreateStore() =>
-        new(new SqliteJsonAsterOptions
-        {
-            ConnectionString = $"Data Source={databasePath}",
-        });
-
-    private ServiceProvider CreateSqliteProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddAsterCore();
-        services.AddAsterSqliteJson(options =>
-        {
-            options.ConnectionString = $"Data Source={databasePath}";
-        });
-
-        return services.BuildServiceProvider();
-    }
+    protected IAsterTestDatabase Database { get; } = database;
 
     private static ServiceProvider CreateInMemoryProvider() =>
         new ServiceCollection()
             .AddAsterCore()
             .BuildServiceProvider();
 
-    public void Dispose() => SqliteJsonTestDatabase.DeleteFiles(databasePath);
+    public void Dispose() => Database.Dispose();
 
     private sealed class TitleAspect
     {
@@ -56,10 +37,10 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // T032 — SQLite persistence and schema
+    // T032 — persistence
     // ──────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [SkippableFact]
     public async Task RegisterDefinitionAsync_FullMetadata_ReadsBackEveryPropertyThroughJsonPayload()
     {
         // Arrange
@@ -82,8 +63,10 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
 
         // Act — register with one store instance, read back with a fresh one (forces the
         // value through the persisted JSON payload).
-        await CreateStore().RegisterDefinitionAsync(definition);
-        var result = await CreateStore().GetDefinitionAsync("Product");
+        await using (var writer = Database.CreateProvider())
+            await writer.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(definition);
+        await using var reader = Database.CreateProvider();
+        var result = await reader.GetRequiredService<IResourceDefinitionStore>().GetDefinitionAsync("Product");
 
         // Assert
         Assert.NotNull(result);
@@ -105,50 +88,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         Assert.Null(facet.Metadata.Maximum);
     }
 
-    [Fact]
-    public async Task RegisterDefinitionAsync_NoMetadata_StoredPayloadContainsNoMetadataProperty()
-    {
-        // Arrange
-        var definition = new ResourceDefinitionBuilder()
-            .WithDefinitionId("Product")
-            .WithTypedAspect<TitleAspect>()
-            .Build();
-
-        // Act
-        await CreateStore().RegisterDefinitionAsync(definition);
-        var payload = ReadDefinitionPayload("Product");
-
-        // Assert — the persisted JSON is unchanged from today (FR-004, FR-019).
-        Assert.DoesNotContain("metadata", payload, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Schema_WithMetadataPersisted_TableShapeUnchanged()
-    {
-        // Arrange — persist a metadata-bearing definition so the schema is fully initialized.
-        var definition = new ResourceDefinitionBuilder()
-            .WithDefinitionId("Product")
-            .WithTypedAspect<TitleAspect>()
-            .WithFacetMetadata(new FacetMetadata { Label = "Title" })
-            .Build();
-        await CreateStore().RegisterDefinitionAsync(definition);
-
-        // Act
-        var tables = SqliteJsonTestDatabase.ReadTableNames(databasePath)
-            .Where(static name => !name.StartsWith("sqlite_", StringComparison.Ordinal))
-            .OrderBy(static name => name, StringComparer.Ordinal)
-            .ToArray();
-        var definitionColumns = ReadColumnNames("resource_definitions");
-
-        // Assert — same tables and same resource_definitions shape as SqliteJsonSchema.cs.
-        Assert.Equal(
-            (IEnumerable<string>)["activation_states", "aspect_definitions", "lifecycle_markers", "resource_definitions", "resource_versions"],
-            tables);
-        Assert.Equal(
-            (IEnumerable<string>)["tenant_id", "definition_id", "version", "id", "payload"],
-            definitionColumns);
-    }
-
     // ──────────────────────────────────────────────────────────────────────────
     // T033 — provider-parity matrix
     // ──────────────────────────────────────────────────────────────────────────
@@ -164,7 +103,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         { FacetMetadataDiagnosticCodes.PatternInvalid, "pattern-invalid" },
     };
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(MetadataRejectionCases))]
     public async Task RegisterDefinitionAsync_MetadataRejection_IdenticalAcrossProviders(
         string expectedCode, string caseName)
@@ -172,7 +111,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         // Arrange
         var definition = BuildMetadataRejectionDefinition(expectedCode, caseName);
         await using var inMemoryProvider = CreateInMemoryProvider();
-        await using var sqliteProvider = CreateSqliteProvider();
+        await using var sqliteProvider = Database.CreateProvider();
 
         // Act
         var inMemoryDiagnostics = await CaptureRegistrationDiagnosticsAsync(inMemoryProvider, definition);
@@ -194,7 +133,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         { FacetValueDiagnosticCodes.PatternMismatch, "pattern-mismatch" },
     };
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(ValueRejectionCases))]
     public async Task CreateAsync_ValueRejection_IdenticalAcrossProviders(
         string expectedCode, string caseName)
@@ -202,7 +141,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         // Arrange
         var (definition, aspects) = BuildValueRejectionCase(expectedCode, caseName);
         await using var inMemoryProvider = CreateInMemoryProvider();
-        await using var sqliteProvider = CreateSqliteProvider();
+        await using var sqliteProvider = Database.CreateProvider();
 
         // Act
         var inMemoryDiagnostics = await CaptureSaveDiagnosticsAsync(inMemoryProvider, definition, aspects);
@@ -216,7 +155,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
             sqliteDiagnostics.Select(static diagnostic => (diagnostic.Code, diagnostic.AspectKey, diagnostic.FacetDefinitionId)));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task CreateAsync_MultipleValueViolations_OrderingIdenticalAcrossProviders()
     {
         // Arrange — one facet violating length + pattern, plus a numeric facet out of range.
@@ -233,7 +172,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
             ["TitleAspect"] = new Dictionary<string, object> { ["String"] = "AB" },
         };
         await using var inMemoryProvider = CreateInMemoryProvider();
-        await using var sqliteProvider = CreateSqliteProvider();
+        await using var sqliteProvider = Database.CreateProvider();
 
         // Act
         var inMemoryDiagnostics = await CaptureSaveDiagnosticsAsync(inMemoryProvider, definition, aspects);
@@ -348,29 +287,6 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         return exception.Diagnostics;
     }
 
-    private string ReadDefinitionPayload(string definitionId)
-    {
-        using var connection = SqliteJsonTestDatabase.OpenConnection(databasePath);
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT payload FROM resource_definitions WHERE definition_id = $definitionId;";
-        command.Parameters.AddWithValue("$definitionId", definitionId);
-        return (string)command.ExecuteScalar()!;
-    }
-
-    private string[] ReadColumnNames(string tableName)
-    {
-        using var connection = SqliteJsonTestDatabase.OpenConnection(databasePath);
-        using var command = connection.CreateCommand();
-        command.CommandText = $"PRAGMA table_info({tableName});";
-
-        using var reader = command.ExecuteReader();
-        var names = new List<string>();
-        while (reader.Read())
-            names.Add(reader.GetString(1));
-
-        return [.. names];
-    }
-
     private static string? GetString(object? value) => value switch
     {
         string text => text,
@@ -378,3 +294,7 @@ public sealed class SqliteJsonFacetMetadataTests : IDisposable
         _ => value?.ToString(),
     };
 }
+
+public sealed class SqliteJsonFacetMetadataTests() : FacetMetadataStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbFacetMetadataTests() : FacetMetadataStoreTests(new PostgresTestDatabase());

@@ -119,6 +119,20 @@ See `specs/001-core-sdk-foundation/` for a complete example.
 
 ---
 
+## PostgreSQL Provider Tests
+
+The store tests in `test/Aster.Tests/Persistence/` run against every persistent provider. The Postgres runs skip unless `ASTER_TEST_POSTGRES` names a server; each test creates and drops its own database there.
+
+```bash
+docker run -d --name aster-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
+export ASTER_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres"
+dotnet test Aster.sln
+```
+
+CI sets `ASTER_REQUIRE_POSTGRES=1` as well, so a missing server fails the run instead of skipping.
+
+---
+
 ## Pull Request Guidelines
 
 1. All tests must pass (`dotnet test`).
