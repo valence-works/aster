@@ -46,6 +46,8 @@ public sealed class LifecycleDeactivationHookTests : IAsyncDisposable
         Assert.Empty(before.ActiveVersions);
         Assert.Empty(after.ActiveVersions);
         Assert.Equal(before.OperationId, after.OperationId);
+        LifecycleOperationAssert.Pending(before);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -80,7 +82,7 @@ public sealed class LifecycleDeactivationHookTests : IAsyncDisposable
     }
 
     [Fact]
-    public static async Task ActivationWriteFailure_RunsAfterDeactivateHook()
+    public static async Task ActivationWriteFailure_RunsAfterDeactivateHookWithFailedOutcome()
     {
         await using var scopedProvider = BuildThrowingWriterProvider();
         var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
@@ -94,12 +96,20 @@ public sealed class LifecycleDeactivationHookTests : IAsyncDisposable
         scopedRecorder.Events.Clear();
         writer.ThrowActivationUpdate = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             scopedManager.DeactivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel).AsTask());
 
         Assert.Equal(
             [LifecyclePoint.BeforeDeactivate, LifecyclePoint.AfterDeactivate],
             scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+        LifecycleOperationAssert.Pending(scopedRecorder.Events[0].Context);
+        var failure = LifecycleOperationAssert.Failed(
+            scopedRecorder.Events[1].Context,
+            LifecycleOperationFailure.OperationFailedCode);
+        Assert.Same(exception, failure.Exception);
+        var stillActive = Assert.Single(
+            await scopedManager.GetActiveVersionsAsync(resource.ResourceId, LifecycleHookTestFixtures.Channel));
+        Assert.Equal(resource.Version, stillActive.Version);
     }
 
     private async ValueTask<Resource> CreateActiveResourceAsync()

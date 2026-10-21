@@ -96,7 +96,7 @@ As a host application, I want hooks around export, import preview, and write imp
 - **FR-010**: The system MUST allow before hooks to reject an operation before the underlying write or export occurs.
 - **FR-011**: The system MUST NOT apply a save, activation, deactivation, export, preview, or write-import operation when a before hook rejects it.
 - **FR-012**: The system MUST surface hook rejections and hook failures as clear structured failures or diagnostics appropriate to the operation being performed.
-- **FR-013**: The system MUST NOT run after-success hooks when the underlying operation does not complete successfully.
+- **FR-013**: The system MUST NOT present an operation that did not complete as successful to after hooks. *(Amended by #219: after hooks run paired with before hooks and receive the operation outcome; see [Failure Semantics](#failure-semantics).)*
 - **FR-014**: The system MUST make after-hook failures visible without pretending that the already-completed operation was rolled back.
 - **FR-015**: The system MUST respect cancellation while running hooks and MUST stop invoking later hooks after cancellation is observed.
 - **FR-016**: The system MUST preserve existing behavior when no hooks are registered.
@@ -113,9 +113,29 @@ As a host application, I want hooks around export, import preview, and write imp
 ### Assumptions
 
 - Save hooks cover resource create, resource update, and explicit schema upgrade because all three append resource versions.
-- After hooks are success observers and do not imply transactional rollback of already-completed operations.
+- After hooks observe the operation's outcome and do not imply transactional rollback of already-completed operations.
 - Hook registration order is the default execution order unless a later planning step introduces an explicit ordering model.
 - Hook behavior is SDK-local and synchronous with the triggering operation; durable event delivery and retries belong to later operational slices.
+
+### Failure Semantics
+
+Added by [#219](https://github.com/valence-works/aster/issues/219). It replaces the original "after hooks run only after success" reading of FR-013, User Story 1 scenario 4, and User Story 3 scenario 5.
+
+**Decision**: before and after hooks are paired, and every after hook receives the operation outcome.
+
+- Once every before hook continues, the after hooks run whether the underlying operation then succeeds or fails. This holds for every paired point: save (create, update, schema upgrade), activation, deactivation, export, import preview, and write import.
+- Every hook context carries `OperationStatus` (`LifecycleOperationStatus`): `Pending` for before hooks, then `Succeeded` or `Failed` for after hooks. When it is `Failed`, `OperationFailure` (`LifecycleOperationFailure`) gives a stable `Code`, a `Message`, and the `Exception` when there is one.
+  - Save, activation, deactivation: the store write threw. The code is `lifecycle-operation-failed`, and `Exception` is the exception the caller receives (for example a `ConcurrencyException` from a conflicting writer).
+  - Export: the store read failed (`export-read-failed`).
+  - Import preview: planning threw (`import-planning-failed`). A preview whose plan has error diagnostics still `Succeeded`: it answered, with `CanImport` false.
+  - Write import: the result status is `Failed`. The code is the first error diagnostic's code (`import-planning-failed`, `import-apply-failed`, or a plan diagnostic such as `divergent-identity-collision`), with the exception when planning or apply threw.
+- After hooks do not run when a before hook rejects or fails, when the operation fails validation before the before hooks run, or on cancellation.
+- On a failed save, activation, or deactivation, an exception from an after hook is suppressed so that the write's exception reaches the caller. On a failed portability operation, an after-hook failure is appended to the result's diagnostics, as on success.
+- Hooks that must only see completed changes, such as audit and notification hooks, return early unless `OperationStatus` is `Succeeded`.
+
+**Why**: pairing was already the behavior on every path: the resource manager ran after hooks on writer failure, and the portability service ran them with failed results. It lets a hook that opens something in a before call (a timer, a scope, a lock) close it in the after call. What was missing was a uniform way for a hook to tell success from failure. Activation and save contexts gave no sign of failure, so audit hooks recorded changes that never happened. User Story 2 scenario 3 already asks for the "resulting operation outcome". The status and failure are additive init-only properties on the shared context record, so existing hooks compile unchanged.
+
+**Rejected alternative**: skip after hooks on failure. It matches the original FR-013 wording, but it breaks before/after pairing for hosts that rely on it. It also gives portability after hooks less than they get today (they see failed results), and it gives hooks no way to observe failures at all.
 
 ## Success Criteria *(mandatory)*
 

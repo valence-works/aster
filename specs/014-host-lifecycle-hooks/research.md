@@ -56,6 +56,8 @@
 - Transactional after hooks: rejected because it would couple hooks to provider transactions and require provider-specific behavior.
 - Swallow after-hook failures: rejected because hosts need deterministic, inspectable outcomes.
 
+**Superseded in part by #219**: after hooks run paired with before hooks, including when the underlying operation fails, and receive `OperationStatus`/`OperationFailure` to tell the two apart. The rollback stance above is unchanged. See the spec's Failure Semantics section.
+
 ## Decision: Keep Portability Failures Aligned With Existing Diagnostics
 
 **Decision**: Portability hook rejections and hook failures should surface through portability result diagnostics where the operation already returns diagnostics. Lifecycle methods that currently throw structured exceptions can use a hook-specific structured exception.

@@ -3,7 +3,9 @@ using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
+using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Aster.Tests.Lifecycle;
 
@@ -49,6 +51,8 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal(resource.ResourceId, after.ResourceId);
         Assert.Equal(resource.Version, after.Resource!.Version);
         Assert.Equal(before.OperationId, after.OperationId);
+        LifecycleOperationAssert.Pending(before);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -70,6 +74,8 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal(created.Version, before.BaseVersion);
         Assert.Equal(updated.Version, after.Resource!.Version);
         Assert.Equal(before.OperationId, after.OperationId);
+        LifecycleOperationAssert.Pending(before);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -146,7 +152,7 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
     }
 
     [Fact]
-    public static async Task SaveVersionFailure_RunsAfterSaveHook()
+    public static async Task SaveVersionFailure_RunsAfterSaveHookWithFailedOutcome()
     {
         await using var scopedProvider = BuildThrowingWriterProvider();
         var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
@@ -155,7 +161,7 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
 
         writer.ThrowSave = true;
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var createFailure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             scopedManager.CreateAsync(
                 LifecycleHookTestFixtures.DefinitionId,
                 LifecycleHookTestFixtures.CreateRequest()).AsTask());
@@ -163,6 +169,12 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal(
             [LifecyclePoint.BeforeSave, LifecyclePoint.AfterSave],
             scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+        LifecycleOperationAssert.Pending(scopedRecorder.Events[0].Context);
+        var failure = LifecycleOperationAssert.Failed(
+            scopedRecorder.Events[1].Context,
+            LifecycleOperationFailure.OperationFailedCode);
+        Assert.Same(createFailure, failure.Exception);
+        Assert.Equal(createFailure.Message, failure.Message);
 
         writer.ThrowSave = false;
         scopedRecorder.Events.Clear();
@@ -171,8 +183,9 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
             LifecycleHookTestFixtures.CreateRequest());
         scopedRecorder.Events.Clear();
         writer.ThrowSave = true;
+        writer.Failure = new ConcurrencyException(created.ResourceId, created.Version, created.Version + 1);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var updateFailure = await Assert.ThrowsAsync<ConcurrencyException>(() =>
             scopedManager.UpdateAsync(
                 created.ResourceId,
                 LifecycleHookTestFixtures.UpdateRequest(created.Version)).AsTask());
@@ -180,14 +193,61 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
         Assert.Equal(
             [LifecyclePoint.BeforeSave, LifecyclePoint.AfterSave],
             scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+        var after = Assert.IsType<ResourceSaveLifecycleContext>(scopedRecorder.Events[1].Context);
+        failure = LifecycleOperationAssert.Failed(after, LifecycleOperationFailure.OperationFailedCode);
+        Assert.Same(updateFailure, failure.Exception);
+        Assert.Equal(created.Version + 1, after.Resource!.Version);
+        Assert.Equal(created.Version, (await scopedManager.GetLatestVersionAsync(created.ResourceId))!.Version);
     }
 
-    private static ServiceProvider BuildThrowingWriterProvider() =>
-        new ServiceCollection()
+    [Fact]
+    public static async Task SaveVersionFailure_AfterHookFailureDoesNotMaskWriteException()
+    {
+        var logger = new CapturingLogger<DefaultResourceManager>();
+        await using var scopedProvider = BuildThrowingWriterProvider(services => services.AddSingleton<ILogger<DefaultResourceManager>>(logger));
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        writer.ThrowSave = true;
+        scopedRecorder.ThrowAt = LifecyclePoint.AfterSave;
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedManager.CreateAsync(
+                LifecycleHookTestFixtures.DefinitionId,
+                LifecycleHookTestFixtures.CreateRequest()).AsTask());
+
+        Assert.Equal("simulated save failure", exception.Message);
+        LifecycleOperationAssert.Failed(scopedRecorder.Events[1].Context, LifecycleOperationFailure.OperationFailedCode);
+
+        // FR-014: the hook's own failure is not thrown, so it is logged.
+        var warning = Assert.Single(logger.Entries, static entry => entry.Level == LogLevel.Warning);
+        Assert.IsType<LifecycleHookException>(warning.Exception);
+        Assert.Contains("AfterSave", warning.Message, StringComparison.Ordinal);
+    }
+
+    private static ServiceProvider BuildThrowingWriterProvider(Action<IServiceCollection>? configure = null)
+    {
+        var services = new ServiceCollection();
+        configure?.Invoke(services);
+        return services
             .AddSingleton<LifecycleHookRecorder>()
             .AddAsterCore()
             .AddSingleton<SwitchableResourceVersionWriter>()
             .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
             .AddResourceLifecycleHook<FirstRecordingHook>()
             .BuildServiceProvider();
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, Exception? Exception, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, exception, formatter(state, exception)));
+    }
 }
