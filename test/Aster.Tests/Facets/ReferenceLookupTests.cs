@@ -234,6 +234,48 @@ public sealed class ReferenceLookupTests : IDisposable
     [Theory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    public async Task GetReferrers_PagesOverConfirmedReferrers_NotCaseOnlyCandidates(string providerKind)
+    {
+        await using var provider = CreateProvider(providerKind);
+        await SeedAsync(provider);
+        var references = provider.GetRequiredService<IResourceReferenceService>();
+
+        // Providers also return workflow-1 and workflow-2 (they reference "agent-a") as candidates for "Agent-A",
+        // and workflow-4 as a candidate for "agent-a"; neither may shorten, shift or extend a page.
+        var agentA = await references.GetReferrersAsync("Agent-A", new ResourceReferrerQuery { Take = 1 });
+        var secondOfAgentLower = await references.GetReferrersAsync("agent-a", new ResourceReferrerQuery { Skip = 1, Take = 1 });
+        var everything = await references.GetReferrersAsync("agent-a", new ResourceReferrerQuery { Take = int.MaxValue });
+
+        Assert.Equal(new[] { "workflow-4" }, Ids(agentA));
+        Assert.False(agentA.HasMore);
+        Assert.Equal(new[] { "workflow-2" }, Ids(secondOfAgentLower));
+        Assert.False(secondOfAgentLower.HasMore);
+        Assert.Equal(new[] { "workflow-1", "workflow-2" }, Ids(everything));
+        Assert.False(everything.HasMore);
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task ResourceIdSort_IsOrdinal_OnBothProviders(string providerKind)
+    {
+        await using var provider = CreateProvider(providerKind);
+        var manager = await SeedAsync(provider);
+        await CreateWorkflowAsync(manager, "wf_b", TenantScope.Default, primary: "agent-b");
+        await CreateWorkflowAsync(manager, "wfA", TenantScope.Default, primary: "agent-b");
+
+        // Ordinal: 'A' (0x41) < '_' (0x5F); a culture-aware comparison would put "wf_b" first.
+        var page = await provider.GetRequiredService<IResourceReferenceService>().GetReferrersAsync(
+            "agent-b",
+            new ResourceReferrerQuery { Take = 2 });
+
+        Assert.Equal(new[] { "wfA", "wf_b" }, Ids(page));
+        Assert.True(page.HasMore);
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
     public async Task GetReferrers_IsTenantScoped(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);

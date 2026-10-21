@@ -28,9 +28,9 @@ public sealed record ResourceReferrerQuery
     public int? Skip { get; init; }
 
     /// <summary>
-    /// Gets the maximum number of referrers to return; <see langword="null"/> returns all. Paging runs in the
-    /// provider, which compares text case-insensitively, so a page can hold fewer items when another
-    /// <c>ResourceId</c> differs from the target only by letter case.
+    /// Gets the maximum number of referrers to return; <see langword="null"/> returns all. Paging counts
+    /// confirmed referrers only, so a <c>ResourceId</c> that differs from the target by letter case alone never
+    /// shortens or shifts a page.
     /// </summary>
     public int? Take { get; init; }
 }

@@ -72,7 +72,7 @@ public sealed class ResourceReferenceService(
         if (branches.Count == 0)
             return new ResourceReferrerPage([], false);
 
-        var versions = (await queryService.QueryAsync(new ResourceQuery
+        var candidates = new ResourceQuery
         {
             TenantScope = tenant,
             Scope = query.Scope,
@@ -80,27 +80,40 @@ public sealed class ResourceReferenceService(
             LifecycleState = query.LifecycleState,
             Filter = AnyOf(branches),
             Sorts = [new SortExpression("ResourceId"), new SortExpression("Version")],
-            Skip = query.Skip,
-            Take = query.Take + 1,
-        }, cancellationToken)).ToList();
+        };
 
-        var hasMore = query.Take is { } take && versions.Count > take;
-        if (hasMore)
-            versions.RemoveAt(versions.Count - 1);
-
-        // Providers compare text case-insensitively; ResourceIds are ordinal, so confirm each match here.
-        var referrers = new List<ResourceReferrer>(versions.Count);
-        foreach (var version in versions)
+        // Providers compare text case-insensitively, but ResourceIds are ordinal, so each candidate is confirmed
+        // here and paging applies to confirmed referrers. Candidates are read in batches until the page plus one
+        // lookahead referrer is confirmed; a further batch is needed only when another ResourceId differs from
+        // the target by letter case alone.
+        var skip = query.Skip ?? 0;
+        var wanted = query.Take is { } take ? (long)skip + take + 1 : long.MaxValue;
+        int? batchSize = query.Take is null ? null : (int)Math.Min(wanted, int.MaxValue);
+        var referrers = new List<ResourceReferrer>();
+        var offset = 0;
+        while (true)
         {
-            if (!facetsByDefinition.TryGetValue(version.DefinitionId, out var facets))
-                continue;
+            var batch = (await queryService.QueryAsync(candidates with { Skip = offset, Take = batchSize }, cancellationToken)).ToList();
+            foreach (var version in batch)
+            {
+                if (!facetsByDefinition.TryGetValue(version.DefinitionId, out var facets))
+                    continue;
 
-            var locations = Locate(version, facets, targetResourceId);
-            if (locations.Count > 0)
-                referrers.Add(new ResourceReferrer(version, locations));
+                var locations = Locate(version, facets, targetResourceId);
+                if (locations.Count > 0)
+                    referrers.Add(new ResourceReferrer(version, locations));
+            }
+
+            if (batchSize is not { } size || batch.Count < size || referrers.Count >= wanted)
+                break;
+
+            offset += batch.Count;
         }
 
-        return new ResourceReferrerPage(referrers, hasMore);
+        var start = Math.Min(skip, referrers.Count);
+        var available = referrers.Count - start;
+        var count = query.Take is { } pageSize ? Math.Min(pageSize, available) : available;
+        return new ResourceReferrerPage(referrers.GetRange(start, count), available > count);
     }
 
     /// <summary>
