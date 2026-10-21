@@ -16,6 +16,12 @@ const take = 20;
 
 export function ContentList() {
   const { definitionId = "" } = useParams();
+  // Keyed by definition: the route reuses this component across content types, and a fresh instance drops the
+  // previous type's tag filters and page instead of applying them to a type that may not even be taggable.
+  return <DefinitionContentList key={definitionId} definitionId={definitionId} />;
+}
+
+function DefinitionContentList({ definitionId }: { definitionId: string }) {
   const [skip, setSkip] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const navigate = useNavigate();
