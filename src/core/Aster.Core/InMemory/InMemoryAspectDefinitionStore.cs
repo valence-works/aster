@@ -36,8 +36,10 @@ internal sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
     {
         ArgumentNullException.ThrowIfNull(aspect);
         ArgumentException.ThrowIfNullOrWhiteSpace(aspect.AspectDefinitionId);
-        FacetMetadataValidator.Validate(aspect);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(aspect.AspectDefinitionId);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(tenant.TenantId);
+        FacetMetadataValidator.Validate(aspect);
 
         var versions = aspects.GetOrAdd((tenant.TenantId, aspect.AspectDefinitionId), static _ => []);
         lock (versions)

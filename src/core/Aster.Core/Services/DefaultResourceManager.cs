@@ -105,6 +105,7 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
+        IdentifierValidator.ThrowIfCreateIdentifiersInvalid(definitionId, request.ResourceId, tenant);
 
         var resourceId = string.IsNullOrWhiteSpace(request.ResourceId)
             ? identityGenerator.NewId()
@@ -362,6 +363,7 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(channel);
 
         var target = await ReadVersionAsync(resourceId, version, tenant, cancellationToken)
             ?? throw new VersionNotFoundException(resourceId, version);

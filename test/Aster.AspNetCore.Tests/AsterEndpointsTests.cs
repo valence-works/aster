@@ -566,6 +566,44 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         Assert.Equal(0, (await ReadAsync(await Send(HttpMethod.Get, "/api/aster/resources", "b"))).GetProperty("items").GetArrayLength());
     }
 
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task PaddedIdentifiers_AreBadRequestsWithTheStableCode(string provider)
+    {
+        var (client, _) = await StartAsync(provider, services: static services => services.AddSingleton<ITenantScopeAccessor, HeaderTenant>());
+
+        async Task<HttpResponseMessage> Send(string uri, object body, string tenant = "a")
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = JsonContent.Create(body, options: Web) };
+            request.Headers.Add("X-Tenant", tenant);
+            return await client.SendAsync(request);
+        }
+
+        async Task AssertPadded(HttpResponseMessage response)
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("identifier-whitespace", (await ReadAsync(response)).GetProperty("diagnostics")[0].GetProperty("code").GetString());
+        }
+
+        Assert.Equal(HttpStatusCode.Created, (await Send("/api/aster/definitions", Article())).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await Send("/api/aster/resources", new { definitionId = "Article", resourceId = "a-1", aspects = Content("A") })).StatusCode);
+
+        await AssertPadded(await Send("/api/aster/definitions", Article() with { DefinitionId = "Article " }));
+        await AssertPadded(await Send("/api/aster/aspects", Seo() with { AspectDefinitionId = " Seo" }));
+        await AssertPadded(await Send("/api/aster/resources", new { definitionId = "Article", resourceId = "a-2 ", aspects = Content("A") }));
+        await AssertPadded(await Send("/api/aster/resources", new { definitionId = "Article ", resourceId = "a-3", aspects = Content("A") }));
+        await AssertPadded(await Send("/api/aster/resources/a-1/activate", new { version = 1, channel = "Published " }));
+        await AssertPadded(await Send("/api/aster/resources", new { definitionId = "Article", resourceId = "a-4", aspects = Content("A") }, tenant: "a "));
+
+        using var get = new HttpRequestMessage(HttpMethod.Get, "/api/aster/resources");
+        get.Headers.Add("X-Tenant", "a");
+        var items = (await ReadAsync(await client.SendAsync(get))).GetProperty("items").EnumerateArray()
+            .Select(static item => item.GetProperty("resourceId").GetString());
+        Assert.Equal(["a-1"], items);
+    }
+
     [Fact]
     public async Task EveryEndpoint_CarriesOpenApiMetadata()
     {

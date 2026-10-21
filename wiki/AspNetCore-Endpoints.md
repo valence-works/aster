@@ -64,7 +64,7 @@ Errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses, e
 
 | Status | When | Extensions |
 |---|---|---|
-| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies, rejected schema upgrades (below) | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex, path, feature }]` |
+| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies, a definition ID, aspect definition ID, resource ID, channel or tenant ID with leading or trailing whitespace on create, register or activate (`identifier-whitespace`), rejected schema upgrades (below) | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex, path, feature }]` |
 | `403` | Denied by `IAsterResourceAuthorizer` | |
 | `404` | Missing definition, aspect, resource or version | |
 | `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition or aspect version conflict (`definition-version-conflict`, `aspect-version-conflict`), lifecycle hook veto | `code` |

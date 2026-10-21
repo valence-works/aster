@@ -3506,3 +3506,15 @@ virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnAfterArchiveAsync(Aster.
 virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnAfterRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnBeforeArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Lifecycle.LifecycleHookOutcome!>
 virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnBeforeRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Lifecycle.LifecycleHookOutcome!>
+Aster.Core.Exceptions.InvalidIdentifierException
+Aster.Core.Exceptions.InvalidIdentifierException.Code.get -> string!
+Aster.Core.Exceptions.InvalidIdentifierException.Identifier.get -> string?
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException() -> void
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException(string! code, string! message, string? paramName, string? identifier) -> void
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException(string! message) -> void
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException(string! message, System.Exception! innerException) -> void
+Aster.Core.Services.IdentifierValidator
+const Aster.Core.Exceptions.InvalidIdentifierException.SurroundingWhitespaceCode = "identifier-whitespace" -> string!
+const Aster.Core.Models.Portability.PortableDiagnosticCodes.IdentifierWhitespace = "identifier-whitespace" -> string!
+static Aster.Core.Services.IdentifierValidator.HasSurroundingWhitespace(string? value) -> bool
+static Aster.Core.Services.IdentifierValidator.ThrowIfSurroundingWhitespace(string? value, string? paramName = null) -> void

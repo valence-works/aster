@@ -3,6 +3,7 @@ using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Policies;
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 
 namespace Aster.Core.Definitions;
 
@@ -30,9 +31,12 @@ public sealed class ResourceDefinitionBuilder
     /// </summary>
     /// <param name="id">The definition ID (e.g., "Product").</param>
     /// <returns>This builder for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is <see langword="null"/>, empty or whitespace.</exception>
+    /// <exception cref="InvalidIdentifierException"><paramref name="id"/> starts or ends with whitespace.</exception>
     public ResourceDefinitionBuilder WithDefinitionId(string id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(id);
         definitionId = id;
         return this;
     }

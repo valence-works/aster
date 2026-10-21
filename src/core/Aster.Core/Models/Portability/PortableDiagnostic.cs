@@ -153,4 +153,11 @@ public static class PortableDiagnosticCodes
     /// a warning under <see cref="Aster.Core.Models.References.ReferenceValidationMode.Lenient"/>.
     /// </summary>
     public const string DanglingReference = "dangling-reference";
+
+    /// <summary>
+    /// A snapshot identifier (a resource ID, definition ID, aspect definition ID or activation channel) or the import's
+    /// target tenant ID starts or ends with whitespace. Same value as
+    /// <see cref="Aster.Core.Exceptions.InvalidIdentifierException.SurroundingWhitespaceCode"/>.
+    /// </summary>
+    public const string IdentifierWhitespace = Aster.Core.Exceptions.InvalidIdentifierException.SurroundingWhitespaceCode;
 }

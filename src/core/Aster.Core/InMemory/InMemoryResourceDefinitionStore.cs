@@ -104,8 +104,10 @@ internal sealed partial class InMemoryResourceDefinitionStore : IResourceDefinit
         TenantScope tenantScope)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        FacetMetadataValidator.Validate(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(definition.DefinitionId);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(tenant.TenantId);
+        FacetMetadataValidator.Validate(definition);
 
         var versions = definitions.GetOrAdd((tenant.TenantId, definition.DefinitionId), _ => []);
 

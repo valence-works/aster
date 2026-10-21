@@ -65,6 +65,7 @@ internal static class AsterProblems
             e.Diagnostics.Select(static d => new AsterDiagnostic(d.Code, d.AttachmentKey, null, d.Message))),
         UnsupportedQueryFeatureException e => Validation(e.Message, [new AsterDiagnostic(e.Code, null, null, e.Message) { Feature = e.Feature }]),
         TenantScopeException e => Validation(e.Code, e.Message),
+        InvalidIdentifierException e => Validation(e.Code, e.Message),
         DuplicateAspectAttachmentException e => Validation("duplicate-aspect-attachment", e.Message),
         ConcurrencyException e => Conflict("concurrency-conflict", e.Message),
         DuplicateResourceIdException e => Conflict("duplicate-resource-id", e.Message),
