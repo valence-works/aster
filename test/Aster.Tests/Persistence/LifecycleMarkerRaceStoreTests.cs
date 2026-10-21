@@ -4,6 +4,7 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Policies;
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using Aster.Tests.Policies;
 using Aster.Tests.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,16 +52,20 @@ public abstract class LifecycleMarkerRaceStoreTests(IAsterTestDatabase database)
         await using var provider = await CreateProviderAsync();
         var hook = provider.GetRequiredService<RaceGateHook>();
 
-        var results = await RaceAsync(
+        // The public service reports Applied and AlreadySatisfied alike as success, so this race asserts the
+        // transition statuses underneath it.
+        var results = await TransitionRaceAsync(
             provider,
             (ResourceLifecycleMarkerState.Archived, "first"),
             (ResourceLifecycleMarkerState.Archived, "second"));
 
         var stored = await provider.GetRequiredService<IResourceLifecycleMarkerService>().GetAsync("product-1");
         Assert.NotNull(stored);
+        Assert.Single(results, static result => result.Status == ResourceLifecycleMarkerTransitionStatus.Applied);
+        Assert.Single(results, static result => result.Status == ResourceLifecycleMarkerTransitionStatus.AlreadySatisfied);
         Assert.All(results, result =>
         {
-            Assert.True(result.Succeeded);
+            Assert.Empty(result.Diagnostics);
             Assert.Equal(stored, result.Marker);
         });
 
@@ -114,6 +119,23 @@ public abstract class LifecycleMarkerRaceStoreTests(IAsterTestDatabase database)
 
         return await Task.WhenAll(writes.Select(write => Task.Run(async () => await markers.ApplyAsync(new ResourceLifecycleMarkerRequest
         {
+            ResourceId = "product-1",
+            State = write.State,
+            Reason = write.Reason,
+            MarkedAt = MarkedAt,
+        }))));
+    }
+
+    private static async Task<ResourceLifecycleMarkerTransitionResult[]> TransitionRaceAsync(
+        IServiceProvider provider,
+        params (ResourceLifecycleMarkerState State, string Reason)[] writes)
+    {
+        var transition = provider.GetRequiredService<IResourceLifecycleMarkerTransitionService>();
+        provider.GetRequiredService<RaceGateHook>().Expect(writes.Length);
+
+        return await Task.WhenAll(writes.Select(write => Task.Run(async () => await transition.ApplyAsync(new ResourceLifecycleMarkerTransitionApplyRequest
+        {
+            TenantScope = TenantScope.Default,
             ResourceId = "product-1",
             State = write.State,
             Reason = write.Reason,
