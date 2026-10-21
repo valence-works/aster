@@ -78,7 +78,7 @@ The storage report is unchanged by these fixes.
    - 1M stored versions come to about 4 GB.
    - About 1.6 KB of each row is not aspect payload: the resource envelope (IDs, definition, timestamps, hash) plus SQLite row and index overhead. A delta row keeps all of that.
 2. **Aspect-level deltas save almost nothing (2%)** for this edit pattern, because the facet that changes on every version (the title) shares an aspect with the large body. Aspects group facets by meaning, not by how often they change, so this is the common case.
-3. **Facet-level deltas cut the payload 8.7×, but the file only about 2.2×.** The storage report's estimate is 4,182 − 2,578 + 318 ≈ 1.9 KB per version, because the per-row overhead stays.
+3. **Facet-level deltas cut the payload 8.7×, but the file only about 2.2×.** The storage report's estimate is 4,182 − 2,576 + 318 ≈ 1.9 KB per version, because the per-row overhead stays.
 4. **Read latency grew with history length, but not because of snapshots.** Before #166, get latest and get version cost the same as reading all versions, because `DefaultResourceManager` loaded the resource's whole history and picked one row. #166 and #169 made them keyed reads. On SQLite they are now flat (43–49 µs) from 100 to 1,000 versions. A delta store could not do that: it would have to replay a chain or maintain checkpoints.
 
 ## Decision
