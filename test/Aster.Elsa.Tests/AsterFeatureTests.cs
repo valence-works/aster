@@ -28,6 +28,10 @@ public sealed class AsterFeatureTests
         typeof(DeactivateResourceVersion),
         typeof(PromoteResource),
         typeof(ArchiveResource),
+        typeof(ResourceSaved),
+        typeof(ResourceActivated),
+        typeof(ResourceDeactivated),
+        typeof(ResourceArchived),
     ];
 
     [Fact]

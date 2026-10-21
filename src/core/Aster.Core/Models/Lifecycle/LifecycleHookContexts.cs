@@ -168,3 +168,34 @@ public sealed record ResourceImportLifecycleContext : ResourceLifecycleContext
     /// </summary>
     public PortableImportResult? ImportResult { get; init; }
 }
+
+/// <summary>
+/// Lifecycle context for archive and restore operations: writing a resource's archive or soft-delete lifecycle marker
+/// (<see cref="LifecyclePoint.BeforeArchive"/>, <see cref="LifecyclePoint.AfterArchive"/>) and clearing it
+/// (<see cref="LifecyclePoint.BeforeRestore"/>, <see cref="LifecyclePoint.AfterRestore"/>).
+/// </summary>
+/// <remarks>
+/// The archive points run for both marker states: <see cref="ResourceLifecycleMarker.State"/> on <see cref="Marker"/>
+/// tells archiving and soft-deleting apart. The points run only when the call writes: a marker that is already in
+/// place, a restore preview, and a resource that is already restored run no hooks.
+/// </remarks>
+public sealed record ResourceArchiveLifecycleContext : ResourceLifecycleContext
+{
+    /// <summary>
+    /// Logical resource identifier.
+    /// </summary>
+    public required string ResourceId { get; init; }
+
+    /// <summary>
+    /// Definition of the resource's latest version, so hooks can filter by resource type without reading the
+    /// resource.
+    /// </summary>
+    public string? DefinitionId { get; init; }
+
+    /// <summary>
+    /// The marker an archive writes, or a restore clears. After a successful archive this is the stored marker. When
+    /// <see cref="ResourceLifecycleContext.OperationStatus"/> is <see cref="LifecycleOperationStatus.Failed"/>, an
+    /// archive's marker was not stored and a restore's marker was not cleared.
+    /// </summary>
+    public required ResourceLifecycleMarker Marker { get; init; }
+}

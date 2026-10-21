@@ -65,13 +65,12 @@ builder.Services
 
 builder.Services.AddElsa(elsa => elsa
     .UseAster()                                                 // tenant mapping, activities, triggers
-    .UseAgentPersistence(agents => agents.UseAgentStore(sp =>   // #118: agents on Aster, opt-in
-        sp.GetRequiredService<AsterAgentStore>())));
+    .UseAgentPersistence(agents => agents.UseAsterAgentStore())); // #118: agents on Aster, opt-in (calls UseAgentStore)
 ```
 
 - **Provider registration stays with the host.** `UseAster()` doesn't choose a provider. The host registers Aster's provider with the existing `AddAster*` calls, as any Aster host does. Elsa's persistence features don't expose a connection string the module could reuse safely, and guessing one would hide a configuration choice.
-- **Opting in is the feature flag.** A store adapter is active only when the host passes it to Elsa's own seam (`UseAgentStore`, `LabelsFeature.LabelStore`). That satisfies #118's "behind a flag" without a new switch, and leaving it out keeps Elsa's built-in store.
-- **Feature dependencies.** The Aster feature depends on Elsa's workflow management feature (activities are registered through `ManagementOptions.ActivityTypes`) and its workflow runtime feature (to run them and, later, for triggers). It works with or without Elsa's multitenancy feature: without it, every call uses the default tenant.
+- **Opting in is the feature flag.** A store adapter is active only when the host passes it to Elsa's own seam (`UseAgentStore`, `LabelsFeature.LabelStore`). For agents, `UseAsterAgentStore()` makes that call (see [#118 as built](#118-as-built-deviations)). That satisfies #118's "behind a flag" without a new switch, and leaving it out keeps Elsa's built-in store.
+- **Feature dependencies.** The Aster feature depends on Elsa's workflow management feature (activities are registered through `ManagementOptions.ActivityTypes`) and its workflow runtime feature (to run them, and for the triggers' `IStimulusSender`). It works with or without Elsa's multitenancy feature: without it, every call uses the default tenant.
 
 ## Tenants
 
@@ -88,6 +87,8 @@ Elsa scopes everything by `Entity.TenantId`, read through `ITenantAccessor.Tenan
 The refusals throw, so a misconfigured tenant fails at its first Aster call rather than reading or writing another tenant's data.
 
 Trigger dispatch (#116) goes the other way: the lifecycle hook context carries the Aster tenant, and the module pushes the matching Elsa tenant with `ITenantAccessor.PushContext` before sending the stimulus, so the workflow starts in the right tenant.
+- **Reverse mapping.** `AsterTenantMapping.ToElsaTenantId` maps `TenantScope.Default` to `""` and any other scope to its ID.
+- **Finding the tenant.** The module looks the tenant up with Elsa's `ITenantFinder`, which reads `ITenantsProvider`, without activating tenants. Elsa's default tenant is assumed to exist, as Elsa does when its provider lists none. An Aster tenant with no Elsa tenant sends nothing (logged at debug level): no workflow could run there.
 
 ## Persistence
 
@@ -114,15 +115,24 @@ Trigger dispatch (#116) goes the other way: the lifecycle hook context carries t
 - Triggers react after Aster commits (next section).
 - The `IAgentStore` adapter writes Aster only.
 
-## Lifecycle events and triggers (direction for #116)
+## Lifecycle events and triggers (#116)
 
 - **Dispatch.** Triggers are fed by an `IResourceLifecycleHook` whose after-hooks call Elsa's `IStimulusSender`. That covers both starting trigger-bound workflows and resuming bookmarks.
-  - **Stimulus.** Each trigger activity type (Resource Saved, Activated, Deactivated, Archived) receives a stimulus carrying the values its filters index: definition ID, channel and tenant. Elsa then matches only the workflows whose filters fit. #116 settles the exact payload and adds tests against Elsa 3.9 for both paths.
   - **Rejected: Elsa's bookmark queue.** `IBookmarkQueue` only resumes existing bookmarks. It can't start a workflow from a trigger, so it doesn't replace an outbox.
+  - **Inline.** `IStimulusSender` runs the workflows it starts or resumes in the calling flow, until they finish or suspend, so the Aster call returns after them. Sending isn't tied to the Aster caller's cancellation token: the change it reports is already committed.
+- **Trigger activities.** Resource Saved, Resource Activated, Resource Deactivated and Resource Archived (`Aster.ResourceSaved` and so on). Each has a `DefinitionId` filter; Activated and Deactivated also have `Channel`. The result is a `ResourceLifecycleEvent` (kind, tenant, resource ID, definition ID, version, channel, save kind, operation ID).
+  - **Resource Archived reports archiving only.** The archive hook points also cover soft-deletes; the trigger ignores those.
+- **Stimulus and matching.** The stimulus is `ResourceLifecycleStimulus(TenantId, DefinitionId, Channel)`, sent with the trigger's activity type name. The trigger's `GetTriggerPayload` and its bookmark (created with `IncludeActivityInstanceId = false`) return the same record built from its own filters, so Elsa's `IStimulusHasher` gives both sides the same hash exactly when every value matches. Tests compare the hashes of an indexed trigger and of a bookmark with the hash of the stimulus.
+  - **Empty filters.** An empty filter is `null` in the payload. Elsa matches hashes exactly, so the hook sends one stimulus per combination of the event's values and `null`: two for Saved and Archived, four for Activated and Deactivated. A trigger matches exactly one of them, so each matching workflow fires once per event.
+  - **Tenant.** The tenant isn't a designer input. A trigger matches events from the Elsa tenant its workflow runs in: the payload's `TenantId` is the current Elsa tenant when Elsa indexes the trigger or creates the bookmark, and the hook sends in the Elsa tenant of the Aster write. Elsa's tenant-aware trigger and bookmark stores filter the same way.
+  - **Elsa's bookmark queue.** For a stimulus that resumes no bookmark, Elsa's `StimulusSender` queues it for `BookmarkQueuePurgeOptions.Ttl` (10 minutes by default). A matching bookmark created in that window resumes on the earlier event. This is Elsa's behaviour for every stimulus.
 - **Only committed changes trigger.** After-hooks run even when the write failed, so before and after calls stay paired. Since #219 they carry `OperationStatus` and `OperationFailure`, and the trigger hook sends a stimulus only when `OperationStatus` is `Succeeded`.
 - **Delivery is at-most-once.** If the process stops between the Aster commit and the stimulus, the event is lost; a failed workflow start is logged and never rolls back the Aster write, as #116 requires. A durable outbox would mean persisting events in Aster, which ADR 0001 keeps out of scope. It becomes a follow-up only if a consumer needs it.
-  - **Failure handling.** The `Aster.Elsa` hook catches `SendAsync` failures, logs them with the resource, version, channel and tenant, and doesn't rethrow, so neither the Aster caller nor other hooks see them. Nothing retries automatically: a retry could start a workflow twice. #116 tests a committed write followed by a failing send.
-- **Missing hook point: archive.** "Resource Archived" (#116) has no hook point today. Archiving goes through the lifecycle marker service, which has no hooks. #116 adds after-archive and after-restore points to `IResourceLifecycleHook`, which are additive default interface members. They follow the same rule as the other points: paired with a before point, run after the marker write, with the outcome in `OperationStatus`.
+  - **Failure handling.** The `Aster.Elsa` hook catches `SendAsync` failures, logs each as a warning with the resource, version, channel and tenant, and doesn't rethrow, so neither the Aster caller nor other hooks see them. Nothing retries automatically: a retry could start a workflow twice. Tests cover a committed write followed by a failing send, and a failed write that sends nothing.
+- **Archive and restore hook points.** #116 adds `OnBefore/AfterArchiveAsync` and `OnBefore/AfterRestoreAsync` to `IResourceLifecycleHook`, as additive default interface members, with a `ResourceArchiveLifecycleContext` (resource ID, definition ID, marker). They follow the same rule as the other points: paired with a before point, run around the marker write, with the outcome in `OperationStatus`.
+  - **Where they run.** Around every marker write and clear: the marker service, the restore service, and policy application, which archives through the same code. Only calls that write run them.
+  - **Archive covers soft-delete.** The archive points run for both marker states; `Marker.State` says which.
+  - **Rejections are diagnostics.** These services return per-resource results, so a rejection or hook failure becomes a diagnostic on the result (path `lifecycle/<point>`), as the portability service does, rather than a `LifecycleHookException`.
 
 ## Activities (direction for #115)
 
@@ -151,6 +161,22 @@ Promotion between channels is a composite activity over the two explicit calls (
 3. **Not moving:**
    - **Secrets.** Elsa's secret stores hold values, which ADR 0001 keeps out of Aster. Elsa doesn't separate secret metadata from values, so there is nothing to move without changing Elsa.
    - **Workflow definitions.** Elsa already versions and publishes them, and its designer depends on a large query surface. Revisit only after #118's results.
+
+## #118 as built: deviations
+
+`Aster.Elsa.Agents` follows this design. Where it had to differ or decide something the design left open, it is recorded here. The [results write-up](elsa-agents-results.md) has the measurements.
+
+1. **Registration goes through an extension, not the store type.** The store is internal. The host calls `agents.UseAsterAgentStore(options => …)` on Elsa's `AgentPersistenceFeature`. That call registers the services and passes the store to `UseAgentStore`, so the opt-in is still Elsa's own seam. `AddAsterElsaAgents()` registers the services without selecting the store, for a migration host.
+2. **Classic feature system only.** Elsa 3.9's agent persistence has no CShells shell feature (`AgentsPersistenceShellFeature.cs` is empty in the 3.9.0 source), so there is no seam for a shell feature to plug into. `Aster.Elsa` itself still ships both.
+3. **`AgentConfig.Agents` holds resource IDs, not names.** Elsa names agents by `Name`, but a `reference[]` value must be a target `ResourceId`: Aster's strict reference validation rejects any other value. The store translates names to IDs on save, and IDs back to current names on read. As a result, references follow renames and have a reverse lookup. A name that matches no agent is stored as written, which strict validation rejects.
+4. **`AgentConfig.Skills` is `string[]`, not `reference[]`.** Elsa registers skills in code (`ISkillsProvider`), not as stored entities. A skill reference would have no target, and strict validation would reject every save that names a skill.
+5. **Saves activate by default.** `AsterAgentStoreOptions.AutoActivate` (default `true`) activates every save in the configured channel (`Channel`, default `production`), so Elsa behaves as with its own stores. With `false`, saves are drafts until promoted through Aster.
+6. **Delete is a soft delete.** `DeleteAsync` applies a `SoftDeleted` lifecycle marker. Versions and activations stay, reads skip the agent, and Aster's restore service brings it back.
+7. **The migration saves through the store, not through portability.** #118's scope mentions portability primitives. As this design says, the import reads Elsa's store and saves through the adapter instead. That way imported agents get the same name-to-ID translation, definition registration and activation as any other save, and a re-run skips agents that already exist.
+   - Agents are imported after the agents they reference.
+   - Reference cycles are saved in two versions, the first without the references into the cycle.
+   - Imported agents are activated whatever `AutoActivate` says.
+8. **Elsa's EF Core agent store can't run beside the Aster store in one Elsa module.** `EFCoreAgentPersistenceFeature.Configure()` calls `UseAgentStore` while Elsa applies features, after the host's configuration, so the EF Core store wins. The migration therefore runs in a host that still uses Elsa's store, with `AddAsterElsaAgents()` beside it; afterwards the host switches to `UseAsterAgentStore()`.
 
 ## Elsa Studio module (#117)
 

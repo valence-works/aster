@@ -9,6 +9,7 @@ The SDK exposes explicit host lifecycle hooks for:
 3. Snapshot export.
 4. Import preview.
 5. Write import.
+6. Archive and restore: writing and clearing a resource's archive or soft-delete lifecycle marker (#116).
 
 The workflow MUST NOT introduce recipes, workflow engines, live synchronization, runtime scanning, background job orchestration, provider registries, public SQL, or public `IQueryable<Resource>`.
 
@@ -93,6 +94,41 @@ public interface IResourceLifecycleHook
 
 Implementation may split this into smaller focused interfaces during planning/implementation if that better preserves simplicity and avoids forcing hooks to implement unrelated methods. The public behavior remains the same: explicit hooks, deterministic order, before rejection, and after-success observation.
 
+### Archive and restore points (#116)
+
+Added after the original contract as default interface members, so existing hooks and dispatchers keep compiling:
+
+```csharp
+public interface IResourceLifecycleHook
+{
+    // ...
+    ValueTask<LifecycleHookOutcome> OnBeforeArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default)
+        => ValueTask.FromResult(LifecycleHookOutcome.Continue());
+    ValueTask OnAfterArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default)
+        => ValueTask.CompletedTask;
+    ValueTask<LifecycleHookOutcome> OnBeforeRestoreAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default)
+        => ValueTask.FromResult(LifecycleHookOutcome.Continue());
+    ValueTask OnAfterRestoreAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default)
+        => ValueTask.CompletedTask;
+}
+
+public sealed record ResourceArchiveLifecycleContext : ResourceLifecycleContext
+{
+    public required string ResourceId { get; init; }
+    public string? DefinitionId { get; init; }
+    public required ResourceLifecycleMarker Marker { get; init; }
+}
+```
+
+`ResourceLifecycleHook` gains matching virtual members and `IResourceLifecycleHookDispatcher` gains `InvokeBefore/AfterArchiveAsync` and `InvokeBefore/AfterRestoreAsync` (default: no hooks run).
+
+Rules:
+
+- The archive points run around every lifecycle marker write: `IResourceLifecycleMarkerService.ApplyAsync` and policy application (`IResourcePolicyApplicationService.ApplyAsync`). They cover both marker states; `Marker.State` says which.
+- The restore points run around every marker clear by `IResourceLifecycleRestoreService.RestoreAsync`.
+- Hooks run only when the call writes. A marker already in the requested state, a marker conflict, a missing resource, a restore preview, and an already-restored resource run no hooks.
+- Before and after calls are paired and carry the outcome like the other points. A store write that throws runs the after hooks with `Failed` (`lifecycle-operation-failed`) and is rethrown. A restore whose clear removes nothing, because another writer changed the marker first, also runs them with `Failed`.
+
 ## Outcome Contract
 
 ```csharp
@@ -144,6 +180,7 @@ Rules:
 
 - Save, activation, and deactivation hook rejections/failures surface as structured lifecycle hook exceptions.
 - Export, preview import, and write import hook rejections/failures surface as portability diagnostics on the existing result objects where possible.
+- Archive and restore hook rejections/failures surface as policy diagnostics on the marker, restore, or policy application result, with the hook's code and the path `lifecycle/<point>` (#116). A before-hook rejection fails that resource and writes nothing; an after-hook failure leaves the marker written.
 - After-hook failures are visible but do not imply rollback of already-completed state.
 - No later hooks run after rejection, failure, or cancellation.
 

@@ -239,6 +239,32 @@ public abstract class RecordingResourceLifecycleHook(
         recorder.RecordAfter(hookName, context, cancellationToken);
         return ValueTask.CompletedTask;
     }
+
+    public override ValueTask<LifecycleHookOutcome> OnBeforeArchiveAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(recorder.RecordBefore(hookName, context, cancellationToken));
+
+    public override ValueTask OnAfterArchiveAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        recorder.RecordAfter(hookName, context, cancellationToken);
+        return ValueTask.CompletedTask;
+    }
+
+    public override ValueTask<LifecycleHookOutcome> OnBeforeRestoreAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(recorder.RecordBefore(hookName, context, cancellationToken));
+
+    public override ValueTask OnAfterRestoreAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default)
+    {
+        recorder.RecordAfter(hookName, context, cancellationToken);
+        return ValueTask.CompletedTask;
+    }
 }
 
 public sealed class FirstRecordingHook(LifecycleHookRecorder recorder)

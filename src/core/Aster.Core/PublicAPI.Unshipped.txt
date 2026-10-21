@@ -3474,6 +3474,38 @@ override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.GetHashCode() -> 
 override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.ToString() -> string!
 static Aster.Core.Models.Lifecycle.LifecycleOperationFailure.operator !=(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? left, Aster.Core.Models.Lifecycle.LifecycleOperationFailure? right) -> bool
 static Aster.Core.Models.Lifecycle.LifecycleOperationFailure.operator ==(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? left, Aster.Core.Models.Lifecycle.LifecycleOperationFailure? right) -> bool
+Aster.Core.Abstractions.IResourceLifecycleHook.OnAfterArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Aster.Core.Abstractions.IResourceLifecycleHook.OnAfterRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Aster.Core.Abstractions.IResourceLifecycleHook.OnBeforeArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Lifecycle.LifecycleHookOutcome!>
+Aster.Core.Abstractions.IResourceLifecycleHook.OnBeforeRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Lifecycle.LifecycleHookOutcome!>
+Aster.Core.Abstractions.IResourceLifecycleHookDispatcher.InvokeAfterArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Aster.Core.Abstractions.IResourceLifecycleHookDispatcher.InvokeAfterRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Aster.Core.Abstractions.IResourceLifecycleHookDispatcher.InvokeBeforeArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Aster.Core.Abstractions.IResourceLifecycleHookDispatcher.InvokeBeforeRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Aster.Core.Models.Lifecycle.LifecyclePoint.AfterArchive = 13 -> Aster.Core.Models.Lifecycle.LifecyclePoint
+Aster.Core.Models.Lifecycle.LifecyclePoint.AfterRestore = 15 -> Aster.Core.Models.Lifecycle.LifecyclePoint
+Aster.Core.Models.Lifecycle.LifecyclePoint.BeforeArchive = 12 -> Aster.Core.Models.Lifecycle.LifecyclePoint
+Aster.Core.Models.Lifecycle.LifecyclePoint.BeforeRestore = 14 -> Aster.Core.Models.Lifecycle.LifecyclePoint
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.DefinitionId.get -> string?
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.DefinitionId.init -> void
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.Equals(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext? other) -> bool
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.Marker.get -> Aster.Core.Models.Instances.ResourceLifecycleMarker!
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.Marker.init -> void
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.ResourceArchiveLifecycleContext() -> void
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.ResourceId.get -> string!
+Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.ResourceId.init -> void
+override Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.<Clone>$() -> Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext!
+override Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.Equals(object? obj) -> bool
+override Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.GetHashCode() -> int
+override Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.ToString() -> string!
+override sealed Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.Equals(Aster.Core.Models.Lifecycle.ResourceLifecycleContext? other) -> bool
+static Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.operator !=(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext? left, Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext? right) -> bool
+static Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext.operator ==(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext? left, Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext? right) -> bool
+virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnAfterArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnAfterRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnBeforeArchiveAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Lifecycle.LifecycleHookOutcome!>
+virtual Aster.Core.Abstractions.ResourceLifecycleHook.OnBeforeRestoreAsync(Aster.Core.Models.Lifecycle.ResourceArchiveLifecycleContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Lifecycle.LifecycleHookOutcome!>
 Aster.Core.Exceptions.InvalidIdentifierException
 Aster.Core.Exceptions.InvalidIdentifierException.Code.get -> string!
 Aster.Core.Exceptions.InvalidIdentifierException.Identifier.get -> string?

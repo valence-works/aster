@@ -480,7 +480,7 @@ if (preview.Candidates.Single().Status == ResourceLifecycleRestoreCandidateStatu
 - These diagnostics never block application.
 - Use `IResourceReferenceService.GetReferrersAsync` for the full "used by" list, including the facet locations.
 
-Restore preview is non-mutating. Restore application re-reads current marker state before clearing, does not rewrite resource versions, does not change activation state, and does not invoke lifecycle hooks. Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, automatic restore, schedulers, authorization policy engines, destructive pruning writes, provider registries, public SQL, or public `IQueryable<Resource>`.
+Restore preview is non-mutating. Restore application re-reads current marker state before clearing, does not rewrite resource versions, does not change activation state, and runs the restore lifecycle hooks around each marker it clears (see [Register lifecycle hooks](#11-register-lifecycle-hooks)). Policy declarations and lifecycle markers are tenant-scoped and are preserved by portability when their definitions/resources are included in the selected snapshot. This slice does not add automatic policy execution, automatic restore, schedulers, authorization policy engines, destructive pruning writes, provider registries, public SQL, or public `IQueryable<Resource>`.
 
 Hosts can also apply selected version-pruning preview outcomes through `IResourcePolicyPruningApplicationService`. Pruning application is explicit, tenant-scoped, and candidate-bounded: the SDK removes only submitted resource versions after revalidating current policy declarations, latest/active protection, lifecycle and age criteria, and retained-version safety.
 
@@ -523,7 +523,7 @@ Summaries report tenant scope, applied timestamp when present, total candidates,
 
 ### 11. Register lifecycle hooks
 
-Hosts can register explicit lifecycle hooks around resource saves, activation/deactivation, export, preview import, and write import.
+Hosts can register explicit lifecycle hooks around resource saves, activation/deactivation, export, preview import, write import, archive, and restore.
 
 ```csharp
 services
@@ -533,6 +533,10 @@ services
 ```
 
 Hooks run in registration order. Before hooks can reject an operation before mutation by returning `LifecycleHookOutcome.Reject(...)`; save, activation, and deactivation rejections surface as `LifecycleHookException`, while portability rejections surface as `PortableDiagnostic` entries. After hooks run after the operation produces a result; for portability preview/import, that includes failed preview or import results produced after a successful before hook. If an after hook fails, the failure is visible to the caller, but the SDK does not claim rollback of the already-completed operation.
+
+After hooks also run when the operation itself fails, so before and after calls stay paired. `context.OperationStatus` is `Succeeded` or `Failed`; hooks that should only see completed changes, such as audit or notification hooks, return early unless it is `Succeeded`.
+
+The archive and restore points (`OnBeforeArchiveAsync`/`OnAfterArchiveAsync`, `OnBeforeRestoreAsync`/`OnAfterRestoreAsync`) run around each lifecycle marker the marker service or policy application writes, and each marker the restore service clears. They receive a `ResourceArchiveLifecycleContext` with the resource ID, its definition ID and the marker; the archive points cover soft-deletes too (`context.Marker.State`). They run only when the call writes, and their rejections and failures surface as diagnostics on the marker, restore, or policy application result. They are default interface members, so existing hooks keep compiling.
 
 ```csharp
 public sealed class AuditLifecycleHook : ResourceLifecycleHook
