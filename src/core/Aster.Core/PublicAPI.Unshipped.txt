@@ -62,6 +62,7 @@ Aster.Core.Abstractions.IResourceLifecycleMarkerClearStore
 Aster.Core.Abstractions.IResourceLifecycleMarkerClearStore.ClearMarkerAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope! tenantScope, Aster.Core.Models.Instances.ResourceLifecycleMarkerState expectedState, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Aster.Core.Abstractions.IResourceLifecycleMarkerService
 Aster.Core.Abstractions.IResourceLifecycleMarkerService.ApplyAsync(Aster.Core.Models.Instances.ResourceLifecycleMarkerRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarkerResult!>
+Aster.Core.Abstractions.IResourceLifecycleMarkerService.GetAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope? tenantScope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarker?>
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.GetMarkerAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarker?>
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.GetMarkersAsync(System.Collections.Generic.IEnumerable<string!>! resourceIds, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<string!, Aster.Core.Models.Instances.ResourceLifecycleMarker!>!>
@@ -2470,6 +2471,7 @@ const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyCriteriaUns
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyEvaluationTimestampRequired = "policy-evaluation-timestamp-required" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyInvalid = "policy-invalid" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyKindUnsupported = "policy-kind-unsupported" -> string!
+const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyNeverApplies = "policy-never-applies" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyOutcomeUnsupported = "policy-outcome-unsupported" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyPruningCandidateInvalid = "policy-pruning-candidate-invalid" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyPruningPolicyMismatch = "policy-pruning-policy-mismatch" -> string!

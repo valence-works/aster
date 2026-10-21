@@ -124,6 +124,12 @@ public static class ResourcePolicyDiagnosticCodes
     /// <summary>Policy declarations conflict.</summary>
     public const string PolicyConflict = "policy-conflict";
 
+    /// <summary>
+    /// Policy criteria match only targets its outcome can never change: an archive or soft-delete outcome with a
+    /// lifecycle-state criterion of <c>Archived</c> or <c>SoftDeleted</c>, or version pruning restricted to active versions.
+    /// </summary>
+    public const string PolicyNeverApplies = "policy-never-applies";
+
     /// <summary>Age-based evaluation needs an explicit timestamp.</summary>
     public const string PolicyEvaluationTimestampRequired = "policy-evaluation-timestamp-required";
 

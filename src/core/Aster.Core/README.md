@@ -378,6 +378,13 @@ var policyValidator = serviceProvider.GetRequiredService<IResourcePolicyValidato
 var validation = policyValidator.Validate(definition);
 ```
 
+Validation also rejects a policy that can never apply, with `policy-never-applies`:
+
+- **Archive or soft-delete with `LifecycleState` `Archived` or `SoftDeleted`.** A marker is written only on an unmarked resource. An archived resource can't be soft-deleted, or the reverse (`lifecycle-marker-conflict`), and one already in the outcome's state is left as it is. Use `None`, or omit the criterion.
+- **Version pruning with `ActivationState` `Active`.** Pruning never removes a version that is active on a channel.
+
+Previews skip a definition with an invalid policy and report its diagnostics instead.
+
 Previews are deterministic and non-mutating. Age-based criteria require a host-supplied timestamp; the SDK does not read an ambient clock for policy evaluation.
 
 ```csharp
@@ -399,7 +406,11 @@ await lifecycleMarkers.ApplyAsync(new ResourceLifecycleMarkerRequest
     ResourceId = "product-1",
     State = ResourceLifecycleMarkerState.Archived,
     MarkedAt = new DateTimeOffset(2026, 05, 25, 12, 00, 00, TimeSpan.Zero),
+    Reason = "Discontinued",
 });
+
+// State, reason, and marked-at; null when the resource has no marker in the tenant.
+var marker = await lifecycleMarkers.GetAsync("product-1");
 ```
 
 Lifecycle markers are queryable only when requested explicitly:
@@ -528,7 +539,7 @@ IResourcePortabilityService  — exports, validates, previews, and imports porta
 IResourcePortabilityStore    — provider-facing exact snapshot read and atomic import contract
 IResourcePolicyValidator      — validates definition-attached policy declarations
 IResourcePolicyEvaluationService — previews policy outcomes without mutation
-IResourceLifecycleMarkerService — applies explicit archive/soft-delete markers
+IResourceLifecycleMarkerService — reads and applies explicit archive/soft-delete markers
 IResourceLifecycleMarkerStore — provider-facing lifecycle marker persistence contract
 IResourceLifecycleMarkerClearStore — provider-facing lifecycle marker removal contract
 IResourceLifecycleRestoreService — previews and applies explicit archive/soft-delete marker restoration
