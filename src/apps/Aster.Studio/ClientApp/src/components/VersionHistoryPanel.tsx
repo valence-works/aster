@@ -15,8 +15,9 @@ import { useAsync } from "@/hooks/useAsync";
 
 type PendingAction = { version: number; channel: Channel; action: "activate" | "deactivate" } | null;
 
-export function VersionHistoryPanel({ resourceId, definition, onChanged }: { resourceId: string; definition: DefinitionDetailDto; onChanged: () => void }) {
-  const versions = useAsync(() => api.getResourceVersions(resourceId), [resourceId]);
+export function VersionHistoryPanel({ resourceId, latestVersion, definition, onChanged }: { resourceId: string; latestVersion: number; definition: DefinitionDetailDto; onChanged: () => void }) {
+  // Reloads when the editor saves a new version, not only when it opens another resource.
+  const versions = useAsync(() => api.getResourceVersions(resourceId), [resourceId, latestVersion]);
   const [viewing, setViewing] = useState<ResourceDetailDto | null>(null);
   const [pending, setPending] = useState<PendingAction>(null);
   const [busy, setBusy] = useState(false);

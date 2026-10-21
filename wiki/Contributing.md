@@ -24,6 +24,9 @@ dotnet test Aster.sln
 
 # Run Aster Studio, the reference host (see its README for the SPA build)
 dotnet run --project src/apps/Aster.Studio
+
+# Studio's Playwright smoke tests (they start the host themselves)
+cd src/apps/Aster.Studio/ClientApp && npm run build && npm run test:e2e
 ```
 
 ---

@@ -117,3 +117,52 @@ jobs:
 
       - name: Type-check and build
         run: npm run build
+
+  studio-e2e:
+    name: Aster Studio Playwright smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/apps/Aster.Studio/ClientApp
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/apps/Aster.Studio/ClientApp/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install
+        run: npm ci
+
+      - name: Build SPA
+        run: npm run build
+
+      - name: Build Studio host
+        working-directory: .
+        run: dotnet build src/apps/Aster.Studio/Aster.Studio.csproj
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts starts the Studio host on a fresh SQLite database and drives the core flows headless.
+      - name: Smoke tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            src/apps/Aster.Studio/ClientApp/playwright-report
+            src/apps/Aster.Studio/ClientApp/test-results
+          if-no-files-found: ignore

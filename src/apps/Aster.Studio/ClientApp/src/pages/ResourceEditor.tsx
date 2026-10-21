@@ -79,7 +79,7 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
         <DynamicResourceForm definition={definition.data} aspects={aspects} errors={errors} onChange={setAspects} />
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
           <Card className="facet-seam"><CardContent className="p-5"><h3 className="font-semibold tracking-tight">Dynamic form contract</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Widgets are selected from facet metadata: uiHint, type, allowed values, and constraints. Server diagnostics are routed by aspectKey + facetId.</p></CardContent></Card>
-          {mode === "edit" && resource.data ? <VersionHistoryPanel resourceId={resourceId} definition={definition.data} onChanged={resource.reload} /> : null}
+          {mode === "edit" && resource.data ? <VersionHistoryPanel resourceId={resourceId} latestVersion={resource.data.version} definition={definition.data} onChanged={resource.reload} /> : null}
         </aside>
       </div>
     </div>
