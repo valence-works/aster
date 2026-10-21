@@ -29,7 +29,8 @@ internal interface IResourceLifecycleMarkerTransitionService
 /// Hooks run only when a marker is actually written or cleared. A before-hook rejection or failure, and an after-hook
 /// failure, become a diagnostic on the result, as the portability service does, because these services report
 /// per-resource results rather than throw. A failed store write still runs the after hooks with a
-/// <see cref="LifecycleOperationStatus.Failed"/> status, then rethrows the store's exception.
+/// <see cref="LifecycleOperationStatus.Failed"/> status, then rethrows the store's exception. So does a marker write that
+/// loses a race with another writer of the same resource, which then returns the result of the marker it lost to.
 /// </remarks>
 internal sealed partial class ResourceLifecycleMarkerTransitionService : IResourceLifecycleMarkerTransitionService
 {
@@ -92,30 +93,7 @@ internal sealed partial class ResourceLifecycleMarkerTransitionService : IResour
 
         var existing = await ResolveCurrentMarkerAsync(request, cancellationToken);
         if (existing is not null)
-        {
-            if (existing.State == request.State)
-            {
-                return new ResourceLifecycleMarkerTransitionResult
-                {
-                    Status = ResourceLifecycleMarkerTransitionStatus.AlreadySatisfied,
-                    Marker = existing,
-                };
-            }
-
-            return new ResourceLifecycleMarkerTransitionResult
-            {
-                Status = ResourceLifecycleMarkerTransitionStatus.Failed,
-                Marker = existing,
-                Diagnostics =
-                [
-                    ResourcePolicyValidator.Diagnostic(
-                        ResourcePolicyDiagnosticCodes.LifecycleMarkerConflict,
-                        $"Resource '{request.ResourceId}' is already marked as {existing.State}.",
-                        "state",
-                        resourceId: request.ResourceId),
-                ],
-            };
-        }
+            return ExistingMarker(request, existing);
 
         var proposed = new ResourceLifecycleMarker
         {
@@ -146,10 +124,10 @@ internal sealed partial class ResourceLifecycleMarkerTransitionService : IResour
         }
 
         context = context with { LifecyclePoint = LifecyclePoint.AfterArchive };
-        ResourceLifecycleMarker marker;
+        ResourceLifecycleMarkerCreateResult created;
         try
         {
-            marker = await markerStore.SaveMarkerAsync(proposed, cancellationToken);
+            created = await markerStore.CreateMarkerAsync(proposed, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -157,6 +135,22 @@ internal sealed partial class ResourceLifecycleMarkerTransitionService : IResour
             throw;
         }
 
+        if (!created.Created)
+        {
+            // Another writer marked the resource between the read and the write (#238): this call wrote nothing, and
+            // gets the result the read would have given it had it run after the other write.
+            await TryInvokeAfterFailedWriteAsync(
+                context,
+                new LifecycleOperationFailure
+                {
+                    Code = LifecycleOperationFailure.OperationFailedCode,
+                    Message = $"Resource '{request.ResourceId}' was marked as {created.Marker.State} before its {request.State} marker could be written.",
+                },
+                cancellationToken);
+            return ExistingMarker(request, created.Marker);
+        }
+
+        var marker = created.Marker;
         var result = new ResourceLifecycleMarkerTransitionResult
         {
             Status = ResourceLifecycleMarkerTransitionStatus.Applied,
@@ -386,6 +380,34 @@ internal sealed partial class ResourceLifecycleMarkerTransitionService : IResour
     {
         var name = lifecyclePoint.ToString();
         return char.ToLowerInvariant(name[0]) + name[1..];
+    }
+
+    private static ResourceLifecycleMarkerTransitionResult ExistingMarker(
+        ResourceLifecycleMarkerTransitionApplyRequest request,
+        ResourceLifecycleMarker existing)
+    {
+        if (existing.State == request.State)
+        {
+            return new ResourceLifecycleMarkerTransitionResult
+            {
+                Status = ResourceLifecycleMarkerTransitionStatus.AlreadySatisfied,
+                Marker = existing,
+            };
+        }
+
+        return new ResourceLifecycleMarkerTransitionResult
+        {
+            Status = ResourceLifecycleMarkerTransitionStatus.Failed,
+            Marker = existing,
+            Diagnostics =
+            [
+                ResourcePolicyValidator.Diagnostic(
+                    ResourcePolicyDiagnosticCodes.LifecycleMarkerConflict,
+                    $"Resource '{request.ResourceId}' is already marked as {existing.State}.",
+                    "state",
+                    resourceId: request.ResourceId),
+            ],
+        };
     }
 
     private static ResourceLifecycleMarkerTransitionResult MarkerMismatch(

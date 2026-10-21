@@ -66,6 +66,28 @@ internal abstract class RelationalJsonDialect
     }
 
     /// <summary>
+    /// A statement that inserts a row keyed by <paramref name="keys"/> with the JSON payload parameter
+    /// <paramref name="payloadParameter"/> unless a row with that key exists, atomically. It affects one row when it
+    /// inserts and none otherwise.
+    /// </summary>
+    /// <param name="tableName">The table.</param>
+    /// <param name="keys">The key columns and the parameters bound to them, in primary-key order.</param>
+    /// <param name="payloadParameter">The payload parameter, for example <c>@payload</c>.</param>
+    public virtual string InsertPayloadIfAbsent(
+        string tableName,
+        IReadOnlyList<(string Column, string Parameter)> keys,
+        string payloadParameter)
+    {
+        var columns = string.Join(", ", keys.Select(static key => key.Column));
+        return $"""
+            INSERT INTO {tableName} ({columns}, payload)
+            VALUES ({string.Join(", ", keys.Select(static key => key.Parameter))}, {JsonParameter(payloadParameter)})
+            ON CONFLICT({columns})
+            DO NOTHING;
+            """;
+    }
+
+    /// <summary>
     /// The body of a common table expression with the columns <c>(first_key, second_key)</c> whose rows are
     /// <paramref name="rows"/>, each a parenthesized pair of parameters.
     /// </summary>

@@ -349,6 +349,9 @@ internal sealed class SwitchableLifecycleMarkerStore(InMemoryResourceLifecycleMa
     public ValueTask<ResourceLifecycleMarker> SaveMarkerAsync(ResourceLifecycleMarker marker, CancellationToken cancellationToken = default) =>
         ThrowSave ? throw new InvalidOperationException("simulated marker save failure") : inner.SaveMarkerAsync(marker, cancellationToken);
 
+    public ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(ResourceLifecycleMarker marker, CancellationToken cancellationToken = default) =>
+        ThrowSave ? throw new InvalidOperationException("simulated marker save failure") : inner.CreateMarkerAsync(marker, cancellationToken);
+
     public ValueTask<bool> ClearMarkerAsync(
         string resourceId,
         TenantScope tenantScope,

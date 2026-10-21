@@ -66,6 +66,7 @@ Aster.Core.Abstractions.IResourceLifecycleMarkerService.GetAsync(string! resourc
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.GetMarkerAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarker?>
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.GetMarkersAsync(System.Collections.Generic.IEnumerable<string!>! resourceIds, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<string!, Aster.Core.Models.Instances.ResourceLifecycleMarker!>!>
+Aster.Core.Abstractions.IResourceLifecycleMarkerStore.CreateMarkerAsync(Aster.Core.Models.Instances.ResourceLifecycleMarker! marker, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult!>
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.SaveMarkerAsync(Aster.Core.Models.Instances.ResourceLifecycleMarker! marker, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarker!>
 Aster.Core.Abstractions.IResourceLifecycleRestoreService
 Aster.Core.Abstractions.IResourceLifecycleRestoreService.PreviewRestoreAsync(Aster.Core.Models.Instances.ResourceLifecycleRestoreRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleRestorePreviewResult!>
@@ -603,6 +604,14 @@ Aster.Core.Models.Instances.ResourceLifecycleMarker.State.get -> Aster.Core.Mode
 Aster.Core.Models.Instances.ResourceLifecycleMarker.State.init -> void
 Aster.Core.Models.Instances.ResourceLifecycleMarker.TenantScope.get -> Aster.Core.Models.Tenancy.TenantScope!
 Aster.Core.Models.Instances.ResourceLifecycleMarker.TenantScope.init -> void
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.<Clone>$() -> Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult!
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.Created.get -> bool
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.Created.init -> void
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.Equals(Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult? other) -> bool
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.Marker.get -> Aster.Core.Models.Instances.ResourceLifecycleMarker!
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.Marker.init -> void
+Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.ResourceLifecycleMarkerCreateResult() -> void
 Aster.Core.Models.Instances.ResourceLifecycleMarkerRequest
 Aster.Core.Models.Instances.ResourceLifecycleMarkerRequest.MarkedAt.get -> System.DateTimeOffset
 Aster.Core.Models.Instances.ResourceLifecycleMarkerRequest.MarkedAt.set -> void
@@ -2578,6 +2587,9 @@ override Aster.Core.Models.Instances.Resource.ToString() -> string!
 override Aster.Core.Models.Instances.ResourceLifecycleMarker.Equals(object? obj) -> bool
 override Aster.Core.Models.Instances.ResourceLifecycleMarker.GetHashCode() -> int
 override Aster.Core.Models.Instances.ResourceLifecycleMarker.ToString() -> string!
+override Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.Equals(object? obj) -> bool
+override Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.GetHashCode() -> int
+override Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.ToString() -> string!
 override Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount.Equals(object? obj) -> bool
 override Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount.GetHashCode() -> int
 override Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount.ToString() -> string!
@@ -2994,6 +3006,8 @@ static Aster.Core.Models.Instances.Resource.operator !=(Aster.Core.Models.Instan
 static Aster.Core.Models.Instances.Resource.operator ==(Aster.Core.Models.Instances.Resource? left, Aster.Core.Models.Instances.Resource? right) -> bool
 static Aster.Core.Models.Instances.ResourceLifecycleMarker.operator !=(Aster.Core.Models.Instances.ResourceLifecycleMarker? left, Aster.Core.Models.Instances.ResourceLifecycleMarker? right) -> bool
 static Aster.Core.Models.Instances.ResourceLifecycleMarker.operator ==(Aster.Core.Models.Instances.ResourceLifecycleMarker? left, Aster.Core.Models.Instances.ResourceLifecycleMarker? right) -> bool
+static Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.operator !=(Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult? left, Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult? right) -> bool
+static Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult.operator ==(Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult? left, Aster.Core.Models.Instances.ResourceLifecycleMarkerCreateResult? right) -> bool
 static Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount.operator !=(Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount? left, Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount? right) -> bool
 static Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount.operator ==(Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount? left, Aster.Core.Models.Instances.ResourceLifecycleMarkerResourceCount? right) -> bool
 static Aster.Core.Models.Instances.ResourceLifecycleMarkerResult.operator !=(Aster.Core.Models.Instances.ResourceLifecycleMarkerResult? left, Aster.Core.Models.Instances.ResourceLifecycleMarkerResult? right) -> bool

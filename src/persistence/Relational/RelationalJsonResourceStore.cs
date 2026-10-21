@@ -434,6 +434,15 @@ internal abstract class RelationalJsonResourceStore :
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
+        return await ReadMarkerAsync(connection, tenant, resourceId, cancellationToken);
+    }
+
+    private async Task<ResourceLifecycleMarker?> ReadMarkerAsync(
+        DbConnection connection,
+        TenantScope tenant,
+        string resourceId,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT payload
@@ -598,6 +607,39 @@ internal abstract class RelationalJsonResourceStore :
 
         await command.ExecuteNonQueryAsync(cancellationToken);
         return scopedMarker;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(
+        ResourceLifecycleMarker marker,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(marker);
+        ArgumentException.ThrowIfNullOrWhiteSpace(marker.ResourceId);
+        var tenant = TenantScopeResolver.Resolve(marker.TenantScope);
+        var scopedMarker = marker with { TenantScope = tenant };
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        while (true)
+        {
+            await using (var command = connection.CreateCommand())
+            {
+                command.CommandText = dialect.InsertPayloadIfAbsent(
+                    "lifecycle_markers",
+                    [("tenant_id", "@tenantId"), ("resource_id", "@resourceId")],
+                    "@payload");
+                Add(command, "@tenantId", tenant.TenantId);
+                Add(command, "@resourceId", scopedMarker.ResourceId);
+                Add(command, "@payload", Serialize(scopedMarker));
+
+                if (await command.ExecuteNonQueryAsync(cancellationToken) > 0)
+                    return new ResourceLifecycleMarkerCreateResult { Created = true, Marker = scopedMarker };
+            }
+
+            // A restore can clear the marker that blocked the insert before it is read; the insert then runs again.
+            if (await ReadMarkerAsync(connection, tenant, scopedMarker.ResourceId, cancellationToken) is { } existing)
+                return new ResourceLifecycleMarkerCreateResult { Created = false, Marker = existing };
+        }
     }
 
     /// <inheritdoc />

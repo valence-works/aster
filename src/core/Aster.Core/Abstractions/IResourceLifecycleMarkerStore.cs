@@ -25,9 +25,18 @@ public interface IResourceLifecycleMarkerStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Persists the effective lifecycle marker for a resource.
+    /// Persists the effective lifecycle marker for a resource, replacing any marker it already has.
     /// </summary>
     ValueTask<ResourceLifecycleMarker> SaveMarkerAsync(
+        ResourceLifecycleMarker marker,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists the lifecycle marker for a resource only when the resource has none in the marker's tenant. The check
+    /// and the write are atomic, so of two concurrent calls for one resource exactly one creates its marker.
+    /// </summary>
+    /// <returns>The marker written, or the resource's existing marker when it already had one.</returns>
+    ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(
         ResourceLifecycleMarker marker,
         CancellationToken cancellationToken = default);
 }

@@ -199,6 +199,11 @@ public sealed class OperationalHardeningTests : IDisposable
             CancellationToken cancellationToken = default) =>
             inner.SaveMarkerAsync(marker, cancellationToken);
 
+        public ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(
+            ResourceLifecycleMarker marker,
+            CancellationToken cancellationToken = default) =>
+            inner.CreateMarkerAsync(marker, cancellationToken);
+
         public async ValueTask<bool> ClearMarkerAsync(
             string resourceId,
             TenantScope tenantScope,
