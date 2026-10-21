@@ -1118,6 +1118,13 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 "Specific resource version exports require at least one resource/version reference."));
         }
 
+        if (request.ResourceVersionScope == PortableResourceVersionScope.SpecificVersions
+            && request.ScopeMode != PortableExportScopeMode.DefinitionsOnly
+            && !specificResourceVersionsNull)
+        {
+            diagnostics.AddRange(ValidateSpecificResourceVersions(request.SpecificResourceVersions!));
+        }
+
         switch (request.ScopeMode)
         {
             case PortableExportScopeMode.DefinitionsOnly:
@@ -1142,6 +1149,53 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 }
 
                 break;
+        }
+
+        return diagnostics;
+    }
+
+    /// <summary>
+    /// Reports each specific resource version reference that can never match a stored version: a null
+    /// reference, an empty resource ID, or a version that is not positive. The store lookup would otherwise
+    /// find nothing and the export would return an empty snapshot without saying why. Diagnostics are
+    /// ordered by resource ID and version so they do not depend on the set's enumeration order.
+    /// </summary>
+    private static IEnumerable<PortableDiagnostic> ValidateSpecificResourceVersions(
+        IEnumerable<ResourceVersionReference> references)
+    {
+        var diagnostics = new List<PortableDiagnostic>();
+        var nonNull = new List<ResourceVersionReference>();
+
+        foreach (var reference in references)
+        {
+            if (reference is null)
+            {
+                diagnostics.Add(InvalidExportScope(
+                    "specificResourceVersions",
+                    "Specific resource versions cannot contain a null reference."));
+                continue;
+            }
+
+            nonNull.Add(reference);
+        }
+
+        foreach (var reference in nonNull
+                     .OrderBy(static reference => reference.ResourceId, StringComparer.Ordinal)
+                     .ThenBy(static reference => reference.Version))
+        {
+            if (string.IsNullOrWhiteSpace(reference.ResourceId))
+            {
+                diagnostics.Add(InvalidExportScope(
+                    "specificResourceVersions",
+                    $"Specific resource version reference (version {reference.Version}) must have a resource ID."));
+            }
+
+            if (reference.Version <= 0)
+            {
+                diagnostics.Add(InvalidExportScope(
+                    "specificResourceVersions",
+                    $"Specific resource version reference '{reference.ResourceId}' version {reference.Version} must be positive."));
+            }
         }
 
         return diagnostics;

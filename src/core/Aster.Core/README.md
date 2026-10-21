@@ -329,6 +329,8 @@ if (preview.CanImport)
 }
 ```
 
+Export validates the request before it reads anything. An invalid scope returns `invalid-export-scope` errors and no snapshot: for example an empty selection, or, under `PortableResourceVersionScope.SpecificVersions`, a reference with an empty resource ID or a version that is not positive (path `specificResourceVersions`).
+
 Import is strict by default. Existing identical content is reused, divergent collisions fail before writing, and explicit `PortableImportCollisionMode.RemapDivergent` produces deterministic replacement identifiers while rewriting imported definition/resource references consistently. Preview and import return planned/actual counts, identity mappings, and diagnostics such as `duplicate-snapshot-identity`, `malformed-snapshot`, `missing-definition-reference`, `missing-resource-reference`, and `divergent-identity-collision`.
 
 **Shared aspect definitions.** A snapshot's `AspectDefinitions` holds the shared aspect versions that its definitions pin, and only those versions.
