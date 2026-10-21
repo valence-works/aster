@@ -44,6 +44,11 @@ app.UseStudioTenants();
 app.MapAster("/api/aster", options =>
 {
     options.Groups = AsterEndpointGroups.Definitions | AsterEndpointGroups.Resources;
+    // The package endpoints have their own JSON options (camelCase enums); keep the SPA's kebab-case enum names there too.
+    options.SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
+    };
     options.ConfigureGroup = static (group, builder) =>
     {
         if (group == AsterEndpointGroups.Definitions)

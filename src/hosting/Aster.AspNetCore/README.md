@@ -32,4 +32,18 @@ app.MapAster("/api/aster", options =>
 - **Errors:** validation failures return `400` ProblemDetails with `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]`; concurrency and uniqueness conflicts return `409` with a `code`; missing entities return `404`.
 - **Lifecycle:** list and query endpoints exclude archived and soft-deleted resources unless `lifecycle=all`, `archived` or `softDeleted`.
 
+## JSON
+
+- **Own options:** the endpoints read request bodies and write responses with `AsterEndpointOptions.SerializerOptions`, not the host's `ConfigureHttpJsonOptions`, so a host's global JSON settings do not change Aster's wire format.
+- **Defaults:** web defaults (camelCase properties, case-insensitive reads) with enums as camelCase names, such as `"lifecycleState": "softDeleted"` and `"maintenanceDisposition": "possibleCandidate"`. Enum integers are still accepted in requests.
+- **Problems:** the `diagnostics` and `code` members use the same options; the ProblemDetails envelope still goes through the host's ProblemDetails pipeline.
+- **Replace them** in `MapAster`, for example for kebab-case enum names as Aster Studio does:
+
+```csharp
+app.MapAster("/api/aster", options => options.SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+{
+    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
+});
+```
+
 See the [wiki page](https://github.com/valence-works/aster/blob/main/wiki/AspNetCore-Endpoints.md) for the query format, authorization and tenancy.

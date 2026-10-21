@@ -47,7 +47,7 @@ public static class AsterEndpointRouteBuilderExtensions
     /// </summary>
     /// <param name="endpoints">The host's endpoint route builder.</param>
     /// <param name="prefix">The route prefix. Defaults to <c>/api/aster</c>.</param>
-    /// <param name="configure">Configures groups, read-only mode, per-group policies and paging.</param>
+    /// <param name="configure">Configures groups, read-only mode, per-group policies, paging and JSON options.</param>
     /// <returns>The route group holding every Aster endpoint.</returns>
     public static RouteGroupBuilder MapAster(
         this IEndpointRouteBuilder endpoints,
@@ -62,7 +62,11 @@ public static class AsterEndpointRouteBuilderExtensions
         if (options.DefaultPageSize < 1 || options.MaxPageSize < options.DefaultPageSize)
             throw new ArgumentException("Page sizes must satisfy 1 <= DefaultPageSize <= MaxPageSize.", nameof(configure));
 
+        // Every body read and response of these endpoints uses these options, not the host's (#190).
+        var serializerOptions = AsterJson.MakeReadOnly(options.SerializerOptions);
+
         var root = endpoints.MapGroup(prefix);
+        root.WithMetadata(new AsterJsonMetadata(serializerOptions));
         root.AddEndpointFilter<AsterExceptionFilter>();
 
         if (options.Groups.HasFlag(AsterEndpointGroups.Definitions))
@@ -91,14 +95,15 @@ public static class AsterEndpointRouteBuilderExtensions
     private static void MapDefinitions(RouteGroupBuilder group, AsterEndpointOptions options)
     {
         group.MapGet("", async (HttpContext http, IResourceDefinitionStore store, CancellationToken ct) =>
-                TypedResults.Ok((await store.ListDefinitionsAsync(Tenant(http), ct))
+                AsterJson.Ok((await store.ListDefinitionsAsync(Tenant(http), ct))
                     .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
                     .ToList()))
-            .WithSummary("List the latest version of each resource definition.");
+            .WithSummary("List the latest version of each resource definition.")
+            .Produces<IReadOnlyList<ResourceDefinition>>();
 
         group.MapGet("/{definitionId}", async (string definitionId, int? version, HttpContext http, IResourceDefinitionStore store, CancellationToken ct) =>
                 await FindDefinitionAsync(store, definitionId, version, Tenant(http), ct) is { } definition
-                    ? Results.Ok(definition)
+                    ? AsterJson.Ok(definition)
                     : DefinitionNotFound(definitionId, version))
             .WithSummary("Get a resource definition: the latest version, or the one named by ?version.")
             .Produces<ResourceDefinition>()
@@ -106,7 +111,7 @@ public static class AsterEndpointRouteBuilderExtensions
 
         group.MapGet("/{definitionId}/schema", async (string definitionId, int? version, HttpContext http, IResourceDefinitionStore store, IResourceSchemaExporter exporter, CancellationToken ct) =>
                 await FindDefinitionAsync(store, definitionId, version, Tenant(http), ct) is { } definition
-                    ? Results.Json(exporter.Export(definition), contentType: "application/schema+json")
+                    ? AsterJson.Schema(exporter.Export(definition))
                     : DefinitionNotFound(definitionId, version))
             .WithSummary("Export a resource definition as a JSON Schema 2020-12 document.")
             .Produces<object>(contentType: "application/schema+json")
@@ -118,19 +123,23 @@ public static class AsterEndpointRouteBuilderExtensions
         group.MapPost("", RegisterDefinitionAsync)
             .WithSummary("Register a new version of a resource definition.")
             .WithDescription("The store assigns the version. With ?expectedLatestVersion, registration happens only when the latest version is still that one (0: the definition must not exist), and returns 409 otherwise. Shared aspect attachments are re-resolved from the aspect store by (id, version).")
+            .Accepts<ResourceDefinition>("application/json")
             .Produces<ResourceDefinition>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
     }
 
     private static async Task<IResult> RegisterDefinitionAsync(
-        ResourceDefinition definition,
         int? expectedLatestVersion,
         HttpContext http,
         IResourceDefinitionStore store,
         IAspectDefinitionStore aspects,
         CancellationToken ct)
     {
+        var (definition, bodyProblem) = await AsterJson.ReadBodyAsync<ResourceDefinition>(http);
+        if (definition is null)
+            return bodyProblem!;
         if (string.IsNullOrWhiteSpace(definition.DefinitionId))
             return AsterProblems.Validation("definition-id-required", "definitionId is required.");
         if (expectedLatestVersion is < 0)
@@ -178,7 +187,7 @@ public static class AsterEndpointRouteBuilderExtensions
             registered = await store.GetDefinitionAsync(definition.DefinitionId, tenant, ct);
         }
 
-        return Results.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(definition.DefinitionId)}", registered);
+        return AsterJson.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(definition.DefinitionId)}", registered);
     }
 
     private static async ValueTask<ResourceDefinition?> FindDefinitionAsync(
@@ -199,12 +208,13 @@ public static class AsterEndpointRouteBuilderExtensions
     private static void MapAspects(RouteGroupBuilder group, AsterEndpointOptions options)
     {
         group.MapGet("", async (HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
-                TypedResults.Ok(await store.ListAsync(Tenant(http), ct)))
-            .WithSummary("List the latest version of each shared aspect definition.");
+                AsterJson.Ok(await store.ListAsync(Tenant(http), ct)))
+            .WithSummary("List the latest version of each shared aspect definition.")
+            .Produces<IReadOnlyList<AspectDefinition>>();
 
         group.MapGet("/{aspectId}", async (string aspectId, int? version, HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
                 await FindAspectAsync(store, aspectId, version, Tenant(http), ct) is { } aspect
-                    ? Results.Ok(aspect)
+                    ? AsterJson.Ok(aspect)
                     : AspectNotFound(aspectId, version))
             .WithSummary("Get a shared aspect definition: the latest version, or the one named by ?version.")
             .Produces<AspectDefinition>()
@@ -212,7 +222,7 @@ public static class AsterEndpointRouteBuilderExtensions
 
         group.MapGet("/{aspectId}/versions", async (string aspectId, HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
                 await store.ListVersionsAsync(aspectId, Tenant(http), ct) is { Count: > 0 } versions
-                    ? Results.Ok(versions)
+                    ? AsterJson.Ok(versions)
                     : AspectNotFound(aspectId, null))
             .WithSummary("List every version of a shared aspect definition.")
             .Produces<IReadOnlyList<AspectDefinition>>()
@@ -220,7 +230,7 @@ public static class AsterEndpointRouteBuilderExtensions
 
         group.MapGet("/{aspectId}/schema", async (string aspectId, int? version, HttpContext http, IAspectDefinitionStore store, IResourceSchemaExporter exporter, CancellationToken ct) =>
                 await FindAspectAsync(store, aspectId, version, Tenant(http), ct) is { } aspect
-                    ? Results.Json(exporter.ExportAspect(aspect), contentType: "application/schema+json")
+                    ? AsterJson.Schema(exporter.ExportAspect(aspect))
                     : AspectNotFound(aspectId, version))
             .WithSummary("Export a shared aspect definition's payload as a JSON Schema 2020-12 document.")
             .Produces<object>(contentType: "application/schema+json")
@@ -229,17 +239,22 @@ public static class AsterEndpointRouteBuilderExtensions
         if (options.ReadOnly)
             return;
 
-        group.MapPost("", async (AspectDefinition aspect, HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
+        group.MapPost("", async (HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
             {
+                var (aspect, bodyProblem) = await AsterJson.ReadBodyAsync<AspectDefinition>(http);
+                if (aspect is null)
+                    return bodyProblem!;
                 if (string.IsNullOrWhiteSpace(aspect.AspectDefinitionId))
                     return AsterProblems.Validation("aspect-id-required", "aspectDefinitionId is required.");
 
                 var registered = await store.RegisterAsync(aspect, Tenant(http), ct);
-                return Results.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(registered.AspectDefinitionId)}", registered);
+                return AsterJson.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(registered.AspectDefinitionId)}", registered);
             })
             .WithSummary("Register a new version of a shared aspect definition; the store assigns the version.")
+            .Accepts<AspectDefinition>("application/json")
             .Produces<AspectDefinition>(StatusCodes.Status201Created)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
     }
 
     private static async ValueTask<AspectDefinition?> FindAspectAsync(
@@ -273,11 +288,16 @@ public static class AsterEndpointRouteBuilderExtensions
             .Produces<AsterResourcePage>()
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
-        group.MapPost("/query", (AsterQueryRequest request, HttpContext http, IResourceQueryService queries, CancellationToken ct) =>
-                QueryAsync(request, http, queries, options, ct))
+        group.MapPost("/query", async (HttpContext http, IResourceQueryService queries, CancellationToken ct) =>
+            {
+                var (request, bodyProblem) = await AsterJson.ReadBodyAsync<AsterQueryRequest>(http);
+                return request is null ? bodyProblem! : await QueryAsync(request, http, queries, options, ct);
+            })
             .WithSummary("Query resources with the portable query model (filters, sorting, paging).")
+            .Accepts<AsterQueryRequest>("application/json")
             .Produces<AsterResourcePage>()
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
         group.MapGet("/{resourceId}", async (string resourceId, int? version, HttpContext http, IResourceManager manager, CancellationToken ct) =>
             {
@@ -289,7 +309,7 @@ public static class AsterEndpointRouteBuilderExtensions
                     return ResourceNotFound(resourceId, version);
 
                 return await AuthorizeAsync(http, AsterResourceOperation.Read, resource.DefinitionId, resourceId, resource, ct)
-                    ? Results.Ok(resource)
+                    ? AsterJson.Ok(resource)
                     : AsterProblems.Forbidden();
             })
             .WithSummary("Get a resource: the latest version, or the one named by ?version.")
@@ -305,7 +325,7 @@ public static class AsterEndpointRouteBuilderExtensions
                 if (!await AuthorizeAsync(http, AsterResourceOperation.Read, latest.DefinitionId, resourceId, latest, ct))
                     return AsterProblems.Forbidden();
 
-                return Results.Ok(await history.GetHistoryAsync(new ResourceVersionHistoryRequest { TenantScope = tenant, ResourceId = resourceId }, ct));
+                return AsterJson.Ok(await history.GetHistoryAsync(new ResourceVersionHistoryRequest { TenantScope = tenant, ResourceId = resourceId }, ct));
             })
             .WithSummary("Get a resource's version history: every version with its active channels and lifecycle state.")
             .Produces<ResourceVersionHistoryResult>()
@@ -315,8 +335,12 @@ public static class AsterEndpointRouteBuilderExtensions
         if (options.ReadOnly)
             return;
 
-        group.MapPost("", async (AsterCreateResourceRequest request, HttpContext http, IResourceDefinitionStore definitions, IResourceManager manager, CancellationToken ct) =>
+        group.MapPost("", async (HttpContext http, IResourceDefinitionStore definitions, IResourceManager manager, CancellationToken ct) =>
             {
+                var (request, bodyProblem) = await AsterJson.ReadBodyAsync<AsterCreateResourceRequest>(http);
+                if (request is null)
+                    return bodyProblem!;
+
                 var tenant = Tenant(http);
                 if (string.IsNullOrWhiteSpace(request.DefinitionId))
                     return AsterProblems.Validation("definition-id-required", "definitionId is required.");
@@ -331,17 +355,23 @@ public static class AsterEndpointRouteBuilderExtensions
                     ResourceId = request.ResourceId,
                     InitialAspects = ToAspects(request.Aspects),
                 }, ct);
-                return Results.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(created.ResourceId)}", created);
+                return AsterJson.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(created.ResourceId)}", created);
             })
             .WithSummary("Create version 1 of a resource.")
+            .Accepts<AsterCreateResourceRequest>("application/json")
             .Produces<Resource>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
-        group.MapPut("/{resourceId}", async (string resourceId, AsterUpdateResourceRequest request, HttpContext http, IResourceManager manager, CancellationToken ct) =>
+        group.MapPut("/{resourceId}", async (string resourceId, HttpContext http, IResourceManager manager, CancellationToken ct) =>
             {
+                var (request, bodyProblem) = await AsterJson.ReadBodyAsync<AsterUpdateResourceRequest>(http);
+                if (request is null)
+                    return bodyProblem!;
+
                 var tenant = Tenant(http);
                 if (await manager.GetLatestVersionAsync(resourceId, tenant, ct) is not { } latest)
                     return ResourceNotFound(resourceId, null);
@@ -354,30 +384,36 @@ public static class AsterEndpointRouteBuilderExtensions
                     BaseVersion = request.BaseVersion,
                     AspectUpdates = ToAspects(request.Aspects),
                 }, ct);
-                return Results.Ok(updated);
+                return AsterJson.Ok(updated);
             })
             .WithSummary("Save a new version of a resource, based on baseVersion.")
+            .Accepts<AsterUpdateResourceRequest>("application/json")
             .Produces<Resource>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
-        group.MapPost("/{resourceId}/activate", (string resourceId, AsterActivationRequest request, HttpContext http, IResourceManager manager, CancellationToken ct) =>
-                ChangeActivationAsync(resourceId, request, activate: true, http, manager, ct))
+        group.MapPost("/{resourceId}/activate", (string resourceId, HttpContext http, IResourceManager manager, CancellationToken ct) =>
+                ChangeActivationAsync(resourceId, activate: true, http, manager, ct))
             .WithSummary("Activate a resource version in a channel.")
+            .Accepts<AsterActivationRequest>("application/json")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
-        group.MapPost("/{resourceId}/deactivate", (string resourceId, AsterActivationRequest request, HttpContext http, IResourceManager manager, CancellationToken ct) =>
-                ChangeActivationAsync(resourceId, request, activate: false, http, manager, ct))
+        group.MapPost("/{resourceId}/deactivate", (string resourceId, HttpContext http, IResourceManager manager, CancellationToken ct) =>
+                ChangeActivationAsync(resourceId, activate: false, http, manager, ct))
             .WithSummary("Deactivate a resource version in a channel.")
+            .Accepts<AsterActivationRequest>("application/json")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
     }
 
     private static async Task<IResult> QueryAsync(
@@ -404,17 +440,19 @@ public static class AsterEndpointRouteBuilderExtensions
                 items.Add(resource);
         }
 
-        return Results.Ok(new AsterResourcePage(items, hasMore));
+        return AsterJson.Ok(new AsterResourcePage(items, hasMore));
     }
 
     private static async Task<IResult> ChangeActivationAsync(
         string resourceId,
-        AsterActivationRequest request,
         bool activate,
         HttpContext http,
         IResourceManager manager,
         CancellationToken ct)
     {
+        var (request, bodyProblem) = await AsterJson.ReadBodyAsync<AsterActivationRequest>(http);
+        if (request is null)
+            return bodyProblem!;
         if (string.IsNullOrWhiteSpace(request.Channel))
             return AsterProblems.Validation("channel-required", "channel is required.");
 
