@@ -62,7 +62,8 @@ function FieldControl({ facet, id, value, disabled, onValue, onGenerateSlug }: {
   const stringValue = value === null || value === undefined ? "" : String(value);
   const text = (type?: string, className?: string) => <Input id={id} type={type} className={className} value={stringValue} onChange={(event) => onValue(event.target.value)} disabled={disabled} />;
   if (hint === UiHints.tags || isArrayFacet(facet)) return <TagInput id={id} value={toStringArray(value)} onChange={onValue} disabled={disabled} />;
-  if (facet.metadata?.allowedValues?.length || hint === UiHints.select || hint === UiHints.radio) {
+  // select and radio need options; without AllowedValues they fall through to the type's editor.
+  if (facet.metadata?.allowedValues?.length) {
     return <Select value={stringValue} onValueChange={onValue} disabled={disabled}><SelectTrigger id={id}><SelectValue placeholder="Select value" /></SelectTrigger><SelectContent>{(facet.metadata?.allowedValues ?? []).map((option) => <SelectItem key={String(option)} value={String(option)}>{String(option)}</SelectItem>)}</SelectContent></Select>;
   }
   if (hint === UiHints.checkbox) return <div className="flex h-10 items-center"><Checkbox id={id} checked={Boolean(value)} onCheckedChange={(checked) => onValue(checked === true)} disabled={disabled} /></div>;

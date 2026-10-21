@@ -35,7 +35,7 @@
 ## Rules for hosts
 
 - **Fall back by type.** When a facet has no hint, or one the host doesn't know, pick an editor from the facet type: text for `string`, a number input for `int` / `decimal`, a switch or checkbox for `bool`, a date-time picker for `datetime`, a JSON editor for `object`, and a tag or list input for arrays.
-- **`AllowedValues` wins over free entry.** A facet with `AllowedValues` and no hint renders as `select`.
+- **`AllowedValues` wins over free entry.** A facet with `AllowedValues` and no hint renders as `select`. A `select` or `radio` hint without `AllowedValues` has nothing to offer, so hosts fall back by type.
 - **A hint never relaxes validation.** Save-time validation enforces types and constraints whatever the editor, so a UI only needs to be helpful, not authoritative.
 - **Custom hints use a prefix.** Hints outside this list should carry a host or vendor prefix (`acme:color-picker`), so they never collide with future standard names.
 
