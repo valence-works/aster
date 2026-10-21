@@ -9,15 +9,22 @@ import { DynamicResourceForm } from "@/components/DynamicResourceForm";
 import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 import { ResourceOperationsPanel } from "@/components/ResourceOperationsPanel";
 import { ErrorState, TableSkeleton } from "@/components/StateViews";
-import { ApiError, api, type ResourceAspects, type ResourceDetailDto } from "@/lib/api";
+import { ApiError, api, type DefinitionDetailDto, type ResourceAspects, type ResourceDetailDto } from "@/lib/api";
 import { diagnosticsToFieldErrors, initialAspects, normalizeForSubmit, validateAspects, type FieldErrors } from "@/lib/resourceForm";
 import { useAsync } from "@/hooks/useAsync";
 
 export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
   const { definitionId = "", resourceId = "" } = useParams();
   const navigate = useNavigate();
-  const definition = useAsync(() => api.getDefinition(definitionId), [definitionId]);
   const resource = useAsync<ResourceDetailDto | null>(() => mode === "edit" ? api.getResource(resourceId) : Promise.resolve(null), [mode, resourceId]);
+  // A new resource uses the latest definition. An existing one renders from the definition version it records, which
+  // is the one its save validates against (#191); it moves to a newer version only through a schema upgrade.
+  // Until the resource has loaded there is nothing to render from, so the key is null and nothing is fetched.
+  const recorded = resource.data ? { definitionId: resource.data.definitionId, definitionVersion: resource.data.definitionVersion } : null;
+  const definitionKey = mode === "create" ? "latest" : recorded ? `${recorded.definitionId}@${recorded.definitionVersion ?? "latest"}` : null;
+  const definition = useAsync<DefinitionDetailDto | null>(
+    () => mode === "create" ? api.getDefinition(definitionId) : recorded ? api.getRecordedDefinition(recorded) : Promise.resolve(null),
+    [mode, definitionId, definitionKey]);
   const [aspects, setAspects] = useState<ResourceAspects>({});
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
@@ -27,9 +34,13 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
     if (definition.data && !resource.loading) setAspects(initialAspects(definition.data, resource.data));
   }, [definition.data, resource.data, resource.loading]);
 
-  if (definition.loading || resource.loading) return <TableSkeleton />;
-  if (definition.error || !definition.data) return <ErrorState error={definition.error} onRetry={definition.reload} />;
+  if (resource.loading) return <TableSkeleton />;
   if (resource.error) return <ErrorState error={resource.error} onRetry={resource.reload} />;
+  if (definition.error) return <ErrorState error={definition.error} onRetry={definition.reload} />;
+  // Also covers the render between the resource arriving and the definition fetch starting. A reload after a schema
+  // upgrade keeps the page (and the operations panel's state) mounted; saving and editing wait for it, since the
+  // fields are reset from the new definition when it arrives.
+  if (!definition.data) return <TableSkeleton />;
 
   async function submit() {
     if (!definition.data) return;
@@ -72,15 +83,15 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-start gap-3"><Button variant="outline" size="icon" asChild><Link to={`/content/${definitionId}`}><ArrowLeft className="h-4 w-4" /></Link></Button><div><h2 className="text-2xl font-semibold tracking-[-0.05em]">{mode === "create" ? `New ${definition.data.displayName}` : resource.data?.resourceId}</h2><p className="mt-1 text-sm text-muted-foreground">Generated from definition <span className="font-mono">{definitionId}</span>. Every card below is an attached aspect.</p></div></div>
-        <div className="flex items-center gap-2">{resource.data ? <Badge variant="schema">base v{resource.data.version}</Badge> : null}<Button onClick={submit} disabled={saving}><Save className="h-4 w-4" />{saving ? "Saving…" : mode === "create" ? "Create resource" : "Save new version"}</Button></div>
+        <div className="flex items-start gap-3"><Button variant="outline" size="icon" asChild><Link to={`/content/${definitionId}`}><ArrowLeft className="h-4 w-4" /></Link></Button><div><h2 className="text-2xl font-semibold tracking-[-0.05em]">{mode === "create" ? `New ${definition.data.displayName}` : resource.data?.resourceId}</h2><p className="mt-1 text-sm text-muted-foreground">Generated from definition <span className="font-mono">{definitionId}</span> v{definition.data.version}. Every card below is an attached aspect.</p></div></div>
+        <div className="flex items-center gap-2">{resource.data ? <Badge variant="schema">base v{resource.data.version}</Badge> : null}<Button onClick={submit} disabled={saving || definition.loading}><Save className="h-4 w-4" />{saving ? "Saving…" : mode === "create" ? "Create resource" : "Save new version"}</Button></div>
       </div>
       {formErrors.length ? <Card className="border-destructive/30 bg-destructive/5"><CardContent className="space-y-1 p-4 text-sm text-destructive">{formErrors.map((error) => <div key={error}>{error}</div>)}</CardContent></Card> : null}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <DynamicResourceForm definition={definition.data} aspects={aspects} errors={errors} onChange={setAspects} />
+        <DynamicResourceForm definition={definition.data} aspects={aspects} errors={errors} onChange={setAspects} readOnly={definition.loading} />
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
           <Card className="facet-seam"><CardContent className="p-5"><h3 className="font-semibold tracking-tight">Dynamic form contract</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Widgets are selected from facet metadata: uiHint, type, allowed values, and constraints. Server diagnostics are routed by aspectKey + facetId.</p></CardContent></Card>
-          {mode === "edit" && resource.data ? <ResourceOperationsPanel resourceId={resourceId} latestVersion={resource.data.version} onChanged={() => api.getResource(resourceId).then(resource.setData, resource.reload)} /> : null}
+          {mode === "edit" && resource.data ? <ResourceOperationsPanel resourceId={resourceId} latestVersion={resource.data.version} editedAgainst={definition.data.version} onChanged={() => api.getResource(resourceId).then(resource.setData, resource.reload)} /> : null}
           {mode === "edit" && resource.data ? <VersionHistoryPanel resourceId={resourceId} latestVersion={resource.data.version} definition={definition.data} onChanged={resource.reload} /> : null}
         </aside>
       </div>

@@ -153,6 +153,8 @@ export type ResourceDetailDto = {
   resourceId: string;
   definitionId: string;
   version: number;
+  /** The definition version this resource version was saved against; its updates validate against it (#130). */
+  definitionVersion: number | null;
   created: string;
   aspects: ResourceAspects;
   activeChannels: Record<string, number[]>;
@@ -569,6 +571,7 @@ type AsterDefinition = {
 type AsterResource = {
   resourceId: string;
   definitionId: string;
+  definitionVersion?: number | null;
   version: number;
   created: string;
   aspects: Record<string, unknown>;
@@ -668,6 +671,7 @@ function toResourceDetail(resource: AsterResource, history: AsterVersionHistory)
   return {
     resourceId: resource.resourceId,
     definitionId: resource.definitionId,
+    definitionVersion: resource.definitionVersion ?? null,
     version: resource.version,
     created: resource.created,
     aspects: resource.aspects as ResourceAspects,
@@ -681,6 +685,24 @@ const getHistory = (resourceId: string) => request<AsterVersionHistory>(`${resou
 async function withHistory(resource: Promise<AsterResource>): Promise<ResourceDetailDto> {
   const loaded = await resource;
   return toResourceDetail(loaded, await getHistory(loaded.resourceId));
+}
+
+const getDefinition = async (definitionId: string, version?: number) =>
+  toDefinitionDetail(await request<AsterDefinition>(`${aster}/definitions/${segment(definitionId)}${version === undefined ? "" : `?version=${version}`}`));
+
+/**
+ * The definition version that governs a resource's next update, as the SDK resolves it (ADR 0002, #130): the version
+ * the resource records, or the latest when it records none or that version is no longer stored. The editor renders
+ * its form from this version so the form and the save's validation agree (#191).
+ */
+async function getRecordedDefinition(resource: Pick<ResourceDetailDto, "definitionId" | "definitionVersion">): Promise<DefinitionDetailDto> {
+  if (resource.definitionVersion === null) return getDefinition(resource.definitionId);
+  try {
+    return await getDefinition(resource.definitionId, resource.definitionVersion);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return getDefinition(resource.definitionId);
+    throw error;
+  }
 }
 
 // Studio's facet types name the UI control; the store's are the SDK's. "number" is stored as decimal.
@@ -815,7 +837,9 @@ export const api = {
   applyAspectUpgrade: (aspectId: string, targetVersion: number, definitionIds: string[]) =>
     request<AspectUpgradeResultDto>(`${studio}/aspects/${segment(aspectId)}/upgrade`, json("POST", { targetVersion, definitionIds })),
   getDefinitions: () => request<DefinitionSummaryDto[]>(`${studio}/definitions`),
-  getDefinition: async (definitionId: string) => toDefinitionDetail(await request<AsterDefinition>(`${aster}/definitions/${segment(definitionId)}`)),
+  /** The latest version of a definition, or the one named by `version`. */
+  getDefinition,
+  getRecordedDefinition,
   createDefinition,
   getResources: (definitionId: string, skip = 0, take = 20, tags: string[] = [], lifecycle: LifecycleFilter = "all") =>
     request<ResourceListDto>(`${studio}/resources?definitionId=${segment(definitionId)}&skip=${skip}&take=${take}&lifecycle=${lifecycle}${tags.map((tag) => `&tag=${segment(tag)}`).join("")}`),

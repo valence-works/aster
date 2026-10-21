@@ -53,31 +53,40 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     }
 
     /// <summary>
-    /// Applies pending steps once per runner, for <see cref="PostgresJsonbAsterOptions.InitializeSchema"/>. Store
-    /// constructors call it, so it blocks. A failed run isn't cached: the next caller tries again.
+    /// Applies pending steps once per runner, for <see cref="PostgresJsonbAsterOptions.InitializeSchema"/>. The stores
+    /// await it before their first statement rather than blocking in their constructors: a blocked thread can't help
+    /// finish the run, and a burst of first requests would otherwise wait for the pool to grow past all of them. A
+    /// failed run isn't kept: the next caller tries again. Cancelling a caller stops its wait, not the shared run.
     /// </summary>
-    public void EnsureApplied()
+    public ValueTask EnsureAppliedAsync(CancellationToken cancellationToken = default)
     {
         Task task;
         lock (startupGate)
-            // On the thread pool, so a caller blocking on a single-threaded synchronization context can't deadlock.
-            task = startup ??= Task.Run(async () => await ApplyAsync().ConfigureAwait(false));
+        {
+            // Checked here rather than by the waiters: every waiter may have stopped waiting before the run failed.
+            if (startup is { IsFaulted: true } or { IsCanceled: true })
+                startup = null;
 
-        try
-        {
-            task.GetAwaiter().GetResult();
-        }
-        catch
-        {
-            lock (startupGate)
+            // Shared, so it takes nothing from the first caller: no synchronization context to post to, and no
+            // execution context, which could carry an ambient TransactionScope the run's connection would enlist in.
+            // SuppressFlow throws when the caller has already suppressed flow, which leaves nothing to suppress.
+            if (startup is null && ExecutionContext.IsFlowSuppressed())
             {
-                if (startup == task)
-                    startup = null;
+                startup = StartRun();
+            }
+            else if (startup is null)
+            {
+                using (ExecutionContext.SuppressFlow())
+                    startup = StartRun();
             }
 
-            throw;
+            task = startup;
         }
+
+        return task.IsCompletedSuccessfully ? ValueTask.CompletedTask : new(task.WaitAsync(cancellationToken));
     }
+
+    private Task StartRun() => Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
 
     /// <inheritdoc />
     public async ValueTask<IReadOnlyList<InfrastructureStep>> ApplyAsync(CancellationToken cancellationToken = default)

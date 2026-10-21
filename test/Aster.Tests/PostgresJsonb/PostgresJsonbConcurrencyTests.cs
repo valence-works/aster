@@ -219,7 +219,7 @@ public sealed class PostgresJsonbConcurrencyTests : IDisposable
     [SkippableFact]
     public async Task SchemaBootstrap_ConcurrentProvidersOnAFreshDatabase_AllStart()
     {
-        // Every provider bootstraps the schema when its stores are first resolved.
+        // Every provider bootstraps the schema before its stores' first statement.
         var providers = Enumerable.Range(0, Writers).Select(_ => database.CreateProvider()).ToList();
         try
         {
@@ -227,8 +227,8 @@ public sealed class PostgresJsonbConcurrencyTests : IDisposable
             var running = providers.Select(provider => Task.Run(async () =>
             {
                 await start.Task;
-                _ = provider.GetRequiredService<IResourceDefinitionStore>();
-                _ = provider.GetRequiredService<IAspectDefinitionStore>();
+                await provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync();
+                await provider.GetRequiredService<IAspectDefinitionStore>().ListAsync();
             })).ToList();
             start.SetResult();
             await Task.WhenAll(running);

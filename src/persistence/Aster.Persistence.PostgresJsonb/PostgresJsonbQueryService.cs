@@ -17,27 +17,30 @@ internal sealed class PostgresJsonbQueryService : IResourceQueryService, IResour
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly PostgresJsonbDataSource dataSource;
+    private readonly PostgresJsonbInfrastructureRunner? infrastructure;
     private readonly IReadOnlyList<IndexProjection> indexProjections;
     private readonly ResourceQueryValidator validator;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="PostgresJsonbQueryService"/>. Resolving the resource store first
-    /// bootstraps the schema when <see cref="PostgresJsonbAsterOptions.InitializeSchema"/> is set.
+    /// Initializes a new instance of <see cref="PostgresJsonbQueryService"/>. When
+    /// <see cref="PostgresJsonbAsterOptions.InitializeSchema"/> is set, pending infrastructure steps are applied
+    /// before the first query.
     /// </summary>
     /// <param name="dataSource">The provider's data source.</param>
-    /// <param name="store">The resource store, resolved so the schema exists before the first query.</param>
-    /// <param name="options">Provider options, for the declared index projections.</param>
+    /// <param name="infrastructure">The provider's infrastructure runner.</param>
+    /// <param name="options">Provider options, for the declared index projections and schema bootstrap.</param>
     /// <param name="capabilityProviders">Registered provider capability declarations.</param>
     public PostgresJsonbQueryService(
         PostgresJsonbDataSource dataSource,
-        PostgresJsonbResourceStore store,
+        PostgresJsonbInfrastructureRunner infrastructure,
         PostgresJsonbAsterOptions options,
         IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
-        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(infrastructure);
         ArgumentNullException.ThrowIfNull(options);
         this.dataSource = dataSource;
+        this.infrastructure = options.InitializeSchema ? infrastructure : null;
         indexProjections = options.IndexProjections.ToList();
         validator = new ResourceQueryValidator(
             capabilityProviders ?? [new PostgresJsonbQueryCapabilitiesProvider(options)],
@@ -66,6 +69,9 @@ internal sealed class PostgresJsonbQueryService : IResourceQueryService, IResour
         }
 
         builder.AddSorts(query.Sorts);
+
+        if (infrastructure is not null)
+            await infrastructure.EnsureAppliedAsync(cancellationToken);
 
         await using var command = dataSource.Value.CreateCommand(builder.Build());
         builder.Parameters.ApplyTo(command);
