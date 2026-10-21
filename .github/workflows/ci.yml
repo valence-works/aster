@@ -105,6 +105,7 @@ jobs:
           dotnet pack src/persistence/Aster.Persistence.SqlServerJson/Aster.Persistence.SqlServerJson.csproj --configuration Release --no-build --output artifacts
           dotnet pack src/hosting/Aster.AspNetCore/Aster.AspNetCore.csproj --configuration Release --no-build --output artifacts
           dotnet pack src/integrations/Aster.Elsa/Aster.Elsa.csproj --configuration Release --no-build --output artifacts
+          dotnet pack src/integrations/Aster.Elsa.Agents/Aster.Elsa.Agents.csproj --configuration Release --no-build --output artifacts
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
