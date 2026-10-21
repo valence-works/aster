@@ -125,6 +125,26 @@ await definitionStore.RegisterDefinitionAsync(article, tenant, ct);
 
 `WithAspect<T>()` stays definition-local and never touches the store.
 
+**Upgrading to a new aspect version.** Nothing propagates on its own. Move definitions over explicitly:
+
+```csharp
+var upgrades = services.GetRequiredService<IAspectUpgradeService>();
+var preview = await upgrades.PreviewAsync("Seo");       // definitions pinning older versions, plus a facet diff
+var result = await upgrades.ApplyAsync(new AspectUpgradeRequest
+{
+    AspectDefinitionId = "Seo",
+    DefinitionIds = ["Article"],                          // only these get new definition versions
+});
+// Resources then move with IResourceSchemaVersionService.UpgradeAsync(..., TargetDefinitionVersion = n).
+```
+
+**What the preview reports.** Each facet change is one of `Added`, `Removed`, `TypeChanged`, `RequiredChanged` or `MetadataChanged`.
+
+**What apply returns.** One outcome per selected definition:
+- `Upgraded`, with the new definition version.
+- `NotApplicable`: the definition has no older pin (`aspect-upgrade-not-applicable`).
+- `Failed`: for example `aspect-name-required`, when the target requires a name and the attachment is unnamed.
+
 ### Reading a typed aspect
 
 Use the `GetAspect<T>` extension on `Resource`:
