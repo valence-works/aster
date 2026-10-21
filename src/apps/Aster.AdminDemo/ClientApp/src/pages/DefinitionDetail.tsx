@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,8 +29,13 @@ export function DefinitionDetail() {
       {definition.data.aspects.map((aspect) => (
         <Card key={aspect.aspectKey}>
           <CardHeader className="border-b border-border/60">
-            <CardTitle>{aspect.displayName}</CardTitle>
-            <CardDescription>{aspect.requiresName ? "Requires named aspect instances" : "Single aspect instance"}</CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>{aspect.displayName}</CardTitle>
+                <CardDescription>{aspect.requiresName ? "Requires named aspect instances" : "Single aspect instance"}</CardDescription>
+              </div>
+              {aspect.sharedAspectId ? <Link to={`/aspects/${encodeURIComponent(aspect.sharedAspectId)}`}><Badge variant="facet">shared {aspect.sharedAspectId} · v{aspect.sharedVersion}</Badge></Link> : <Badge variant="secondary">local</Badge>}
+            </div>
           </CardHeader>
           <CardContent className="pt-0">
             <Table>

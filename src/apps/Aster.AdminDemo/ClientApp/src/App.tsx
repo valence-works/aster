@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/shell/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
 import { AspectLibrary } from "@/pages/AspectLibrary";
+import { AspectEditor } from "@/pages/AspectEditor";
 import { ContentTypes } from "@/pages/ContentTypes";
 import { DefinitionDetail } from "@/pages/DefinitionDetail";
 import { ContentList } from "@/pages/ContentList";
@@ -13,6 +14,8 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route index element={<Dashboard />} />
         <Route path="aspects" element={<AspectLibrary />} />
+        <Route path="aspects/new" element={<AspectEditor />} />
+        <Route path="aspects/:aspectId" element={<AspectEditor />} />
         <Route path="content-types" element={<ContentTypes />} />
         <Route path="content-types/:definitionId" element={<DefinitionDetail />} />
         <Route path="content/:definitionId" element={<ContentList />} />

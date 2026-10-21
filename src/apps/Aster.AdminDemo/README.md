@@ -33,15 +33,16 @@ dotnet run --project src/apps/Aster.AdminDemo
 ```
 
 Open http://localhost:5210. A SQLite database is created at
-`App_Data/aster-demo.db` (gitignored) and seeded on first run with `article`
-and `page` content types plus sample content.
+`App_Data/aster-demo.db` (gitignored) and seeded on first run with five shared
+aspects (`content`, `seo`, `publishable`, `taggable`, `navigation`) in the
+aspect definition store, `article` and `page` content types that pin them, and
+sample content. Startup seeds an aspect only when the store doesn't have it, so
+edits made in the Aspect Library survive restarts.
 
-The demo database is disposable. After pulling changes to the seed data or the
-aspect templates, delete `App_Data/aster-demo.db` and restart to reseed. For
-example, the Taggable aspect now stores tags as a `string[]` facet (unique, at
-most 10, each at most 40 characters) instead of a comma-separated string, and
-the content list filters by tag with `ArrayContainsAny`. Databases seeded before
-that change still hold the old definitions.
+The demo database is disposable. After pulling changes to the seed data, delete
+`App_Data/aster-demo.db` and restart to reseed. Databases seeded before shared
+aspects (#96) keep `article` and `page` with definition-local aspects: they
+still work, but upgrades in the Aspect Library don't reach them.
 
 ### Frontend dev loop
 
@@ -57,8 +58,8 @@ Vite proxies `/api` to http://localhost:5210.
 | Screen | What it demonstrates |
 |---|---|
 | Dashboard | Counts and recent content across all definitions |
-| Aspect Library | The five horizontal aspect templates and their facet metadata |
-| Content Types | Definitions list; create a new type by composing aspect templates |
+| Aspect Library | Shared aspects from `IAspectDefinitionStore`: create one, edit its facets and save a new version, then preview and apply the upgrade to the content types that pin an older version |
+| Content Types | Definitions list; create a new type by pinning shared aspects at their latest version |
 | Content list | Paged resources with version + channel badges |
 | Resource editor | **Centerpiece** — form generated 100% from facet metadata (uiHints, ordering, constraints); server diagnostics map to fields |
 | Version history | Immutable versions; activate/deactivate any version on preview/live |
@@ -66,6 +67,7 @@ Vite proxies `/api` to http://localhost:5210.
 ## API
 
 Minimal APIs under `/api` (OpenAPI at `/openapi/v1.json` in Development):
-aspect-templates, definitions (list/detail/create), resources
+aspects (list/detail/create/save-as-new-version, upgrade preview/apply),
+definitions (list/detail/create), resources
 (list+paging/detail/versions/create/update/activate/deactivate).
 Validation failures return `400 { diagnostics: [{ code, aspectKey, facetId, message }] }`.

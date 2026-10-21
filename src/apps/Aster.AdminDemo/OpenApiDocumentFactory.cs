@@ -9,7 +9,10 @@ internal static class OpenApiDocumentFactory
         servers = new[] { new { url = "http://localhost:5210" } },
         paths = new Dictionary<string, object>
         {
-            ["/api/aspect-templates"] = Path(Get: Operation("List aspect templates")),
+            ["/api/aspects"] = Path(Get: Operation("List shared aspects"), Post: Operation("Create shared aspect")),
+            ["/api/aspects/{aspectId}"] = Path(Get: Operation("Get shared aspect"), Put: Operation("Save shared aspect as a new version")),
+            ["/api/aspects/{aspectId}/upgrade-preview"] = Path(Get: Operation("Preview content types on older aspect versions")),
+            ["/api/aspects/{aspectId}/upgrade"] = Path(Post: Operation("Re-pin selected content types to an aspect version")),
             ["/api/definitions"] = Path(Get: Operation("List definitions"), Post: Operation("Create definition")),
             ["/api/definitions/{definitionId}"] = Path(Get: Operation("Get definition")),
             ["/api/resources"] = Path(Get: Operation("List resources"), Post: Operation("Create resource")),

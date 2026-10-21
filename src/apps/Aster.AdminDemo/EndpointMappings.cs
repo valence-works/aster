@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Definitions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
@@ -18,8 +19,7 @@ internal static class EndpointMappings
     {
         var api = app.MapGroup("/api");
 
-        api.MapGet("/aspect-templates", () => AspectTemplateCatalog.All)
-            .WithName("GetAspectTemplates");
+        api.MapAspectApi();
 
         api.MapGet("/definitions", GetDefinitionsAsync)
             .WithName("GetDefinitions");
@@ -93,6 +93,7 @@ internal static class EndpointMappings
     private static async Task<IResult> CreateDefinitionAsync(
         CreateDefinitionRequest request,
         IResourceDefinitionStore definitionStore,
+        IAspectDefinitionStore aspectStore,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.DefinitionId))
@@ -100,29 +101,22 @@ internal static class EndpointMappings
 
         try
         {
-            var aspects = new List<(string AspectKey, IReadOnlyList<FacetDto> Facets)>();
+            // Content types attach shared aspects by pin (ADR 0003): BuildAsync embeds the stored version.
+            var builder = new ResourceDefinitionBuilder()
+                .WithDefinitionId(request.DefinitionId)
+                .WithSingleton(request.IsSingleton);
             foreach (var aspect in request.Aspects)
             {
-                if (string.IsNullOrWhiteSpace(aspect.AspectKey))
-                    return BadMetadata("facet-metadata-aspect-key-required", null, null, "Aspect key is required.");
+                if (string.IsNullOrWhiteSpace(aspect.AspectId))
+                    return BadMetadata("aspect-id-required", null, null, "Aspect id is required.");
 
-                if (!string.IsNullOrWhiteSpace(aspect.TemplateKey))
-                {
-                    var template = AspectTemplateCatalog.Find(aspect.TemplateKey);
-                    if (template is null)
-                        return BadMetadata("facet-metadata-template-not-found", aspect.AspectKey, null, $"Template '{aspect.TemplateKey}' was not found.");
+                if (aspect.Version is <= 0)
+                    return BadMetadata("aspect-version-invalid", aspect.AspectId, null, "Pinned versions start at 1.");
 
-                    aspects.Add((aspect.AspectKey, template.Facets));
-                    continue;
-                }
-
-                if (aspect.Facets is null || aspect.Facets.Count == 0)
-                    return BadMetadata("facet-metadata-facets-required", aspect.AspectKey, null, "Inline aspects must declare at least one facet.");
-
-                aspects.Add((aspect.AspectKey, aspect.Facets));
+                builder.WithSharedAspect(aspect.AspectId, aspect.Version, string.IsNullOrWhiteSpace(aspect.Name) ? null : aspect.Name);
             }
 
-            var definition = DemoDefinitions.BuildDefinition(request.DefinitionId, request.IsSingleton, aspects);
+            var definition = await builder.BuildAsync(aspectStore, cancellationToken: cancellationToken);
 
             // Creating never appends to an existing content type: that would silently replace it as latest.
             var registration = await definitionStore.RegisterDefinitionIfLatestAsync(definition, 0, TenantScope.Default, cancellationToken);
@@ -133,6 +127,12 @@ internal static class EndpointMappings
             }
 
             return Results.Created($"/api/definitions/{request.DefinitionId}", DemoDefinitions.ToDetailDto(registration.Definition!));
+        }
+        catch (SharedAspectResolutionException exception)
+        {
+            return Results.BadRequest(new DiagnosticsEnvelope(exception.Diagnostics
+                .Select(static diagnostic => new DiagnosticDto(diagnostic.Code, diagnostic.AttachmentKey, null, diagnostic.Message))
+                .ToList()));
         }
         catch (FacetMetadataValidationException exception)
         {
