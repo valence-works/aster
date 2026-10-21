@@ -1,5 +1,7 @@
 # Performance baselines
 
+For what the numbers mean in practice (recommended volumes per provider, pruning, and the SQLite index decision), see the [performance guidance](guidance.md).
+
 Baselines from the [benchmark harness](../../bench/README.md) (#103), part of epic #66. Each baseline records:
 - the commit it was measured on
 - the hardware and runtime
