@@ -130,3 +130,5 @@ public abstract class TenantScopeStoreTests(IAsterTestDatabase database) : IDisp
 public sealed class SqliteJsonTenantScopeTests() : TenantScopeStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbTenantScopeTests() : TenantScopeStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonTenantScopeTests() : TenantScopeStoreTests(new SqlServerTestDatabase());

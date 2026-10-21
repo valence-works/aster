@@ -2,6 +2,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Persistence.PostgresJsonb;
+using Aster.Persistence.SqlServerJson;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
@@ -19,15 +20,19 @@ public sealed class AspectRegistrationConcurrencyTests : IDisposable
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
     private const string Postgres = "postgres";
+    private const string SqlServer = "sqlserver";
     private const int Writers = 8;
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
     private readonly PostgresTestDatabase postgres = new();
 
+    private readonly SqlServerTestDatabase sqlServer = new();
+
     public void Dispose()
     {
         SqliteJsonTestDatabase.DeleteFiles(databasePath);
         postgres.Dispose();
+        sqlServer.Dispose();
     }
 
     private ServiceProvider CreateProvider(string providerKind)
@@ -37,6 +42,8 @@ public sealed class AspectRegistrationConcurrencyTests : IDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         else if (providerKind == Postgres)
             services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
+        else if (providerKind == SqlServer)
+            services.AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString);
 
         return services.BuildServiceProvider();
     }
@@ -53,6 +60,7 @@ public sealed class AspectRegistrationConcurrencyTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task RegistersWhenTheExpectedVersionIsLatest(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -73,7 +81,9 @@ public sealed class AspectRegistrationConcurrencyTests : IDisposable
     [InlineData(Sqlite, 0)]
     [InlineData(Sqlite, 3)]
     [InlineData(Postgres, 0)]
+    [InlineData(SqlServer, 0)]
     [InlineData(Postgres, 1)]
+    [InlineData(SqlServer, 1)]
     public async Task StaleExpectedVersion_ConflictsAndWritesNothing(string providerKind, int expectedLatestVersion)
     {
         await using var provider = CreateProvider(providerKind);
@@ -104,7 +114,9 @@ public sealed class AspectRegistrationConcurrencyTests : IDisposable
     [InlineData(Sqlite, 0)]
     [InlineData(Sqlite, 1)]
     [InlineData(Postgres, 0)]
+    [InlineData(SqlServer, 0)]
     [InlineData(Postgres, 1)]
+    [InlineData(SqlServer, 1)]
     public async Task ConcurrentRegistrations_OnTheSameExpectedVersion_ExactlyOneSucceeds(string providerKind, int expectedLatestVersion)
     {
         // Database providers each get their own service provider, as separate processes would; in-memory shares one.

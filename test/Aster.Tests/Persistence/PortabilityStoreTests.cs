@@ -205,3 +205,5 @@ public abstract class PortabilityStoreTests(IAsterTestDatabase database) : IDisp
 public sealed class SqliteJsonPortabilityStoreTests() : PortabilityStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbPortabilityStoreTests() : PortabilityStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonPortabilityStoreTests() : PortabilityStoreTests(new SqlServerTestDatabase());

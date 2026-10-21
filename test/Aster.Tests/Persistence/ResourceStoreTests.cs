@@ -422,3 +422,5 @@ public abstract class ResourceStoreTests(IAsterTestDatabase database) : IDisposa
 public sealed class SqliteJsonResourceStoreTests() : ResourceStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbResourceStoreTests() : ResourceStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonResourceStoreTests() : ResourceStoreTests(new SqlServerTestDatabase());
