@@ -73,6 +73,22 @@ public sealed class AspectDefinitionStoreTests : IDisposable
     [Theory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    public async Task Register_MutatingTheCallersFacetListAfterwards_DoesNotChangeTheStoredVersion(string providerKind)
+    {
+        await using var provider = CreateProvider(providerKind);
+        var store = provider.GetRequiredService<IAspectDefinitionStore>();
+        var facets = new List<FacetDefinition> { Facet("Slug", "string"), Facet("Title", "string") };
+
+        await store.RegisterAsync(Seo() with { FacetDefinitions = facets });
+        facets.Clear();
+
+        var stored = await store.GetVersionAsync("Seo", 1);
+        Assert.Equal(new[] { "Slug", "Title" }, stored!.FacetDefinitions.Select(static facet => facet.FacetDefinitionId));
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
     public async Task List_ReturnsTheLatestVersionOfEachAspectInIdOrder(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
