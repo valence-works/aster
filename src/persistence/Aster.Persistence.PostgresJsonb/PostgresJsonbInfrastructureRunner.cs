@@ -69,10 +69,15 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
 
             // Shared, so it takes nothing from the first caller: no synchronization context to post to, and no
             // execution context, which could carry an ambient TransactionScope the run's connection would enlist in.
-            if (startup is null)
+            // SuppressFlow throws when the caller has already suppressed flow, which leaves nothing to suppress.
+            if (startup is null && ExecutionContext.IsFlowSuppressed())
+            {
+                startup = StartRun();
+            }
+            else if (startup is null)
             {
                 using (ExecutionContext.SuppressFlow())
-                    startup = Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
+                    startup = StartRun();
             }
 
             task = startup;
@@ -80,6 +85,8 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
 
         return task.IsCompletedSuccessfully ? ValueTask.CompletedTask : new(task.WaitAsync(cancellationToken));
     }
+
+    private Task StartRun() => Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
 
     /// <inheritdoc />
     public async ValueTask<IReadOnlyList<InfrastructureStep>> ApplyAsync(CancellationToken cancellationToken = default)

@@ -154,6 +154,18 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
     }
 
     [SkippableFact]
+    public async Task FirstRequest_WithExecutionContextFlowSuppressed_AppliesTheSchema()
+    {
+        await using var provider = database.CreateProvider();
+        Task first;
+        using (ExecutionContext.SuppressFlow())
+            first = provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync().AsTask();
+        await first;
+
+        Assert.True((await provider.GetRequiredService<IInfrastructureRunner>().VerifyAsync()).IsCurrent);
+    }
+
+    [SkippableFact]
     public async Task InitializeSchemaFalse_StaysPassive()
     {
         await using var provider = CreatePassiveProvider();
