@@ -39,8 +39,8 @@ Named moment in a core operation where hooks may run.
 **Validation rules**:
 
 - Before lifecycle points run before the underlying operation mutates state or materializes a completed export.
-- After lifecycle points run only after the underlying operation succeeds.
-- No after-success hook runs when the underlying operation fails.
+- After lifecycle points run once all before hooks continued, whether the underlying operation then succeeds or fails (#219).
+- After hooks receive the outcome in `OperationStatus` and `OperationFailure`, so a failed operation is never presented as a success.
 
 ## Lifecycle Hook Context
 
@@ -51,6 +51,8 @@ Immutable operation-specific data supplied to a hook.
 - `LifecyclePoint`: hook point being invoked.
 - `OperationId`: per-operation identifier useful for correlating before/after observations.
 - `CancellationToken`: cancellation signal for the operation.
+- `OperationStatus`: `Pending` for before hooks; `Succeeded` or `Failed` for after hooks (#219).
+- `OperationFailure`: code, message, and exception when available, set when `OperationStatus` is `Failed`.
 
 **Save context fields**:
 
@@ -137,18 +139,18 @@ Activation/deactivation request
 Export request
   -> before-export hooks
   -> reject/fail/cancel OR build export result
-  -> after-export hooks when export succeeds
+  -> after-export hooks with the success or failure outcome
   -> return export result with diagnostics as needed
 
 Import preview request
   -> before-preview hooks
   -> reject/fail/cancel OR build preview
-  -> after-preview hooks when preview completes
+  -> after-preview hooks with the success or failure outcome
   -> return preview with diagnostics as needed
 
 Write import request
   -> before-import hooks
   -> reject/fail/cancel OR plan/apply import
-  -> after-import hooks when import succeeds
+  -> after-import hooks with the success or failure outcome
   -> return import result with diagnostics as needed
 ```

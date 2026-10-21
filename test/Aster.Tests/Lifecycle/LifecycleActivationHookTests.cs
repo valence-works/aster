@@ -51,6 +51,8 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
         Assert.Equal([1, 2], before.ActiveVersions);
         Assert.Equal([1, 2], after.ActiveVersions);
         Assert.Equal(before.OperationId, after.OperationId);
+        LifecycleOperationAssert.Pending(before);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -109,7 +111,7 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
     }
 
     [Fact]
-    public static async Task ActivationWriteFailure_RunsAfterActivateHook()
+    public static async Task ActivationWriteFailure_RunsAfterActivateHookWithFailedOutcome()
     {
         await using var scopedProvider = BuildThrowingWriterProvider();
         var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
@@ -122,12 +124,47 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
         scopedRecorder.Events.Clear();
         writer.ThrowActivationUpdate = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             scopedManager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel).AsTask());
 
         Assert.Equal(
             [LifecyclePoint.BeforeActivate, LifecyclePoint.AfterActivate],
             scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+        LifecycleOperationAssert.Pending(scopedRecorder.Events[0].Context);
+        var after = Assert.IsType<ResourceActivationLifecycleContext>(scopedRecorder.Events[1].Context);
+        var failure = LifecycleOperationAssert.Failed(after, LifecycleOperationFailure.OperationFailedCode);
+        Assert.Same(exception, failure.Exception);
+        Assert.Equal(resource.Version, after.Version);
+        Assert.Equal([resource.Version], after.ActiveVersions);
+        Assert.Empty(await scopedManager.GetActiveVersionsAsync(resource.ResourceId, LifecycleHookTestFixtures.Channel));
+    }
+
+    [Fact]
+    public static async Task ActivationWriteFailure_AuditHookCanSkipActivationThatDidNotHappen()
+    {
+        await using var scopedProvider = new ServiceCollection()
+            .AddSingleton<ActivationAuditLog>()
+            .AddAsterCore()
+            .AddSingleton<SwitchableResourceVersionWriter>()
+            .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
+            .AddResourceLifecycleHook<ActivationAuditHook>()
+            .BuildServiceProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        var audit = scopedProvider.GetRequiredService<ActivationAuditLog>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var resource = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+
+        writer.ThrowActivationUpdate = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scopedManager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel).AsTask());
+        writer.ThrowActivationUpdate = false;
+        await scopedManager.ActivateAsync(resource.ResourceId, resource.Version, LifecycleHookTestFixtures.Channel);
+
+        Assert.Equal([$"{resource.ResourceId}@v{resource.Version}->{LifecycleHookTestFixtures.Channel}"], audit.Entries);
+        Assert.Equal(1, audit.SkippedFailures);
     }
 
     private async ValueTask<Resource> CreateTwoVersionResourceWithFirstVersionActiveAsync()
@@ -148,4 +185,27 @@ public sealed class LifecycleActivationHookTests : IAsyncDisposable
             .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
             .AddResourceLifecycleHook<FirstRecordingHook>()
             .BuildServiceProvider();
+
+    private sealed class ActivationAuditLog
+    {
+        public List<string> Entries { get; } = [];
+
+        public int SkippedFailures { get; set; }
+    }
+
+    // The audit hook from #219: it must record only activations that changed the channel.
+    private sealed class ActivationAuditHook(ActivationAuditLog log) : ResourceLifecycleHook
+    {
+        public override ValueTask OnAfterActivateAsync(
+            ResourceActivationLifecycleContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.OperationStatus == LifecycleOperationStatus.Succeeded)
+                log.Entries.Add($"{context.ResourceId}@v{context.Version}->{context.Channel}");
+            else
+                log.SkippedFailures++;
+
+            return ValueTask.CompletedTask;
+        }
+    }
 }

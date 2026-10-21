@@ -3,6 +3,10 @@ namespace Aster.Core.Models.Lifecycle;
 /// <summary>
 /// Lifecycle points where host hooks can observe or gate core operations.
 /// </summary>
+/// <remarks>
+/// Each after point runs once all before hooks for the same operation continued, including when the underlying
+/// operation then fails. <see cref="ResourceLifecycleContext.OperationStatus"/> tells after hooks which happened.
+/// </remarks>
 public enum LifecyclePoint
 {
     /// <summary>
@@ -104,6 +108,33 @@ public enum LifecycleHookOutcomeStatus
 
     /// <summary>
     /// Report a hook failure.
+    /// </summary>
+    Failed,
+}
+
+/// <summary>
+/// Status of the underlying operation as seen by a lifecycle hook.
+/// </summary>
+/// <remarks>
+/// After hooks run once every before hook has continued, whether or not the underlying operation then
+/// completes, so before and after calls stay paired. An after hook that should only observe completed
+/// operations, such as an audit hook, checks for <see cref="Succeeded"/>.
+/// </remarks>
+public enum LifecycleOperationStatus
+{
+    /// <summary>
+    /// The underlying operation has not run yet. Before hooks always see this status.
+    /// </summary>
+    Pending,
+
+    /// <summary>
+    /// The underlying operation completed: the save, activation change, export, preview, or import took effect.
+    /// </summary>
+    Succeeded,
+
+    /// <summary>
+    /// The underlying operation did not complete, so the state change the context describes did not happen.
+    /// <see cref="ResourceLifecycleContext.OperationFailure"/> says why.
     /// </summary>
     Failed,
 }
