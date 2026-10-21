@@ -20,6 +20,7 @@ internal static class EndpointMappings
         var api = app.MapGroup("/api/studio");
 
         api.MapAspectApi();
+        api.MapOperationsApi();
 
         api.MapGet("/definitions", GetDefinitionsAsync)
             .WithName("GetDefinitionSummaries");
@@ -57,6 +58,7 @@ internal static class EndpointMappings
         int? skip,
         int? take,
         [FromQuery] string[]? tag,
+        string? lifecycle,
         IResourceDefinitionStore definitionStore,
         IResourceQueryService queryService,
         IResourceVersionHistoryService historyService,
@@ -68,6 +70,9 @@ internal static class EndpointMappings
         if (await definitionStore.GetDefinitionAsync(definitionId, cancellationToken) is not { } definition)
             return Results.NotFound(new ErrorEnvelope($"Definition '{definitionId}' was not found."));
 
+        if (!TryParseLifecycle(lifecycle, out var lifecycleState))
+            return Results.BadRequest(new ErrorEnvelope($"Unknown lifecycle '{lifecycle}'. Use all, active, archived or soft-deleted."));
+
         // Tag filtering runs in the provider as ArrayContainsAny over the Taggable aspect's string[] facet.
         var tags = tag?.Select(static value => value.Trim()).Where(static value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
         FilterExpression? filter = tags.Length == 0
@@ -78,11 +83,12 @@ internal static class EndpointMappings
 
         var normalizedSkip = Math.Max(0, skip ?? 0);
         var normalizedTake = Math.Clamp(take ?? 20, 1, 100);
-        var all = (await queryService.QueryAsync(new ResourceQuery { DefinitionId = definitionId, Filter = filter }, cancellationToken)).ToList();
+        var all = (await queryService.QueryAsync(new ResourceQuery { DefinitionId = definitionId, Filter = filter, LifecycleState = lifecycleState }, cancellationToken)).ToList();
         var paged = (await queryService.QueryAsync(new ResourceQuery
         {
             DefinitionId = definitionId,
             Filter = filter,
+            LifecycleState = lifecycleState,
             Skip = normalizedSkip,
             Take = normalizedTake,
         }, cancellationToken)).ToList();
@@ -95,7 +101,8 @@ internal static class EndpointMappings
             resource.Created,
             GetTitle(resource),
             GetActiveChannels(histories[resource.ResourceId]).ToList(),
-            GetTags(resource)))
+            GetTags(resource),
+            histories[resource.ResourceId].Versions.FirstOrDefault()?.LifecycleState ?? ResourceLifecycleMarkerState.None))
             .ToList();
 
         return Results.Ok(new ResourceListResponse(items, all.Count));
@@ -111,6 +118,28 @@ internal static class EndpointMappings
 
         var result = await historyService.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest { ResourceIds = resourceIds }, cancellationToken);
         return result.Histories.ToDictionary(static history => history.ResourceId, StringComparer.Ordinal);
+    }
+
+    // "active" means no archive or soft-delete marker, as in the Aster endpoints' lifecycle filter.
+    private static bool TryParseLifecycle(string? value, out ResourceLifecycleMarkerState? state)
+    {
+        state = null;
+        switch (value?.ToLowerInvariant())
+        {
+            case null or "" or "all":
+                return true;
+            case "active":
+                state = ResourceLifecycleMarkerState.None;
+                return true;
+            case "archived":
+                state = ResourceLifecycleMarkerState.Archived;
+                return true;
+            case "soft-deleted":
+                state = ResourceLifecycleMarkerState.SoftDeleted;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static string GetTitle(Resource resource)

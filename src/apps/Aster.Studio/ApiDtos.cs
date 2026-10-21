@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Aster.Core.Models.Instances;
+using Aster.Core.Models.Policies;
 
 namespace Aster.Studio;
 
@@ -129,5 +131,75 @@ internal sealed record ResourceListItemDto(
     DateTime Created,
     string Title,
     IReadOnlyList<string> ActiveChannels,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    ResourceLifecycleMarkerState LifecycleState);
+
+internal sealed record LifecycleStateDto(
+    string ResourceId,
+    ResourceLifecycleMarkerState State,
+    DateTimeOffset? MarkedAt,
+    string? Reason);
+
+internal sealed record LifecycleMarkerRequestDto(
+    ResourceLifecycleMarkerState State,
+    string? Reason);
+
+internal sealed record LifecycleRestoreRequestDto(ResourceLifecycleMarkerState ExpectedState);
+
+/// <summary>A summary from the SDK's summary helpers with the per-candidate results it summarizes.</summary>
+internal sealed record OperationResultDto<TSummary, TCandidate>(
+    TSummary Summary,
+    IReadOnlyList<TCandidate> Candidates);
+
+internal sealed record SchemaStatusDto(
+    string ResourceId,
+    int ResourceVersion,
+    string DefinitionId,
+    int? RecordedDefinitionVersion,
+    int? LatestDefinitionVersion,
+    ResourceSchemaStatus Status,
+    string Message,
+    IReadOnlyList<string> UndeclaredAspectKeys);
+
+internal sealed record SchemaUpgradeRequestDto(int BaseVersion);
+
+internal sealed record SchemaUpgradeResultDto(
+    ResourceSchemaUpgradeStatus Status,
+    int? ResourceVersion,
+    int? SourceDefinitionVersion,
+    int TargetDefinitionVersion,
+    IReadOnlyList<string> CarriedForwardAspectKeys,
+    string Message);
+
+internal sealed record DefinitionPoliciesDto(
+    string DefinitionId,
+    int DefinitionVersion,
+    IReadOnlyList<ResourcePolicyDeclaration> Policies,
+    IReadOnlyList<ResourcePolicyDiagnostic> Diagnostics);
+
+internal sealed record PolicyPreviewRequestDto(DateTimeOffset? EvaluationTimestamp);
+
+/// <summary>
+/// A policy preview candidate. Version-pruning candidates carry their version's history entry, which says
+/// whether pruning must protect it.
+/// </summary>
+internal sealed record PolicyPreviewCandidateDto(
+    string PolicyId,
+    ResourcePolicyKind PolicyKind,
+    ResourcePolicyOutcome Outcome,
+    string ResourceId,
+    int? ResourceVersion,
+    string Reason,
+    ResourceVersionSummary? TargetVersion);
+
+internal sealed record PolicyPreviewDto(
+    ResourcePolicyPreviewSummary Summary,
+    IReadOnlyList<PolicyPreviewCandidateDto> Candidates,
+    IReadOnlyList<ResourcePolicyDiagnostic> Diagnostics);
+
+internal sealed record PolicyApplicationRequestDto(
+    IReadOnlyList<ResourcePolicyApplicationCandidate> Candidates,
+    string? Reason);
+
+internal sealed record PolicyPruningRequestDto(IReadOnlyList<ResourcePolicyPruningApplicationCandidate> Candidates);
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DynamicResourceForm } from "@/components/DynamicResourceForm";
 import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
+import { ResourceOperationsPanel } from "@/components/ResourceOperationsPanel";
 import { ErrorState, TableSkeleton } from "@/components/StateViews";
 import { ApiError, api, type ResourceAspects, type ResourceDetailDto } from "@/lib/api";
 import { diagnosticsToFieldErrors, initialAspects, normalizeForSubmit, validateAspects, type FieldErrors } from "@/lib/resourceForm";
@@ -79,6 +80,7 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
         <DynamicResourceForm definition={definition.data} aspects={aspects} errors={errors} onChange={setAspects} />
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
           <Card className="facet-seam"><CardContent className="p-5"><h3 className="font-semibold tracking-tight">Dynamic form contract</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Widgets are selected from facet metadata: uiHint, type, allowed values, and constraints. Server diagnostics are routed by aspectKey + facetId.</p></CardContent></Card>
+          {mode === "edit" && resource.data ? <ResourceOperationsPanel resourceId={resourceId} latestVersion={resource.data.version} onChanged={() => api.getResource(resourceId).then(resource.setData, resource.reload)} /> : null}
           {mode === "edit" && resource.data ? <VersionHistoryPanel resourceId={resourceId} latestVersion={resource.data.version} definition={definition.data} onChanged={resource.reload} /> : null}
         </aside>
       </div>
