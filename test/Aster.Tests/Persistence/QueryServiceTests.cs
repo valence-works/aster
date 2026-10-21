@@ -818,11 +818,23 @@ public sealed class SqliteJsonQueryServiceTests() : QueryServiceTests(new Sqlite
 
 public sealed class PostgresJsonbQueryServiceTests() : QueryServiceTests(new PostgresTestDatabase());
 
+public sealed class SqlServerJsonQueryServiceTests() : QueryServiceTests(new SqlServerTestDatabase());
+
 /// <summary>
 /// #100: the same suite with index projections over the facets it queries, so every index conjunct the translator
 /// adds runs against these cases and must leave the results unchanged.
 /// </summary>
 public sealed class PostgresJsonbIndexedQueryServiceTests() : QueryServiceTests(new PostgresTestDatabase(options =>
+{
+    foreach (var projection in PostgresTestProjections.All)
+        options.IndexProjections.Add(projection);
+}));
+
+/// <summary>
+/// The same suite with index projections over the facets it queries on SQL Server: computed-column indexes and array
+/// element rows, whose conjuncts must leave the results unchanged.
+/// </summary>
+public sealed class SqlServerJsonIndexedQueryServiceTests() : QueryServiceTests(new SqlServerTestDatabase(options =>
 {
     foreach (var projection in PostgresTestProjections.All)
         options.IndexProjections.Add(projection);

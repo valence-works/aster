@@ -64,9 +64,12 @@ internal abstract class RelationalJsonResourceStore :
         command.CommandText = """
             SELECT payload
             FROM resource_definitions
-            WHERE tenant_id = @tenantId AND definition_id = @definitionId
-            ORDER BY version DESC
-            LIMIT 1;
+            WHERE tenant_id = @tenantId
+                AND definition_id = @definitionId
+                AND version = (
+                    SELECT MAX(version)
+                    FROM resource_definitions
+                    WHERE tenant_id = @tenantId AND definition_id = @definitionId);
             """;
         Add(command, "@tenantId", tenant.TenantId);
         Add(command, "@definitionId", definitionId);
@@ -319,12 +322,10 @@ internal abstract class RelationalJsonResourceStore :
 
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = $"""
-            INSERT INTO activation_states (tenant_id, resource_id, channel, payload)
-            VALUES (@tenantId, @resourceId, @channel, {payloadSql})
-            ON CONFLICT(tenant_id, resource_id, channel)
-            DO UPDATE SET payload = excluded.payload;
-            """;
+        command.CommandText = dialect.UpsertPayload(
+            "activation_states",
+            [("tenant_id", "@tenantId"), ("resource_id", "@resourceId"), ("channel", "@channel")],
+            "@payload");
         Add(command, "@tenantId", tenant.TenantId);
         Add(command, "@resourceId", resourceId);
         Add(command, "@channel", channel);
@@ -495,8 +496,7 @@ internal abstract class RelationalJsonResourceStore :
             FROM resource_versions
             WHERE tenant_id = @tenantId
                 AND resource_id = @resourceId
-                AND version = @version
-            LIMIT 1;
+                AND version = @version;
             """;
         Add(command, "@tenantId", tenant.TenantId);
         Add(command, "@resourceId", resourceId);
@@ -542,8 +542,7 @@ internal abstract class RelationalJsonResourceStore :
             FROM activation_states AS activation
             WHERE activation.tenant_id = @tenantId
                 AND activation.resource_id = @resourceId
-                AND {dialect.ActiveVersionsContain("activation", "@version")}
-            LIMIT 1;
+                AND {dialect.ActiveVersionsContain("activation", "@version")};
             """;
         Add(command, "@tenantId", tenant.TenantId);
         Add(command, "@resourceId", resourceId);
@@ -587,12 +586,10 @@ internal abstract class RelationalJsonResourceStore :
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = $"""
-            INSERT INTO lifecycle_markers (tenant_id, resource_id, payload)
-            VALUES (@tenantId, @resourceId, {payloadSql})
-            ON CONFLICT(tenant_id, resource_id)
-            DO UPDATE SET payload = excluded.payload;
-            """;
+        command.CommandText = dialect.UpsertPayload(
+            "lifecycle_markers",
+            [("tenant_id", "@tenantId"), ("resource_id", "@resourceId")],
+            "@payload");
         Add(command, "@tenantId", tenant.TenantId);
         Add(command, "@resourceId", scopedMarker.ResourceId);
         Add(command, "@payload", Serialize(scopedMarker));
@@ -1251,14 +1248,21 @@ internal abstract class RelationalJsonResourceStore :
             Add(command, $"@keySecond{index}", keys[index].Second);
         }
 
-        command.CommandText = CompositeKeyPayloadsSql(tableName, columns, keys.Count);
+        command.CommandText = CompositeKeyPayloadsSql(tableName, columns, keys.Count, dialect.KeyRows);
         Add(command, "@tenantId", tenant.TenantId);
         return await ReadPayloadsAsync<T>(command, cancellationToken);
     }
 
-    internal static string CompositeKeyPayloadsSql(string tableName, (string First, string Second) columns, int keyCount) => $"""
+    internal static string CompositeKeyPayloadsSql(string tableName, (string First, string Second) columns, int keyCount) =>
+        CompositeKeyPayloadsSql(tableName, columns, keyCount, static rows => $"VALUES {string.Join(", ", rows)}");
+
+    internal static string CompositeKeyPayloadsSql(
+        string tableName,
+        (string First, string Second) columns,
+        int keyCount,
+        Func<IEnumerable<string>, string> keyRows) => $"""
         WITH keys(first_key, second_key) AS (
-            VALUES {string.Join(", ", Enumerable.Range(0, keyCount).Select(static index => $"(@keyFirst{index}, @keySecond{index})"))})
+            {keyRows(Enumerable.Range(0, keyCount).Select(static index => $"(@keyFirst{index}, @keySecond{index})"))})
         SELECT t.payload
         FROM keys CROSS JOIN {tableName} t
         WHERE t.tenant_id = @tenantId AND t.{columns.First} = keys.first_key AND t.{columns.Second} = keys.second_key
@@ -1584,12 +1588,10 @@ internal abstract class RelationalJsonResourceStore :
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = $"""
-            INSERT INTO lifecycle_markers (tenant_id, resource_id, payload)
-            VALUES (@tenantId, @resourceId, {payloadSql})
-            ON CONFLICT(tenant_id, resource_id)
-            DO UPDATE SET payload = excluded.payload;
-            """;
+        command.CommandText = dialect.UpsertPayload(
+            "lifecycle_markers",
+            [("tenant_id", "@tenantId"), ("resource_id", "@resourceId")],
+            "@payload");
         Add(command, "@tenantId", TenantScopeResolver.Resolve(marker.TenantScope).TenantId);
         Add(command, "@resourceId", marker.ResourceId);
         Add(command, "@payload", Serialize(marker));

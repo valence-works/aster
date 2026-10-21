@@ -15,22 +15,27 @@ public sealed class LifecycleMarkerReadTests : IDisposable
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
     private const string Postgres = "postgres";
+    private const string SqlServer = "sqlserver";
 
     private static readonly DateTimeOffset MarkedAt = new(2026, 5, 25, 9, 30, 0, TimeSpan.Zero);
 
     private readonly SqliteTestDatabase sqlite = new();
     private readonly PostgresTestDatabase postgres = new();
 
+    private readonly SqlServerTestDatabase sqlServer = new();
+
     public void Dispose()
     {
         sqlite.Dispose();
         postgres.Dispose();
+        sqlServer.Dispose();
     }
 
     [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetAsync_MarkedResource_ReturnsStateReasonAndMarkedAt(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -58,6 +63,7 @@ public sealed class LifecycleMarkerReadTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetAsync_UnmarkedOrUnknownResource_ReturnsNull(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -73,6 +79,7 @@ public sealed class LifecycleMarkerReadTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetAsync_ReadsOnlyTheRequestedTenant(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -101,6 +108,7 @@ public sealed class LifecycleMarkerReadTests : IDisposable
     [SkippableTheory]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetAsync_ReadsTheStoredMarkerThroughAFreshProvider(string providerKind)
     {
         await using (var writer = CreateProvider(providerKind))
@@ -139,6 +147,7 @@ public sealed class LifecycleMarkerReadTests : IDisposable
         {
             Sqlite => sqlite.CreateProvider(),
             Postgres => postgres.CreateProvider(),
+            SqlServer => sqlServer.CreateProvider(),
             _ => PolicyTestFixtures.CreateCoreProvider(),
         };
 }

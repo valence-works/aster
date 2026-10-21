@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <Description>SQL Server JSON persistence provider for Aster.</Description>
+    <PackageTags>aster;sqlserver;mssql;json;persistence</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="Aster.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Aster.Core\Aster.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The relational store core (ADR 0004), compiled into each relational provider as internal source. -->
+  <ItemGroup>
+    <Compile Include="..\Relational\**\*.cs" LinkBase="Relational" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
+    <!-- SqlClient 7.0.3 brings System.Security.Cryptography.Pkcs 9.0.13, which has known vulnerabilities; pin the patched release. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
+  </ItemGroup>
+
+</Project>

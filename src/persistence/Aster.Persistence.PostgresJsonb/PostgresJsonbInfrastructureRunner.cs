@@ -1,6 +1,7 @@
 using System.Data;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Infrastructure;
+using Aster.Persistence.Relational;
 using Npgsql;
 
 namespace Aster.Persistence.PostgresJsonb;
@@ -32,8 +33,7 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     private readonly NpgsqlDataSource dataSource;
     private readonly IReadOnlyList<PostgresJsonbInfrastructureStep> steps;
     private readonly IReadOnlyList<PostgresProjectionIndex> indexes;
-    private readonly object startupGate = new();
-    private Task? startup;
+    private readonly RelationalInfrastructureStartup startup;
 
     public PostgresJsonbInfrastructureRunner(PostgresJsonbDataSource dataSource, PostgresJsonbAsterOptions options)
         : this(dataSource.Value, PostgresJsonbSchema.Steps, PostgresProjectionIndexes.Plan(options.IndexProjections))
@@ -50,43 +50,15 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
         this.dataSource = dataSource;
         this.steps = steps;
         this.indexes = indexes ?? [];
+        startup = new RelationalInfrastructureStartup(async cancellationToken => await ApplyAsync(cancellationToken));
     }
 
     /// <summary>
-    /// Applies pending steps once per runner, for <see cref="PostgresJsonbAsterOptions.InitializeSchema"/>. The stores
-    /// await it before their first statement rather than blocking in their constructors: a blocked thread can't help
-    /// finish the run, and a burst of first requests would otherwise wait for the pool to grow past all of them. A
-    /// failed run isn't kept: the next caller tries again. Cancelling a caller stops its wait, not the shared run.
+    /// Applies pending steps once per runner, for <see cref="PostgresJsonbAsterOptions.InitializeSchema"/>, in one run
+    /// every caller awaits (<see cref="RelationalInfrastructureStartup"/>).
     /// </summary>
-    public ValueTask EnsureAppliedAsync(CancellationToken cancellationToken = default)
-    {
-        Task task;
-        lock (startupGate)
-        {
-            // Checked here rather than by the waiters: every waiter may have stopped waiting before the run failed.
-            if (startup is { IsFaulted: true } or { IsCanceled: true })
-                startup = null;
-
-            // Shared, so it takes nothing from the first caller: no synchronization context to post to, and no
-            // execution context, which could carry an ambient TransactionScope the run's connection would enlist in.
-            // SuppressFlow throws when the caller has already suppressed flow, which leaves nothing to suppress.
-            if (startup is null && ExecutionContext.IsFlowSuppressed())
-            {
-                startup = StartRun();
-            }
-            else if (startup is null)
-            {
-                using (ExecutionContext.SuppressFlow())
-                    startup = StartRun();
-            }
-
-            task = startup;
-        }
-
-        return task.IsCompletedSuccessfully ? ValueTask.CompletedTask : new(task.WaitAsync(cancellationToken));
-    }
-
-    private Task StartRun() => Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
+    public ValueTask EnsureAppliedAsync(CancellationToken cancellationToken = default) =>
+        startup.EnsureAppliedAsync(cancellationToken);
 
     /// <inheritdoc />
     public async ValueTask<IReadOnlyList<InfrastructureStep>> ApplyAsync(CancellationToken cancellationToken = default)

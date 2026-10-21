@@ -8,6 +8,7 @@ using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
 using Aster.Core.Services;
 using Aster.Persistence.PostgresJsonb;
+using Aster.Persistence.SqlServerJson;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
@@ -25,16 +26,20 @@ public sealed class ReferenceLookupTests : IDisposable
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
     private const string Postgres = "postgres";
+    private const string SqlServer = "sqlserver";
     private const string Published = "published";
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
 
     private readonly PostgresTestDatabase postgres = new();
 
+    private readonly SqlServerTestDatabase sqlServer = new();
+
     public void Dispose()
     {
         SqliteJsonTestDatabase.DeleteFiles(databasePath);
         postgres.Dispose();
+        sqlServer.Dispose();
     }
 
     private ServiceProvider CreateProvider(string providerKind, ReferenceValidationMode mode = ReferenceValidationMode.Strict)
@@ -44,6 +49,8 @@ public sealed class ReferenceLookupTests : IDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         else if (providerKind == Postgres)
             services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
+        else if (providerKind == SqlServer)
+            services.AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString);
 
         return services.BuildServiceProvider();
     }
@@ -145,6 +152,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task ReferenceQueryTargets_MatchesScalarAndArrayReferences(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -160,6 +168,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task TypedFacetQueryReferences_MatchesLikeReferenceQueryTargets(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -179,6 +188,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_ReturnsReferringResourcesWithEveryLocation(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -203,6 +213,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_MatchesResourceIdsOrdinally(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -217,6 +228,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_UnknownTargetOrNoReferenceFacets_ReturnsEmpty(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -231,6 +243,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_PagesInResourceIdOrder(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -253,6 +266,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_PagesOverConfirmedReferrers_NotCaseOnlyCandidates(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -277,6 +291,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task ResourceIdSort_IsOrdinal_OnBothProviders(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -297,6 +312,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_IsTenantScoped(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -318,6 +334,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_ActiveScope_SearchesTheChannelsVersions(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -344,6 +361,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task GetReferrers_FindsLenientlySavedReferencesOfAnyDefinition(string providerKind)
     {
         await using var provider = CreateProvider(providerKind, ReferenceValidationMode.Lenient);
@@ -376,8 +394,10 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory, 5)]
     [InlineData(Sqlite, 0)]
     [InlineData(Postgres, 0)]
+    [InlineData(SqlServer, 0)]
     [InlineData(Sqlite, 5)]
     [InlineData(Postgres, 5)]
+    [InlineData(SqlServer, 5)]
     public async Task GetReferrers_ActiveScopeWithoutChannel_IsRejectedEvenForAnEmptyPage(string providerKind, int take)
     {
         await using var provider = CreateProvider(providerKind);
@@ -395,6 +415,7 @@ public sealed class ReferenceLookupTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public void Capabilities_DeclareReverseLookup(string providerKind)
     {
         using var provider = CreateProvider(providerKind);

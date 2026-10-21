@@ -5,6 +5,7 @@ using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Persistence.PostgresJsonb;
+using Aster.Persistence.SqlServerJson;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
@@ -23,7 +24,9 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
     private const string Postgres = "postgres";
+    private const string SqlServer = "sqlserver";
     private const string PostgresIndexed = "postgres-indexed";
+    private const string SqlServerIndexed = "sqlserver-indexed";
 
     private static readonly Guid OwnerA = Guid.Parse("6f9619ff-8b86-d011-b42d-00cf4fc964ff");
     private static readonly Guid OwnerB = Guid.Parse("1b4e28ba-2fa1-11d2-883f-0016d3cca427");
@@ -32,13 +35,19 @@ public sealed class ArrayQueryOperatorTests : IDisposable
 
     private readonly PostgresTestDatabase postgres = new();
 
+    private readonly SqlServerTestDatabase sqlServer = new();
+
     private readonly PostgresTestDatabase postgresIndexed = new();
+
+    private readonly SqlServerTestDatabase sqlServerIndexed = new();
 
     public void Dispose()
     {
         SqliteJsonTestDatabase.DeleteFiles(databasePath);
         postgres.Dispose();
+        sqlServer.Dispose();
         postgresIndexed.Dispose();
+        sqlServerIndexed.Dispose();
     }
 
     private async Task<ServiceProvider> CreateSeededProviderAsync(string providerKind)
@@ -48,11 +57,19 @@ public sealed class ArrayQueryOperatorTests : IDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         else if (providerKind == Postgres)
             services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
+        else if (providerKind == SqlServer)
+            services.AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString);
         else if (providerKind == PostgresIndexed)
             services.AddAsterPostgresJsonb(options =>
             {
                 options.ConnectionString = postgresIndexed.ConnectionString;
-                AddArrayProjections(options);
+                AddArrayProjections(options.IndexProjections);
+            });
+        else if (providerKind == SqlServerIndexed)
+            services.AddAsterSqlServerJson(options =>
+            {
+                options.ConnectionString = sqlServerIndexed.ConnectionString;
+                AddArrayProjections(options.IndexProjections);
             });
 
         var provider = services.BuildServiceProvider();
@@ -107,10 +124,10 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         .ToArray();
 
     // #100: the same cases with the array facets backed by GIN indexes, so the index conjuncts must not change results.
-    private static void AddArrayProjections(PostgresJsonbAsterOptions options)
+    private static void AddArrayProjections(IList<IndexProjection> projections)
     {
         foreach (var facet in new[] { "Tags", "Owners", "Due", "Ids" })
-            options.IndexProjections.Add(IndexProjection.Facet(facet.ToLowerInvariant(), "Labels", facet, IndexFieldType.KeywordArray));
+            projections.Add(IndexProjection.Facet(facet.ToLowerInvariant(), "Labels", facet, IndexFieldType.KeywordArray));
     }
 
     private static FacetValueFilter Labels(string facet, object value, ComparisonOperator op) => new("Labels", facet, value, op);
@@ -118,7 +135,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     public static TheoryData<string, string, object, ComparisonOperator, string[]> Cases()
     {
         var data = new TheoryData<string, string, object, ComparisonOperator, string[]>();
-        foreach (var provider in new[] { InMemory, Sqlite, Postgres, PostgresIndexed })
+        foreach (var provider in new[] { InMemory, Sqlite, Postgres, PostgresIndexed, SqlServer, SqlServerIndexed })
         {
             // Text: case-insensitive, scalars never match, numbers and booleans are not text.
             data.Add(provider, "Tags", "billing", ComparisonOperator.ArrayContains, ["wf-1", "wf-2"]);
@@ -185,7 +202,9 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     [InlineData(PostgresIndexed)]
+    [InlineData(SqlServerIndexed)]
     public async Task ArrayOperators_ComposeWithLogicalOperators(string providerKind)
     {
         await using var provider = await CreateSeededProviderAsync(providerKind);
@@ -201,7 +220,9 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     [InlineData(PostgresIndexed)]
+    [InlineData(SqlServerIndexed)]
     public async Task NumericArrayOperators_CompareLargeIntegersExactly(string providerKind)
     {
         // 2^53 + 1 and 2^53 are equal as doubles; 64-bit IDs must still match exactly.
@@ -219,7 +240,9 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     [InlineData(PostgresIndexed)]
+    [InlineData(SqlServerIndexed)]
     public async Task ArrayContains_WorksOnTypedAspectPayloads(string providerKind)
     {
         var services = new ServiceCollection().AddAsterCore();
@@ -227,11 +250,19 @@ public sealed class ArrayQueryOperatorTests : IDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         else if (providerKind == Postgres)
             services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
+        else if (providerKind == SqlServer)
+            services.AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString);
         else if (providerKind == PostgresIndexed)
             services.AddAsterPostgresJsonb(options =>
             {
                 options.ConnectionString = postgresIndexed.ConnectionString;
-                AddArrayProjections(options);
+                AddArrayProjections(options.IndexProjections);
+            });
+        else if (providerKind == SqlServerIndexed)
+            services.AddAsterSqlServerJson(options =>
+            {
+                options.ConnectionString = sqlServerIndexed.ConnectionString;
+                AddArrayProjections(options.IndexProjections);
             });
         await using var provider = services.BuildServiceProvider();
         await provider.GetRequiredService<IResourceVersionWriter>().SaveVersionAsync(new Resource
@@ -262,7 +293,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     public static TheoryData<string, object?, ComparisonOperator, string, string> InvalidCases()
     {
         var data = new TheoryData<string, object?, ComparisonOperator, string, string>();
-        foreach (var provider in new[] { InMemory, Sqlite, Postgres, PostgresIndexed })
+        foreach (var provider in new[] { InMemory, Sqlite, Postgres, PostgresIndexed, SqlServer, SqlServerIndexed })
         {
             data.Add(provider, new[] { "a" }, ComparisonOperator.ArrayContains, "array-value-required", "Filter.Value");
             data.Add(provider, null, ComparisonOperator.ArrayContains, "array-value-required", "Filter.Value");
@@ -301,7 +332,9 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     [InlineData(PostgresIndexed)]
+    [InlineData(SqlServerIndexed)]
     public async Task ArrayOperators_OnMetadataFilters_AreUnsupported(string providerKind)
     {
         await using var provider = await CreateSeededProviderAsync(providerKind);

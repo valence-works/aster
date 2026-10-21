@@ -38,7 +38,7 @@ This page describes the internal architecture, layering, and key design decision
 |  +─────────────────────────────────────────+    |
 +─────────────────────────────────────────────────+
 |  Aster.Persistence.<Backend>  (Phase 2+)        |
-|  (SqliteJson now; PostgresJsonb / Mongo later)   |
+|  (SqliteJson, PostgresJsonb, SqlServerJson)     |
 +─────────────────────────────────────────────────+
 ```
 
@@ -139,7 +139,7 @@ Aster.Definitions        -- builder API
 Aster.Runtime            -- services, lifecycle, versioning pipelines
 Aster.Querying           -- ResourceQuery AST + IResourceQueryService
 Aster.Indexing           -- index field model, provider capabilities, query planner
-Aster.Persistence.X      -- provider: SqliteJson, PostgresJsonb, Mongo, ...
+Aster.Persistence.X      -- provider: SqliteJson, PostgresJsonb, SqlServerJson, ...
 Aster.Hosting            -- AddAsterCore() and DI glue
 Aster.Recipes            -- optional: export/import recipe execution
 ```

@@ -10,6 +10,7 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
 using Aster.Core.Models.Querying;
 using Aster.Persistence.PostgresJsonb;
+using Aster.Persistence.SqlServerJson;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
@@ -27,14 +28,18 @@ public sealed class ObjectFacetTypeTests : IDisposable
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
     private const string Postgres = "postgres";
+    private const string SqlServer = "sqlserver";
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
     private readonly PostgresTestDatabase postgres = new();
+
+    private readonly SqlServerTestDatabase sqlServer = new();
 
     public void Dispose()
     {
         SqliteJsonTestDatabase.DeleteFiles(databasePath);
         postgres.Dispose();
+        sqlServer.Dispose();
     }
 
     private ServiceProvider CreateProvider(string providerKind)
@@ -44,6 +49,8 @@ public sealed class ObjectFacetTypeTests : IDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         else if (providerKind == Postgres)
             services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
+        else if (providerKind == SqlServer)
+            services.AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString);
 
         return services.BuildServiceProvider();
     }
@@ -104,6 +111,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task RegisterDefinitionAsync_ObjectArray_IsUnknownType(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -145,7 +153,9 @@ public sealed class ObjectFacetTypeTests : IDisposable
         { Sqlite, new JsonObject { ["provider"] = "openai" } },
         { InMemory, Expando(("provider", "openai")) },
         { Postgres, new ModelSettings("openai", "gpt", 0.2m, 512) },
+        { SqlServer, new ModelSettings("openai", "gpt", 0.2m, 512) },
         { Postgres, JsonSerializer.Deserialize<JsonElement>("""{"provider":"openai","stop":["\n"],"extra":null}""") },
+        { SqlServer, JsonSerializer.Deserialize<JsonElement>("""{"provider":"openai","stop":["\n"],"extra":null}""") },
     };
 
     private static System.Dynamic.ExpandoObject Expando(params (string Key, object Value)[] members)
@@ -193,7 +203,9 @@ public sealed class ObjectFacetTypeTests : IDisposable
         { Sqlite, (Int128)5 },
         { InMemory, new Slug("hello") },
         { Postgres, new[] { "a", "b" } },
+        { SqlServer, new[] { "a", "b" } },
         { Postgres, "openai" },
+        { SqlServer, "openai" },
     };
 
     [JsonConverter(typeof(SlugConverter))]
@@ -228,6 +240,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
     [InlineData(InMemory, false)]
     [InlineData(Sqlite, true)]
     [InlineData(Postgres, true)]
+    [InlineData(SqlServer, true)]
     public async Task CreateAsync_RequiredObjectMissingOrNull_IsRequiredViolation(string providerKind, bool explicitNull)
     {
         await using var provider = CreateProvider(providerKind);
@@ -250,6 +263,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task ObjectValue_RoundTripsUnchangedThroughStoreAndPortability(string providerKind)
     {
         await using var source = CreateProvider(providerKind);
@@ -294,6 +308,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task Exists_MatchesObjectFacets(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -329,6 +344,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task TypedAspect_NestedTypesDeriveObjectFacetsAndValidate(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);

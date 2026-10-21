@@ -213,7 +213,7 @@ Aster.Definitions         ← builder API
 Aster.Runtime             ← services, pipelines, versioning/state
 Aster.Querying            ← query model + query service
 Aster.Indexing            ← index abstractions + engine
-Aster.Persistence.<X>     ← e.g., PostgresJsonb / SqliteJson / Mongo
+Aster.Persistence.<X>     ← e.g., PostgresJsonb / SqlServerJson / SqliteJson
 Aster.Hosting             ← DI extension methods
 Aster.Recipes             ← optional recipe execution (separate package)
 ```

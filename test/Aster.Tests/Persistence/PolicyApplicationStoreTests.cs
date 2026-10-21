@@ -44,3 +44,5 @@ public abstract class PolicyApplicationStoreTests(IAsterTestDatabase database) :
 public sealed class SqliteJsonPolicyApplicationTests() : PolicyApplicationStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbPolicyApplicationTests() : PolicyApplicationStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonPolicyApplicationTests() : PolicyApplicationStoreTests(new SqlServerTestDatabase());

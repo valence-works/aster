@@ -134,6 +134,18 @@ dotnet test Aster.sln
 
 CI sets `ASTER_REQUIRE_POSTGRES=1` as well, so a missing server fails the run instead of skipping.
 
+## SQL Server Provider Tests
+
+The same store, query and conformance tests run against SQL Server when `ASTER_TEST_SQLSERVER` names a server; each test creates and drops its own database there, and the runs skip otherwise.
+
+```bash
+docker run -d --name aster-mssql -e ACCEPT_EULA=Y -e 'MSSQL_SA_PASSWORD=Aster_Pass123!' -p 127.0.0.1:1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+export ASTER_TEST_SQLSERVER="Server=localhost,1433;User Id=sa;Password=Aster_Pass123!;TrustServerCertificate=True"
+dotnet test Aster.sln
+```
+
+CI runs SQL Server 2022 as a service container and sets `ASTER_REQUIRE_SQLSERVER=1`, so a missing server fails the run instead of skipping.
+
 ---
 
 ## Pull Request Guidelines

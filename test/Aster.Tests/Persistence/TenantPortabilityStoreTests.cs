@@ -37,3 +37,5 @@ public abstract class TenantPortabilityStoreTests(IAsterTestDatabase database) :
 public sealed class SqliteJsonTenantPortabilityStoreTests() : TenantPortabilityStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbTenantPortabilityStoreTests() : TenantPortabilityStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonTenantPortabilityStoreTests() : TenantPortabilityStoreTests(new SqlServerTestDatabase());

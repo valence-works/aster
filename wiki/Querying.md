@@ -350,7 +350,7 @@ How `IResourceReferenceService` searches:
 - **What it returns:** each match is confirmed ordinally, and each referrer lists every aspect, facet and element index that names the target.
 - **Tenancy:** results come from the given tenant only.
 
-**Cost.** The SQLite provider evaluates the predicates as JSON path expressions on every row of the searched scope, so a lookup is a table scan. That is fine for moderate data sets. Index projections (#100, and the Postgres provider in #65) are the extension point: a provider can serve the same `FacetValueFilter` predicates from an index without changing callers.
+**Cost.** The SQLite provider evaluates the predicates as JSON path expressions on every row of the searched scope, so a lookup is a table scan. That is fine for moderate data sets. Index projections (#100; the Postgres and SQL Server providers back them with indexes) are the extension point: a provider can serve the same `FacetValueFilter` predicates from an index without changing callers.
 
 **Capabilities.** Providers declare support through `QueryCapabilityDescription.SupportsReverseReferenceLookup`; both built-in providers support it. The service throws `NotSupportedException` when the active provider does not.
 

@@ -38,6 +38,33 @@ internal abstract class RelationalJsonDialect
     public virtual string JsonParameter(string parameterName) => parameterName;
 
     /// <summary>
+    /// A statement that inserts a row keyed by <paramref name="keys"/> with the JSON payload parameter
+    /// <paramref name="payloadParameter"/>, or replaces the payload of the row that already has that key.
+    /// </summary>
+    /// <param name="tableName">The table.</param>
+    /// <param name="keys">The key columns and the parameters bound to them, in primary-key order.</param>
+    /// <param name="payloadParameter">The payload parameter, for example <c>@payload</c>.</param>
+    public virtual string UpsertPayload(
+        string tableName,
+        IReadOnlyList<(string Column, string Parameter)> keys,
+        string payloadParameter)
+    {
+        var columns = string.Join(", ", keys.Select(static key => key.Column));
+        return $"""
+            INSERT INTO {tableName} ({columns}, payload)
+            VALUES ({string.Join(", ", keys.Select(static key => key.Parameter))}, {JsonParameter(payloadParameter)})
+            ON CONFLICT({columns})
+            DO UPDATE SET payload = excluded.payload;
+            """;
+    }
+
+    /// <summary>
+    /// The body of a common table expression with the columns <c>(first_key, second_key)</c> whose rows are
+    /// <paramref name="rows"/>, each a parenthesized pair of parameters.
+    /// </summary>
+    public virtual string KeyRows(IEnumerable<string> rows) => $"VALUES {string.Join(", ", rows)}";
+
+    /// <summary>
     /// The value bound to a <c>created</c> column for <paramref name="created"/>.
     /// </summary>
     public abstract object TimestampValue(DateTime created);

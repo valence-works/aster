@@ -298,3 +298,5 @@ public abstract class FacetMetadataStoreTests(IAsterTestDatabase database) : IDi
 public sealed class SqliteJsonFacetMetadataTests() : FacetMetadataStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbFacetMetadataTests() : FacetMetadataStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonFacetMetadataTests() : FacetMetadataStoreTests(new SqlServerTestDatabase());

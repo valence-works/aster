@@ -53,6 +53,7 @@ Resources follow an **append-only versioning model** — versions are never muta
 dotnet add package Aster.Core
 dotnet add package Aster.Persistence.SqliteJson   # optional: SQLite persistence
 dotnet add package Aster.Persistence.PostgresJsonb # optional: PostgreSQL persistence
+dotnet add package Aster.Persistence.SqlServerJson # optional: SQL Server persistence
 ```
 
 Packages target .NET 8, 9 and 10. Until 1.0 they are published as `0.x` releases and the API may change between minor versions.
@@ -84,6 +85,16 @@ builder.Services.AddAsterCore();
 builder.Services.AddAsterPostgresJsonb(options =>
 {
     options.ConnectionString = "Host=localhost;Database=aster;Username=aster;Password=...";
+});
+```
+
+For SQL Server 2019 or later, call `AddAsterSqlServerJson(...)`. It supports the same query surface too, translated to SQL over `OPENJSON`, with JSON payloads in `nvarchar(max)`.
+
+```csharp
+builder.Services.AddAsterCore();
+builder.Services.AddAsterSqlServerJson(options =>
+{
+    options.ConnectionString = "Server=localhost;Database=aster;User Id=aster;Password=...;Encrypt=True";
 });
 ```
 
@@ -311,6 +322,8 @@ src/
       ← SQLite JSON definition/resource version/query provider
     Aster.Persistence.PostgresJsonb/
       ← PostgreSQL jsonb definition/resource version provider
+    Aster.Persistence.SqlServerJson/
+      ← SQL Server JSON (nvarchar + OPENJSON) definition/resource version provider
     Relational/              ← Store core shared by the relational providers (linked source, ADR 0004)
   hosting/
     Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
@@ -340,7 +353,7 @@ Execution is tracked in the [Aster 1.0 program](https://github.com/valence-works
 
 ### Packages
 
-Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.AspNetCore`.
+Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.Persistence.SqlServerJson`, `Aster.AspNetCore`.
 
 Splitting `Aster.Core` into smaller packages is deferred.
 

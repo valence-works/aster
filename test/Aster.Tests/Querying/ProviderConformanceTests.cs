@@ -6,6 +6,7 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Services;
 using Aster.Persistence.PostgresJsonb;
+using Aster.Persistence.SqlServerJson;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,12 +20,15 @@ public sealed class ProviderConformanceTests : IDisposable
 
     private readonly PostgresTestDatabase postgres = new();
 
+    private readonly SqlServerTestDatabase sqlServer = new();
+
     public void Dispose()
     {
         TryDelete(sqliteDatabasePath);
         TryDelete($"{sqliteDatabasePath}-shm");
         TryDelete($"{sqliteDatabasePath}-wal");
         postgres.Dispose();
+        sqlServer.Dispose();
     }
 
     [Fact]
@@ -59,6 +63,18 @@ public sealed class ProviderConformanceTests : IDisposable
             RequiresNonEmptyResults: true));
     }
 
+    [SkippableFact]
+    public async Task SqlServerProvider_PassesSharedConformanceSuite()
+    {
+        await using var provider = await CreateSqlServerProviderAsync();
+
+        await ProviderConformanceSuite.AssertConformsAsync(new ProviderConformanceSubject(
+            "SQL Server JSON",
+            SqlServerJsonQueryCapabilitiesProvider.ProviderKey,
+            provider,
+            RequiresNonEmptyResults: true));
+    }
+
     // Conformance alone checks that a supported query runs and finds something; this checks every provider finds
     // the same versions, in the same order where the query sorts.
     [SkippableFact]
@@ -67,6 +83,7 @@ public sealed class ProviderConformanceTests : IDisposable
         await using var inMemory = await CreateInMemoryProviderAsync();
         await using var sqlite = await CreateSqliteProviderAsync();
         await using var postgresProvider = await CreatePostgresProviderAsync();
+        await using var sqlServerProvider = await CreateSqlServerProviderAsync();
         var capabilities = new SqliteJsonQueryCapabilitiesProvider().Capabilities;
 
         foreach (var (name, query) in ProviderConformanceSuite.SupportedQueries(capabilities))
@@ -75,6 +92,7 @@ public sealed class ProviderConformanceTests : IDisposable
             Assert.True(expected.Count > 0 || query.Filter is null, $"{name}: the fixture matches nothing.");
             Assert.Equal(expected, await ResultsAsync(sqlite, query));
             Assert.Equal(expected, await ResultsAsync(postgresProvider, query));
+            Assert.Equal(expected, await ResultsAsync(sqlServerProvider, query));
         }
 
         static async Task<List<(string, int)>> ResultsAsync(IServiceProvider provider, ResourceQuery query)
@@ -212,6 +230,17 @@ public sealed class ProviderConformanceTests : IDisposable
         var provider = new ServiceCollection()
             .AddAsterCore()
             .AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString)
+            .BuildServiceProvider();
+        await SeedAsync(provider);
+
+        return provider;
+    }
+
+    private async Task<ServiceProvider> CreateSqlServerProviderAsync()
+    {
+        var provider = new ServiceCollection()
+            .AddAsterCore()
+            .AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString)
             .BuildServiceProvider();
         await SeedAsync(provider);
 
