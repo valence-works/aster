@@ -162,6 +162,8 @@ test("upgrades an article saved against an older definition and reports carried-
   await expect(schema(page).getByText(`v${base} was saved against definition v1; the latest is v2.`)).toBeVisible();
   await expect(schema(page).getByText("navigation", { exact: true })).toBeVisible();
 
+  const before = await (await page.request.get("/api/aster/resources/article-horizontal-aspects")).json();
+
   await schema(page).getByRole("button", { name: "Upgrade to definition v2" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("navigation")).toBeVisible();
@@ -177,6 +179,9 @@ test("upgrades an article saved against an older definition and reports carried-
   await expect(page.getByText("Generated from definition article v2.")).toBeVisible();
   await expect(schema(page).getByText(editedAgainstNotice)).toBeHidden();
   await expect(page.getByRole("heading", { name: "Navigation", exact: true })).toBeHidden();
+  const after = await (await page.request.get("/api/aster/resources/article-horizontal-aspects")).json();
+  expect(before.aspects.navigation).toBeDefined();
+  expect(after.aspects.navigation).toEqual(before.aspects.navigation);
 });
 
 test("activates a historical version without moving latest, and shows maintenance hints", async ({ page }) => {
