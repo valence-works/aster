@@ -169,7 +169,8 @@ internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
         QueryArrayElementKind.Numeric when QueryArrayValue.TryGetIntegral(candidate!, out var integral) =>
             $"jsonb_typeof(element.value) = 'number' AND element.value = to_jsonb({parameters.Add(integral)}::bigint)",
         QueryArrayElementKind.Numeric =>
-            $"jsonb_typeof(element.value) = 'number' AND (element.value #>> '{{}}')::double precision = {parameters.Add(Convert.ToDouble(candidate, CultureInfo.InvariantCulture))}",
+            // CASE, not AND: Postgres may evaluate AND's operands in either order, and the cast fails on text.
+            $"(CASE WHEN jsonb_typeof(element.value) = 'number' THEN (element.value #>> '{{}}')::double precision = {parameters.Add(Convert.ToDouble(candidate, CultureInfo.InvariantCulture))} ELSE false END)",
         QueryArrayElementKind.Boolean =>
             candidate is true ? "element.value = 'true'::jsonb" : "element.value = 'false'::jsonb",
         _ =>

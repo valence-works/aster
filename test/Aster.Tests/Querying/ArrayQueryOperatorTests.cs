@@ -117,6 +117,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
             data.Add(provider, "Tags", 3, ComparisonOperator.ArrayContains, ["wf-8"]);
             data.Add(provider, "Tags", true, ComparisonOperator.ArrayContains, ["wf-8"]);
             data.Add(provider, "Tags", new object[] { "ops", 3, true }, ComparisonOperator.ArrayContainsAll, ["wf-8"]);
+            data.Add(provider, "Tags", new object[] { 2.5, "ops" }, ComparisonOperator.ArrayContainsAll, []);
 
             // Numeric: compared by value across integer and decimal representations.
             data.Add(provider, "Scores", 2, ComparisonOperator.ArrayContains, ["wf-1"]);
