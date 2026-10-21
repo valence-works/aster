@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
+using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
 using Aster.Core.Services;
 using Aster.Core.Models.Instances;
@@ -274,6 +275,26 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal("product-1", activeResults[0].ResourceId);
         Assert.Single(draftResults);
         Assert.Equal("product-2", draftResults[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task SaveVersionAsync_VersionAlreadyStored_ThrowsConcurrencyAndKeepsOneRow()
+    {
+        // A writer that lost the race between the manager's base-version check and the insert.
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("race", 1, "first"));
+        await store.SaveVersionAsync(CreateResource("race", 2, "winner"));
+
+        await Assert.ThrowsAsync<ConcurrencyException>(async () => await store.SaveVersionAsync(CreateResource("race", 2, "loser")));
+        await Assert.ThrowsAsync<DuplicateResourceIdException>(async () => await store.SaveVersionAsync(CreateResource("race", 1, "again")));
+
+        var versions = (await store.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            Scope = ResourceVersionScope.AllVersions,
+            ResourceIds = ["race"],
+        })).ToList();
+        Assert.Equal([1, 2], versions.Select(static resource => resource.Version));
+        Assert.Equal("winner", GetTitle(versions[1]));
     }
 
     private static Resource CreateResource(string resourceId, int version, string title) =>
