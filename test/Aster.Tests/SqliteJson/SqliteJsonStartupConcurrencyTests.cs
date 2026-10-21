@@ -161,14 +161,22 @@ public sealed class SqliteJsonStartupConcurrencyTests : IDisposable
     private static async Task RunConcurrentlyAsync(Action action)
     {
         using var barrier = new Barrier(StartupAttemptCount);
-        var tasks = Enumerable.Range(0, StartupAttemptCount)
-            .Select(_ => Task.Run(() =>
-            {
-                if (!barrier.SignalAndWait(StartupBarrierTimeout))
-                    throw new TimeoutException("Concurrent SQLite startup attempts did not reach the start barrier within the expected time.");
 
-                action();
-            }))
+        // Each attempt blocks in the barrier, so each gets a dedicated thread (LongRunning). On pool threads the
+        // last participants could wait on thread-pool injection longer than the barrier timeout whenever the
+        // suite runs in parallel, failing the test without any SQLite problem.
+        var tasks = Enumerable.Range(0, StartupAttemptCount)
+            .Select(_ => Task.Factory.StartNew(
+                () =>
+                {
+                    if (!barrier.SignalAndWait(StartupBarrierTimeout))
+                        throw new TimeoutException("Concurrent SQLite startup attempts did not reach the start barrier within the expected time.");
+
+                    action();
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default))
             .ToArray();
 
         var completion = Task.WhenAll(tasks);
