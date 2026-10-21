@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
@@ -221,9 +222,17 @@ internal sealed class InMemoryResourceStore :
             Channel = channel,
         };
 
-        var channelActivations = GetOrAddActivations(resourceId, tenant);
-        lock (channelActivations)
-            channelActivations[channel] = scopedState.ActiveVersions.ToHashSet();
+        // Under the versions lock PruneVersionAsync holds, so a version can't be pruned between this existence
+        // check and the activation write.
+        if (Versions.TryGetValue((tenant.TenantId, resourceId), out var versions))
+        {
+            lock (versions)
+                SetActiveVersions(versions);
+        }
+        else
+        {
+            SetActiveVersions([]);
+        }
 
         var states = ActivationStates.GetOrAdd(
             (tenant.TenantId, resourceId),
@@ -231,6 +240,19 @@ internal sealed class InMemoryResourceStore :
         states[channel] = scopedState;
 
         return ValueTask.FromResult(scopedState);
+
+        void SetActiveVersions(List<Resource> versions)
+        {
+            foreach (var version in scopedState.ActiveVersions)
+            {
+                if (!versions.Exists(existing => existing.Version == version))
+                    throw new VersionNotFoundException(resourceId, version);
+            }
+
+            var channelActivations = GetOrAddActivations(resourceId, tenant);
+            lock (channelActivations)
+                channelActivations[channel] = scopedState.ActiveVersions.ToHashSet();
+        }
     }
 
     /// <inheritdoc />

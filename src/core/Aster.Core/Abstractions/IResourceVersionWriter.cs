@@ -35,5 +35,9 @@ public interface IResourceVersionWriter
     /// <param name="state">The updated activation state.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The persisted activation state.</returns>
+    /// <exception cref="Aster.Core.Exceptions.VersionNotFoundException">
+    /// An active version doesn't exist. The check and the write are atomic with <c>PruneVersionAsync</c>, so an
+    /// activation never names a version a concurrent prune deleted.
+    /// </exception>
     ValueTask<ActivationState> UpdateActivationAsync(string resourceId, string channel, ActivationState state, CancellationToken cancellationToken = default);
 }
