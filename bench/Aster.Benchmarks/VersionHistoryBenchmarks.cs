@@ -19,8 +19,10 @@ public class VersionHistoryBenchmarks
     [ParamsAllValues]
     public ProviderKind Provider { get; set; }
 
-    [Params(100, 1000)]
+    [ParamsSource(nameof(HistoryLengths))]
     public int VersionsPerResource { get; set; }
+
+    public static IEnumerable<int> HistoryLengths() => HistoryData.HistoryLengths();
 
     [GlobalSetup]
     public async Task GlobalSetupAsync() => data = await HistoryData.CreateAsync(Provider, VersionsPerResource);
@@ -44,10 +46,38 @@ public class VersionHistoryBenchmarks
         (await data.Services.GetRequiredService<IResourceVersionHistoryService>()
             .GetHistoryAsync(new ResourceVersionHistoryRequest { ResourceId = Next() })).Versions.Count;
 
+}
+
+/// <summary>
+/// Appending a version to a resource with a long history. Every call grows the history it measures, so a
+/// fixed <see cref="InvocationCountAttribute">invocation count</see> skips the pilot stage and bounds the
+/// drift: a <c>ShortRun</c> calls it about 400 times, about 20 extra versions per resource.
+/// </summary>
+[BenchmarkCategory("History")]
+[InvocationCount(64)]
+public class VersionHistoryUpdateBenchmarks
+{
+    private int cursor;
+    private HistoryData data = null!;
+
+    [ParamsAllValues]
+    public ProviderKind Provider { get; set; }
+
+    [ParamsSource(nameof(HistoryLengths))]
+    public int VersionsPerResource { get; set; }
+
+    public static IEnumerable<int> HistoryLengths() => HistoryData.HistoryLengths();
+
+    [GlobalSetup]
+    public async Task GlobalSetupAsync() => data = await HistoryData.CreateAsync(Provider, VersionsPerResource);
+
+    [GlobalCleanup]
+    public async Task GlobalCleanupAsync() => await data.DisposeAsync();
+
     [Benchmark(Description = "Update (append a version)")]
     public async Task<Resource> UpdateAsync()
     {
-        var resourceId = Next();
+        var resourceId = HistoryData.ResourceId(Interlocked.Increment(ref cursor) % HistoryData.Resources);
         var latest = await data.Manager.GetLatestVersionAsync(resourceId);
         return await data.Manager.UpdateAsync(resourceId, new UpdateResourceRequest
         {

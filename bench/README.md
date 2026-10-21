@@ -13,7 +13,8 @@ dotnet run -c Release --project bench/Aster.Benchmarks -- --filter '*'
 - **Data size:** `ASTER_BENCH_VERSIONS` is a comma-separated list of total seeded resource versions: 100 authors plus a whole number of 4-version articles, so 100 plus a multiple of 4. Other totals are rejected. The default is `10000`. Example: `ASTER_BENCH_VERSIONS=10000,100000`.
 - **Job:** the default is `short` (3 warmups, 3 iterations). Pass `--job default` for publication-grade statistics, or `--job dry` to smoke-test every scenario.
 - **Scope:** narrow a run with `--filter '*Query*'`, `--filter '*Resource*'`, `--filter '*Portability*'` or `--filter '*VersionHistory*'`.
-- **Storage report:** `dotnet run -c Release --project bench/Aster.Benchmarks -- storage 100,1000` prints a Markdown table, then exits. It reports SQLite bytes per stored version against the payload of two delta schemes, for the given history lengths. ADR 0005 uses it.
+- **History lengths:** `ASTER_HISTORY_VERSIONS` is a comma-separated list of versions per resource for the history benchmarks and the storage report. The default is `100,1000`.
+- **Storage report:** `dotnet run -c Release --project bench/Aster.Benchmarks -- storage 100,1000` prints a Markdown table, then exits. It reports SQLite bytes per stored version against the payload of two delta schemes, and the estimated bytes per version and on-disk saving with facet deltas. ADR 0005 uses it.
 - **Output:** results land in `BenchmarkDotNet.Artifacts/` as GitHub Markdown and JSON.
 - **CI:** the **Benchmarks** workflow runs the same command on demand and uploads the artifacts.
 
@@ -24,7 +25,7 @@ dotnet run -c Release --project bench/Aster.Benchmarks -- --filter '*'
 | `ResourceBenchmarks` | create, update (append a version), activate, get latest, get active |
 | `QueryBenchmarks` | metadata (`ResourceId`), scalar facet `Equals` and `Range`, array facet `ArrayContains`, reverse reference lookup; latest versions, pages of 50 |
 | `PortabilityBenchmarks` | export of 100 resources (all versions), import preview of that snapshot into the same store |
-| `VersionHistoryBenchmarks` | get latest, get oldest version, get all versions, version history, update; 20 resources with 100 or 1,000 versions each (own data set, see below) |
+| `VersionHistoryBenchmarks`, `VersionHistoryUpdateBenchmarks` | get latest, get oldest version, get all versions, version history; and, in its own class with a fixed invocation count so its appends barely grow the history, update. 20 resources with 100 or 1,000 versions each by default (`ASTER_HISTORY_VERSIONS`, own data set, see below) |
 
 Each run covers both providers: in-memory, and SQLite on a temporary file. Postgres joins when epic #65 lands.
 

@@ -44,6 +44,14 @@ internal sealed class HistoryData : IAsyncDisposable
 
     public static string ResourceId(int index) => $"page-{index:D3}";
 
+    /// <summary>
+    /// History lengths to benchmark: <c>ASTER_HISTORY_VERSIONS</c> (comma-separated), defaulting to 100 and 1,000.
+    /// </summary>
+    public static IEnumerable<int> HistoryLengths() =>
+        (Environment.GetEnvironmentVariable("ASTER_HISTORY_VERSIONS") is { Length: > 0 } configured ? configured : "100,1000")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(int.Parse);
+
     public static Dictionary<string, object> Aspects(int version) => new()
     {
         ["Content"] = new Dictionary<string, object>
@@ -119,8 +127,8 @@ internal sealed class HistoryData : IAsyncDisposable
     /// </summary>
     public static async Task WriteStorageReportAsync(TextWriter output, IEnumerable<int> historyLengths)
     {
-        output.WriteLine("| Versions per resource | Stored versions | SQLite file | Bytes per version | Snapshot payload | Changed-aspect delta | Changed-facet delta |");
-        output.WriteLine("|---:|---:|---:|---:|---:|---:|---:|");
+        output.WriteLine("| Versions per resource | Stored versions | SQLite file | Bytes per version | Snapshot payload | Changed-aspect delta | Changed-facet delta | Est. bytes per version with facet deltas | Est. on-disk saving |");
+        output.WriteLine("|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
         foreach (var length in historyLengths)
         {
             await using var data = await CreateAsync(ProviderKind.Sqlite, length);
@@ -153,8 +161,12 @@ internal sealed class HistoryData : IAsyncDisposable
                 }
             }
 
+            // A delta row keeps the per-row overhead (envelope, keys, page and index space) and swaps only
+            // the snapshot payload for the delta payload.
+            var bytesPerVersion = fileBytes / stored;
+            var withFacetDeltas = bytesPerVersion - snapshot / length + facetDelta / length;
             output.WriteLine(
-                $"| {length:N0} | {stored:N0} | {fileBytes / 1024.0 / 1024.0:N1} MB | {fileBytes / stored:N0} B | {snapshot / length:N0} B | {aspectDelta / length:N0} B | {facetDelta / length:N0} B |");
+                $"| {length:N0} | {stored:N0} | {fileBytes / 1024.0 / 1024.0:N1} MB | {bytesPerVersion:N0} B | {snapshot / length:N0} B | {aspectDelta / length:N0} B | {facetDelta / length:N0} B | {withFacetDeltas:N0} B | {(double)bytesPerVersion / withFacetDeltas:N1}× |");
         }
     }
 

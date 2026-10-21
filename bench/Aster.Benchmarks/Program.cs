@@ -9,7 +9,7 @@ using BenchmarkDotNet.Running;
 // `storage [lengths]` prints the version storage report for #105 (docs/adr/0005-version-storage.md) and exits.
 if (args is ["storage", ..])
 {
-    var lengths = args.Length > 1 ? args[1].Split(',').Select(int.Parse) : [100, 1000];
+    var lengths = args.Length > 1 ? args[1].Split(',').Select(int.Parse) : HistoryData.HistoryLengths();
     await HistoryData.WriteStorageReportAsync(Console.Out, lengths);
     return;
 }
