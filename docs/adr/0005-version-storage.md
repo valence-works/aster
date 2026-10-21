@@ -31,7 +31,7 @@ Setup: cloud VM, Xeon 2.80 GHz, 4 cores, .NET 10.0.13, `ShortRun`. The raw repor
 |---|---|---|
 | Before #166 and #169 | `9b5f37a9`, this PR's first commit, since rebased. Its core is #155's harness at `24c873a5`, before #166. | `2026-10-21-version-history-*` |
 | After #166 and #169: reads | `80dfd9e7`, on `main` at `d7f071a9` | `2026-10-21-version-history-post-169-*` |
-| After #166 and #169: update | This PR's head, which isolates update (below) | `2026-10-21-version-history-update-post-169-*` |
+| After #166 and #169: update | `fd4db36`, which isolates update (below); the run used exactly its benchmark code | `2026-10-21-version-history-update-post-169-*` |
 
 **Storage** (`dotnet run -c Release --project bench/Aster.Benchmarks -- storage 100,1000`):
 
