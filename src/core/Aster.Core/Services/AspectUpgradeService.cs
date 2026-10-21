@@ -136,13 +136,26 @@ public sealed class AspectUpgradeService(
         foreach (var key in keys)
             aspects[key] = target with { IsShared = true };
 
-        await definitionStore.RegisterDefinitionAsync(
+        // Conditional on the version read above, so a definition another writer changed meanwhile is never
+        // superseded by a copy of its older version.
+        var registration = await definitionStore.RegisterDefinitionIfLatestAsync(
             latest with { Id = Guid.NewGuid().ToString(), AspectDefinitions = aspects },
+            latest.Version,
             tenant,
             cancellationToken);
-        var registered = await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
+        if (!registration.IsRegistered)
+        {
+            return new AspectUpgradeOutcome(definitionId, AspectUpgradeStatus.Failed, null, keys, [
+                new SharedAspectDiagnostic(
+                    SharedAspectDiagnosticCodes.DefinitionVersionConflict,
+                    $"Resource definition '{definitionId}' changed from version {latest.Version} to {registration.LatestVersion} during the upgrade; nothing was written. Preview again and retry.",
+                    string.Empty,
+                    target.AspectDefinitionId,
+                    target.Version),
+            ]);
+        }
 
-        return new AspectUpgradeOutcome(definitionId, AspectUpgradeStatus.Upgraded, registered?.Version, keys, []);
+        return new AspectUpgradeOutcome(definitionId, AspectUpgradeStatus.Upgraded, registration.LatestVersion, keys, []);
     }
 
     private async ValueTask<AspectDefinition?> ResolveTargetAsync(

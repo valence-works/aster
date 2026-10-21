@@ -119,6 +119,25 @@ var updatedDef = new ResourceDefinitionBuilder()
 await definitionStore.RegisterDefinitionAsync(updatedDef);
 ```
 
+### Concurrent edits
+
+`RegisterDefinitionAsync` always appends, so a read-modify-register edit can silently supersede a version another writer registered in between. To prevent this, register conditionally on the version you read:
+
+```csharp
+var current = await definitionStore.GetDefinitionAsync("Product", tenant, ct);
+var edited = /* build the new definition from current */;
+
+var result = await definitionStore.RegisterDefinitionIfLatestAsync(edited, current!.Version, tenant, ct);
+if (!result.IsRegistered)
+{
+    // Another writer registered result.LatestVersion first; nothing was written. Re-read and retry.
+}
+```
+
+- The check and the write are atomic on both built-in providers.
+- Pass `0` to create a definition only if it doesn't exist yet.
+- On success, `result.Definition` is the stored version.
+
 Existing resources continue to reference the definition version they were created against. `DefinitionVersion` on a `Resource` records which definition version was active at creation time.
 
 Normal resource updates preserve the source resource version's `DefinitionVersion`. Registering a new definition version does not automatically rewrite existing resources or move them to the newer schema.

@@ -83,6 +83,26 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
         TenantScope tenantScope,
         CancellationToken cancellationToken)
     {
+        Register(definition, expectedLatestVersion: null, tenantScope);
+        return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<ResourceDefinitionRegistrationResult> RegisterDefinitionIfLatestAsync(
+        ResourceDefinition definition,
+        int expectedLatestVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(expectedLatestVersion);
+        return ValueTask.FromResult(Register(definition, expectedLatestVersion, tenantScope));
+    }
+
+    private ResourceDefinitionRegistrationResult Register(
+        ResourceDefinition definition,
+        int? expectedLatestVersion,
+        TenantScope tenantScope)
+    {
         ArgumentNullException.ThrowIfNull(definition);
         FacetMetadataValidator.Validate(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
@@ -91,13 +111,28 @@ public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitio
 
         lock (versions)
         {
-            int nextVersion = versions.Count > 0 ? versions[^1].Version + 1 : 1;
+            var latestVersion = versions.Count > 0 ? versions[^1].Version : 0;
+            if (expectedLatestVersion is { } expected && expected != latestVersion)
+            {
+                return new ResourceDefinitionRegistrationResult
+                {
+                    Status = ResourceDefinitionRegistrationStatus.VersionConflict,
+                    LatestVersion = latestVersion,
+                };
+            }
+
+            var nextVersion = latestVersion + 1;
             var versionedDefinition = definition with { TenantScope = tenant, Version = nextVersion };
             versions.Add(versionedDefinition);
             LogDefinitionRegistered(definition.DefinitionId, nextVersion);
-        }
 
-        return ValueTask.CompletedTask;
+            return new ResourceDefinitionRegistrationResult
+            {
+                Status = ResourceDefinitionRegistrationStatus.Registered,
+                Definition = versionedDefinition,
+                LatestVersion = nextVersion,
+            };
+        }
     }
 
     /// <inheritdoc />

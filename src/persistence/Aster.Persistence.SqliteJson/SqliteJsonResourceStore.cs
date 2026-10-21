@@ -118,18 +118,51 @@ public sealed class SqliteJsonResourceStore :
         TenantScope tenantScope,
         CancellationToken cancellationToken)
     {
+        await RegisterAsync(definition, expectedLatestVersion: null, tenantScope, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ResourceDefinitionRegistrationResult> RegisterDefinitionIfLatestAsync(
+        ResourceDefinition definition,
+        int expectedLatestVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(expectedLatestVersion);
+        return await RegisterAsync(definition, expectedLatestVersion, tenantScope, cancellationToken);
+    }
+
+    private async Task<ResourceDefinitionRegistrationResult> RegisterAsync(
+        ResourceDefinition definition,
+        int? expectedLatestVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(definition);
         FacetMetadataValidator.Validate(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        // BEGIN IMMEDIATE takes the write lock up front, so the latest-version check and the insert are atomic
+        // against concurrent registrations (which wait on the busy timeout instead of interleaving).
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
 
-        var nextVersion = await GetNextDefinitionVersionAsync(connection, definition.DefinitionId, tenant, cancellationToken);
-        var versionedDefinition = definition with { TenantScope = tenant, Version = nextVersion };
+        var latestVersion = await GetLatestDefinitionVersionAsync(connection, transaction, definition.DefinitionId, tenant, cancellationToken);
+        if (expectedLatestVersion is { } expected && expected != latestVersion)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new ResourceDefinitionRegistrationResult
+            {
+                Status = ResourceDefinitionRegistrationStatus.VersionConflict,
+                LatestVersion = latestVersion,
+            };
+        }
+
+        var versionedDefinition = definition with { TenantScope = tenant, Version = latestVersion + 1 };
 
         await using var command = connection.CreateCommand();
-        command.Transaction = (SqliteTransaction)transaction;
+        command.Transaction = transaction;
         command.CommandText = """
             INSERT INTO resource_definitions (tenant_id, definition_id, version, id, payload)
             VALUES ($tenantId, $definitionId, $version, $id, $payload);
@@ -142,6 +175,13 @@ public sealed class SqliteJsonResourceStore :
 
         await command.ExecuteNonQueryAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        return new ResourceDefinitionRegistrationResult
+        {
+            Status = ResourceDefinitionRegistrationStatus.Registered,
+            Definition = versionedDefinition,
+            LatestVersion = versionedDefinition.Version,
+        };
     }
 
     /// <inheritdoc />
@@ -1470,15 +1510,17 @@ public sealed class SqliteJsonResourceStore :
         return connection;
     }
 
-    private static async Task<int> GetNextDefinitionVersionAsync(
+    private static async Task<int> GetLatestDefinitionVersionAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string definitionId,
         TenantScope tenant,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
-            SELECT COALESCE(MAX(version), 0) + 1
+            SELECT COALESCE(MAX(version), 0)
             FROM resource_definitions
             WHERE tenant_id = $tenantId AND definition_id = $definitionId;
             """;

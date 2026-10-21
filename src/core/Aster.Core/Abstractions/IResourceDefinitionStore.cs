@@ -58,6 +58,28 @@ public interface IResourceDefinitionStore
     ValueTask RegisterDefinitionAsync(ResourceDefinition definition, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Appends a new immutable definition version only when the definition's latest version in the tenant is
+    /// still <paramref name="expectedLatestVersion"/>, checked and written atomically. Use it for read-modify-register
+    /// edits so that a version registered concurrently by another writer is never silently superseded.
+    /// </summary>
+    /// <param name="definition">The definition to register; its <c>Version</c> is assigned by the store.</param>
+    /// <param name="expectedLatestVersion">
+    /// The latest version the caller based its edit on, or <c>0</c> to register only when the definition does not exist yet.
+    /// </param>
+    /// <param name="tenantScope">Tenant scope for registration.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>
+    /// <see cref="ResourceDefinitionRegistrationStatus.Registered"/> with the stored version, or
+    /// <see cref="ResourceDefinitionRegistrationStatus.VersionConflict"/> with the actual latest version and nothing written.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expectedLatestVersion"/> is negative.</exception>
+    ValueTask<ResourceDefinitionRegistrationResult> RegisterDefinitionIfLatestAsync(
+        ResourceDefinition definition,
+        int expectedLatestVersion,
+        TenantScope tenantScope,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Returns the latest version of each distinct definition ID.
     /// </summary>
     /// <param name="cancellationToken">Token to cancel the operation.</param>

@@ -3,6 +3,7 @@ using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.AdminDemo;
 
@@ -119,9 +120,16 @@ internal static class EndpointMappings
             }
 
             var definition = DemoDefinitions.BuildDefinition(request.DefinitionId, request.IsSingleton, aspects);
-            await definitionStore.RegisterDefinitionAsync(definition, cancellationToken);
-            var saved = await definitionStore.GetDefinitionAsync(request.DefinitionId, cancellationToken) ?? definition;
-            return Results.Created($"/api/definitions/{request.DefinitionId}", DemoDefinitions.ToDetailDto(saved));
+
+            // Creating never appends to an existing content type: that would silently replace it as latest.
+            var registration = await definitionStore.RegisterDefinitionIfLatestAsync(definition, 0, TenantScope.Default, cancellationToken);
+            if (!registration.IsRegistered)
+            {
+                return Results.Conflict(new ErrorEnvelope(
+                    $"Content type '{request.DefinitionId}' already exists (version {registration.LatestVersion})."));
+            }
+
+            return Results.Created($"/api/definitions/{request.DefinitionId}", DemoDefinitions.ToDetailDto(registration.Definition!));
         }
         catch (FacetMetadataValidationException exception)
         {
