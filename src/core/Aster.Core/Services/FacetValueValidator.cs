@@ -181,7 +181,7 @@ public static class FacetValueValidator
         Action<string, string> add)
     {
         // AllowedValues.
-        if (facetType != FacetValueType.Bool && metadata.AllowedValues is { Count: > 0 } allowedValues)
+        if (facetType is not (FacetValueType.Bool or FacetValueType.Object) && metadata.AllowedValues is { Count: > 0 } allowedValues)
         {
             var allowed = false;
             foreach (var entry in allowedValues)

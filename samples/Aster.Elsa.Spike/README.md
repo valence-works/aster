@@ -18,4 +18,4 @@ The program asserts the behaviour it relies on and prints findings F1–F12. [FR
 
 This is not production code and not an Elsa integration. That work is epic #69, gated on the findings in #78.
 
-> **Note:** Since #123 (facet type enforcement), registration rejects the spike's `object` facet type until objects (#84) land, so the program stops at registration. Its `string[]` facets are accepted since #82. The findings in FRICTION.md were recorded before #123, which closed F2, F5 and F6.
+> **Note:** The spike's `string[]` and `object` facets are supported since #82 and #84, and the program runs end to end. Several findings are closed since it was written: F1, F2, F5, F6 (#123, #124), F3 (#82, #83) and F8 (#127). The printed messages are fixed text from the original run, so read the closed findings as history. [FRICTION.md](FRICTION.md) is the record of what the spike found at the time.

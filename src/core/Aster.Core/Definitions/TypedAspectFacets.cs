@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Aster.Core.Models.Definitions;
 
@@ -10,9 +12,11 @@ namespace Aster.Core.Definitions;
 /// the CLR-to-facet type mapping in ADR 0002 §8.
 /// </summary>
 /// <remarks>
-/// Only facet types that registration currently accepts are derived. Properties whose type maps
-/// to a type that is not supported yet (object) are skipped, so they stay unvalidated exactly
-/// as before; they are picked up when that type lands (#84). Collections derive <c>T[]</c> when
+/// Nested classes, records, structs and dictionaries derive <c>object</c>, unless
+/// System.Text.Json writes them as a JSON scalar (<see cref="TimeSpan"/>, <see cref="Uri"/>, types
+/// with a <see cref="JsonConverterAttribute"/>, <see cref="Int128"/>, and similar) or the property's JSON shape is
+/// unknown from its type (<see cref="object"/>, <see cref="JsonElement"/>, <see cref="JsonNode"/> other than
+/// <see cref="JsonObject"/>, or a property carrying its own <see cref="JsonConverterAttribute"/>); those are skipped. Collections derive <c>T[]</c> when
 /// their element type is a supported non-nullable scalar; collections of anything else (records,
 /// enums, <c>Nullable&lt;T&gt;</c>, whose null elements an array facet would reject) are skipped,
 /// as is <c>byte[]</c>, which System.Text.Json writes as a base64 string rather than an array.
@@ -34,6 +38,10 @@ internal static class TypedAspectFacets
 
     private static FacetDefinition? ToFacet(PropertyInfo property)
     {
+        // A converter on the property decides its JSON shape, which the CLR type cannot tell.
+        if (property.IsDefined(typeof(JsonConverterAttribute), inherit: true))
+            return null;
+
         var type = Map(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
         if (type is null)
             return null;
@@ -59,7 +67,37 @@ internal static class TypedAspectFacets
     private static string? Map(Type clrType) =>
         ElementTypeOf(clrType) is { } elementType
             ? MapScalar(elementType) is { } element ? element + "[]" : null
-            : MapScalar(clrType);
+            : MapScalar(clrType) ?? MapObject(clrType);
+
+    private static string? MapObject(Type clrType)
+    {
+        if (IsDictionary(clrType))
+            return "object";
+
+        // JsonObject always writes an object; other JSON DOM types can hold any JSON kind.
+        if (clrType == typeof(JsonObject))
+            return "object";
+
+        var writtenAsScalar = clrType == typeof(object)
+            || clrType == typeof(JsonElement) || clrType == typeof(JsonDocument)
+            || typeof(JsonNode).IsAssignableFrom(clrType)
+            || clrType == typeof(Int128) || clrType == typeof(UInt128) || clrType == typeof(Half)
+            || clrType.IsEnum
+            || clrType.IsPrimitive
+            || typeof(System.Collections.IEnumerable).IsAssignableFrom(clrType)
+            || clrType == typeof(TimeSpan) || clrType == typeof(DateOnly) || clrType == typeof(TimeOnly)
+            || clrType == typeof(Uri) || clrType == typeof(Version)
+            || clrType.IsDefined(typeof(JsonConverterAttribute), inherit: true);
+
+        return writtenAsScalar ? null : "object";
+    }
+
+    private static bool IsDictionary(Type clrType) =>
+        typeof(System.Collections.IDictionary).IsAssignableFrom(clrType)
+        || (clrType.IsInterface ? [clrType, .. clrType.GetInterfaces()] : clrType.GetInterfaces())
+            .Any(static contract => contract.IsGenericType
+                && (contract.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                    || contract.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
 
     private static Type? ElementTypeOf(Type clrType) =>
         clrType == typeof(byte[]) ? null

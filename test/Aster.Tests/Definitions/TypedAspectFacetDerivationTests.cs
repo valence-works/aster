@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
@@ -25,6 +27,8 @@ public sealed class TypedAspectFacetDerivationTests
     }
 
     private sealed record Nested(string Value);
+
+    private readonly record struct Point(int X, int Y);
 
     private sealed class EveryShape
     {
@@ -60,10 +64,17 @@ public sealed class TypedAspectFacetDerivationTests
 
         public ISet<DateTime> Dates { get; init; } = new HashSet<DateTime>();
 
-        // Not derived: object lands in #84, enums are decided in #131, nullable elements would be
-        // rejected by an array facet, and byte[] serializes as a base64 string.
-
         public Nested? Details { get; init; }
+
+        public Dictionary<string, string> Map { get; init; } = [];
+
+        public Point Position { get; init; }
+
+        public JsonObject? Bag { get; init; }
+
+        // Not derived: object[] is outside the grammar, enums are decided in #131, nullable elements
+        // would be rejected by an array facet, byte[] and TimeSpan serialize as strings, and an
+        // object-typed property has no known JSON shape.
 
         public List<Nested> Children { get; init; } = [];
 
@@ -73,9 +84,27 @@ public sealed class TypedAspectFacetDerivationTests
 
         public byte[] Blob { get; init; } = [];
 
-        public Dictionary<string, string> Map { get; init; } = [];
+        public TimeSpan Duration { get; init; }
+
+        public object? Anything { get; init; }
+
+        public Uri? Link { get; init; }
 
         public Status State { get; init; }
+
+        // Not derived either: the JSON kind of these is not knowable from the CLR type, or System.Text.Json
+        // writes them as numbers, or the property's own converter decides the shape.
+
+        public JsonElement Raw { get; init; }
+
+        public JsonNode? Node { get; init; }
+
+        public Int128 Huge { get; init; }
+
+        public Half Tiny { get; init; }
+
+        [JsonConverter(typeof(NestedAsTextConverter))]
+        public Nested? Converted { get; init; }
 
         [JsonIgnore]
         public string Ignored { get; init; } = string.Empty;
@@ -83,6 +112,15 @@ public sealed class TypedAspectFacetDerivationTests
         public static string StaticValue => "static";
 
         public string this[int index] => index.ToString();
+    }
+
+    private sealed class NestedAsTextConverter : JsonConverter<Nested>
+    {
+        public override Nested Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            new(reader.GetString()!);
+
+        public override void Write(Utf8JsonWriter writer, Nested value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.Value);
     }
 
     private sealed class Article
@@ -121,6 +159,10 @@ public sealed class TypedAspectFacetDerivationTests
                 ("Scores", "int[]", false),
                 ("Owners", "guid[]", false),
                 ("Dates", "datetime[]", false),
+                ("Details", "object", false),
+                ("Map", "object", false),
+                ("Position", "object", false),
+                ("Bag", "object", false),
             ],
             Facets(definition, "EveryShape").Select(static facet => (facet.FacetDefinitionId, facet.Type, facet.IsRequired)));
     }
