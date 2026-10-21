@@ -86,6 +86,14 @@ public sealed class PortableSnapshotExportRequest
     /// Specific resource versions used when <see cref="ResourceVersionScope"/> is <see cref="PortableResourceVersionScope.SpecificVersions"/>.
     /// </summary>
     public HashSet<ResourceVersionReference> SpecificResourceVersions { get; set; } = [];
+
+    /// <summary>
+    /// Whether to add the resources that exported resources reference (<c>reference</c> and
+    /// <c>reference[]</c> facets), transitively, so the snapshot imports without dangling references.
+    /// Added resources use <see cref="ResourceVersionScope"/>, or their latest version when it is
+    /// <see cref="PortableResourceVersionScope.SpecificVersions"/>.
+    /// </summary>
+    public bool IncludeReferencedResources { get; set; }
 }
 
 /// <summary>

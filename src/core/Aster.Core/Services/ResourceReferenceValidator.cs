@@ -2,7 +2,6 @@ using Aster.Core.Abstractions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
-using static Aster.Core.Services.FacetMetadataValidator;
 
 namespace Aster.Core.Services;
 
@@ -83,53 +82,19 @@ public sealed class ResourceReferenceValidator(IResourceVersionReader versionRea
         return diagnostics;
     }
 
-    private static List<ReferenceValue> CollectReferences(ResourceDefinition definition, IReadOnlyDictionary<string, object> aspects)
-    {
-        var references = new List<ReferenceValue>();
-
-        foreach (var (aspectKey, aspectDefinition) in definition.AspectDefinitions)
-        {
-            if (!aspects.TryGetValue(aspectKey, out var payload) || payload is null)
-                continue;
-
-            foreach (var facet in aspectDefinition.FacetDefinitions)
-            {
-                var descriptor = ParseFacetType(facet.Type);
-                if (descriptor.Element != FacetValueType.Reference
-                    || !AspectFacetValueResolver.TryResolveValue(payload, facet.FacetDefinitionId, out var rawValue))
-                {
-                    continue;
-                }
-
-                var channel = facet.Metadata?.ReferenceResolution is { } resolution
-                              && !string.Equals(resolution, LatestResolution, StringComparison.OrdinalIgnoreCase)
+    private static List<ReferenceValue> CollectReferences(ResourceDefinition definition, IReadOnlyDictionary<string, object> aspects) =>
+        ReferenceFacetValues.Read(ReferenceFacetValues.Facets(definition), aspects)
+            .Select(static value => new ReferenceValue(
+                value.Facet.AspectKey,
+                value.Facet.FacetDefinitionId,
+                value.ElementIndex,
+                value.TargetResourceId,
+                value.Facet.Metadata?.TargetDefinitionIds,
+                value.Facet.Metadata?.ReferenceResolution is { } resolution
+                && !string.Equals(resolution, LatestResolution, StringComparison.OrdinalIgnoreCase)
                     ? resolution
-                    : null;
-
-                void Add(object? value, int? elementIndex)
-                {
-                    // Ill-typed values are reported by FacetValueValidator; only well-typed ones are looked up.
-                    if (TryNormalizeValue(value, FacetValueType.Reference, out var normalized))
-                    {
-                        references.Add(new ReferenceValue(
-                            aspectKey, facet.FacetDefinitionId, elementIndex, (string)normalized, facet.Metadata?.TargetDefinitionIds, channel));
-                    }
-                }
-
-                if (!descriptor.IsArray)
-                {
-                    Add(rawValue, null);
-                }
-                else if (TryGetArrayElements(rawValue, out var elements))
-                {
-                    for (var index = 0; index < elements.Count; index++)
-                        Add(elements[index], index);
-                }
-            }
-        }
-
-        return references;
-    }
+                    : null))
+            .ToList();
 
     private sealed record ReferenceValue(
         string AspectKey,

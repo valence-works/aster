@@ -85,6 +85,7 @@ internal static class ResourceLifecycleHookContextSnapshots
             ResourceIds = new HashSet<string>(request.ResourceIds ?? [], StringComparer.Ordinal),
             ResourceVersionScope = request.ResourceVersionScope,
             SpecificResourceVersions = new HashSet<ResourceVersionReference>(request.SpecificResourceVersions ?? []),
+            IncludeReferencedResources = request.IncludeReferencedResources,
         };
 
     public static PortableImportOptions Snapshot(PortableImportOptions options) =>

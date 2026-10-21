@@ -5,7 +5,6 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
-using static Aster.Core.Services.FacetMetadataValidator;
 
 namespace Aster.Core.Services;
 
@@ -64,7 +63,7 @@ public sealed class ResourceReferenceService(
         if (query.Take == 0)
             return new ResourceReferrerPage([], false);
 
-        var facetsByDefinition = new Dictionary<string, IReadOnlyList<ReferenceFacet>>(StringComparer.Ordinal);
+        var facetsByDefinition = new Dictionary<string, IReadOnlyList<ReferenceFacetValues.ReferenceFacet>>(StringComparer.Ordinal);
         var branches = new List<FilterExpression>();
         foreach (var definition in (await definitionStore.ListDefinitionsAsync(tenant, cancellationToken))
                      .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal))
@@ -72,7 +71,9 @@ public sealed class ResourceReferenceService(
             if (query.DefinitionId is { } only && !string.Equals(definition.DefinitionId, only, StringComparison.Ordinal))
                 continue;
 
-            var facets = ReferenceFacets(definition);
+            // Every reference facet, whatever its TargetDefinitionIds: a lenient save can store a target of
+            // another definition, and a reverse lookup must still find it.
+            var facets = ReferenceFacetValues.Facets(definition);
             if (facets.Count == 0)
                 continue;
 
@@ -80,7 +81,7 @@ public sealed class ResourceReferenceService(
             branches.Add(new LogicalExpression(LogicalOperator.And,
             [
                 new MetadataFilter("DefinitionId", definition.DefinitionId, ComparisonOperator.Equals),
-                AnyOf(facets.Select(facet => facet.Filter(targetResourceId)).ToList()),
+                AnyOf(facets.Select(facet => Filter(facet, targetResourceId)).ToList()),
             ]));
         }
 
@@ -127,70 +128,22 @@ public sealed class ResourceReferenceService(
         return new ResourceReferrerPage(referrers.GetRange(start, count), available > count);
     }
 
-    /// <summary>
-    /// Every reference facet, whatever its <c>TargetDefinitionIds</c>: a lenient save can store a target
-    /// of another definition, and a reverse lookup must still find it.
-    /// </summary>
-    private static IReadOnlyList<ReferenceFacet> ReferenceFacets(ResourceDefinition definition)
-    {
-        var facets = new List<ReferenceFacet>();
-        foreach (var (aspectKey, aspect) in definition.AspectDefinitions.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
-        {
-            foreach (var facet in aspect.FacetDefinitions.OrderBy(static facet => facet.FacetDefinitionId, StringComparer.Ordinal))
-            {
-                var descriptor = ParseFacetType(facet.Type);
-                if (descriptor.Element == FacetValueType.Reference)
-                    facets.Add(new ReferenceFacet(aspectKey, facet.FacetDefinitionId, descriptor.IsArray));
-            }
-        }
+    private static List<ResourceReferenceLocation> Locate(
+        Resource version,
+        IReadOnlyList<ReferenceFacetValues.ReferenceFacet> facets,
+        string targetResourceId) =>
+        ReferenceFacetValues.Read(facets, version.Aspects)
+            .Where(value => string.Equals(value.TargetResourceId, targetResourceId, StringComparison.Ordinal))
+            .Select(static value => new ResourceReferenceLocation(value.Facet.AspectKey, value.Facet.FacetDefinitionId, value.ElementIndex))
+            .ToList();
 
-        return facets;
-    }
-
-    private static List<ResourceReferenceLocation> Locate(Resource version, IReadOnlyList<ReferenceFacet> facets, string targetResourceId)
-    {
-        var locations = new List<ResourceReferenceLocation>();
-        foreach (var facet in facets)
-        {
-            if (!version.Aspects.TryGetValue(facet.AspectKey, out var payload)
-                || payload is null
-                || !AspectFacetValueResolver.TryResolveValue(payload, facet.FacetDefinitionId, out var rawValue))
-            {
-                continue;
-            }
-
-            if (!facet.IsArray)
-            {
-                if (Names(rawValue, targetResourceId))
-                    locations.Add(new ResourceReferenceLocation(facet.AspectKey, facet.FacetDefinitionId, null));
-            }
-            else if (TryGetArrayElements(rawValue, out var elements))
-            {
-                for (var index = 0; index < elements.Count; index++)
-                {
-                    if (Names(elements[index], targetResourceId))
-                        locations.Add(new ResourceReferenceLocation(facet.AspectKey, facet.FacetDefinitionId, index));
-                }
-            }
-        }
-
-        return locations;
-    }
-
-    private static bool Names(object? value, string targetResourceId) =>
-        TryNormalizeValue(value, FacetValueType.Reference, out var normalized)
-        && string.Equals((string)normalized, targetResourceId, StringComparison.Ordinal);
+    private static FilterExpression Filter(ReferenceFacetValues.ReferenceFacet facet, string targetResourceId) =>
+        new FacetValueFilter(
+            facet.AspectKey,
+            facet.FacetDefinitionId,
+            targetResourceId,
+            facet.IsArray ? ComparisonOperator.ArrayContains : ComparisonOperator.Equals);
 
     private static FilterExpression AnyOf(IReadOnlyList<FilterExpression> operands) =>
         operands.Count == 1 ? operands[0] : new LogicalExpression(LogicalOperator.Or, operands);
-
-    private sealed record ReferenceFacet(string AspectKey, string FacetDefinitionId, bool IsArray)
-    {
-        public FilterExpression Filter(string targetResourceId) =>
-            new FacetValueFilter(
-                AspectKey,
-                FacetDefinitionId,
-                targetResourceId,
-                IsArray ? ComparisonOperator.ArrayContains : ComparisonOperator.Equals);
-    }
 }
