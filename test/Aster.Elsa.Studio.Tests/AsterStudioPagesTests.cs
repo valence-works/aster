@@ -211,6 +211,36 @@ public sealed class AsterStudioPagesTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UnchangedResource_SavesNoNewVersion()
+    {
+        await server.RegisterAsync(AsterTestServer.Product());
+        await server.CreateAsync("Product", "saw", new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Saw" } });
+        context.Render<MudPopoverProvider>();
+
+        var editor = context.Render<ResourceEditor>(parameters => parameters.Add(page => page.ResourceId, "saw"));
+        editor.WaitForElement(Input("Title"), Timeout);
+
+        await RaiseAsync(editor, () => editor.Find("button.aster-save").Click());
+        editor.WaitForAssertion(() => Assert.Contains("No changes to save", editor.Find(".aster-message").TextContent), Timeout);
+        Assert.Equal(1, Assert.Single(await server.CreateClient().GetVersionsAsync("saw")).Version);
+    }
+
+    [Fact]
+    public async Task EmptyNewResource_IsNotCreated()
+    {
+        await server.RegisterAsync(AsterTestServer.Supplier());
+        context.Render<MudPopoverProvider>();
+
+        var editor = context.Render<ResourceEditor>(parameters => parameters.Add(page => page.DefinitionId, "Supplier"));
+        editor.WaitForElement("input[data-test-field='Info.Name']", Timeout);
+        server.Recorder.Clear();
+
+        await RaiseAsync(editor, () => editor.Find("button.aster-save").Click());
+        editor.WaitForAssertion(() => Assert.Contains("Enter at least one value", editor.Find(".aster-error").TextContent), Timeout);
+        Assert.DoesNotContain(server.Recorder.Requests, static request => request.Method == "POST");
+    }
+
+    [Fact]
     public async Task SlowVersionLoad_AfterNavigating_DoesNotReplaceTheNewResource()
     {
         await server.RegisterAsync(AsterTestServer.Product());

@@ -1,6 +1,11 @@
 using System.Text.Json.Nodes;
+using Aster.Core.Abstractions;
+using Aster.Core.Definitions;
+using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Instances;
 using Aster.Elsa.Studio.Client;
 using Aster.Elsa.Studio.Forms;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Elsa.Studio.Tests;
 
@@ -153,6 +158,42 @@ public sealed class AsterFormModelTests
     }
 
     [Fact]
+    public void FacetsThatDifferOnlyInTheFirstLetter_KeepTheirOwnKeys()
+    {
+        var model = AsterFormModel.FromSchema(JsonNode.Parse("""
+            { "title": "T", "properties": { "A": { "type": "object", "properties": {
+                "Name": { "type": "string", "x-aster-type": "string" },
+                "name": { "type": "string", "x-aster-type": "string" } } } } }
+            """)!.AsObject());
+        var state = AsterFormState.Create(model, JsonNode.Parse("""{ "A": { "name": "lower" } }""")!.AsObject());
+
+        // "name" is the second facet's key, not a camel-case spelling of "Name".
+        var upper = model.FindField("A", "Name")!;
+        Assert.Null(state.GetValue(upper));
+        Assert.True(state.SetEditorValue(upper, AsterEditorMapping.Resolve(upper), "Upper"));
+        var aspect = state.BuildAspects()["A"]!.AsObject();
+
+        Assert.Equal("Upper", aspect["Name"]!.GetValue<string>());
+        Assert.Equal("lower", aspect["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void UpdatePayload_KeepsAnotherSpellingOfAKnownFacet()
+    {
+        var model = AsterFormModel.FromSchema(JsonNode.Parse("""
+            { "title": "T", "properties": { "A": { "type": "object", "properties": { "Title": { "type": "string", "x-aster-type": "string" } } } } }
+            """)!.AsObject());
+        var state = AsterFormState.Create(model, JsonNode.Parse("""{ "A": { "Title": "Exact", "title": "Other" } }""")!.AsObject());
+
+        var title = model.FindField("A", "Title")!;
+        Assert.True(state.SetEditorValue(title, AsterEditorMapping.Resolve(title), "Edited"));
+        var aspect = state.BuildAspects()["A"]!.AsObject();
+
+        Assert.Equal("Edited", aspect["Title"]!.GetValue<string>());
+        Assert.Equal("Other", aspect["title"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void UpdatePayload_KeepsFacetsTheFormDoesNotKnow()
     {
         var model = AsterFormModel.FromSchema(JsonNode.Parse("""
@@ -160,13 +201,116 @@ public sealed class AsterFormModelTests
             """)!.AsObject());
         var state = AsterFormState.Create(model, JsonNode.Parse("""{ "A": { "Known": "x", "Legacy": 5 }, "Other": { "Z": 1 } }""")!.AsObject());
 
+        // Nothing changed: nothing to send.
+        Assert.Empty(state.BuildAspects());
+
+        var known = model.FindField("A", "Known")!;
+        Assert.True(state.SetEditorValue(known, AsterEditorMapping.Resolve(known), "y"));
         var aspects = state.BuildAspects();
 
         Assert.Equal(5, aspects["A"]!["Legacy"]!.GetValue<int>());
-        Assert.Equal("x", aspects["A"]!["Known"]!.GetValue<string>());
+        Assert.Equal("y", aspects["A"]!["Known"]!.GetValue<string>());
 
         // Aspects outside the form are left out, so an update keeps them as they are.
         Assert.Null(aspects["Other"]);
+    }
+
+    [Fact]
+    public async Task ResourceSavedWithTypedAspect_LoadsAndSavesItsCamelCaseFacets()
+    {
+        await using var server = await AsterTestServer.StartAsync();
+        var client = server.CreateClient();
+        await server.RegisterAsync(Catalogue());
+
+        // The typed C# API stores the aspect as camel-case JSON ({"title": ...}); the server falls back to that key.
+        var manager = server.Services.GetRequiredService<IResourceManager>();
+        await manager.CreateAsync("Product", new CreateResourceRequest
+        {
+            ResourceId = "hammer",
+            InitialAspects = new Dictionary<string, object> { ["Details"] = new TypedDetails { Title = "Hammer", Price = 5m, Stock = 3 } },
+        });
+
+        var model = AsterFormModel.FromSchema(await client.GetDefinitionSchemaAsync("Product"));
+        var latest = (await client.GetResourceAsync("hammer"))!;
+        var state = AsterFormState.Create(model, latest.Aspects);
+        Assert.Equal("Hammer", state.GetValue(model.FindField("Details", "Title")!)!.GetValue<string>());
+        Assert.Equal(5m, state.GetValue(model.FindField("Details", "Price")!)!.GetValue<decimal>());
+
+        var stock = model.FindField("Details", "Stock")!;
+        Assert.True(state.SetEditorValue(stock, AsterEditorMapping.Resolve(stock), "4"));
+        var details = state.BuildAspects()["Details"]!.AsObject();
+
+        // One key per facet, the one the value was read from.
+        Assert.Equal(4L, details["stock"]!.GetValue<long>());
+        Assert.False(details.ContainsKey("Stock"));
+        Assert.False(details.ContainsKey("Title"));
+
+        await client.UpdateResourceAsync("hammer", latest.Version, state.BuildAspects());
+        var cheap = await client.QueryResourcesAsync(new JsonObject
+        {
+            ["definitionId"] = "Product",
+            ["filter"] = new JsonObject { ["aspect"] = "Details", ["facet"] = "Price", ["op"] = "equals", ["value"] = 5 },
+        });
+        Assert.Equal("hammer", Assert.Single(cheap.Items).ResourceId);
+
+        var saved = AsterFormState.Create(model, (await client.GetResourceAsync("hammer"))!.Aspects);
+        Assert.Equal("Hammer", saved.GetValue(model.FindField("Details", "Title")!)!.GetValue<string>());
+        Assert.Equal(4, saved.GetValue(stock)!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task AbsentAspectWithRequiredFacet_StaysAbsentOnCreateAndUpdate()
+    {
+        await using var server = await AsterTestServer.StartAsync();
+        var client = server.CreateClient();
+        await server.RegisterAsync(Catalogue());
+        var model = AsterFormModel.FromSchema(await client.GetDefinitionSchemaAsync("Product"));
+        var title = model.FindField("Details", "Title")!;
+
+        // Seo.Slug is required, but only of a Seo aspect the resource has.
+        var creating = AsterFormState.Create(model);
+        Assert.True(creating.SetEditorValue(title, AsterEditorMapping.Resolve(title), "Hammer"));
+        Assert.Null(creating.BuildAspects()["Seo"]);
+        var created = await client.CreateResourceAsync("Product", "hammer", creating.BuildAspects());
+
+        var editing = AsterFormState.Create(model, created.Aspects);
+        Assert.True(editing.SetEditorValue(title, AsterEditorMapping.Resolve(title), "Claw hammer"));
+        Assert.Null(editing.BuildAspects()["Seo"]);
+        var updated = await client.UpdateResourceAsync("hammer", created.Version, editing.BuildAspects());
+
+        Assert.Equal("Claw hammer", updated.Aspects["Details"]!["Title"]!.GetValue<string>());
+        Assert.Null(updated.Aspects["Seo"]);
+    }
+
+    [Fact]
+    public async Task UpdateOfOneAspect_DoesNotRevalidateReferencesInAnother()
+    {
+        await using var server = await AsterTestServer.StartAsync();
+        var client = server.CreateClient();
+        await server.RegisterAsync(AsterTestServer.Supplier());
+        await server.RegisterAsync(Catalogue());
+        await server.CreateAsync("Supplier", "acme", new JsonObject { ["Info"] = new JsonObject { ["Name"] = "Acme" } });
+        await client.ActivateAsync("acme", 1, "Published", false);
+        await server.CreateAsync("Product", "hammer", new JsonObject
+        {
+            ["Details"] = new JsonObject { ["Title"] = "Hammer" },
+            ["Seo"] = new JsonObject { ["Slug"] = "hammer" },
+            ["Links"] = new JsonObject { ["Supplier"] = "acme" },
+        });
+
+        // The supplier leaves Published after the product pinned it there.
+        await client.DeactivateAsync("acme", 1, "Published");
+
+        var model = AsterFormModel.FromSchema(await client.GetDefinitionSchemaAsync("Product"));
+        var latest = (await client.GetResourceAsync("hammer"))!;
+        var state = AsterFormState.Create(model, latest.Aspects);
+        var title = model.FindField("Details", "Title")!;
+        Assert.True(state.SetEditorValue(title, AsterEditorMapping.Resolve(title), "Claw hammer"));
+        Assert.Null(state.BuildAspects()["Links"]);
+
+        var updated = await client.UpdateResourceAsync("hammer", latest.Version, state.BuildAspects());
+        Assert.Equal("Claw hammer", updated.Aspects["Details"]!["Title"]!.GetValue<string>());
+        Assert.Equal("acme", updated.Aspects["Links"]!["Supplier"]!.GetValue<string>());
     }
 
     [Fact]
@@ -178,5 +322,29 @@ public sealed class AsterFormModelTests
 
         Assert.Equal(("r", "D", (int?)2, 3), (resource.ResourceId, resource.DefinitionId, resource.DefinitionVersion, resource.Version));
         Assert.Equal(1, resource.Aspects["A"]!["F"]!.GetValue<int>());
+    }
+
+    // A product with an optional aspect that has a required facet, and a reference pinned to Published.
+    private static ResourceDefinition Catalogue() => new ResourceDefinitionBuilder()
+        .WithDefinitionId("Product")
+        .WithAspect("Details")
+            .WithFacet("Title", "string")
+            .WithFacet("Price", "decimal")
+            .WithFacet("Stock", "int")
+        .WithAspect("Seo")
+            .WithFacet("Slug", "string", isRequired: true)
+        .WithAspect("Links")
+            .WithFacet("Supplier", "reference")
+            .WithFacetMetadata(new FacetMetadata { ReferenceResolution = "Published", TargetDefinitionIds = ["Supplier"] })
+        .Build();
+
+    // Saved through the typed C# API, which stores it in camel case.
+    private sealed class TypedDetails
+    {
+        public string? Title { get; set; }
+
+        public decimal? Price { get; set; }
+
+        public int? Stock { get; set; }
     }
 }
