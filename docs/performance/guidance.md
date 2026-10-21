@@ -42,9 +42,9 @@ Version history:
 |---|---|---|---|
 | **In-memory** | Tests, demos, development | Up to about 25k resources: queries take 20–50 ms. | It holds everything in process memory and evaluates every candidate. Use SQLite or Postgres. |
 | **SQLite** | Single-node hosts, small deployments, local development | **Up to about 25k resources per tenant** for interactive scalar facet queries (under about 100 ms). Array and reference queries already take 130–330 ms in that range, so use them for admin views and background work, not for request paths. | Move to Postgres with declared index projections (#97–#100), or narrow queries by metadata first. |
-| **PostgreSQL** (planned, #65) | Production | Not measured yet. Declared index projections (#100) should turn facet scans into index seeks. | Re-baseline once #97–#100 land. |
+| **PostgreSQL** (planned, #65) | Production | Not measured yet. The expectation is that declared index projections (#100) turn facet scans into index seeks. | Re-baseline once #97–#100 land, before relying on any capacity figure. |
 
-These numbers confirm the interim estimate in ADR 0001: tens of thousands of resources per definition on SQLite, and an order of magnitude more needing Postgres with index projections.
+ADR 0001's interim estimate was tens of thousands of resources per definition on SQLite. The measurements confirm the magnitude but correct the unit: facet queries scan every latest version in the tenant, so the budget is about 25k resources **per tenant**, across all definitions. That Postgres with index projections handles an order of magnitude more is still an expectation, not a measurement, until #97–#100 can be benchmarked.
 
 **Latency rule, unchanged from ADR 0001:** keep Aster off per-execution hot paths. A local read is fast, but behind HTTP (`Aster.AspNetCore`) every read adds a network round trip. Resolve the version when it changes (lifecycle hooks) and cache it in the host.
 
@@ -67,7 +67,7 @@ Revisit if a host needs SQLite beyond about 25k resources per definition with in
 
 ## Known outliers
 
-#171 tracks two SQLite paths that should be bounded by their input but still grow with the tenant:
+Issue #171 tracks two SQLite paths that should be bounded by their input but still grow with the tenant:
 - import preview
 - the `ResourceId` metadata query
 
