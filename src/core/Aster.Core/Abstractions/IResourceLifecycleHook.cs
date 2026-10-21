@@ -98,6 +98,38 @@ public interface IResourceLifecycleHook
     ValueTask OnAfterImportAsync(
         ResourceImportLifecycleContext context,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs before an archive or soft-delete lifecycle marker is written for a resource. The default continues.
+    /// </summary>
+    ValueTask<LifecycleHookOutcome> OnBeforeArchiveAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(LifecycleHookOutcome.Continue());
+
+    /// <summary>
+    /// Runs after an archive or soft-delete lifecycle marker is written for a resource. The default does nothing.
+    /// </summary>
+    ValueTask OnAfterArchiveAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Runs before a resource's archive or soft-delete lifecycle marker is cleared. The default continues.
+    /// </summary>
+    ValueTask<LifecycleHookOutcome> OnBeforeRestoreAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(LifecycleHookOutcome.Continue());
+
+    /// <summary>
+    /// Runs after a resource's archive or soft-delete lifecycle marker is cleared. The default does nothing.
+    /// </summary>
+    ValueTask OnAfterRestoreAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
 }
 
 /// <summary>
@@ -174,6 +206,30 @@ public abstract class ResourceLifecycleHook : IResourceLifecycleHook
     /// <inheritdoc />
     public virtual ValueTask OnAfterImportAsync(
         ResourceImportLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
+
+    /// <inheritdoc />
+    public virtual ValueTask<LifecycleHookOutcome> OnBeforeArchiveAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(LifecycleHookOutcome.Continue());
+
+    /// <inheritdoc />
+    public virtual ValueTask OnAfterArchiveAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
+
+    /// <inheritdoc />
+    public virtual ValueTask<LifecycleHookOutcome> OnBeforeRestoreAsync(
+        ResourceArchiveLifecycleContext context,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(LifecycleHookOutcome.Continue());
+
+    /// <inheritdoc />
+    public virtual ValueTask OnAfterRestoreAsync(
+        ResourceArchiveLifecycleContext context,
         CancellationToken cancellationToken = default) =>
         ValueTask.CompletedTask;
 }

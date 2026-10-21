@@ -68,6 +68,26 @@ public enum LifecyclePoint
     /// After a portable snapshot import has completed.
     /// </summary>
     AfterImport,
+
+    /// <summary>
+    /// Before an archive or soft-delete lifecycle marker is written for a resource.
+    /// </summary>
+    BeforeArchive,
+
+    /// <summary>
+    /// After an archive or soft-delete lifecycle marker has been written for a resource.
+    /// </summary>
+    AfterArchive,
+
+    /// <summary>
+    /// Before a resource's archive or soft-delete lifecycle marker is cleared.
+    /// </summary>
+    BeforeRestore,
+
+    /// <summary>
+    /// After a resource's archive or soft-delete lifecycle marker has been cleared.
+    /// </summary>
+    AfterRestore,
 }
 
 /// <summary>
@@ -128,7 +148,8 @@ public enum LifecycleOperationStatus
     Pending,
 
     /// <summary>
-    /// The underlying operation completed: the save, activation change, export, preview, or import took effect.
+    /// The underlying operation completed: the save, activation change, export, preview, import, archive, or restore
+    /// took effect.
     /// </summary>
     Succeeded,
 

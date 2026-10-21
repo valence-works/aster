@@ -9,8 +9,8 @@ namespace Aster.Elsa;
 public static class AsterModuleExtensions
 {
     /// <summary>
-    /// Enables <see cref="AsterFeature"/>: the Aster activities, with Elsa's current tenant mapped to an Aster tenant
-    /// scope on every call. Register Aster itself (<c>AddAsterCore()</c> and a provider) on the host's service
+    /// Enables <see cref="AsterFeature"/>: the Aster activities and lifecycle triggers, with Elsa's current tenant
+    /// mapped to an Aster tenant scope on every call. Register Aster itself (<c>AddAsterCore()</c> and a provider) on the host's service
     /// collection; this call doesn't choose a provider.
     /// </summary>
     /// <param name="module">The Elsa module being configured in <c>AddElsa</c>.</param>
