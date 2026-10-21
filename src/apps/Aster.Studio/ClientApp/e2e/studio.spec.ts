@@ -3,17 +3,6 @@ import { expect, test, type Page } from "@playwright/test";
 // Smoke coverage for Studio's core flows against the real host and a freshly seeded SQLite database.
 // Each test creates the data it changes, so the tests don't depend on one another's order or leftovers.
 
-// Toasts are transient and stack over whatever sits under them; keep them from swallowing the suite's clicks.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    document.addEventListener("DOMContentLoaded", () => {
-      const style = document.createElement("style");
-      style.textContent = "[data-sonner-toaster], [data-sonner-toaster] * { pointer-events: none !important; }";
-      document.head.appendChild(style);
-    });
-  });
-});
-
 const field = (page: Page, aspectKey: string, facetId: string) => page.locator(`[id="${aspectKey}.${facetId}"]`);
 const unique = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
