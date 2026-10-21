@@ -65,13 +65,26 @@ Every call maps Elsa's current tenant (`ITenantAccessor.TenantId`) to an Aster t
 |---|---|
 | `""` (Elsa's default tenant) | `TenantScope.Default` |
 | any other ID | `TenantScope.FromTenantId(id)`, the same ID |
-| `*` (agnostic) or `default` | refused: the activity faults with `tenant-scope-invalid` |
+| `*` (agnostic), `default`, or only whitespace | refused: the activity faults with `tenant-scope-invalid` |
 
 Without Elsa's multitenancy services every call uses the default scope. `AsterTenantMapping` exposes the same mapping to host code.
 
 ## Sample workflow
 
-Create a product, save a new version on top of the one just created, and publish it. Each activity's result feeds the next one's inputs through expressions:
+Create a product, save a new version on top of the one just created, and publish it. Each activity's result feeds the next one's inputs through expressions.
+
+The activities work on definitions the host has registered, so register `Product` first, for example at startup. Otherwise `CreateResource` faults with `definition-not-found`:
+
+```csharp
+var definitions = app.Services.GetRequiredService<IResourceDefinitionStore>();
+await definitions.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
+    .WithDefinitionId("Product")
+    .WithAspect("Title").WithFacet("Title", "string", isRequired: true)
+    .WithAspect("Price").WithFacet("Amount", "decimal")
+    .Build());
+```
+
+The workflow:
 
 ```csharp
 using Aster.Core.Models.Instances;
