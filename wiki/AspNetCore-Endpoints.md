@@ -62,11 +62,13 @@ Errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses, e
 
 | Status | When | Extensions |
 |---|---|---|
-| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
+| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies, rejected schema upgrades (below) | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
 | `403` | Denied by `IAsterResourceAuthorizer` | |
 | `404` | Missing definition, aspect, resource or version | |
 | `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition or aspect version conflict (`definition-version-conflict`, `aspect-version-conflict`), lifecycle hook veto | `code` |
 | `415` | A request body without a JSON `Content-Type`. Routing rejects a non-JSON `Content-Type` before the endpoint runs, with an empty body (add `AddProblemDetails()` and `UseStatusCodePages()` in the host for one); a body with no `Content-Type` reaches the endpoint and gets a problem | |
+
+The package maps no schema upgrade endpoint, but an endpoint a host maps inside an Aster group (through `ConfigureGroup`) gets the same mapping. There, a `ResourceSchemaUpgradeException` from `ResourceSchemaUpgradeResult.ThrowIfRejected()` becomes a problem keyed by its first code: `resource-not-found` is `404`, `concurrency-conflict` is `409` with `code`, and any other code (an invalid target or an invalid upgraded payload) is `400` with every diagnostic.
 
 ## Query format
 

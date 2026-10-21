@@ -126,6 +126,10 @@ test("upgrades an article saved against an older definition and reports carried-
   await expect(schema(page).getByText("v2 was saved against definition v1; the latest is v2.")).toBeVisible();
   await expect(schema(page).getByText("navigation")).toBeVisible();
 
+  // The carried-forward keys come from the SDK's upgrade preview, which writes nothing.
+  const preview = await (await page.request.get("/api/studio/resources/article-horizontal-aspects/schema")).json();
+  expect(preview.upgrade).toEqual({ status: "upgraded", targetDefinitionVersion: 2, carriedForwardAspectKeys: ["navigation"], diagnostics: [] });
+
   await schema(page).getByRole("button", { name: "Upgrade to definition v2" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("navigation")).toBeVisible();

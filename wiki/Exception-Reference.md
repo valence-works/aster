@@ -13,7 +13,7 @@ Aster throws typed exceptions for all domain-level error conditions. All excepti
 | `SingletonViolationException` | `Aster.Core.Exceptions` | Attempt to create a second instance of a singleton definition |
 | `DuplicateResourceIdException` | `Aster.Core.Exceptions` | Caller-supplied `ResourceId` already exists |
 | `DuplicateAspectAttachmentException` | `Aster.Core.Exceptions` | Same aspect key attached twice to a definition |
-| `ResourceSchemaUpgradeException` | `Aster.Core.Exceptions` | Explicit schema upgrade target is invalid or unavailable |
+| `ResourceSchemaUpgradeException` | `Aster.Core.Exceptions` | `ThrowIfRejected()` on a rejected schema upgrade result |
 | `UnsupportedQueryFeatureException` | `Aster.Core.Exceptions` | Query execution receives a provider-unsupported scope, predicate, sort, paging value, or value shape |
 
 ---
@@ -171,34 +171,46 @@ When validation returns `capabilities-not-declared`, the active query provider h
 
 ## `ResourceSchemaUpgradeException`
 
-**Thrown by:** `IResourceSchemaVersionService.UpgradeAsync`
+**Thrown by:** `ResourceSchemaUpgradeResult.ThrowIfRejected()`
 
-**Why:** The requested schema upgrade cannot be completed because the definition lineage or requested target definition version is invalid.
+**Why:** The schema upgrade was rejected. `IResourceSchemaVersionService.UpgradeAsync` itself does not throw for this: it returns `ResourceSchemaUpgradeStatus.Rejected` with `Diagnostics`. `ThrowIfRejected()` turns that result into this exception for callers that prefer exception flow.
 
 The exception exposes structured details:
 
 | Property | Meaning |
 |---|---|
-| `Code` | Stable failure code |
+| `Code` | Stable failure code: the first diagnostic's |
+| `Diagnostics` | Every rejection diagnostic, with the aspect key, facet ID and element index for facet value codes |
 | `DefinitionId` | Definition involved in the failed upgrade, when available |
-| `TargetDefinitionVersion` | Requested target definition version, when available |
+| `TargetDefinitionVersion` | Target definition version, when it resolved |
 | `Message` | Human-readable actionable explanation |
 
-Known codes:
+Known codes (`ResourceSchemaUpgradeDiagnosticCodes`):
 
 | Code | Meaning |
 |---|---|
+| `resource-not-found` | The resource has no versions in the tenant |
+| `concurrency-conflict` | The base version is stale, or another writer saved the new version first |
 | `missing-definition` | The resource's definition ID has no registered definition |
 | `missing-definition-version` | The requested target definition version does not exist |
 | `target-definition-version-too-new` | The requested target is newer than the latest registered definition version |
 | `target-definition-version-before-source` | The requested target is older than the resource's recorded definition lineage |
+| `facet-value-*` | The upgraded payload violates the target definition's facets |
 
-Stale upgrade requests still throw `ConcurrencyException`; missing latest resource versions still throw `VersionNotFoundException`.
+`Aster.AspNetCore` maps it to ProblemDetails: `resource-not-found` is `404`, `concurrency-conflict` is `409`, and anything else is `400` with every diagnostic.
 
 ```csharp
+var result = await schemaVersions.UpgradeAsync(resourceId, request);
+if (!result.Succeeded)
+{
+    foreach (var diagnostic in result.Diagnostics)
+        Console.WriteLine($"{diagnostic.Code}: {diagnostic.Message}");
+}
+
+// Or, keeping exception flow:
 try
 {
-    await schemaVersions.UpgradeAsync(resourceId, request);
+    (await schemaVersions.UpgradeAsync(resourceId, request)).ThrowIfRejected();
 }
 catch (ResourceSchemaUpgradeException ex)
 {

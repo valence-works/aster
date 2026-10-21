@@ -148,7 +148,10 @@ function SchemaSection({ schema, lastUpgrade, onUpgraded }: { schema: SchemaStat
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [diagnostics, setDiagnostics] = useState<CodedDiagnostic[]>([]);
-  const keys = schema.undeclaredAspectKeys;
+  // The SDK's upgrade preview: what the upgrade would carry forward and what would reject it.
+  const { carriedForwardAspectKeys: keys, diagnostics: blocking } = schema.upgrade;
+  const blocked = schema.upgrade.status === "rejected";
+  const target = schema.upgrade.targetDefinitionVersion ?? schema.latestDefinitionVersion;
 
   async function upgrade() {
     setBusy(true);
@@ -169,15 +172,20 @@ function SchemaSection({ schema, lastUpgrade, onUpgraded }: { schema: SchemaStat
     <section aria-label="Schema" className="space-y-3 border-t border-border/60 pt-4">
       <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">Schema</h3><Badge variant={schema.status === "current" ? "schema" : "preview"}>{schemaLabels[schema.status]}</Badge></div>
       <p className="text-xs text-muted-foreground">v{schema.resourceVersion} was saved against definition v{schema.recordedDefinitionVersion ?? "?"}; the latest is v{schema.latestDefinitionVersion ?? "?"}.</p>
-      {keys.length ? <p className="text-xs text-muted-foreground">{schema.status === "older-than-latest" ? "Carried forward on upgrade" : "Carried forward, not declared"}: {keys.map((key) => <Badge key={key} variant="facet" className="mr-1">{key}</Badge>)}</p> : null}
+      {keys.length ? <p className="text-xs text-muted-foreground">Carried forward on upgrade: {keys.map((key) => <Badge key={key} variant="facet" className="mr-1">{key}</Badge>)}</p> : null}
       {lastUpgrade ? <p className="text-xs text-muted-foreground">Last upgrade: {lastUpgrade.status}, definition v{lastUpgrade.sourceDefinitionVersion ?? "?"} → v{lastUpgrade.targetDefinitionVersion}, carried forward {lastUpgrade.carriedForwardAspectKeys.length ? lastUpgrade.carriedForwardAspectKeys.join(", ") : "nothing"}.</p> : null}
-      {schema.status === "older-than-latest" ? <Button size="sm" variant="outline" onClick={() => setConfirming(true)}><ArrowUpCircle className="h-4 w-4" />Upgrade to definition v{schema.latestDefinitionVersion}</Button> : null}
+      {schema.status === "older-than-latest" ? (
+        <>
+          {blocked ? <><p className="text-xs text-muted-foreground">The upgrade preview reports what blocks it; fix the latest version first:</p><DiagnosticList diagnostics={blocking} /></> : null}
+          <Button size="sm" variant="outline" onClick={() => setConfirming(true)}><ArrowUpCircle className="h-4 w-4" />Upgrade to definition v{target}</Button>
+        </>
+      ) : null}
       <Dialog open={confirming} onOpenChange={(open) => { if (!open) { setConfirming(false); setDiagnostics([]); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Upgrade {schema.resourceId}</DialogTitle><DialogDescription>Appends v{schema.resourceVersion + 1} recorded against definition v{schema.latestDefinitionVersion}, based on v{schema.resourceVersion}. The SDK has no upgrade preview; the aspects below are what the latest definition doesn't declare.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Upgrade {schema.resourceId}</DialogTitle><DialogDescription>Appends v{schema.resourceVersion + 1} recorded against definition v{target}, based on v{schema.resourceVersion}. Aspects that definition doesn't declare are carried forward unchanged.</DialogDescription></DialogHeader>
           <p className="text-sm">{keys.length ? <>Carried forward: {keys.map((key) => <Badge key={key} variant="facet" className="mr-1">{key}</Badge>)}</> : "No aspects will be carried forward."}</p>
-          <DiagnosticList diagnostics={diagnostics} />
-          <DialogFooter><Button variant="outline" onClick={() => setConfirming(false)}>Cancel</Button><Button onClick={upgrade} disabled={busy}>{busy ? "Upgrading…" : "Upgrade"}</Button></DialogFooter>
+          <DiagnosticList diagnostics={diagnostics.length ? diagnostics : blocking} />
+          <DialogFooter><Button variant="outline" onClick={() => setConfirming(false)}>Cancel</Button><Button onClick={upgrade} disabled={busy || blocked}>{busy ? "Upgrading…" : "Upgrade"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </section>

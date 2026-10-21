@@ -79,6 +79,18 @@ public sealed record ResourceSchemaCarriedForwardAspectKeyCount
 }
 
 /// <summary>
+/// Deterministic count for one schema upgrade diagnostic code.
+/// </summary>
+public sealed record ResourceSchemaUpgradeDiagnosticCodeCount
+{
+    /// <summary>Nonblank diagnostic code.</summary>
+    public required string Code { get; init; }
+
+    /// <summary>Number of diagnostics with the code.</summary>
+    public required int Count { get; init; }
+}
+
+/// <summary>
 /// Aggregate view over schema upgrade results.
 /// </summary>
 public sealed record ResourceSchemaUpgradeSummary
@@ -101,17 +113,26 @@ public sealed record ResourceSchemaUpgradeSummary
     /// <summary>Whether any processed result upgraded a resource.</summary>
     public bool HasUpgrades => StatusCounts.Any(static count => count.Status == ResourceSchemaUpgradeStatus.Upgraded && count.Count > 0);
 
+    /// <summary>Whether any processed result was rejected.</summary>
+    public bool HasRejections => StatusCounts.Any(static count => count.Status == ResourceSchemaUpgradeStatus.Rejected && count.Count > 0);
+
     /// <summary>Deterministic counts by schema upgrade status.</summary>
     public IReadOnlyList<ResourceSchemaUpgradeStatusCount> StatusCounts { get; init; } = [];
 
     /// <summary>Deterministic counts by source definition version, including unknown source versions.</summary>
     public IReadOnlyList<ResourceSchemaDefinitionVersionCount> SourceDefinitionVersionCounts { get; init; } = [];
 
-    /// <summary>Deterministic counts by target definition version.</summary>
+    /// <summary>
+    /// Deterministic counts by target definition version. Rejected results whose target could not be resolved
+    /// (reported as <c>0</c>) are left out.
+    /// </summary>
     public IReadOnlyList<ResourceSchemaDefinitionVersionCount> TargetDefinitionVersionCounts { get; init; } = [];
 
     /// <summary>Deterministic counts by nonblank carried-forward aspect key.</summary>
     public IReadOnlyList<ResourceSchemaCarriedForwardAspectKeyCount> CarriedForwardAspectKeyCounts { get; init; } = [];
+
+    /// <summary>Deterministic counts by nonblank diagnostic code, over every result's diagnostics.</summary>
+    public IReadOnlyList<ResourceSchemaUpgradeDiagnosticCodeCount> DiagnosticCodeCounts { get; init; } = [];
 }
 
 /// <summary>
@@ -179,7 +200,9 @@ public static class ResourceSchemaUpgradeSummaryExtensions
                 materialized.Select(static result => result.SourceDefinitionVersion),
                 includeUnknown: true),
             TargetDefinitionVersionCounts = CountDefinitionVersions(
-                materialized.Select(static result => (int?)result.TargetDefinitionVersion),
+                materialized
+                    .Where(static result => result.TargetDefinitionVersion > 0)
+                    .Select(static result => (int?)result.TargetDefinitionVersion),
                 includeUnknown: false),
             CarriedForwardAspectKeyCounts = carriedForwardAspectKeys
                 .GroupBy(static key => key, StringComparer.Ordinal)
@@ -187,6 +210,17 @@ public static class ResourceSchemaUpgradeSummaryExtensions
                 .Select(static group => new ResourceSchemaCarriedForwardAspectKeyCount
                 {
                     AspectKey = group.Key,
+                    Count = group.Count(),
+                })
+                .ToList(),
+            DiagnosticCodeCounts = materialized
+                .SelectMany(static result => result.Diagnostics ?? [])
+                .Where(static diagnostic => diagnostic is not null && !string.IsNullOrWhiteSpace(diagnostic.Code))
+                .GroupBy(static diagnostic => diagnostic.Code, StringComparer.Ordinal)
+                .OrderBy(static group => group.Key, StringComparer.Ordinal)
+                .Select(static group => new ResourceSchemaUpgradeDiagnosticCodeCount
+                {
+                    Code = group.Key,
                     Count = group.Count(),
                 })
                 .ToList(),

@@ -232,12 +232,24 @@ export type SchemaStatusDto = {
   latestDefinitionVersion: number | null;
   status: "current" | "older-than-latest" | "missing-definition" | "missing-definition-version" | "unknown-resource-lineage";
   message: string;
-  /** Aspect keys on the latest version that the latest definition doesn't declare; an upgrade carries them forward. */
-  undeclaredAspectKeys: string[];
+  /** The SDK's preview of upgrading the latest version to the latest definition. */
+  upgrade: SchemaUpgradePreviewDto;
+};
+
+export type SchemaUpgradeStatus = "upgraded" | "no-op" | "rejected";
+
+export type SchemaUpgradePreviewDto = {
+  /** What the upgrade would report: "upgraded" when it would append a version. */
+  status: SchemaUpgradeStatus;
+  targetDefinitionVersion: number | null;
+  /** Aspect keys the target definition doesn't declare; the upgrade carries them forward. */
+  carriedForwardAspectKeys: string[];
+  /** Why the upgrade would be rejected. */
+  diagnostics: CodedDiagnostic[];
 };
 
 export type SchemaUpgradeResultDto = {
-  status: "upgraded" | "no-op";
+  status: SchemaUpgradeStatus;
   resourceVersion: number | null;
   sourceDefinitionVersion: number | null;
   targetDefinitionVersion: number;

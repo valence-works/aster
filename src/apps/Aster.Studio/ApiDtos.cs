@@ -152,7 +152,14 @@ internal sealed record SchemaStatusDto(
     int? LatestDefinitionVersion,
     ResourceSchemaStatus Status,
     string Message,
-    IReadOnlyList<string> UndeclaredAspectKeys);
+    SchemaUpgradePreviewDto Upgrade);
+
+/// <summary>What upgrading the latest version to the latest definition would do, from the SDK's upgrade preview.</summary>
+internal sealed record SchemaUpgradePreviewDto(
+    ResourceSchemaUpgradeStatus Status,
+    int? TargetDefinitionVersion,
+    IReadOnlyList<string> CarriedForwardAspectKeys,
+    IReadOnlyList<DiagnosticDto> Diagnostics);
 
 internal sealed record SchemaUpgradeRequestDto(int BaseVersion);
 

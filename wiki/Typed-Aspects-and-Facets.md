@@ -119,7 +119,7 @@ services.AddAsterCore(options => options.ReferenceValidation = ReferenceValidati
 - `Strict` (the default) rejects the save with a `FacetValueValidationException`; nothing is persisted.
 - `Lenient` saves. The diagnostics are logged as warnings and passed to lifecycle hooks as `ResourceSaveLifecycleContext.ReferenceWarnings`.
 
-To show the same diagnostics before saving (for example, in an editor), call `IResourceReferenceValidator.ValidateAsync(definition, aspects, tenant)`. Portability import and schema upgrades skip these checks, as they do for facet value validation.
+To show the same diagnostics before saving (for example, in an editor), call `IResourceReferenceValidator.ValidateAsync(definition, aspects, tenant)`. Portability import and schema upgrades skip these checks. Portability import skips facet value validation too; a schema upgrade validates facet values against its target definition and returns the diagnostics as a rejection.
 
 ### Untyped aspects
 

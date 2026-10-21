@@ -29,7 +29,7 @@ app.MapAster("/api/aster", options =>
 | Aspects | `GET /aspects`, `GET /aspects/{id}[?version=]`, `GET /aspects/{id}/versions`, `GET /aspects/{id}/schema`, `POST /aspects[?expectedLatestVersion=]` |
 | Resources | `GET /resources`, `POST /resources/query`, `GET /resources/{id}[?version=]`, `GET /resources/{id}/versions`, `POST /resources`, `PUT /resources/{id}`, `POST /resources/{id}/activate`, `POST /resources/{id}/deactivate` |
 
-- **Errors:** validation failures return `400` ProblemDetails with `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]`; concurrency and uniqueness conflicts return `409` with a `code`; missing entities return `404`.
+- **Errors:** validation failures return `400` ProblemDetails with `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]`; concurrency and uniqueness conflicts return `409` with a `code`; missing entities return `404`. Endpoints a host maps inside an Aster group get the same mapping, including `ResourceSchemaUpgradeException` from `ThrowIfRejected()` on a rejected schema upgrade (`404`, `409` or `400` by its first code).
 - **Lifecycle:** list and query endpoints exclude archived and soft-deleted resources unless `lifecycle=all`, `archived` or `softDeleted`.
 
 ## JSON
