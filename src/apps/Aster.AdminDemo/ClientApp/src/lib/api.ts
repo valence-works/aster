@@ -12,7 +12,8 @@ export type FacetMetadata = {
   minItems?: number;
   maxItems?: number;
   uniqueItems?: boolean;
-  uiHint?: "text" | "multiline" | "richtext" | "slug" | "email" | "url" | "date" | "datetime" | "number" | "toggle" | "select" | "tags" | string;
+  /** A standard hint from `UiHints` (docs/ui-hints.md), or a host-specific one. */
+  uiHint?: string;
 };
 
 export type FacetDto = {

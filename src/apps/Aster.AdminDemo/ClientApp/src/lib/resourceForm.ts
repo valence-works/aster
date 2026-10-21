@@ -1,4 +1,5 @@
 import type { DefinitionDetailDto, DiagnosticDto, FacetDto, ResourceAspects } from "@/lib/api";
+import { UiHints, uiHintOf } from "@/lib/uiHints";
 import { toKebabCase } from "@/lib/utils";
 
 export type FieldErrors = Record<string, string>;
@@ -34,8 +35,8 @@ export function initialAspects(definition: DefinitionDetailDto, resource?: { asp
 
 export function defaultValue(facet: FacetDto): unknown {
   if (facet.metadata?.defaultValue !== undefined) return facet.metadata.defaultValue;
-  if (facet.metadata?.uiHint === "toggle" || facet.type === "boolean") return false;
-  if (facet.metadata?.uiHint === "tags" || isArrayFacet(facet)) return [];
+  if (uiHintOf(facet) === UiHints.switch || uiHintOf(facet) === UiHints.checkbox || facet.type === "boolean") return false;
+  if (uiHintOf(facet) === UiHints.tags || isArrayFacet(facet)) return [];
   return "";
 }
 
@@ -59,7 +60,7 @@ export function validateAspects(definition: DefinitionDetailDto, aspects: Resour
       if (metadata?.minLength !== undefined && String(value).length < metadata.minLength) errors[key] = `Must be at least ${metadata.minLength} characters.`;
       if (metadata?.maxLength !== undefined && String(value).length > metadata.maxLength) errors[key] = `Must be at most ${metadata.maxLength} characters.`;
       const numeric = typeof value === "number" ? value : Number(value);
-      if ((facet.type === "number" || metadata?.uiHint === "number") && !Number.isNaN(numeric)) {
+      if ((facet.type === "number" || uiHintOf(facet) === UiHints.number) && !Number.isNaN(numeric)) {
         if (metadata?.minValue !== undefined && numeric < metadata.minValue) errors[key] = `Must be at least ${metadata.minValue}.`;
         if (metadata?.maxValue !== undefined && numeric > metadata.maxValue) errors[key] = `Must be at most ${metadata.maxValue}.`;
       }
@@ -118,11 +119,11 @@ export function normalizeForSubmit(definition: DefinitionDetailDto, aspects: Res
         normalized[aspect.aspectKey][facet.facetId] = items.length ? items : null;
       } else if (value === "") {
         normalized[aspect.aspectKey][facet.facetId] = null;
-      } else if (facet.type === "number" || facet.metadata?.uiHint === "number") {
+      } else if (facet.type === "number" || uiHintOf(facet) === UiHints.number) {
         normalized[aspect.aspectKey][facet.facetId] = typeof value === "number" ? value : Number(value);
-      } else if (facet.type === "boolean" || facet.metadata?.uiHint === "toggle") {
+      } else if (facet.type === "boolean" || uiHintOf(facet) === UiHints.switch || uiHintOf(facet) === UiHints.checkbox) {
         normalized[aspect.aspectKey][facet.facetId] = Boolean(value);
-      } else if (facet.metadata?.uiHint === "slug") {
+      } else if (uiHintOf(facet) === UiHints.slug) {
         normalized[aspect.aspectKey][facet.facetId] = toKebabCase(String(value));
       } else {
         normalized[aspect.aspectKey][facet.facetId] = value;
