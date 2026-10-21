@@ -204,8 +204,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
 
-        var versions = (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken)).ToList();
-        var latest = versions.LastOrDefault()
+        var latest = await ReadLatestVersionAsync(resourceId, tenant, cancellationToken)
             ?? throw new VersionNotFoundException(resourceId, request.BaseVersion);
 
         if (latest.Version != request.BaseVersion)
@@ -302,8 +301,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        return (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken))
-            .FirstOrDefault(r => r.Version == version);
+        return await ReadVersionAsync(resourceId, version, tenant, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -338,8 +336,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        return (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken))
-            .LastOrDefault();
+        return await ReadLatestVersionAsync(resourceId, tenant, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -364,9 +361,8 @@ public sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var versions = (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken)).ToList();
-        if (versions.All(r => r.Version != version))
-            throw new VersionNotFoundException(resourceId, version);
+        var target = await ReadVersionAsync(resourceId, version, tenant, cancellationToken)
+            ?? throw new VersionNotFoundException(resourceId, version);
 
         var activeVersions = allowMultipleActive
             ? (await GetActiveVersionsAsync(resourceId, channel, tenant, cancellationToken))
@@ -385,7 +381,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             CancellationToken = cancellationToken,
             TenantScope = tenant,
             ResourceId = resourceId,
-            DefinitionId = versions[0].DefinitionId,
+            DefinitionId = target.DefinitionId,
             Version = version,
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
@@ -399,7 +395,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             CancellationToken = cancellationToken,
             TenantScope = tenant,
             ResourceId = resourceId,
-            DefinitionId = versions[0].DefinitionId,
+            DefinitionId = target.DefinitionId,
             Version = version,
             Channel = channel,
             AllowMultipleActive = allowMultipleActive,
@@ -441,8 +437,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
-        var definitionId = (await GetResourceVersionsAsync(resourceId, tenant, cancellationToken))
-            .FirstOrDefault()?.DefinitionId;
+        var definitionId = (await ReadLatestVersionAsync(resourceId, tenant, cancellationToken))?.DefinitionId;
         var activeVersions = (await GetActiveVersionsAsync(resourceId, channel, tenant, cancellationToken))
             .Select(r => r.Version)
             .ToHashSet();
@@ -542,6 +537,34 @@ public sealed partial class DefaultResourceManager : IResourceManager
             .OrderBy(r => r.Version)
             .ToList();
     }
+
+    // Single-version reads address one row instead of loading the resource's history (#166).
+    private async Task<Resource?> ReadLatestVersionAsync(
+        string resourceId,
+        TenantScope tenant,
+        CancellationToken cancellationToken) =>
+        (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            Scope = ResourceVersionScope.Latest,
+            TenantScope = tenant,
+            ResourceIds = [resourceId],
+        }, cancellationToken))
+            .Where(r => string.Equals(r.ResourceId, resourceId, StringComparison.Ordinal))
+            .MaxBy(static r => r.Version);
+
+    private async Task<Resource?> ReadVersionAsync(
+        string resourceId,
+        int version,
+        TenantScope tenant,
+        CancellationToken cancellationToken) =>
+        (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            Scope = ResourceVersionScope.AllVersions,
+            TenantScope = tenant,
+            ResourceIds = [resourceId],
+            Version = version,
+        }, cancellationToken))
+            .FirstOrDefault(r => string.Equals(r.ResourceId, resourceId, StringComparison.Ordinal) && r.Version == version);
 
     // Singleton definitions are the only create path that needs every resource of a definition; the
     // reader has no definition filter, so this reads latest versions only and only for singletons.

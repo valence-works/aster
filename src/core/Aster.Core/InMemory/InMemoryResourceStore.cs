@@ -180,6 +180,9 @@ public sealed class InMemoryResourceStore :
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Scope, "Unknown resource version scope.")
         };
 
+        if (request.Version is { } version)
+            resources = resources.Where(resource => resource.Version == version);
+
         return ValueTask.FromResult<IEnumerable<Resource>>(resources.ToList());
     }
 

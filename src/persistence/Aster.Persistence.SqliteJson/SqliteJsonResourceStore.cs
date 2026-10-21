@@ -551,7 +551,16 @@ public sealed class SqliteJsonResourceStore :
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
         var resourceIds = request.GetResourceIdSelection();
 
-        return request.Scope switch
+        // A version number with bounded IDs is a primary-key lookup; don't read the histories.
+        if (request is { Version: { } version, Scope: ResourceVersionScope.AllVersions } && resourceIds.Values.Count > 0)
+        {
+            return await ReadVersionsByKeyAsync(
+                tenant,
+                resourceIds.Values.Select(resourceId => (resourceId, version)),
+                cancellationToken);
+        }
+
+        var resources = request.Scope switch
         {
             ResourceVersionScope.Latest => await ReadLatestVersionsAsync(tenant, resourceIds, cancellationToken),
             ResourceVersionScope.AllVersions => await ReadAllVersionsAsync(tenant, resourceIds, cancellationToken),
@@ -559,6 +568,10 @@ public sealed class SqliteJsonResourceStore :
             ResourceVersionScope.Draft => await ReadDraftVersionsAsync(tenant, resourceIds, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Scope, "Unknown resource version scope.")
         };
+
+        return request.Version is { } requested
+            ? resources.Where(resource => resource.Version == requested).ToList()
+            : resources;
     }
 
     /// <inheritdoc />
@@ -1233,14 +1246,58 @@ public sealed class SqliteJsonResourceStore :
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
 
-        var resources = (await ReadAllVersionsAsync(tenant, resourceIds, cancellationToken)).ToList();
+        // Activation rows are small; read them first and then only the active version rows, rather
+        // than every version of every resource in scope.
         var active = await ReadActivationStatesAsync(tenant, resourceIds, channel, cancellationToken);
 
-        return resources
-            .Where(resource =>
-                active.TryGetValue(resource.ResourceId, out var versions)
-                && versions.Contains(resource.Version))
+        return await ReadVersionsByKeyAsync(
+            tenant,
+            active.SelectMany(static pair => pair.Value.Select(version => (pair.Key, version))),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads the version rows for the given <c>(resource_id, version)</c> keys, ordered by resource ID and
+    /// version. Keys without a row (pruned or never written) are skipped.
+    /// </summary>
+    private async Task<List<Resource>> ReadVersionsByKeyAsync(
+        TenantScope tenant,
+        IEnumerable<(string ResourceId, int Version)> keys,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<Resource>();
+        var ordered = keys
+            .Distinct()
+            .OrderBy(static key => key.ResourceId, StringComparer.Ordinal)
+            .ThenBy(static key => key.Version)
             .ToList();
+        if (ordered.Count == 0)
+            return results;
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var batch in ordered.Chunk(MaxSqliteParametersPerQuery / 2))
+        {
+            await using var command = connection.CreateCommand();
+            var predicates = new List<string>(batch.Length);
+            for (var index = 0; index < batch.Length; index++)
+            {
+                predicates.Add($"(resource_id = $resourceId{index} AND version = $version{index})");
+                command.Parameters.AddWithValue($"$resourceId{index}", batch[index].ResourceId);
+                command.Parameters.AddWithValue($"$version{index}", batch[index].Version);
+            }
+
+            command.CommandText = $"""
+                SELECT payload
+                FROM resource_versions
+                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)})
+                ORDER BY resource_id, version;
+                """;
+            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+
+            results.AddRange(await ReadPayloadsAsync<Resource>(command, cancellationToken));
+        }
+
+        return results;
     }
 
     private async Task<IEnumerable<Resource>> ReadDraftVersionsAsync(

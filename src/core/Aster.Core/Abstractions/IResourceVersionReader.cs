@@ -49,6 +49,13 @@ public sealed record ResourceVersionReadRequest
     public IReadOnlyCollection<string>? ResourceIds { get; init; }
 
     /// <summary>
+    /// Optional version number. When set, providers return only versions with this number from the
+    /// requested scope; combined with a single <see cref="ResourceIds"/> entry it addresses one version.
+    /// Providers that ignore it stay correct for callers that also filter by version, only slower.
+    /// </summary>
+    public int? Version { get; init; }
+
+    /// <summary>
     /// Normalizes <see cref="ResourceIds"/> into an ordinal bounded-resource selection.
     /// </summary>
     /// <returns>The normalized bounded-resource selection.</returns>
