@@ -26,7 +26,7 @@ app.MapAster("/api/aster", options =>
 | Group | Endpoints |
 |---|---|
 | Definitions | `GET /definitions`, `GET /definitions/{id}[?version=]`, `GET /definitions/{id}/schema`, `POST /definitions[?expectedLatestVersion=]` |
-| Aspects | `GET /aspects`, `GET /aspects/{id}[?version=]`, `GET /aspects/{id}/versions`, `GET /aspects/{id}/schema`, `POST /aspects` |
+| Aspects | `GET /aspects`, `GET /aspects/{id}[?version=]`, `GET /aspects/{id}/versions`, `GET /aspects/{id}/schema`, `POST /aspects[?expectedLatestVersion=]` |
 | Resources | `GET /resources`, `POST /resources/query`, `GET /resources/{id}[?version=]`, `GET /resources/{id}/versions`, `POST /resources`, `PUT /resources/{id}`, `POST /resources/{id}/activate`, `POST /resources/{id}/deactivate` |
 
 - **Errors:** validation failures return `400` ProblemDetails with `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]`; concurrency and uniqueness conflicts return `409` with a `code`; missing entities return `404`.

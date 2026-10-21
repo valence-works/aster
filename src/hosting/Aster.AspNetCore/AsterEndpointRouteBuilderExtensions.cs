@@ -239,21 +239,42 @@ public static class AsterEndpointRouteBuilderExtensions
         if (options.ReadOnly)
             return;
 
-        group.MapPost("", async (HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
+        group.MapPost("", async (int? expectedLatestVersion, HttpContext http, IAspectDefinitionStore store, CancellationToken ct) =>
             {
                 var (aspect, bodyProblem) = await AsterJson.ReadBodyAsync<AspectDefinition>(http);
                 if (aspect is null)
                     return bodyProblem!;
                 if (string.IsNullOrWhiteSpace(aspect.AspectDefinitionId))
                     return AsterProblems.Validation("aspect-id-required", "aspectDefinitionId is required.");
+                if (expectedLatestVersion is < 0)
+                    return AsterProblems.Validation("expected-version-invalid", "expectedLatestVersion must not be negative.");
 
-                var registered = await store.RegisterAsync(aspect, Tenant(http), ct);
+                AspectDefinition registered;
+                if (expectedLatestVersion is { } expected)
+                {
+                    var result = await store.RegisterIfLatestAsync(aspect, expected, Tenant(http), ct);
+                    if (!result.IsRegistered)
+                    {
+                        return AsterProblems.Conflict(
+                            "aspect-version-conflict",
+                            $"Aspect definition '{aspect.AspectDefinitionId}' is at version {result.LatestVersion}, not {expected}.");
+                    }
+
+                    registered = result.Aspect!;
+                }
+                else
+                {
+                    registered = await store.RegisterAsync(aspect, Tenant(http), ct);
+                }
+
                 return AsterJson.Created($"{http.Request.PathBase}{http.Request.Path.Value?.TrimEnd('/')}/{Uri.EscapeDataString(registered.AspectDefinitionId)}", registered);
             })
             .WithSummary("Register a new version of a shared aspect definition; the store assigns the version.")
+            .WithDescription("With ?expectedLatestVersion, registration happens only when the latest version is still that one (0: the aspect must not exist), and returns 409 otherwise.")
             .Accepts<AspectDefinition>("application/json")
             .Produces<AspectDefinition>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
     }
 
