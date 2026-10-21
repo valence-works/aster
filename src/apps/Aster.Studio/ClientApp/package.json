@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
-    "preview": "vite preview"
+    "build": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.e2e.json && vite build",
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "latest",
@@ -28,6 +29,7 @@
     "tailwind-merge": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

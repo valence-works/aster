@@ -53,6 +53,26 @@ cd src/apps/Aster.Studio/ClientApp && npm run dev                # terminal 2
 
 Vite proxies `/api` to http://localhost:5210.
 
+### Smoke tests
+
+Playwright drives the core flows end to end:
+- create a content type from shared aspects
+- create, edit and validate a resource, including server diagnostics on fields
+- activate and deactivate on preview and live
+- version history
+- the tag filter
+
+```bash
+cd src/apps/Aster.Studio/ClientApp
+npm run build                       # the host serves the built SPA
+npx playwright install chromium     # once
+npm run test:e2e
+```
+
+`playwright.config.ts` starts the host itself on port 5299 (`STUDIO_E2E_PORT` overrides it), with a fresh SQLite
+database in a temporary directory, so runs never touch `App_Data`. CI runs the suite on every PR
+(`Aster Studio Playwright smoke`).
+
 ## Tour
 
 | Screen | What it demonstrates |
