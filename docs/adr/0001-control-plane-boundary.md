@@ -53,7 +53,11 @@ A resource type belongs in Aster when most of these hold:
 4. **Variety over volume.** Many types with modest counts, rather than one type with millions of rows and complex queries.
 5. **It travels.** It is exported, imported, or copied between environments or tenants.
 
-Indicative volumes will be recorded once benchmarks exist (#103, #104). Until then, plan for **tens of thousands of resources per definition on SQLite**, and treat an order of magnitude more as needing the Postgres provider with declared index projections.
+Indicative volumes, measured by the benchmark harness (#103) and recorded in the [performance guidance](../performance/guidance.md) (#104):
+- **Bounded operations don't depend on volume.** Single-resource reads and writes stay flat from about 2.5k to 250k resources. On SQLite, reads take 30–70 µs and writes about 0.8 ms.
+- **SQLite:** plan for **up to about 25k resources per tenant** for interactive scalar facet queries (50–65 ms at that size). Array and reference queries already take 130–330 ms there, so keep them off request paths.
+- **Beyond that:** the expectation, not yet measured, is that an order of magnitude more needs the Postgres provider with declared index projections (#100). Confirm it by benchmark once #97–#100 land.
+- **History:** budget about 4 KB per version, and apply a pruning policy once a resource's history passes about 1,000 versions (ADR 0005).
 
 Latency targets are also deferred to the performance epic (#66). The interim rule: **keep Aster off per-execution hot paths.** Read control-plane data when it changes (through lifecycle hooks) or at startup, and cache the resolved version in the host. If a host would need an Aster query on every request or workflow step to meet its latency budget, that data is runtime data, or the host needs a cache in front of Aster.
 
