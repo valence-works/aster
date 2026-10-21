@@ -509,7 +509,8 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         var remappedCollisionDiagnostics = new List<RemappedCollisionDiagnostic>();
 
         // Shared aspect definitions are a tenant-wide vocabulary that definitions pin by (id, version), so a divergent
-        // version is never remapped: renaming it would silently fork the vocabulary and orphan every pin to it.
+        // version is never remapped: renaming it would silently fork the vocabulary and orphan every pin to it. A
+        // version with the same content is reused whatever IDs its registration generated (#195).
         foreach (var aspect in snapshot.AspectDefinitions)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -774,7 +775,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
 
             if (definitionIdMap.TryGetValue(definition.DefinitionId, out var targetDefinitionId))
             {
-                var remappedDefinition = definition with { DefinitionId = targetDefinitionId };
+                var remappedDefinition = PinToTargetAspects(definition, existingAspects) with { DefinitionId = targetDefinitionId };
                 plannedDefinitions.Add(remappedDefinition);
                 identityMap.Add(Remapped(
                     PortableEntityKind.DefinitionVersion,
@@ -786,7 +787,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             var key = (definition.DefinitionId, definition.Version);
             if (!existingDefinitions.TryGetValue(key, out _))
             {
-                plannedDefinitions.Add(definition);
+                plannedDefinitions.Add(PinToTargetAspects(definition, existingAspects));
                 identityMap.Add(Preserved(PortableEntityKind.DefinitionVersion, DefinitionVersionId(definition)));
                 continue;
             }
@@ -1855,8 +1856,34 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         };
 
     // A pin is the registered version embedded with IsShared set, so the flag is not content.
+    // Shared aspects are a tenant's vocabulary, pinned by (id, version) and compared by content: the version and facet
+    // IDs are generated per registration, so two tenants that register the same aspect independently still match.
     private static bool AspectContentEquals(AspectDefinition left, AspectDefinition right) =>
-        JsonContentEquals(left with { IsShared = false }, right with { IsShared = false });
+        JsonContentEquals(AspectContent(left), AspectContent(right));
+
+    private static AspectDefinition AspectContent(AspectDefinition aspect) => aspect with
+    {
+        Id = string.Empty,
+        IsShared = false,
+        FacetDefinitions = aspect.FacetDefinitions.Select(static facet => facet with { Id = string.Empty }).ToList(),
+    };
+
+    // A definition that pins an aspect version the target already holds embeds the target's copy, so its pins keep
+    // matching the target's store exactly once imported.
+    private static ResourceDefinition PinToTargetAspects(
+        ResourceDefinition definition,
+        IReadOnlyDictionary<(string AspectDefinitionId, int Version), AspectDefinition> targetAspects) =>
+        definition.AspectDefinitions.Any(pair => pair.Value.IsShared && targetAspects.ContainsKey((pair.Value.AspectDefinitionId, pair.Value.Version)))
+            ? definition with
+            {
+                AspectDefinitions = definition.AspectDefinitions.ToDictionary(
+                    static pair => pair.Key,
+                    pair => pair.Value.IsShared && targetAspects.TryGetValue((pair.Value.AspectDefinitionId, pair.Value.Version), out var stored)
+                        ? stored with { IsShared = true }
+                        : pair.Value,
+                    StringComparer.Ordinal),
+            }
+            : definition;
 
     private static string AspectVersionId(AspectDefinition aspect) =>
         JsonSerializer.Serialize(new object[] { aspect.AspectDefinitionId, aspect.Version }, JsonOptions);

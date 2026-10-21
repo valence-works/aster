@@ -43,17 +43,15 @@ v1, so they offer a schema upgrade, and `article-horizontal-aspects` carries
 `navigation` forward when upgraded. Startup seeds an aspect only when the store doesn't have it, so
 edits made in the Aspect Library survive restarts.
 
-A second tenant, `acme`, gets the same five shared aspects (the seed gives them fixed IDs, so both tenants hold
-identical versions) and its own content: a `page` type with only `content` and `seo`, a `product` type, and two
+A second tenant, `acme`, gets the same five shared aspects (registered separately; portability matches aspect
+versions by content, so both tenants' copies match) and its own content: a `page` type with only `content` and `seo`, a `product` type, and two
 of each. Its `page` type and `page-home` share IDs with the default tenant's but not their content, so importing
 those from the default tenant shows remapping.
 
 The demo database is disposable. After pulling changes to the seed data, delete
 `App_Data/aster-demo.db` and restart to reseed. Databases seeded before shared
 aspects (#96) keep `article` and `page` with definition-local aspects: they
-still work, but upgrades in the Aspect Library don't reach them. Databases seeded before the Acme tenant (#112)
-keep shared aspects with random IDs, so their default tenant's aspects differ from Acme's and an import into Acme
-fails with `divergent-identity-collision` on them: shared aspects are never remapped.
+still work, but upgrades in the Aspect Library don't reach them.
 
 ### Frontend dev loop
 
