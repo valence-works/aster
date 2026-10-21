@@ -40,6 +40,25 @@ public sealed class BoundedResourceReadTests
             Assert.Equal(new[] { "a1" }, request.ResourceIds));
     }
 
+    [Fact]
+    public async Task BoundedRead_OfAnAbsentResource_HonorsCancellation()
+    {
+        var store = new InMemoryResourceStore();
+        await store.SaveVersionAsync(new Resource
+        {
+            ResourceId = "present",
+            Id = "present-v1",
+            DefinitionId = "Article",
+            Version = 1,
+            Created = DateTime.UtcNow,
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await store.ReadVersionsAsync(
+                new ResourceVersionReadRequest { Scope = ResourceVersionScope.AllVersions, ResourceIds = ["absent"] },
+                new CancellationToken(canceled: true)));
+    }
+
     private sealed class RecordingReader(IResourceVersionReader inner) : IResourceVersionReader
     {
         public List<ResourceVersionReadRequest> Requests { get; } = [];

@@ -166,6 +166,8 @@ public sealed class InMemoryResourceStore :
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        // Bounded reads of absent IDs never enter a read loop, so check cancellation up front.
+        cancellationToken.ThrowIfCancellationRequested();
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
         var resourceIds = request.GetResourceIdSelection();
 
