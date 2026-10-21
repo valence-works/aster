@@ -507,6 +507,8 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         var diagnostics = ValidateSnapshot(snapshot);
         diagnostics.AddRange(ValidateImportOptions(options));
         var targetTenant = ResolveTenantForDiagnostics(options.TargetTenantScope, "targetTenantScope", diagnostics);
+        if (IdentifierValidator.HasSurroundingWhitespace(targetTenant.TenantId))
+            diagnostics.Add(IdentifierWhitespace("targetTenantScope/tenantId", targetTenant.TenantId, "Import target tenant ID"));
         if (diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
             return ImportPlan.Failed(diagnostics);
 
@@ -1291,6 +1293,11 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostics.Add(MalformedSnapshot($"aspectDefinitions/{i}/aspectDefinitionId", "Snapshot aspect definition ID is required."));
                 isMalformed = true;
             }
+            else if (IdentifierValidator.HasSurroundingWhitespace(aspect.AspectDefinitionId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"aspectDefinitions/{i}/aspectDefinitionId", aspect.AspectDefinitionId, "Snapshot aspect definition ID"));
+                isMalformed = true;
+            }
 
             if (string.IsNullOrWhiteSpace(aspect.Id))
             {
@@ -1352,6 +1359,11 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostics.Add(MalformedSnapshot($"definitions/{i}/definitionId", "Snapshot definition ID is required."));
                 isMalformed = true;
             }
+            else if (IdentifierValidator.HasSurroundingWhitespace(definition.DefinitionId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"definitions/{i}/definitionId", definition.DefinitionId, "Snapshot definition ID"));
+                isMalformed = true;
+            }
 
             if (string.IsNullOrWhiteSpace(definition.Id))
             {
@@ -1393,6 +1405,11 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostics.Add(MalformedSnapshot($"resources/{i}/resourceId", "Snapshot resource ID is required."));
                 isMalformed = true;
             }
+            else if (IdentifierValidator.HasSurroundingWhitespace(resource.ResourceId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"resources/{i}/resourceId", resource.ResourceId, "Snapshot resource ID"));
+                isMalformed = true;
+            }
 
             if (string.IsNullOrWhiteSpace(resource.Id))
             {
@@ -1403,6 +1420,11 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             if (string.IsNullOrWhiteSpace(resource.DefinitionId))
             {
                 diagnostics.Add(MalformedSnapshot($"resources/{i}/definitionId", "Snapshot resource definition ID is required."));
+                isMalformed = true;
+            }
+            else if (IdentifierValidator.HasSurroundingWhitespace(resource.DefinitionId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"resources/{i}/definitionId", resource.DefinitionId, "Snapshot resource definition ID"));
                 isMalformed = true;
             }
 
@@ -1446,10 +1468,20 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostics.Add(MalformedSnapshot($"activationStates/{i}/resourceId", "Snapshot activation state resource ID is required."));
                 isMalformed = true;
             }
+            else if (IdentifierValidator.HasSurroundingWhitespace(activationState.ResourceId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"activationStates/{i}/resourceId", activationState.ResourceId, "Snapshot activation state resource ID"));
+                isMalformed = true;
+            }
 
             if (string.IsNullOrWhiteSpace(activationState.Channel))
             {
                 diagnostics.Add(MalformedSnapshot($"activationStates/{i}/channel", "Snapshot activation state channel is required."));
+                isMalformed = true;
+            }
+            else if (IdentifierValidator.HasSurroundingWhitespace(activationState.Channel))
+            {
+                diagnostics.Add(IdentifierWhitespace($"activationStates/{i}/channel", activationState.Channel, "Snapshot activation channel"));
                 isMalformed = true;
             }
 
@@ -1486,6 +1518,11 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 diagnostics.Add(MalformedSnapshot($"lifecycleMarkers/{i}/resourceId", "Snapshot lifecycle marker resource ID is required."));
                 isMalformed = true;
             }
+            else if (IdentifierValidator.HasSurroundingWhitespace(marker.ResourceId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"lifecycleMarkers/{i}/resourceId", marker.ResourceId, "Snapshot lifecycle marker resource ID"));
+                isMalformed = true;
+            }
 
             if (marker.State is ResourceLifecycleMarkerState.None || !Enum.IsDefined(marker.State))
             {
@@ -1515,6 +1552,12 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             if (string.IsNullOrWhiteSpace(pin.AspectDefinitionId) || pin.Version <= 0)
             {
                 diagnostics.Add(MalformedSnapshot(PinPath(definition, key), "A pinned shared aspect requires an aspect definition ID and a version greater than zero."));
+                continue;
+            }
+
+            if (IdentifierValidator.HasSurroundingWhitespace(pin.AspectDefinitionId))
+            {
+                diagnostics.Add(IdentifierWhitespace($"{PinPath(definition, key)}/aspectDefinitionId", pin.AspectDefinitionId, "Snapshot pinned aspect definition ID"));
                 continue;
             }
 
@@ -1729,6 +1772,16 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             Severity = PortableDiagnosticSeverity.Error,
             Path = path,
             Message = message,
+        };
+
+    // Import writes every snapshot identifier as a new record, so the creation rule for identifiers applies (#230).
+    private static PortableDiagnostic IdentifierWhitespace(string path, string identifier, string label) =>
+        new()
+        {
+            Code = PortableDiagnosticCodes.IdentifierWhitespace,
+            Severity = PortableDiagnosticSeverity.Error,
+            Path = path,
+            Message = $"{label} '{identifier}' must not start or end with whitespace.",
         };
 
     private static TenantScope ResolveTenantOrDefault(TenantScope? tenantScope)

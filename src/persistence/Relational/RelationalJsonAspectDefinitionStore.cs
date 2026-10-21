@@ -56,8 +56,10 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
     {
         ArgumentNullException.ThrowIfNull(aspect);
         ArgumentException.ThrowIfNullOrWhiteSpace(aspect.AspectDefinitionId);
-        FacetMetadataValidator.Validate(aspect);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(aspect.AspectDefinitionId);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(tenant.TenantId);
+        FacetMetadataValidator.Validate(aspect);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
         await using var transaction = await dialect.BeginSerializedWriteAsync(

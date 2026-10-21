@@ -5,6 +5,7 @@ using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -394,6 +395,11 @@ public static class AsterEndpointRouteBuilderExtensions
                 var tenant = Tenant(http);
                 if (string.IsNullOrWhiteSpace(request.DefinitionId))
                     return AsterProblems.Validation("definition-id-required", "definitionId is required.");
+
+                // Checked before the definition lookup so a padded ID is a 400, as core would report it, not a 404.
+                IdentifierValidator.ThrowIfSurroundingWhitespace(request.DefinitionId, "definitionId");
+                if (!string.IsNullOrWhiteSpace(request.ResourceId))
+                    IdentifierValidator.ThrowIfSurroundingWhitespace(request.ResourceId, "resourceId");
                 if (await definitions.GetDefinitionAsync(request.DefinitionId, tenant, ct) is null)
                     return DefinitionNotFound(request.DefinitionId, null);
                 if (!await AuthorizeAsync(http, AsterResourceOperation.Create, request.DefinitionId, request.ResourceId, null, ct))

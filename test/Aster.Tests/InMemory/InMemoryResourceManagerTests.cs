@@ -46,6 +46,38 @@ public sealed class InMemoryResourceManagerTests
         Assert.Equal("Gadget", resource.Aspects["Title"]);
     }
 
+    [Theory]
+    [InlineData("Product ", "product-1", "default")]
+    [InlineData("Product", " product-1", "default")]
+    [InlineData("Product", "product-1", "tenant-a ")]
+    public async Task CreateAsync_PaddedIdentifier_ThrowsAndStoresNothing(string definitionId, string resourceId, string tenantId)
+    {
+        var (manager, store) = CreateManager();
+
+        var exception = await Assert.ThrowsAsync<InvalidIdentifierException>(async () =>
+            await manager.CreateAsync(definitionId, new CreateResourceRequest
+            {
+                ResourceId = resourceId,
+                TenantScope = new TenantScope { TenantId = tenantId },
+            }));
+
+        Assert.Equal(InvalidIdentifierException.SurroundingWhitespaceCode, exception.Code);
+        Assert.Empty(store.Versions);
+    }
+
+    [Fact]
+    public async Task ActivateAsync_PaddedChannel_Throws()
+    {
+        var (manager, _) = CreateManager();
+        await manager.CreateAsync("Product", new CreateResourceRequest { ResourceId = "product-1" });
+
+        var exception = await Assert.ThrowsAsync<InvalidIdentifierException>(async () =>
+            await manager.ActivateAsync("product-1", 1, " Published"));
+
+        Assert.Equal("channel", exception.ParamName);
+        Assert.Empty(await manager.GetActiveVersionsAsync("product-1", " Published"));
+    }
+
     [Fact]
     public async Task CreateAsync_CallerSuppliedResourceId_UsesSuppliedId()
     {

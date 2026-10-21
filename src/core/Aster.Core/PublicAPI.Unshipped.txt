@@ -3474,3 +3474,15 @@ override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.GetHashCode() -> 
 override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.ToString() -> string!
 static Aster.Core.Models.Lifecycle.LifecycleOperationFailure.operator !=(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? left, Aster.Core.Models.Lifecycle.LifecycleOperationFailure? right) -> bool
 static Aster.Core.Models.Lifecycle.LifecycleOperationFailure.operator ==(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? left, Aster.Core.Models.Lifecycle.LifecycleOperationFailure? right) -> bool
+Aster.Core.Exceptions.InvalidIdentifierException
+Aster.Core.Exceptions.InvalidIdentifierException.Code.get -> string!
+Aster.Core.Exceptions.InvalidIdentifierException.Identifier.get -> string?
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException() -> void
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException(string! code, string! message, string? paramName, string? identifier) -> void
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException(string! message) -> void
+Aster.Core.Exceptions.InvalidIdentifierException.InvalidIdentifierException(string! message, System.Exception! innerException) -> void
+Aster.Core.Services.IdentifierValidator
+const Aster.Core.Exceptions.InvalidIdentifierException.SurroundingWhitespaceCode = "identifier-whitespace" -> string!
+const Aster.Core.Models.Portability.PortableDiagnosticCodes.IdentifierWhitespace = "identifier-whitespace" -> string!
+static Aster.Core.Services.IdentifierValidator.HasSurroundingWhitespace(string? value) -> bool
+static Aster.Core.Services.IdentifierValidator.ThrowIfSurroundingWhitespace(string? value, string? paramName = null) -> void

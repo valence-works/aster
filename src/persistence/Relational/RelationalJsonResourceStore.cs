@@ -140,8 +140,10 @@ internal abstract class RelationalJsonResourceStore :
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        FacetMetadataValidator.Validate(definition);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(definition.DefinitionId);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(tenant.TenantId);
+        FacetMetadataValidator.Validate(definition);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
 

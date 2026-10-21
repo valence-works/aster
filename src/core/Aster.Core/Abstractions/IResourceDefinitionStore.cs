@@ -47,6 +47,9 @@ public interface IResourceDefinitionStore
     /// </summary>
     /// <param name="definition">The definition to register.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <exception cref="Exceptions.InvalidIdentifierException">
+    /// The definition ID or the tenant ID starts or ends with whitespace; nothing is registered.
+    /// </exception>
     ValueTask RegisterDefinitionAsync(ResourceDefinition definition, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -55,6 +58,9 @@ public interface IResourceDefinitionStore
     /// <param name="definition">The definition to register.</param>
     /// <param name="tenantScope">Tenant scope for registration.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <exception cref="Exceptions.InvalidIdentifierException">
+    /// The definition ID or the tenant ID starts or ends with whitespace; nothing is registered.
+    /// </exception>
     ValueTask RegisterDefinitionAsync(ResourceDefinition definition, TenantScope tenantScope, CancellationToken cancellationToken);
 
     /// <summary>
@@ -73,6 +79,9 @@ public interface IResourceDefinitionStore
     /// <see cref="ResourceDefinitionRegistrationStatus.VersionConflict"/> with the actual latest version and nothing written.
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="expectedLatestVersion"/> is negative.</exception>
+    /// <exception cref="Exceptions.InvalidIdentifierException">
+    /// The definition ID or the tenant ID starts or ends with whitespace; nothing is registered.
+    /// </exception>
     ValueTask<ResourceDefinitionRegistrationResult> RegisterDefinitionIfLatestAsync(
         ResourceDefinition definition,
         int expectedLatestVersion,

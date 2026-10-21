@@ -345,7 +345,7 @@ if (preview.CanImport)
 
 Export validates the request before it reads anything. An invalid scope returns `invalid-export-scope` errors and no snapshot: for example an empty selection, or, under `PortableResourceVersionScope.SpecificVersions`, a reference with an empty resource ID or a version that is not positive (path `specificResourceVersions`).
 
-Import is strict by default. Existing identical content is reused, divergent collisions fail before writing, and explicit `PortableImportCollisionMode.RemapDivergent` produces deterministic replacement identifiers while rewriting imported definition/resource references consistently. Preview and import return planned/actual counts, identity mappings, and diagnostics such as `duplicate-snapshot-identity`, `malformed-snapshot`, `missing-definition-reference`, `missing-resource-reference`, and `divergent-identity-collision`.
+Import is strict by default. Existing identical content is reused, divergent collisions fail before writing, and explicit `PortableImportCollisionMode.RemapDivergent` produces deterministic replacement identifiers while rewriting imported definition/resource references consistently. Preview and import return planned/actual counts, identity mappings, and diagnostics such as `duplicate-snapshot-identity`, `malformed-snapshot`, `missing-definition-reference`, `missing-resource-reference`, `divergent-identity-collision`, and `identifier-whitespace` (see [Identifier rules](#identifier-rules)).
 
 **Definitions match by content.** A snapshot definition matches the target's definition with the same `DefinitionId` and `Version`. They are identical when their content is: `IsSingleton`, policy declarations, and each aspect's key, `AspectDefinitionId`, version, `RequiresName`, schema, sharing, and facets (`FacetDefinitionId`, type, requiredness, version, metadata). The definition `Id` and the aspect and facet `Id`s, which `ResourceDefinitionBuilder` generates per registration, are ignored (#221). Two environments that register the same definitions from the same code therefore import from each other without remapping, in either collision mode: the target keeps its copy, and imported resources bind to its `DefinitionId` and `Version`. A definition whose content differs still collides. A content-identical definition under a different version number is not matched.
 
@@ -548,6 +548,29 @@ public sealed class AuditLifecycleHook : ResourceLifecycleHook
 ```
 
 Hook registration is ordinary DI registration. `AddResourceLifecycleHook<T>()` registers hooks as singletons for the common case; advanced hosts can manually register hooks with other DI lifetimes, and the dispatcher resolves hooks from an invocation scope. Aster does not scan assemblies, use attributes, introduce a provider registry, or require storage providers to implement hook-specific behavior.
+
+---
+
+## Identifier rules
+
+Resource IDs, definition IDs, aspect definition IDs, activation channels and tenant IDs are opaque, case-sensitive, exact-match strings. They must not be blank, and they must not start or end with whitespace (`char.IsWhiteSpace`, which includes tabs, newlines and non-breaking spaces). Whitespace inside an identifier (`"product one"`) is allowed.
+
+Providers disagree on what padded identifiers mean (SQL Server ignores trailing spaces when comparing, SQLite and PostgreSQL compare exactly), so core rejects them where a record is written for the first time, the same way on every provider:
+
+| Where | What is checked | Failure |
+|---|---|---|
+| `TenantScope.FromTenantId` | the tenant ID | `InvalidIdentifierException` |
+| `IResourceManager.CreateAsync` | the definition ID, a caller-supplied `ResourceId` (a blank one still means "generate an ID"), the tenant ID | `InvalidIdentifierException` |
+| `IResourceDefinitionStore.RegisterDefinitionAsync` / `RegisterDefinitionIfLatestAsync`, `ResourceDefinitionBuilder.WithDefinitionId` | the definition ID (and the tenant ID when registering) | `InvalidIdentifierException` |
+| `IAspectDefinitionStore.RegisterAsync` / `RegisterIfLatestAsync` | the aspect definition ID, the tenant ID | `InvalidIdentifierException` |
+| `IResourceManager.ActivateAsync` | the channel | `InvalidIdentifierException` |
+| Snapshot validation, import preview and import | every snapshot resource ID, definition ID, aspect definition ID (including pins), activation channel, lifecycle-marker resource ID, and the import's target tenant ID | an `identifier-whitespace` error diagnostic; nothing is written |
+
+`InvalidIdentifierException` derives from `ArgumentException` (like the rejection of a blank ID), carries the stable code `identifier-whitespace` (`InvalidIdentifierException.SurroundingWhitespaceCode`), the offending `Identifier`, and the `ParamName`. `IdentifierValidator.HasSurroundingWhitespace` and `IdentifierValidator.ThrowIfSurroundingWhitespace` apply the same rule for hosts and third-party providers.
+
+Arguments that look up an existing record are not checked: reads (`GetVersionAsync`, `GetLatestVersionAsync`, `GetVersionsAsync`, `GetActiveVersionsAsync`, version history), `UpdateAsync`, `DeactivateAsync`, schema upgrades, lifecycle markers and restore, policy application and pruning, export, and query filters such as `DefinitionId` or `ResourceId`. They match exactly and never trim.
+
+> **Breaking input rule (#230).** Creating, registering, activating or importing with a padded identifier used to succeed and now fails. Records stored before the rule existed stay readable, updatable, deactivatable, archivable and exportable under their exact padded IDs; a tenant whose ID is padded is reached with `new TenantScope { TenantId = " legacy" }` instead of `FromTenantId`. New records cannot be written under padded IDs, including new versions of a padded definition or aspect definition, so move such data to a trimmed ID: read it, create or register it under the trimmed ID, then archive or prune the padded original.
 
 ---
 
