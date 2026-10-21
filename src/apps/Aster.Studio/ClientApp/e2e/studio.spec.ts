@@ -1,37 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { createArticle, field, saveNewVersion, setChannel, unique, versionRow } from "./support";
 
 // Smoke coverage for Studio's core flows against the real host and a freshly seeded SQLite database.
 // Each test creates the data it changes, so the tests don't depend on one another's order or leftovers.
-
-const field = (page: Page, aspectKey: string, facetId: string) => page.locator(`[id="${aspectKey}.${facetId}"]`);
-const unique = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-
-async function createArticle(page: Page, title: string) {
-  await page.goto("/content/article/new");
-  await field(page, "content", "title").fill(title);
-  await page.getByRole("button", { name: "Title", exact: true }).click(); // Generate the slug from the title.
-  await page.getByRole("button", { name: "Create resource" }).click();
-  await expect(page).toHaveURL(/\/content\/article\/(?!new$)[^/]+$/);
-  await expect(page.getByText("base v1")).toBeVisible();
-}
-
-async function saveNewVersion(page: Page, title: string, expectedVersion: number) {
-  await field(page, "content", "title").fill(title);
-  await page.getByRole("button", { name: "Save new version" }).click();
-  await expect(page.getByText(`base v${expectedVersion}`)).toBeVisible();
-}
-
-async function setChannel(page: Page, version: number, action: "Activate" | "Deactivate", channel: "preview" | "live") {
-  const row = versionRow(page, version);
-  await row.getByRole("button", { name: `${action} ${channel}` }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("heading", { name: `${action} v${version} ${channel}` })).toBeVisible();
-  await dialog.getByRole("button", { name: "Confirm" }).click();
-  await expect(dialog).toBeHidden();
-}
-
-const versionRow = (page: Page, version: number) =>
-  page.getByRole("tabpanel", { name: "Timeline" }).locator(":scope > div").filter({ has: page.getByText(`v${version}`, { exact: true }) });
 
 test("creates a content type from shared aspects and edits it with the generated form", async ({ page }) => {
   const definitionId = unique("smoke-type");

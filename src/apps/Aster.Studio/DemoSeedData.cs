@@ -1,6 +1,8 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
 using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Instances;
+using Aster.Core.Models.Policies;
 
 namespace Aster.Studio;
 
@@ -38,6 +40,38 @@ internal static class DemoSeedData
         ]),
     ];
 
+    // Declared on article v2, so the policy screens have archive, soft-delete and pruning outcomes to preview.
+    private static readonly IReadOnlyList<ResourcePolicyDeclaration> ArticlePolicies =
+    [
+        new()
+        {
+            PolicyId = "archive-drafts",
+            Name = "Archive articles whose latest version was never activated",
+            Kind = ResourcePolicyKind.Archival,
+            Target = ResourcePolicyTarget.Resource,
+            Outcome = ResourcePolicyOutcome.Archive,
+            Criteria = new() { ActivationState = ResourcePolicyActivationState.Draft, LifecycleState = ResourceLifecycleMarkerState.None },
+        },
+        new()
+        {
+            PolicyId = "soft-delete-stale-drafts",
+            Name = "Soft-delete drafts older than a year",
+            Kind = ResourcePolicyKind.SoftDelete,
+            Target = ResourcePolicyTarget.Resource,
+            Outcome = ResourcePolicyOutcome.SoftDelete,
+            Criteria = new() { ActivationState = ResourcePolicyActivationState.Draft, LifecycleState = ResourceLifecycleMarkerState.None, MinimumAge = TimeSpan.FromDays(365) },
+        },
+        new()
+        {
+            PolicyId = "keep-latest-version",
+            Name = "Keep only the latest version",
+            Kind = ResourcePolicyKind.VersionPruning,
+            Target = ResourcePolicyTarget.ResourceVersion,
+            Outcome = ResourcePolicyOutcome.PrunePreview,
+            Criteria = new() { MaximumRetainedVersions = 1 },
+        },
+    ];
+
     public static async Task InitializeAsync(IServiceProvider services, ILogger logger, CancellationToken cancellationToken = default)
     {
         await using var scope = services.CreateAsyncScope();
@@ -53,6 +87,12 @@ internal static class DemoSeedData
         logger.LogInformation("Seeding Aster Studio SQLite database.");
         await SeedDefinitionsAsync(definitionStore, aspectStore, cancellationToken);
         await SeedResourcesAsync(resourceManager, cancellationToken);
+
+        // Article v2 drops navigation and declares policies after the articles exist, so they show a schema upgrade
+        // that carries navigation forward where an article has it.
+        await definitionStore.RegisterDefinitionAsync(
+            await BuildDefinitionAsync(aspectStore, "article", ["content", "seo", "publishable", "taggable"], ArticlePolicies, cancellationToken),
+            cancellationToken);
     }
 
     private static async Task SeedAspectsAsync(IAspectDefinitionStore aspectStore, ILogger logger, CancellationToken cancellationToken)
@@ -72,17 +112,28 @@ internal static class DemoSeedData
         IAspectDefinitionStore aspectStore,
         CancellationToken cancellationToken)
     {
-        await definitionStore.RegisterDefinitionAsync(await PinAsync("article", ["content", "seo", "publishable", "taggable"]), cancellationToken);
-        await definitionStore.RegisterDefinitionAsync(await PinAsync("page", ["content", "seo", "publishable", "navigation"]), cancellationToken);
+        await definitionStore.RegisterDefinitionAsync(
+            await BuildDefinitionAsync(aspectStore, "article", ["content", "seo", "publishable", "taggable", "navigation"], [], cancellationToken),
+            cancellationToken);
+        await definitionStore.RegisterDefinitionAsync(
+            await BuildDefinitionAsync(aspectStore, "page", ["content", "seo", "publishable", "navigation"], [], cancellationToken),
+            cancellationToken);
+    }
 
-        async Task<ResourceDefinition> PinAsync(string definitionId, IReadOnlyList<string> aspectIds)
-        {
-            var builder = new ResourceDefinitionBuilder().WithDefinitionId(definitionId);
-            foreach (var aspectId in aspectIds)
-                builder.WithSharedAspect(aspectId);
+    private static async Task<ResourceDefinition> BuildDefinitionAsync(
+        IAspectDefinitionStore aspectStore,
+        string definitionId,
+        IReadOnlyList<string> aspectIds,
+        IReadOnlyList<ResourcePolicyDeclaration> policies,
+        CancellationToken cancellationToken)
+    {
+        var builder = new ResourceDefinitionBuilder().WithDefinitionId(definitionId);
+        foreach (var aspectId in aspectIds)
+            builder.WithSharedAspect(aspectId);
+        foreach (var policy in policies)
+            builder.WithPolicy(policy);
 
-            return await builder.BuildAsync(aspectStore, cancellationToken: cancellationToken);
-        }
+        return await builder.BuildAsync(aspectStore, cancellationToken: cancellationToken);
     }
 
     private static async Task SeedResourcesAsync(IResourceManager resourceManager, CancellationToken cancellationToken)
@@ -112,6 +163,7 @@ internal static class DemoSeedData
             ["seo"] = new() { ["slug"] = "composing-horizontal-aspects", ["metaTitle"] = "Horizontal Aspects", ["metaDescription"] = "Compose content types from reusable shared aspects." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-02" },
             ["taggable"] = new() { ["tags"] = new[] { "aspects", "composition" } },
+            ["navigation"] = new() { ["menuOrder"] = 30, ["showInMenu"] = true },
         }, cancellationToken);
         articleAspects = await UpdateAsync(resourceManager, articleAspects.ResourceId, 1, new()
         {
@@ -137,6 +189,14 @@ internal static class DemoSeedData
             ["taggable"] = new() { ["tags"] = new[] { "sqlite", "persistence" } },
         }, cancellationToken);
         await resourceManager.ActivateAsync(articleSqlite.ResourceId, 1, "live", cancellationToken: cancellationToken);
+
+        // Never activated, so the archive-drafts policy has a candidate from the start.
+        await CreateAsync(resourceManager, "article", "article-roadmap-draft", new()
+        {
+            ["content"] = new() { ["title"] = "Roadmap Notes", ["summary"] = "An unpublished draft.", ["body"] = "Ideas that never made it to preview." },
+            ["seo"] = new() { ["slug"] = "roadmap-notes" },
+            ["taggable"] = new() { ["tags"] = new[] { "roadmap" } },
+        }, cancellationToken);
 
         var home = await CreateAsync(resourceManager, "page", "page-home", new()
         {

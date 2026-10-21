@@ -16,7 +16,16 @@ internal static class OpenApiDocumentFactory
             ["/api/studio/aspects/{aspectId}/upgrade-preview"] = Path(Get: Operation("Preview content types on older aspect versions")),
             ["/api/studio/aspects/{aspectId}/upgrade"] = Path(Post: Operation("Re-pin selected content types to an aspect version")),
             ["/api/studio/definitions"] = Path(Get: Operation("List definitions with resource counts")),
-            ["/api/studio/resources"] = Path(Get: Operation("List a definition's resources with title, tags and active channels")),
+            ["/api/studio/resources"] = Path(Get: Operation("List a definition's resources with title, tags, active channels and lifecycle state; ?lifecycle=all|active|archived|soft-deleted")),
+            ["/api/studio/resources/{resourceId}/lifecycle"] = Path(Get: Operation("Get a resource's lifecycle marker"), Post: Operation("Archive or soft-delete a resource")),
+            ["/api/studio/resources/{resourceId}/restore-preview"] = Path(Post: Operation("Preview restoring a resource from an expected lifecycle state")),
+            ["/api/studio/resources/{resourceId}/restore"] = Path(Post: Operation("Restore a resource from an expected lifecycle state")),
+            ["/api/studio/resources/{resourceId}/schema"] = Path(Get: Operation("Get the latest version's schema status and undeclared aspect keys")),
+            ["/api/studio/resources/{resourceId}/schema-upgrade"] = Path(Post: Operation("Upgrade the latest version to the latest definition version, based on baseVersion")),
+            ["/api/studio/definitions/{definitionId}/policies"] = Path(Get: Operation("List a definition's policy declarations with validation diagnostics")),
+            ["/api/studio/definitions/{definitionId}/policies/preview"] = Path(Post: Operation("Preview a definition's policies, with pruning protection per version")),
+            ["/api/studio/policies/apply"] = Path(Post: Operation("Apply selected archive and soft-delete preview candidates")),
+            ["/api/studio/policies/prune"] = Path(Post: Operation("Prune selected version-pruning preview candidates")),
         },
     };
 
