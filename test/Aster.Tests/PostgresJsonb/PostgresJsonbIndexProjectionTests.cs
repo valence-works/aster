@@ -24,7 +24,7 @@ public sealed class PostgresJsonbIndexProjectionTests : IDisposable
     public async Task Declaring_CreatesOneIndexPerProjection_Idempotently()
     {
         await using var provider = CreateProvider(PostgresTestProjections.All);
-        _ = provider.GetRequiredService<IResourceDefinitionStore>();
+        await provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync();
         var runner = provider.GetRequiredService<IInfrastructureRunner>();
 
         Assert.Equal(PostgresTestProjections.All.Count, ProjectionIndexNames().Count);
@@ -41,7 +41,7 @@ public sealed class PostgresJsonbIndexProjectionTests : IDisposable
     public async Task RemovingAProjection_DropsItsIndex()
     {
         await using (var provider = CreateProvider(PostgresTestProjections.All))
-            _ = provider.GetRequiredService<IResourceDefinitionStore>();
+            await provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync();
 
         var before = ProjectionIndexNames();
         var kept = PostgresTestProjections.All.Skip(1).ToList();
@@ -95,7 +95,7 @@ public sealed class PostgresJsonbIndexProjectionTests : IDisposable
     public async Task IndexedQueries_UseTheProjectionIndex(string fieldName, FilterExpression filter)
     {
         await using (var provider = CreateProvider(PostgresTestProjections.All))
-            _ = provider.GetRequiredService<IResourceDefinitionStore>();
+            await provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync();
 
         // 2,000 varied products, analyzed, so a selective predicate's index is the cheapest path.
         Execute("""

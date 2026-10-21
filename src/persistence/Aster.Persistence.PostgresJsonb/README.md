@@ -11,7 +11,7 @@ services.AddAsterPostgresJsonb(options =>
 ```
 
 - **Schema:** the provider's tables are a list of ordered infrastructure steps, recorded in `aster_infrastructure_steps` as they are applied. `IInfrastructureRunner` applies, lists and verifies them.
-  - **Automatic (default):** with `InitializeSchema = true`, the first store resolved applies pending steps. Runs are serialized by an advisory lock, so any number of processes can start against a fresh or outdated database at once; each step runs once, and a failed run rolls back as a whole.
+  - **Automatic (default):** with `InitializeSchema = true`, the provider applies pending steps before its first statement; resolving the stores does no I/O, and requests that arrive during the run wait for it without blocking a thread. Runs are serialized by an advisory lock, so any number of processes can start against a fresh or outdated database at once; each step runs once, and a failed run rolls back as a whole.
   - **Explicit (recommended for production):** set `InitializeSchema = false` so the application never changes the schema, and apply steps from a deployment step with an account allowed to run DDL:
 
     ```csharp

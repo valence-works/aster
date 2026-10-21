@@ -9,16 +9,15 @@ namespace Aster.Persistence.PostgresJsonb;
 internal sealed class PostgresJsonbResourceStore : RelationalJsonResourceStore
 {
     /// <summary>
-    /// Initializes a new instance of <see cref="PostgresJsonbResourceStore"/>, applying pending infrastructure
-    /// steps when <see cref="PostgresJsonbAsterOptions.InitializeSchema"/> is set.
+    /// Initializes a new instance of <see cref="PostgresJsonbResourceStore"/>. When
+    /// <see cref="PostgresJsonbAsterOptions.InitializeSchema"/> is set, pending infrastructure steps are applied
+    /// before its first statement.
     /// </summary>
     /// <param name="dataSource">The provider's data source.</param>
     /// <param name="infrastructure">The provider's infrastructure runner.</param>
     /// <param name="options">Provider options.</param>
     public PostgresJsonbResourceStore(PostgresJsonbDataSource dataSource, PostgresJsonbInfrastructureRunner infrastructure, PostgresJsonbAsterOptions options)
-        : base(new PostgresJsonbDialect(dataSource.Value))
+        : base(new PostgresJsonbDialect(dataSource.Value, options.InitializeSchema ? infrastructure.EnsureAppliedAsync : null))
     {
-        if (options.InitializeSchema)
-            infrastructure.EnsureApplied();
     }
 }
