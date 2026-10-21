@@ -283,6 +283,25 @@ public abstract class ResourceStoreTests(IAsterTestDatabase database) : IDisposa
     }
 
     [SkippableFact]
+    public async Task UpdateActivationAsync_VersionThatDoesNotExist_ThrowsAndWritesNothing()
+    {
+        // #180: the existence check runs in the same serialized write as the activation, so an activation can't name
+        // a version a concurrent prune deleted.
+        var store = CreateStore();
+        await store.SaveVersionAsync(CreateResource("activated", 1, "only"));
+
+        await Assert.ThrowsAsync<VersionNotFoundException>(async () => await store.UpdateActivationAsync("activated", "Published", new ActivationState
+        {
+            ResourceId = "activated",
+            Channel = "Published",
+            ActiveVersions = [1, 2],
+            LastUpdated = DateTime.UtcNow,
+        }));
+
+        Assert.Empty(await store.ReadActivationStatesAsync(["activated"], TenantScope.Default));
+    }
+
+    [SkippableFact]
     public async Task LatestByIds_ReturnsEachResourcesLatestVersion_AndSkipsMissingIds()
     {
         var store = CreateStore();

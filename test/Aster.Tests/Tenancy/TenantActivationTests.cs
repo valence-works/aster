@@ -63,6 +63,7 @@ public sealed class TenantActivationTests : IDisposable
     public async Task UpdateActivationAsync_NormalizesPayloadIdentityToMethodArguments()
     {
         var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("product-1", "Tenant A", TenantScopeTestFixtures.TenantA));
 
         var state = await writer.UpdateActivationAsync("product-1", "Published", new ActivationState
         {
