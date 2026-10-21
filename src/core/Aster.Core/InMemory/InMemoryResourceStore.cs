@@ -326,14 +326,9 @@ public sealed class InMemoryResourceStore :
         ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
-        foreach (var ((tenantId, resourceId), versionList) in Versions)
+        foreach (var (resourceId, versionList) in VersionListsInScope(tenant, resourceIds))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
-                || !MatchesResourceId(resourceId, resourceIds))
-            {
-                continue;
-            }
 
             lock (versionList)
             {
@@ -348,14 +343,9 @@ public sealed class InMemoryResourceStore :
         ResourceVersionReadResourceIdSelection resourceIds,
         CancellationToken cancellationToken)
     {
-        foreach (var ((tenantId, resourceId), versionList) in Versions)
+        foreach (var (resourceId, versionList) in VersionListsInScope(tenant, resourceIds))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
-                || !MatchesResourceId(resourceId, resourceIds))
-            {
-                continue;
-            }
 
             List<Resource> snapshot;
             lock (versionList)
@@ -374,14 +364,9 @@ public sealed class InMemoryResourceStore :
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
 
-        foreach (var ((tenantId, resourceId), versionList) in Versions)
+        foreach (var (resourceId, versionList) in VersionListsInScope(tenant, resourceIds))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal)
-                || !MatchesResourceId(resourceId, resourceIds))
-            {
-                continue;
-            }
 
             if (!Activations.TryGetValue((tenant.TenantId, resourceId), out var channelActivations))
                 continue;
@@ -456,4 +441,27 @@ public sealed class InMemoryResourceStore :
 
     private static bool MatchesResourceId(string resourceId, ResourceVersionReadResourceIdSelection resourceIds) =>
         resourceIds.Matches(resourceId);
+
+    // Bounded reads look up their resource IDs directly instead of scanning every resource in the store (#154).
+    private IEnumerable<(string ResourceId, List<Resource> VersionList)> VersionListsInScope(
+        TenantScope tenant,
+        ResourceVersionReadResourceIdSelection resourceIds)
+    {
+        if (resourceIds.IsBounded)
+        {
+            foreach (var resourceId in resourceIds.Values)
+            {
+                if (Versions.TryGetValue((tenant.TenantId, resourceId), out var versionList))
+                    yield return (resourceId, versionList);
+            }
+
+            yield break;
+        }
+
+        foreach (var ((tenantId, resourceId), versionList) in Versions)
+        {
+            if (string.Equals(tenantId, tenant.TenantId, StringComparison.Ordinal))
+                yield return (resourceId, versionList);
+        }
+    }
 }

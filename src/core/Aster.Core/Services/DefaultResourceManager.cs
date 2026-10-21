@@ -80,18 +80,19 @@ public sealed partial class DefaultResourceManager : IResourceManager
             ? identityGenerator.NewId()
             : request.ResourceId;
 
-        var existingVersions = (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+        // Bounded to this resource ID (#154): reading the whole tenant made every create O(tenant size).
+        var existingVersions = await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
         {
-            Scope = ResourceVersionScope.AllVersions,
+            Scope = ResourceVersionScope.Latest,
             TenantScope = tenant,
-        }, cancellationToken)).ToList();
+            ResourceIds = [resourceId],
+        }, cancellationToken);
 
-        if (existingVersions.Any(r => string.Equals(r.ResourceId, resourceId, StringComparison.Ordinal)))
+        if (existingVersions.Any())
             throw new DuplicateResourceIdException(resourceId);
 
         var definition = await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken);
-        if (definition?.IsSingleton == true
-            && existingVersions.Any(r => string.Equals(r.DefinitionId, definitionId, StringComparison.Ordinal)))
+        if (definition?.IsSingleton == true && await HasResourceOfDefinitionAsync(definitionId, tenant, cancellationToken))
             throw new SingletonViolationException(definitionId);
 
         if (definition is not null)
@@ -475,6 +476,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
             Scope = ResourceVersionScope.Active,
             ActivationChannel = channel,
             TenantScope = tenant,
+            ResourceIds = [resourceId],
         }, cancellationToken);
 
         return active
@@ -493,6 +495,7 @@ public sealed partial class DefaultResourceManager : IResourceManager
         {
             Scope = ResourceVersionScope.AllVersions,
             TenantScope = tenant,
+            ResourceIds = [resourceId],
         }, cancellationToken);
 
         return versions
@@ -500,6 +503,18 @@ public sealed partial class DefaultResourceManager : IResourceManager
             .OrderBy(r => r.Version)
             .ToList();
     }
+
+    // Singleton definitions are the only create path that needs every resource of a definition; the
+    // reader has no definition filter, so this reads latest versions only and only for singletons.
+    private async Task<bool> HasResourceOfDefinitionAsync(
+        string definitionId,
+        TenantScope tenant,
+        CancellationToken cancellationToken) =>
+        (await versionReader.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            Scope = ResourceVersionScope.Latest,
+            TenantScope = tenant,
+        }, cancellationToken)).Any(r => string.Equals(r.DefinitionId, definitionId, StringComparison.Ordinal));
 
     private async Task WriteActivationStateAsync(
         string resourceId,
