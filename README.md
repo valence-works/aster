@@ -8,7 +8,7 @@
 
 It provides a headless, backend-agnostic foundation for attaching reusable, cross-cutting capabilities (Tags, Owner, RBAC, Scheduling, …) to any resource type — without hard-coding every entity from scratch.
 
-> **Status:** Pre-1.0. Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery and validation, typed query helpers, provider conformance support, portable operators, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, tenant scoping, policies and lifecycle markers, version history, and facet validation/UI metadata are available. Aster Studio (`src/apps/Aster.AdminDemo`) is the reference host. Work toward 1.0 is tracked in the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58).
+> **Status:** Pre-1.0. Core SDK, in-memory engine, SQLite JSON persistence/querying, query capability discovery and validation, typed query helpers, provider conformance support, portable operators, explicit index projection contracts, definition schema upgrades, portability primitives, host lifecycle hooks, tenant scoping, policies and lifecycle markers, version history, and facet validation/UI metadata are available. Aster Studio (`src/apps/Aster.Studio`) is the reference host. Work toward 1.0 is tracked in the [Aster 1.0 program](https://github.com/valence-works/aster/issues/58).
 
 ---
 
@@ -301,8 +301,7 @@ src/
   hosting/
     Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
   apps/
-    Aster.AdminDemo/         ← Aster Studio: reference host (ASP.NET Core + React SPA)
-    Aster.Web/               ← Legacy workbench (to be retired, see #109)
+    Aster.Studio/            ← Aster Studio: the reference host (ASP.NET Core + React SPA)
 test/
   Aster.Tests/               ← xUnit tests (unit + integration)
   Aster.AspNetCore.Tests/    ← HTTP integration tests for Aster.AspNetCore (TestServer)

@@ -165,31 +165,24 @@ Inject concrete types only in tests or infrastructure code where you need implem
 
 ---
 
-## ASP.NET Core Minimal API (Workbench)
+## ASP.NET Core
 
-The `Aster.Web` workbench wires everything together:
+`Aster.AspNetCore` maps the Aster endpoints onto a host. Aster Studio (`src/apps/Aster.Studio`) wires it like this:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAsterCore();
-builder.Services.AddHostedService<SeedDataInitializer>();
+builder.Services.AddAsterSqliteJson(options => options.ConnectionString = "Data Source=aster.db");
 
 var app = builder.Build();
 
-app.UseStaticFiles();
-app.MapDefinitionsEndpoints();
-app.MapResourcesEndpoints();
+app.MapAster("/api/aster"); // definitions, aspects and resources
 
 app.Run();
 ```
 
-Endpoints registered:
-
-| Endpoint | Description |
-|---|---|
-| `GET /api/definitions` | All registered definitions (latest version per ID) |
-| `GET /api/resources/{definitionId}` | All resource versions for the given definition |
+See `src/hosting/Aster.AspNetCore/README.md` for the endpoint list, authorization hooks and tenant resolution.
 
 ---
 

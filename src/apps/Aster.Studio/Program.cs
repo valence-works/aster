@@ -1,4 +1,4 @@
-using Aster.AdminDemo;
+using Aster.Studio;
 using Aster.AspNetCore;
 using Aster.Core.Extensions;
 using Aster.Persistence.SqliteJson;

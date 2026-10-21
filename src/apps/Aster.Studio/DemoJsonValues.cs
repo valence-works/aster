@@ -2,7 +2,7 @@ using System.Collections;
 using System.Reflection;
 using System.Text.Json;
 
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 internal static class DemoJsonValues
 {

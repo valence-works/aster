@@ -110,7 +110,7 @@ public sealed class QuickstartIntegrationTest
     [Fact]
     public async Task Quickstart_MultipleResources_QuickstartSeedPattern()
     {
-        // Verifies the Aster.Web SeedDataInitializer pattern works end-to-end.
+        // Verifies the typed-aspect seed pattern from the Getting Started guide works end-to-end.
         var (definitionStore, manager) = CreateServices();
 
         // Register "Product" definition

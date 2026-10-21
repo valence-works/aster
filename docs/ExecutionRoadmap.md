@@ -52,7 +52,7 @@ The **summary series is closed.** Slices 022, 024, and 026–035 added pure summ
 | `036-sqlite-schema-idempotency` | Landed | SQLite JSON schema initialization idempotency coverage for repeated provider initialization, legacy pre-tenant upgrade reruns, and `InitializeSchema=false` compatibility without product APIs, storage schema changes, provider registries, public SQL, public `IQueryable<Resource>`, schedulers, benchmark infrastructure, or dependencies. |
 | `037-sqlite-startup-concurrency` | Landed | Bounded concurrency coverage for SQLite JSON schema/provider initialization across fresh databases, existing tenant-aware databases, and passive `InitializeSchema=false` construction. |
 | `038-facet-metadata` | Landed | Optional declarative facet metadata (label, description, display order, default, allowed values, length, range, pattern, UI hint) with registration-time self-validation, save-time value validation, stable diagnostic codes, portability, and in-memory/SQLite parity. |
-| Aster Studio (PR #57) | Landed | Reference host (`src/apps/Aster.AdminDemo`, ASP.NET Core + React) that generates editing forms from facet metadata and demonstrates versioning, channel activation, and field-level validation diagnostics. |
+| Aster Studio (PR #57) | Landed | Reference host (`src/apps/Aster.Studio`, ASP.NET Core + React) that generates editing forms from facet metadata and demonstrates versioning, channel activation, and field-level validation diagnostics. |
 
 ## What's Next
 

@@ -23,13 +23,13 @@ Also on display: immutable resource versioning, per-channel activation
 
 ```bash
 # 1. Build the SPA (once, or after frontend changes)
-cd src/apps/Aster.AdminDemo/ClientApp
+cd src/apps/Aster.Studio/ClientApp
 npm install
 npm run build
 
 # 2. Run the host (serves API + built SPA on http://localhost:5210)
 cd ../../../..
-dotnet run --project src/apps/Aster.AdminDemo
+dotnet run --project src/apps/Aster.Studio
 ```
 
 Open http://localhost:5210. A SQLite database is created at
@@ -47,8 +47,8 @@ still work, but upgrades in the Aspect Library don't reach them.
 ### Frontend dev loop
 
 ```bash
-dotnet run --project src/apps/Aster.AdminDemo   # terminal 1
-cd src/apps/Aster.AdminDemo/ClientApp && npm run dev                # terminal 2
+dotnet run --project src/apps/Aster.Studio   # terminal 1
+cd src/apps/Aster.Studio/ClientApp && npm run dev                # terminal 2
 ```
 
 Vite proxies `/api` to http://localhost:5210.

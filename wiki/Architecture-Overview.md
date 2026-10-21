@@ -18,7 +18,7 @@ This page describes the internal architecture, layering, and key design decision
 
 ```
 +─────────────────────────────────────────────────+
-|  Applications / Hosts (Aster.Web, your app)     |
+|  Applications / Hosts (Aster.Studio, your app)  |
 +─────────────────────────────────────────────────+
 |  Aster.Core (current)                           |
 |  +──────────────+  +──────────────+             |
