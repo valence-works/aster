@@ -92,6 +92,20 @@ public sealed class PolicyApplicationCriteriaTests : IDisposable
         Assert.Equal(ResourcePolicyApplicationCandidateStatus.AlreadySatisfied, result.Candidates[1].Status);
     }
 
+    [Fact]
+    public async Task ApplyAsync_RetryAfterTheCriteriaChanged_IsStillAlreadySatisfied()
+    {
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider, policies: [ArchiveDrafts]);
+        await PolicyTestFixtures.SaveResourceAsync(provider, "draft");
+        Assert.Equal(ResourcePolicyApplicationCandidateStatus.Applied, (await ApplyAsync(Candidate("draft", "archive-drafts"))).Candidates[0].Status);
+
+        // Activated after it was archived: it no longer matches a drafts policy, but it is already archived.
+        await PolicyTestFixtures.ActivateAsync(provider, "draft", 1);
+        var retry = await ApplyAsync(Candidate("draft", "archive-drafts"));
+
+        Assert.Equal(ResourcePolicyApplicationCandidateStatus.AlreadySatisfied, Assert.Single(retry.Candidates).Status);
+    }
+
     private async Task<ResourcePolicyApplicationResult> ApplyAsync(params ResourcePolicyApplicationCandidate[] candidates) =>
         await provider.GetRequiredService<IResourcePolicyApplicationService>().ApplyAsync(new ResourcePolicyApplicationRequest
         {

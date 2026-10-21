@@ -244,9 +244,14 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
                 path);
         }
 
+        // A resource already in the outcome's state needs nothing, whatever has changed since: the transition
+        // reports it AlreadySatisfied, so retries stay idempotent.
+        if (markers.TryGetValue(latest.ResourceId, out var existing) && existing.State == outcomeState)
+            return null;
+
         // The submitted candidate is only a claim: the resource must still match the policy's criteria now, as the
         // preview evaluates them, or any declared policy could archive any resource.
-        var mismatch = await MismatchedCriterionAsync(policy, outcomeState, latest, appliedAt, markers, activationKeys, cancellationToken);
+        var mismatch = await MismatchedCriterionAsync(policy, latest, appliedAt, markers, activationKeys, cancellationToken);
         if (mismatch is not null)
         {
             return Failure(
@@ -263,7 +268,6 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
     // Returns the path of the first criterion the latest version fails, or null when it matches every one.
     private static async ValueTask<string?> MismatchedCriterionAsync(
         ResourcePolicyDeclaration policy,
-        ResourceLifecycleMarkerState outcomeState,
         Resource latest,
         DateTimeOffset appliedAt,
         IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
@@ -287,11 +291,10 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
                 return "criteria/activationState";
         }
 
-        // A resource already in the outcome's state passes, so retrying an applied candidate stays AlreadySatisfied.
         if (criteria.LifecycleState is { } expected)
         {
             var actual = markers.TryGetValue(latest.ResourceId, out var marker) ? marker.State : ResourceLifecycleMarkerState.None;
-            if (actual != expected && actual != outcomeState)
+            if (actual != expected)
                 return "criteria/lifecycleState";
         }
 
