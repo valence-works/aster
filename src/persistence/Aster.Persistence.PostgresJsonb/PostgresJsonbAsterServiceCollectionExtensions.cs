@@ -29,6 +29,8 @@ public static class PostgresJsonbAsterServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.AddSingleton<PostgresJsonbDataSource>();
+        services.AddSingleton<PostgresJsonbInfrastructureRunner>();
+        services.AddSingleton<IInfrastructureRunner>(sp => sp.GetRequiredService<PostgresJsonbInfrastructureRunner>());
         services.AddSingleton<PostgresJsonbResourceStore>();
         services.AddSingleton<PostgresJsonbAspectDefinitionStore>();
         services.AddSingleton<IAspectDefinitionStore>(sp => sp.GetRequiredService<PostgresJsonbAspectDefinitionStore>());

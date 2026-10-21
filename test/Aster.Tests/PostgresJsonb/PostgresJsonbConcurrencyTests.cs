@@ -170,7 +170,7 @@ public sealed class PostgresJsonbConcurrencyTests : IDisposable
         }
 
         Assert.Equal(
-            ["activation_states", "aspect_definitions", "lifecycle_markers", "resource_definitions", "resource_versions"],
+            ["activation_states", "aspect_definitions", "aster_infrastructure_steps", "lifecycle_markers", "resource_definitions", "resource_versions"],
             ReadTableNames());
     }
 
