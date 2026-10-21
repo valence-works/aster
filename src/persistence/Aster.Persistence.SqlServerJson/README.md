@@ -1,6 +1,6 @@
 # Aster.Persistence.SqlServerJson
 
-SQL Server storage for [Aster](https://github.com/valence-works/aster): resource definitions, shared aspect definitions, immutable resource versions, activation state, lifecycle markers, version pruning and portable import/export, with JSON payloads in `nvarchar(max)` read through `OPENJSON` (ADR 0004).
+SQL Server storage for [Aster](https://github.com/valence-works/aster): resource definitions, shared aspect definitions, immutable resource versions, activation state, lifecycle markers, version pruning and portable import/export, with JSON payloads in `nvarchar(max)` read through `OPENJSON` (ADR 0004; projection indexes and text comparison per ADR 0006).
 
 ```csharp
 services.AddAsterCore();
