@@ -47,6 +47,8 @@ public static class FacetMetadataValidator
 
         foreach (var (aspectKey, aspectDefinition) in aspects)
         {
+            AddIdCaseCollisions(aspectKey, aspectDefinition, diagnostics);
+
             foreach (var facet in aspectDefinition.FacetDefinitions)
             {
                 if (!ParseFacetType(facet.Type).IsKnown)
@@ -81,6 +83,33 @@ public static class FacetMetadataValidator
         });
 
         throw new FacetMetadataValidationException(diagnostics);
+    }
+
+    // Facet values are read by facet ID, or by its camel-case form when the payload has no such key
+    // (AspectFacetValueResolver, and the providers' JSON paths), so two facets whose IDs camel-case alike (Name and name)
+    // would both read whichever of the two keys is stored. Only registration checks this: stored definitions keep loading.
+    private static void AddIdCaseCollisions(string aspectKey, AspectDefinition aspect, List<FacetMetadataDiagnostic> diagnostics)
+    {
+        var collisions = aspect.FacetDefinitions
+            .Select(static facet => facet.FacetDefinitionId)
+            .Where(static id => !string.IsNullOrEmpty(id))
+            .Distinct(StringComparer.Ordinal)
+            .GroupBy(AspectFacetValueResolver.ToCamelCase, StringComparer.Ordinal)
+            .Where(static group => group.Skip(1).Any());
+
+        foreach (var group in collisions)
+        {
+            var ids = group.Order(StringComparer.Ordinal).ToList();
+            foreach (var id in ids)
+            {
+                var others = string.Join(", ", ids.Where(other => !string.Equals(other, id, StringComparison.Ordinal)).Select(static other => $"'{other}'"));
+                diagnostics.Add(new FacetMetadataDiagnostic(
+                    FacetMetadataDiagnosticCodes.IdCaseCollision,
+                    $"Facet '{id}' differs from facet {others} only in the case of its first letter. Facet values are read by facet ID or its camel-case form '{group.Key}', so these facets would read each other's value; rename one of them.",
+                    aspectKey,
+                    id));
+            }
+        }
     }
 
     private static void ValidateFacet(

@@ -65,6 +65,13 @@ public static class FacetMetadataDiagnosticCodes
     /// <c>ReferenceResolution</c> is declared but blank.
     /// </summary>
     public const string ReferenceResolutionInvalid = "facet-metadata-reference-resolution-invalid";
+
+    /// <summary>
+    /// Two facets of one aspect have IDs that differ only in the case of their first character (for example
+    /// <c>Name</c> and <c>name</c>). Facet values are read by facet ID, or by its camel-case form when the payload has
+    /// no such key, so both facets would read the same stored value. Reported once for each facet involved.
+    /// </summary>
+    public const string IdCaseCollision = "facet-metadata-id-case-collision";
 }
 
 /// <summary>
