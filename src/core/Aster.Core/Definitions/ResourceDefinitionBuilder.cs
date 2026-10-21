@@ -51,10 +51,14 @@ public sealed class ResourceDefinitionBuilder
     /// <summary>
     /// Attaches an unnamed aspect derived from the type <typeparamref name="T"/>.
     /// The <c>AspectDefinitionId</c> is set to <c>typeof(T).Name</c>, and one facet is declared per
-    /// public property whose CLR type maps to a supported facet type (ADR 0002 §8).
+    /// public property whose CLR type maps to a supported facet type (ADR 0002 §8). A property marked
+    /// <see cref="ReferenceFacetAttribute"/> declares a <c>reference</c> or <c>reference[]</c> facet.
     /// </summary>
     /// <typeparam name="T">The POCO type representing the aspect.</typeparam>
     /// <returns>This builder for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// A property marked <see cref="ReferenceFacetAttribute"/> is not a string or a collection of strings.
+    /// </exception>
     public ResourceDefinitionBuilder WithAspect<T>() =>
         AddAspect(typeof(T).Name, name: null, TypedAspectFacets.Derive(typeof(T)));
 
@@ -65,6 +69,9 @@ public sealed class ResourceDefinitionBuilder
     /// <typeparam name="T">The POCO type representing the aspect.</typeparam>
     /// <param name="name">The discriminator name for this attachment.</param>
     /// <returns>This builder for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// A property marked <see cref="ReferenceFacetAttribute"/> is not a string or a collection of strings.
+    /// </exception>
     public ResourceDefinitionBuilder WithNamedAspect<T>(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -231,7 +238,10 @@ public sealed class ResourceDefinitionBuilder
 
     /// <summary>
     /// Attaches optional display and validation metadata to the facet with the given ID on the most
-    /// recently registered aspect, including facets derived from a typed aspect.
+    /// recently registered aspect, including facets derived from a typed aspect. The metadata replaces the
+    /// facet's metadata, except that <see cref="FacetMetadata.TargetDefinitionIds"/> and
+    /// <see cref="FacetMetadata.ReferenceResolution"/> already declared on the facet (for example by
+    /// <see cref="ReferenceFacetAttribute"/>) are kept when <paramref name="metadata"/> leaves them undeclared.
     /// </summary>
     /// <param name="facetDefinitionId">The facet ID.</param>
     /// <param name="metadata">The metadata to attach.</param>
@@ -248,7 +258,7 @@ public sealed class ResourceDefinitionBuilder
             throw new InvalidOperationException($"Aspect '{key}' does not declare facet '{facetDefinitionId}'.");
 
         var facets = new List<FacetDefinition>(lastAspect.FacetDefinitions);
-        facets[index] = facets[index] with { Metadata = metadata };
+        facets[index] = facets[index] with { Metadata = KeepReferenceOptions(facets[index].Metadata, metadata) };
         aspectEntries[^1] = (key, lastAspect with { FacetDefinitions = facets });
         return this;
     }
@@ -270,7 +280,8 @@ public sealed class ResourceDefinitionBuilder
 
     /// <summary>
     /// Attaches optional display and validation metadata to the most recently added facet
-    /// of the most recently registered aspect.
+    /// of the most recently registered aspect. Declared reference options are kept as for
+    /// <see cref="WithFacetMetadata(string, FacetMetadata)"/>.
     /// </summary>
     /// <param name="metadata">The metadata to attach.</param>
     /// <returns>This builder for chaining.</returns>
@@ -286,10 +297,20 @@ public sealed class ResourceDefinitionBuilder
 
         var (key, lastAspect) = aspectEntries[^1];
         var facets = new List<FacetDefinition>(lastAspect.FacetDefinitions);
-        facets[^1] = facets[^1] with { Metadata = metadata };
+        facets[^1] = facets[^1] with { Metadata = KeepReferenceOptions(facets[^1].Metadata, metadata) };
         aspectEntries[^1] = (key, lastAspect with { FacetDefinitions = facets });
         return this;
     }
+
+    // Reference options from [ReferenceFacet] survive decorating the facet with other metadata, such as UniqueItems.
+    private static FacetMetadata KeepReferenceOptions(FacetMetadata? existing, FacetMetadata metadata) =>
+        existing is null || (existing.TargetDefinitionIds is null && existing.ReferenceResolution is null)
+            ? metadata
+            : metadata with
+            {
+                TargetDefinitionIds = metadata.TargetDefinitionIds ?? existing.TargetDefinitionIds,
+                ReferenceResolution = metadata.ReferenceResolution ?? existing.ReferenceResolution,
+            };
 
     /// <summary>
     /// Builds the <see cref="ResourceDefinition"/> from the configured state.

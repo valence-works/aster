@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
@@ -32,6 +33,11 @@ public sealed record AsterActivationRequest(int Version, string Channel, bool Al
 /// <param name="Items">The resources the caller may read.</param>
 /// <param name="HasMore">Whether the provider has more results after this page.</param>
 public sealed record AsterResourcePage(IReadOnlyList<Resource> Items, bool HasMore);
+
+/// <summary>The result of <c>POST /resources/query/validate</c>.</summary>
+/// <param name="IsValid">Whether <c>POST /resources/query</c> would run the query.</param>
+/// <param name="Diagnostics">Every reason it would not, each with its <c>code</c>, <c>path</c> and <c>feature</c>.</param>
+public sealed record AsterQueryValidation(bool IsValid, IReadOnlyList<AsterDiagnostic> Diagnostics);
 
 /// <summary>
 /// Maps Aster's REST surface onto a host's endpoint routing (#108).
@@ -295,7 +301,7 @@ public static class AsterEndpointRouteBuilderExtensions
 
     private static void MapResources(RouteGroupBuilder group, AsterEndpointOptions options)
     {
-        group.MapGet("", (string? definitionId, string? scope, string? channel, string? lifecycle, int? skip, int? take, HttpContext http, IResourceQueryService queries, CancellationToken ct) =>
+        group.MapGet("", (string? definitionId, string? scope, string? channel, string? lifecycle, int? skip, int? take, HttpContext http, IResourceQueryValidator validator, IResourceQueryService queries, CancellationToken ct) =>
                 QueryAsync(new AsterQueryRequest
                 {
                     DefinitionId = definitionId,
@@ -304,21 +310,44 @@ public static class AsterEndpointRouteBuilderExtensions
                     Lifecycle = lifecycle,
                     Skip = skip,
                     Take = take,
-                }, http, queries, options, ct))
+                }, http, validator, queries, options, ct))
             .WithSummary("List resources. Archived and soft-deleted resources are excluded unless ?lifecycle=all, archived or softDeleted.")
             .Produces<AsterResourcePage>()
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
-        group.MapPost("/query", async (HttpContext http, IResourceQueryService queries, CancellationToken ct) =>
+        group.MapPost("/query", async (HttpContext http, IResourceQueryValidator validator, IResourceQueryService queries, CancellationToken ct) =>
             {
                 var (request, bodyProblem) = await AsterJson.ReadBodyAsync<AsterQueryRequest>(http);
-                return request is null ? bodyProblem! : await QueryAsync(request, http, queries, options, ct);
+                return request is null ? bodyProblem! : await QueryAsync(request, http, validator, queries, options, ct);
             })
-            .WithSummary("Query resources with the portable query model (filters, sorting, paging).")
+            .WithSummary("Query resources with the portable query model (filters, sorting, paging). A query the active provider can't run returns 400 with every reason.")
             .Accepts<AsterQueryRequest>("application/json")
             .Produces<AsterResourcePage>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        group.MapPost("/query/validate", async (HttpContext http, IResourceQueryValidator validator) =>
+            {
+                var (request, bodyProblem) = await AsterJson.ReadBodyAsync<AsterQueryRequest>(http);
+                if (request is null)
+                    return bodyProblem!;
+
+                var diagnostics = Validate(request, http, validator, options, out _);
+                return AsterJson.Ok(new AsterQueryValidation(diagnostics.Count == 0, diagnostics));
+            })
+            .WithSummary("Check a query against the wire format and the active provider's capabilities without running it.")
+            .Accepts<AsterQueryRequest>("application/json")
+            .Produces<AsterQueryValidation>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        group.MapGet("/query/capabilities", (IResourceQueryValidator validator) =>
+                validator.Capabilities is { } capabilities
+                    ? AsterJson.Ok(capabilities)
+                    : AsterProblems.NotFound("The active query provider declares no query capabilities."))
+            .WithSummary("The active query provider's capabilities: scopes, filters, operators, sorting and paging it supports.")
+            .Produces<QueryCapabilityDescription>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{resourceId}", async (string resourceId, int? version, HttpContext http, IResourceManager manager, CancellationToken ct) =>
             {
@@ -437,19 +466,59 @@ public static class AsterEndpointRouteBuilderExtensions
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
     }
 
+    // The wire format's first error, or every failure the validator finds in the translated query, with request-body paths.
+    private static List<AsterDiagnostic> Validate(
+        AsterQueryRequest request,
+        HttpContext http,
+        IResourceQueryValidator validator,
+        AsterEndpointOptions options,
+        out (ResourceQuery Query, AsterQueryPaths Paths)? translated)
+    {
+        translated = null;
+        if (!AsterQueryTranslator.TryTranslate(request, Tenant(http), options.DefaultPageSize, options.MaxPageSize, out var query, out var paths, out var error))
+            return [error!];
+
+        translated = (query, paths);
+        return validator.Validate(query).Failures
+            .Select(failure => new AsterDiagnostic(failure.Code, null, null, failure.Message)
+            {
+                Path = paths.ToRequestPath(failure.Path),
+                Feature = failure.Feature,
+            })
+            .ToList();
+    }
+
     private static async Task<IResult> QueryAsync(
         AsterQueryRequest request,
         HttpContext http,
+        IResourceQueryValidator validator,
         IResourceQueryService queries,
         AsterEndpointOptions options,
         CancellationToken ct)
     {
-        if (!AsterQueryTranslator.TryTranslate(request, Tenant(http), options.DefaultPageSize, options.MaxPageSize, out var query, out var error))
-            return AsterProblems.Validation(error!.Message, [error]);
+        var diagnostics = Validate(request, http, validator, options, out var translated);
+        if (diagnostics.Count > 0)
+            return AsterProblems.Validation("The query is not valid for the active provider.", diagnostics);
+
+        var (query, paths) = translated!.Value;
 
         // One extra row tells whether another page exists.
         var take = query.Take!.Value;
-        var rows = (await queries.QueryAsync(query with { Take = take + 1 }, ct)).ToList();
+        List<Resource> rows;
+        try
+        {
+            rows = (await queries.QueryAsync(query with { Take = take + 1 }, ct)).ToList();
+        }
+        catch (UnsupportedQueryFeatureException exception)
+        {
+            // A provider may refuse what its declaration allows; its path names the translated query too.
+            return AsterProblems.Validation(exception.Message, [new AsterDiagnostic(exception.Code, null, null, exception.Message)
+            {
+                Path = paths.ToRequestPath(exception.Path),
+                Feature = exception.Feature,
+            }]);
+        }
+
         var hasMore = rows.Count > take;
         if (hasMore)
             rows.RemoveAt(rows.Count - 1);

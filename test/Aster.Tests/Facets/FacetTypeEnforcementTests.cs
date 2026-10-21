@@ -328,10 +328,14 @@ public sealed class FacetTypeEnforcementTests : IDisposable
             InitialAspects = Details(new Dictionary<string, object> { ["Color"] = "#000000" }),
         });
 
-        // Version 2 makes Name required; an update that does not supply it is rejected.
+        // Version 2 makes Name required; the upgrade supplies it, and a later update that drops it is rejected.
         await definitions.RegisterDefinitionAsync(Definition(Facet("Name", "string", isRequired: true), Facet("Color", "string")));
         var upgraded = await provider.GetRequiredService<IResourceSchemaVersionService>()
-            .UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest { BaseVersion = created.Version });
+            .UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest
+            {
+                BaseVersion = created.Version,
+                AspectUpdates = Details(new Dictionary<string, object> { ["Name"] = "Black", ["Color"] = "#000000" }),
+            });
 
         var diagnostic = await AssertSingleSaveDiagnosticAsync(async () =>
             await manager.UpdateAsync(created.ResourceId, new UpdateResourceRequest
@@ -350,28 +354,49 @@ public sealed class FacetTypeEnforcementTests : IDisposable
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // US4: history paths stay non-validating
+    // US4: history paths stay non-validating; a schema upgrade writes a new version, so it validates (#188)
     // ──────────────────────────────────────────────────────────────────────────
 
     [Theory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
-    public async Task SchemaUpgrade_OverVersionViolatingNewRules_Succeeds(string providerKind)
+    public async Task SchemaUpgrade_OverVersionViolatingNewRules_IsRejectedUntilTheUpgradeFixesIt(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
         var definitions = provider.GetRequiredService<IResourceDefinitionStore>();
-        await definitions.RegisterDefinitionAsync(Definition(Facet("Name", "string")));
-        var created = await provider.GetRequiredService<IResourceManager>().CreateAsync("Product", new CreateResourceRequest
+        await definitions.RegisterDefinitionAsync(Definition(Facet("Name", "string"), Facet("Count", "int")));
+        var manager = provider.GetRequiredService<IResourceManager>();
+        var created = await manager.CreateAsync("Product", new CreateResourceRequest
         {
-            InitialAspects = Details(new Dictionary<string, object>()),
+            InitialAspects = Details(new Dictionary<string, object> { ["Count"] = 3 }),
         });
-        await definitions.RegisterDefinitionAsync(Definition(Facet("Name", "string", isRequired: true)));
+        await definitions.RegisterDefinitionAsync(Definition(Facet("Name", "string", isRequired: true), Facet("Count", "int")));
+        var schemaVersions = provider.GetRequiredService<IResourceSchemaVersionService>();
 
-        var result = await provider.GetRequiredService<IResourceSchemaVersionService>()
-            .UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest { BaseVersion = created.Version });
+        // The new version would be recorded against definition v2, so its payload is validated against v2 first.
+        var request = new ResourceSchemaUpgradeRequest { BaseVersion = created.Version };
+        var preview = await schemaVersions.UpgradePreviewAsync(created.ResourceId, request);
+        var rejected = await schemaVersions.UpgradeAsync(created.ResourceId, request);
 
-        Assert.Equal(ResourceSchemaUpgradeStatus.Upgraded, result.Status);
-        Assert.Equal(2, result.Resource!.Version);
+        Assert.Equal(ResourceSchemaUpgradeStatus.Rejected, preview.Status);
+        Assert.Equal(2, preview.TargetDefinitionVersion);
+        Assert.Equal(ResourceSchemaUpgradeStatus.Rejected, rejected.Status);
+        Assert.Null(rejected.Resource);
+        Assert.Equal(preview.Diagnostics, rejected.Diagnostics);
+        var diagnostic = Assert.Single(rejected.Diagnostics);
+        Assert.Equal((FacetValueDiagnosticCodes.Required, "Details", "Name"), (diagnostic.Code, diagnostic.AspectKey, diagnostic.FacetDefinitionId));
+        Assert.Single(await manager.GetVersionsAsync(created.ResourceId));
+
+        // Supplying the value through the upgrade's own aspect updates lets it through.
+        var upgraded = await schemaVersions.UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest
+        {
+            BaseVersion = created.Version,
+            AspectUpdates = Details(new Dictionary<string, object> { ["Name"] = "Widget", ["Count"] = 3 }),
+        });
+
+        Assert.Equal(ResourceSchemaUpgradeStatus.Upgraded, upgraded.Status);
+        Assert.Equal(2, upgraded.Resource!.Version);
+        Assert.Equal(2, upgraded.Resource.DefinitionVersion);
     }
 
     [Theory]

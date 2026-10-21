@@ -81,7 +81,7 @@ Playwright drives the core flows end to end:
 - policy preview and archive application, including a stale candidate (`policy-application-stale-candidate`)
 - version pruning; active versions are left out of the preview and reported as `policy-pruning-version-protected-active`
 - editing an article against the definition version it records (#191): `article-horizontal-aspects` renders from `article` v1, `navigation` included, and both the form and the save reject a value v1's rules forbid
-- a schema upgrade that carries an undeclared aspect forward
+- a schema upgrade preview and the upgrade, which carries an undeclared aspect forward
 - historical activation and maintenance hints
 
 ```bash
@@ -104,7 +104,7 @@ database in a temporary directory, so runs never touch `App_Data`. CI runs the s
 | Content Types | Definitions list; create a new type by pinning shared aspects at their latest version |
 | Content list | Paged resources with version, channel and lifecycle badges; filter by tag and by lifecycle state (active, archived, soft-deleted) |
 | Resource editor | **Centerpiece** — form generated 100% from facet metadata (uiHints, ordering, constraints); server diagnostics map to fields. A new resource uses the latest definition; an existing one renders from the definition version it records, the one its save validates against (ADR 0002, #130), and the Schema card says "Edited against vN; vM available" beside the upgrade when a newer version exists (#191) |
-| Operations (resource editor) | Archive or soft-delete through `IResourceLifecycleMarkerService`; restore after a preview through `IResourceLifecycleRestoreService`; schema status from `IResourceSchemaVersionService` and an explicit upgrade that reports the carried-forward aspect keys |
+| Operations (resource editor) | Archive or soft-delete through `IResourceLifecycleMarkerService`; restore after a preview through `IResourceLifecycleRestoreService`; schema status from `IResourceSchemaVersionService`, with its upgrade preview (carried-forward aspect keys, blocking diagnostics), and an explicit upgrade |
 | Version history | Immutable versions with maintenance hints from `IResourceVersionHistoryService` (protected or possible prune candidate) and the definition version each was saved against; activate/deactivate any version on preview/live, including historical activation that leaves latest alone |
 | Policies (content type detail) | The definition's policy declarations and their validation; a preview as of any date; apply selected archive or soft-delete outcomes, or prune selected versions. The preview leaves out the versions pruning protects and lists them as diagnostics. Results show each candidate's status and diagnostic codes |
 | Tenant switcher (header) | Scopes every screen and request to the default tenant or Acme; the choice persists across reloads |
@@ -130,6 +130,6 @@ Studio is the integration test bed for the [`Aster.AspNetCore`](../../hosting/As
     - Studio serializes enums as kebab-case names (`soft-deleted`, `prune-preview`), the package's version history included.
   - **Tenants (#112):** `tenants` lists the tenants the header may name.
   - **Portability (#112):** `portability/export`, then `portability/preview` and `portability/import`, each with the SDK result and its summary. The tenant always comes from the header: export reads it and import writes into it. Snapshots round-trip as Studio serializes them, kebab-case enums included.
-  - **Query (#112):** `query/capabilities`, `query/validate` (the validator's failures with code, path and feature, plus its summary) and `query`, which validates first and runs only a valid query. The builder's conditions are the filter's operands, so a failure at `Filter.Operands[i]` belongs to condition `i`. Studio doesn't use the package's `POST /resources/query` here: it reports only the first failure, without a path, and has no reference-target condition.
+  - **Query (#112):** `query/capabilities`, `query/validate` (the validator's failures with code, path and feature, plus its summary) and `query`, which validates first and runs only a valid query. The builder's conditions are the filter's operands, so a failure at `Filter.Operands[i]` belongs to condition `i`. Studio keeps its own endpoints here because the builder posts a flat condition list; the package's `POST /resources/query`, `query/validate` and `query/capabilities` take the nested `AsterFilter` format (with a `references` node) and report the same failures with request-body paths (#194).
 
 `ClientApp/src/lib/api.ts` maps the package's models onto the SPA's view types. OpenAPI for the Studio endpoints is at `/openapi/v1.json` in Development.

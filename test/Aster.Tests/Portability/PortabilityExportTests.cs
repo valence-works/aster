@@ -43,6 +43,79 @@ public sealed class PortabilityExportTests : IDisposable
         Assert.Equal("specificResourceVersions", diagnostic.Path);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ExportAsync_SpecificVersionNotPositive_ReturnsInvalidScopeDiagnosticAndNoSnapshot(int version)
+    {
+        await RegisterDefinitionVersionsAsync("Product", count: 1);
+        await CreateTwoVersionResourceAsync();
+
+        var result = await portability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceVersionScope = PortableResourceVersionScope.SpecificVersions,
+            SpecificResourceVersions = [new ResourceVersionReference { ResourceId = "x", Version = version }],
+        });
+
+        Assert.Null(result.Snapshot);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(PortableDiagnosticCodes.InvalidExportScope, diagnostic.Code);
+        Assert.Equal(PortableDiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("specificResourceVersions", diagnostic.Path);
+    }
+
+    [Fact]
+    public async Task ExportAsync_SpecificVersionsWithSeveralInvalidReferences_ReportsEachAndNoSnapshot()
+    {
+        await RegisterDefinitionVersionsAsync("Product", count: 1);
+        var (v1, _) = await CreateTwoVersionResourceAsync();
+
+        var result = await portability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.DefinitionWithResources,
+            DefinitionIds = ["Product"],
+            ResourceVersionScope = PortableResourceVersionScope.SpecificVersions,
+            SpecificResourceVersions =
+            [
+                new ResourceVersionReference { ResourceId = v1.ResourceId, Version = 1 },
+                new ResourceVersionReference { ResourceId = v1.ResourceId, Version = 0 },
+                new ResourceVersionReference { ResourceId = "", Version = 1 },
+                new ResourceVersionReference { ResourceId = " ", Version = -2 },
+                null!,
+            ],
+        });
+
+        Assert.Null(result.Snapshot);
+        Assert.Equal(5, result.Diagnostics.Count);
+        Assert.All(result.Diagnostics, static diagnostic =>
+        {
+            Assert.Equal(PortableDiagnosticCodes.InvalidExportScope, diagnostic.Code);
+            Assert.Equal(PortableDiagnosticSeverity.Error, diagnostic.Severity);
+            Assert.Equal("specificResourceVersions", diagnostic.Path);
+        });
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Message.Contains("null reference", StringComparison.Ordinal));
+        Assert.Equal(2, result.Diagnostics.Count(static diagnostic => diagnostic.Message.Contains("must have a resource ID", StringComparison.Ordinal)));
+        Assert.Equal(2, result.Diagnostics.Count(static diagnostic => diagnostic.Message.Contains("must be positive", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task ExportAsync_DefinitionsOnlyIgnoresSpecificVersionReferences()
+    {
+        await RegisterDefinitionVersionsAsync("Product", count: 1);
+
+        var result = await portability.ExportAsync(new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.DefinitionsOnly,
+            DefinitionIds = ["Product"],
+            ResourceVersionScope = PortableResourceVersionScope.SpecificVersions,
+            SpecificResourceVersions = [new ResourceVersionReference { ResourceId = "x", Version = 0 }],
+        });
+
+        Assert.NotNull(result.Snapshot);
+        Assert.Empty(result.Diagnostics);
+    }
+
     [Fact]
     public async Task ExportAsync_NullMutableCollections_ReturnsInvalidScopeDiagnostics()
     {
