@@ -49,6 +49,7 @@ jobs:
         run: |
           dotnet pack src/core/Aster.Core/Aster.Core.csproj --configuration Release --no-build --output artifacts -p:Version="$VERSION"
           dotnet pack src/persistence/Aster.Persistence.SqliteJson/Aster.Persistence.SqliteJson.csproj --configuration Release --no-build --output artifacts -p:Version="$VERSION"
+          dotnet pack src/hosting/Aster.AspNetCore/Aster.AspNetCore.csproj --configuration Release --no-build --output artifacts -p:Version="$VERSION"
 
       - name: Publish to nuget.org
         env:

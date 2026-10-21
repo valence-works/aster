@@ -18,6 +18,7 @@ Welcome to the Aster documentation wiki.
 | [Typed Aspects & Facets](Typed-Aspects-and-Facets) | Working with C# POCOs instead of raw dictionaries |
 | [Querying](Querying) | The portable `ResourceQuery` AST, capability discovery, validation, typed helpers, and provider behavior |
 | [JSON Schema Export](Json-Schema-Export) | Exporting definitions as JSON Schema 2020-12 for host-generated forms, with `x-aster-*` extensions |
+| [ASP.NET Core Endpoints](AspNetCore-Endpoints) | Mounting Aster's REST endpoints in a host with `MapAster`: options, errors, query format, tenancy and authorization |
 | [DI Registration & Configuration](DI-Registration) | Service registrations and extension points |
 | [Exception Reference](Exception-Reference) | All typed exceptions, when they are thrown, and how to handle them |
 | [Architecture Overview](Architecture-Overview) | Layered design, package layout, key design decisions |
