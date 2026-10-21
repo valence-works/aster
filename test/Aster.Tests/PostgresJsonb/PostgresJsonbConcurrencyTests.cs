@@ -3,6 +3,7 @@ using Aster.Core.Definitions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Tenancy;
 using Aster.Tests.Persistence;
 using Aster.Tests.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
@@ -107,6 +108,42 @@ public sealed class PostgresJsonbConcurrencyTests : IDisposable
             (await provider.GetRequiredService<IAspectDefinitionStore>().ListVersionsAsync("Contended")).Select(static aspect => aspect.Version).ToList());
 
         Assert.Equal(Enumerable.Range(1, Writers), versions);
+    }
+
+    [SkippableFact]
+    public async Task PruneVersionAsync_WaitsForAnActivationOfTheSameResource_AndSeesIt()
+    {
+        await using var provider = database.CreateProvider();
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        foreach (var version in new[] { 1, 2, 3 })
+            await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource("pruned", $"v{version}", version: version));
+
+        // Another session holds the resource's write lock (as UpdateActivationAsync does) and activates v1.
+        await using var activation = new NpgsqlConnection(database.ConnectionString);
+        await activation.OpenAsync();
+        await using var transaction = await activation.BeginTransactionAsync();
+        await using (var lockCommand = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtextextended('resource_versions/default/pruned', 0));", activation, transaction))
+            await lockCommand.ExecuteNonQueryAsync();
+
+        var prune = provider.GetRequiredService<IResourceVersionPruningStore>()
+            .PruneVersionAsync("pruned", 1, TenantScope.Default)
+            .AsTask();
+        await Task.Delay(500);
+        Assert.False(prune.IsCompleted, "Prune ran while another session held the resource's write lock.");
+
+        await using (var activate = new NpgsqlCommand(
+            "INSERT INTO activation_states (tenant_id, resource_id, channel, payload) VALUES ('default', 'pruned', 'Published', @payload::jsonb);",
+            activation,
+            transaction))
+        {
+            activate.Parameters.AddWithValue("payload", """{"tenantScope":{"tenantId":"default"},"resourceId":"pruned","channel":"Published","activeVersions":[1]}""");
+            await activate.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => prune);
+        Assert.Contains("active", exception.Message);
     }
 
     [SkippableFact]
