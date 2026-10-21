@@ -38,7 +38,8 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
   if (resource.error) return <ErrorState error={resource.error} onRetry={resource.reload} />;
   if (definition.error) return <ErrorState error={definition.error} onRetry={definition.reload} />;
   // Also covers the render between the resource arriving and the definition fetch starting. A reload after a schema
-  // upgrade keeps the page (and the operations panel's state) mounted; saving waits for it.
+  // upgrade keeps the page (and the operations panel's state) mounted; saving and editing wait for it, since the
+  // fields are reset from the new definition when it arrives.
   if (!definition.data) return <TableSkeleton />;
 
   async function submit() {
@@ -87,7 +88,7 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
       </div>
       {formErrors.length ? <Card className="border-destructive/30 bg-destructive/5"><CardContent className="space-y-1 p-4 text-sm text-destructive">{formErrors.map((error) => <div key={error}>{error}</div>)}</CardContent></Card> : null}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <DynamicResourceForm definition={definition.data} aspects={aspects} errors={errors} onChange={setAspects} />
+        <DynamicResourceForm definition={definition.data} aspects={aspects} errors={errors} onChange={setAspects} readOnly={definition.loading} />
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
           <Card className="facet-seam"><CardContent className="p-5"><h3 className="font-semibold tracking-tight">Dynamic form contract</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Widgets are selected from facet metadata: uiHint, type, allowed values, and constraints. Server diagnostics are routed by aspectKey + facetId.</p></CardContent></Card>
           {mode === "edit" && resource.data ? <ResourceOperationsPanel resourceId={resourceId} latestVersion={resource.data.version} editedAgainst={definition.data.version} onChanged={() => api.getResource(resourceId).then(resource.setData, resource.reload)} /> : null}
