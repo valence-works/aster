@@ -62,7 +62,7 @@ var agents = await queries.QueryAsync(new ResourceQuery
 | `IAgentStore` call | On Aster |
 |---|---|
 | `AddAsync` | Creates version 1, with the Elsa ID as `ResourceId` (Aster generates one when it is empty), and activates it in the channel when `AutoActivate` is set. An existing ID, including a deleted agent's, throws `DuplicateResourceIdException`, as Elsa's in-memory store throws on a duplicate key. |
-| `UpdateAsync` | Saves a new version on top of the latest one and activates it when `AutoActivate` is set. The last writer wins, as in Elsa's stores; a concurrent save is retried up to three times. An unknown ID is added. |
+| `UpdateAsync` | Saves a new version on top of the latest one and activates it when `AutoActivate` is set. The last writer wins, as in Elsa's stores; a concurrent save is retried up to three times. An unknown ID is added. A deleted or archived agent throws `InvalidOperationException` rather than saving a version nobody can read; restore it first. |
 | `GetAsync`, `FindAsync`, `ListAsync` | Return, for each agent, the version active in the channel (the highest when several are, as in an A/B test). Agents with no active version, or that are archived or soft-deleted, are left out. Filters compare ordinally, as Elsa's in-memory store does; results are ordered by ID. |
 | `DeleteAsync`, `DeleteManyAsync` | Soft-delete: a `SoftDeleted` lifecycle marker. Versions, activations and history stay, and `IResourceLifecycleRestoreService` brings the agent back. Deleting an unknown or already deleted agent does nothing. |
 
@@ -91,7 +91,7 @@ The `Aster.Elsa` activities (Activate Version, Promote Resource, Get Resource) a
 
 Elsa names the agents an agent works with (`AgentConfig.Agents`) by agent name. Aster references point at resource IDs, so the store translates:
 
-- **On save:** each name becomes the resource ID of the agent with that name. It looks first among the agents visible in the channel, then among all agents that are not deleted (lowest ID first).
+- **On save:** each name becomes the resource ID of the agent with that name. It looks first among the agents visible in the channel, then among all agents that are not deleted (lowest ID first), then among the agents this one already references. That last step keeps a reference to an agent deleted since saving as it reads.
 - **On read:** each ID becomes that agent's current name. That is the name in the channel when the agent is active there, otherwise its latest name.
 - **A reference follows the agent, not the name:** after a rename, the referencing agent reads the new name.
 - **Reverse lookup works:** `IResourceReferenceService.GetReferrersAsync(agentId)` lists the agents that use an agent, before you change or delete it.
