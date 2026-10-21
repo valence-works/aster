@@ -77,7 +77,7 @@ builder.Services.AddAsterSqliteJson(options =>
 });
 ```
 
-For PostgreSQL, call `AddAsterPostgresJsonb(...)` instead. Until the Postgres query translator lands (#98), queries run through the in-memory query service over Postgres reads.
+For PostgreSQL, call `AddAsterPostgresJsonb(...)` instead. It supports the same query surface as SQLite, translated to SQL over `jsonb`.
 
 ```csharp
 builder.Services.AddAsterCore();
@@ -340,7 +340,7 @@ Execution is tracked in the [Aster 1.0 program](https://github.com/valence-works
 
 ### Packages
 
-Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb` (stores; its query translator is #98), `Aster.AspNetCore`.
+Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.AspNetCore`.
 
 Splitting `Aster.Core` into smaller packages is deferred.
 

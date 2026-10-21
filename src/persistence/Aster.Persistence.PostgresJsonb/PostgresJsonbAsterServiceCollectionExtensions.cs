@@ -10,12 +10,9 @@ public static class PostgresJsonbAsterServiceCollectionExtensions
 {
     /// <summary>
     /// Registers PostgreSQL JSONB storage for definitions, shared aspects, resource versions, activation state,
-    /// lifecycle markers, version pruning and portability. Call it after <c>AddAsterCore()</c>.
+    /// lifecycle markers, version pruning and portability, and the query provider that translates
+    /// <c>ResourceQuery</c> to SQL over <c>jsonb</c>. Call it after <c>AddAsterCore()</c>.
     /// </summary>
-    /// <remarks>
-    /// Queries still run through the core's in-memory query service over this provider's reads until the
-    /// Postgres query translator lands (#98).
-    /// </remarks>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Configures the connection string and schema bootstrap.</param>
     /// <returns>The <paramref name="services"/> for chaining.</returns>
@@ -32,6 +29,8 @@ public static class PostgresJsonbAsterServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.AddSingleton<PostgresJsonbDataSource>();
+        services.AddSingleton<PostgresJsonbInfrastructureRunner>();
+        services.AddSingleton<IInfrastructureRunner>(sp => sp.GetRequiredService<PostgresJsonbInfrastructureRunner>());
         services.AddSingleton<PostgresJsonbResourceStore>();
         services.AddSingleton<PostgresJsonbAspectDefinitionStore>();
         services.AddSingleton<IAspectDefinitionStore>(sp => sp.GetRequiredService<PostgresJsonbAspectDefinitionStore>());
@@ -43,6 +42,12 @@ public static class PostgresJsonbAsterServiceCollectionExtensions
         services.AddSingleton<IResourcePortabilityStore>(sp => sp.GetRequiredService<PostgresJsonbResourceStore>());
         services.AddSingleton<IResourceLifecycleMarkerStore>(sp => sp.GetRequiredService<PostgresJsonbResourceStore>());
         services.AddSingleton<IResourceLifecycleMarkerClearStore>(sp => sp.GetRequiredService<PostgresJsonbResourceStore>());
+        services.AddSingleton<PostgresJsonbQueryService>();
+        services.AddSingleton<PostgresJsonbQueryProviderIdentity>();
+        services.AddSingleton<PostgresJsonbQueryCapabilitiesProvider>();
+        services.AddSingleton<IResourceQueryService>(sp => sp.GetRequiredService<PostgresJsonbQueryService>());
+        services.AddSingleton<IResourceQueryProviderIdentity>(sp => sp.GetRequiredService<PostgresJsonbQueryProviderIdentity>());
+        services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<PostgresJsonbQueryCapabilitiesProvider>());
 
         return services;
     }

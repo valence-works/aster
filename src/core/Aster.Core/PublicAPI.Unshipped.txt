@@ -3277,3 +3277,51 @@ virtual Aster.Core.Models.Querying.FilterExpression.PrintMembers(System.Text.Str
 ~override Aster.Core.Abstractions.ResourceVersionReadResourceIdSelection.Equals(object obj) -> bool
 ~override Aster.Core.Abstractions.ResourceVersionReadResourceIdSelection.ToString() -> string
 const Aster.Core.Models.Definitions.FacetValueDiagnosticCodes.StoredNameMismatch = "facet-value-stored-name-mismatch" -> string!
+Aster.Core.Abstractions.IInfrastructureRunner
+Aster.Core.Abstractions.IInfrastructureRunner.ApplyAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.InfrastructureStep!>!>
+Aster.Core.Abstractions.IInfrastructureRunner.GetAppliedAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.AppliedInfrastructureStep!>!>
+Aster.Core.Abstractions.IInfrastructureRunner.GetPendingAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.InfrastructureStep!>!>
+Aster.Core.Abstractions.IInfrastructureRunner.VerifyAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Infrastructure.InfrastructureVerification!>
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.<Clone>$() -> Aster.Core.Models.Infrastructure.AppliedInfrastructureStep!
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.AppliedAt.get -> System.DateTimeOffset
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.AppliedAt.init -> void
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.AppliedInfrastructureStep(string! Id, System.DateTimeOffset AppliedAt) -> void
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.Deconstruct(out string! Id, out System.DateTimeOffset AppliedAt) -> void
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.Equals(Aster.Core.Models.Infrastructure.AppliedInfrastructureStep? other) -> bool
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.Id.get -> string!
+Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.Id.init -> void
+Aster.Core.Models.Infrastructure.InfrastructureStep
+Aster.Core.Models.Infrastructure.InfrastructureStep.<Clone>$() -> Aster.Core.Models.Infrastructure.InfrastructureStep!
+Aster.Core.Models.Infrastructure.InfrastructureStep.Deconstruct(out string! Id, out string! Description) -> void
+Aster.Core.Models.Infrastructure.InfrastructureStep.Description.get -> string!
+Aster.Core.Models.Infrastructure.InfrastructureStep.Description.init -> void
+Aster.Core.Models.Infrastructure.InfrastructureStep.Equals(Aster.Core.Models.Infrastructure.InfrastructureStep? other) -> bool
+Aster.Core.Models.Infrastructure.InfrastructureStep.Id.get -> string!
+Aster.Core.Models.Infrastructure.InfrastructureStep.Id.init -> void
+Aster.Core.Models.Infrastructure.InfrastructureStep.InfrastructureStep(string! Id, string! Description) -> void
+Aster.Core.Models.Infrastructure.InfrastructureVerification
+Aster.Core.Models.Infrastructure.InfrastructureVerification.<Clone>$() -> Aster.Core.Models.Infrastructure.InfrastructureVerification!
+Aster.Core.Models.Infrastructure.InfrastructureVerification.Deconstruct(out System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.InfrastructureStep!>! PendingSteps, out System.Collections.Generic.IReadOnlyList<string!>! UnknownAppliedStepIds) -> void
+Aster.Core.Models.Infrastructure.InfrastructureVerification.Equals(Aster.Core.Models.Infrastructure.InfrastructureVerification? other) -> bool
+Aster.Core.Models.Infrastructure.InfrastructureVerification.InfrastructureVerification(System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.InfrastructureStep!>! PendingSteps, System.Collections.Generic.IReadOnlyList<string!>! UnknownAppliedStepIds) -> void
+Aster.Core.Models.Infrastructure.InfrastructureVerification.IsCurrent.get -> bool
+Aster.Core.Models.Infrastructure.InfrastructureVerification.PendingSteps.get -> System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.InfrastructureStep!>!
+Aster.Core.Models.Infrastructure.InfrastructureVerification.PendingSteps.init -> void
+Aster.Core.Models.Infrastructure.InfrastructureVerification.UnknownAppliedStepIds.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Aster.Core.Models.Infrastructure.InfrastructureVerification.UnknownAppliedStepIds.init -> void
+override Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.Equals(object? obj) -> bool
+override Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.GetHashCode() -> int
+override Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.ToString() -> string!
+override Aster.Core.Models.Infrastructure.InfrastructureStep.Equals(object? obj) -> bool
+override Aster.Core.Models.Infrastructure.InfrastructureStep.GetHashCode() -> int
+override Aster.Core.Models.Infrastructure.InfrastructureStep.ToString() -> string!
+override Aster.Core.Models.Infrastructure.InfrastructureVerification.Equals(object? obj) -> bool
+override Aster.Core.Models.Infrastructure.InfrastructureVerification.GetHashCode() -> int
+override Aster.Core.Models.Infrastructure.InfrastructureVerification.ToString() -> string!
+static Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.operator !=(Aster.Core.Models.Infrastructure.AppliedInfrastructureStep? left, Aster.Core.Models.Infrastructure.AppliedInfrastructureStep? right) -> bool
+static Aster.Core.Models.Infrastructure.AppliedInfrastructureStep.operator ==(Aster.Core.Models.Infrastructure.AppliedInfrastructureStep? left, Aster.Core.Models.Infrastructure.AppliedInfrastructureStep? right) -> bool
+static Aster.Core.Models.Infrastructure.InfrastructureStep.operator !=(Aster.Core.Models.Infrastructure.InfrastructureStep? left, Aster.Core.Models.Infrastructure.InfrastructureStep? right) -> bool
+static Aster.Core.Models.Infrastructure.InfrastructureStep.operator ==(Aster.Core.Models.Infrastructure.InfrastructureStep? left, Aster.Core.Models.Infrastructure.InfrastructureStep? right) -> bool
+static Aster.Core.Models.Infrastructure.InfrastructureVerification.operator !=(Aster.Core.Models.Infrastructure.InfrastructureVerification? left, Aster.Core.Models.Infrastructure.InfrastructureVerification? right) -> bool
+static Aster.Core.Models.Infrastructure.InfrastructureVerification.operator ==(Aster.Core.Models.Infrastructure.InfrastructureVerification? left, Aster.Core.Models.Infrastructure.InfrastructureVerification? right) -> bool

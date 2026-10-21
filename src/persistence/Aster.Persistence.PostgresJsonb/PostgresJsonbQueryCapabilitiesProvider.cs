@@ -1,0 +1,100 @@
+using Aster.Core.Abstractions;
+using Aster.Core.Models.Querying;
+
+namespace Aster.Persistence.PostgresJsonb;
+
+/// <summary>
+/// Query capability declaration for the PostgreSQL JSONB query provider: the same portable surface as SQLite JSON.
+/// </summary>
+internal sealed class PostgresJsonbQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
+{
+    /// <summary>
+    /// Stable provider key used by the PostgreSQL JSONB query provider and its capability declaration.
+    /// </summary>
+    public const string ProviderKey = "postgres-jsonb";
+
+    /// <inheritdoc />
+    public QueryCapabilityDescription Capabilities { get; } = new(
+        ProviderKey: ProviderKey,
+        ProviderName: "PostgreSQL JSONB",
+        SupportedScopes: new HashSet<ResourceVersionScope>
+        {
+            ResourceVersionScope.Latest,
+            ResourceVersionScope.AllVersions,
+            ResourceVersionScope.Active,
+            ResourceVersionScope.Draft,
+        },
+        RequiresActivationChannelForActiveScope: true,
+        SupportedFilterTypes: new HashSet<QueryFilterType>
+        {
+            QueryFilterType.Metadata,
+            QueryFilterType.AspectPresence,
+            QueryFilterType.FacetValue,
+            QueryFilterType.Logical,
+        },
+        SupportedLogicalOperators: new HashSet<LogicalOperator>
+        {
+            LogicalOperator.And,
+            LogicalOperator.Or,
+            LogicalOperator.Not,
+        },
+        SupportedComparisonOperators: new Dictionary<QueryFilterType, IReadOnlySet<ComparisonOperator>>
+        {
+            [QueryFilterType.Metadata] = new HashSet<ComparisonOperator>
+            {
+                ComparisonOperator.Equals,
+                ComparisonOperator.NotEquals,
+                ComparisonOperator.In,
+                ComparisonOperator.Contains,
+                ComparisonOperator.StartsWith,
+            },
+            [QueryFilterType.FacetValue] = new HashSet<ComparisonOperator>
+            {
+                ComparisonOperator.Equals,
+                ComparisonOperator.NotEquals,
+                ComparisonOperator.In,
+                ComparisonOperator.Contains,
+                ComparisonOperator.StartsWith,
+                ComparisonOperator.Range,
+                ComparisonOperator.Exists,
+                ComparisonOperator.ArrayContains,
+                ComparisonOperator.ArrayContainsAny,
+                ComparisonOperator.ArrayContainsAll,
+            },
+        },
+        SupportedMetadataFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ResourceId",
+            "Id",
+            "DefinitionId",
+            "Owner",
+            "Version",
+            "Created",
+        },
+        MetadataContainsFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ResourceId",
+            "Id",
+            "DefinitionId",
+            "Owner",
+            "Created",
+        },
+        SupportsMetadataSorting: true,
+        SupportsFacetSorting: true,
+        SupportsSkip: true,
+        SupportsTake: true,
+        FacetRangeSupport: new HashSet<QueryValueShape>
+        {
+            QueryValueShape.Numeric,
+            QueryValueShape.DateTime,
+        },
+        UnsupportedFeatures:
+        [
+            "Metadata range filters",
+        ])
+    {
+        SupportsLifecycleStateFiltering = true,
+        SupportsReverseReferenceLookup = true,
+        MaxArrayQueryElements = 100,
+    };
+}

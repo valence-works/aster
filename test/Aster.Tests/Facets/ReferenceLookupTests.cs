@@ -7,7 +7,9 @@ using Aster.Core.Models.Querying;
 using Aster.Core.Models.References;
 using Aster.Core.Models.Tenancy;
 using Aster.Core.Services;
+using Aster.Persistence.PostgresJsonb;
 using Aster.Persistence.SqliteJson;
+using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,24 +17,33 @@ namespace Aster.Tests.Facets;
 
 /// <summary>
 /// #88: forward reference filters (<see cref="ReferenceQuery"/>, <c>TypedFacetQuery.References</c>) and
-/// reverse lookup (<see cref="IResourceReferenceService"/>) return the same results from the in-memory
-/// and SQLite providers, scoped to one tenant.
+/// reverse lookup (<see cref="IResourceReferenceService"/>) return the same results from the in-memory,
+/// SQLite and PostgreSQL providers, scoped to one tenant.
 /// </summary>
 public sealed class ReferenceLookupTests : IDisposable
 {
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
+    private const string Postgres = "postgres";
     private const string Published = "published";
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
 
-    public void Dispose() => SqliteJsonTestDatabase.DeleteFiles(databasePath);
+    private readonly PostgresTestDatabase postgres = new();
+
+    public void Dispose()
+    {
+        SqliteJsonTestDatabase.DeleteFiles(databasePath);
+        postgres.Dispose();
+    }
 
     private ServiceProvider CreateProvider(string providerKind, ReferenceValidationMode mode = ReferenceValidationMode.Strict)
     {
         var services = new ServiceCollection().AddAsterCore(options => options.ReferenceValidation = mode);
         if (providerKind == Sqlite)
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
+        else if (providerKind == Postgres)
+            services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
 
         return services.BuildServiceProvider();
     }
@@ -130,9 +141,10 @@ public sealed class ReferenceLookupTests : IDisposable
     // Forward filters
     // ──────────────────────────────────────────────────────────────────────────
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task ReferenceQueryTargets_MatchesScalarAndArrayReferences(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -144,9 +156,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Equal(new[] { "workflow-1" }, await QueryIdsAsync(provider, ReferenceQuery.Targets("Steps", "Agents", "agent-b")));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task TypedFacetQueryReferences_MatchesLikeReferenceQueryTargets(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -162,9 +175,10 @@ public sealed class ReferenceLookupTests : IDisposable
     // Reverse lookup
     // ──────────────────────────────────────────────────────────────────────────
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_ReturnsReferringResourcesWithEveryLocation(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -185,9 +199,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Equal(new[] { new ResourceReferenceLocation("Steps", "Agents", 0) }, page.Items[1].Locations);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_MatchesResourceIdsOrdinally(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -198,9 +213,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Empty((await references.GetReferrersAsync("AGENT-A")).Items);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_UnknownTargetOrNoReferenceFacets_ReturnsEmpty(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -211,9 +227,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Empty((await references.GetReferrersAsync("agent-a", new ResourceReferrerQuery { DefinitionId = "Note" })).Items);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_PagesInResourceIdOrder(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -232,9 +249,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.False(none.HasMore);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_PagesOverConfirmedReferrers_NotCaseOnlyCandidates(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -255,9 +273,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.False(everything.HasMore);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task ResourceIdSort_IsOrdinal_OnBothProviders(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -274,9 +293,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.True(page.HasMore);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_IsTenantScoped(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -294,9 +314,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Empty((await references.GetReferrersAsync("agent-a")).Items);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_ActiveScope_SearchesTheChannelsVersions(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -319,9 +340,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Equal("workflow-3", active.Items[0].Resource.ResourceId);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task GetReferrers_FindsLenientlySavedReferencesOfAnyDefinition(string providerKind)
     {
         await using var provider = CreateProvider(providerKind, ReferenceValidationMode.Lenient);
@@ -349,11 +371,13 @@ public sealed class ReferenceLookupTests : IDisposable
         await Assert.ThrowsAsync<NotSupportedException>(async () => await service.GetReferrersAsync("agent-a"));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory, 0)]
     [InlineData(InMemory, 5)]
     [InlineData(Sqlite, 0)]
+    [InlineData(Postgres, 0)]
     [InlineData(Sqlite, 5)]
+    [InlineData(Postgres, 5)]
     public async Task GetReferrers_ActiveScopeWithoutChannel_IsRejectedEvenForAnEmptyPage(string providerKind, int take)
     {
         await using var provider = CreateProvider(providerKind);
@@ -367,9 +391,10 @@ public sealed class ReferenceLookupTests : IDisposable
         Assert.Equal("activation-channel-required", exception.Code);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public void Capabilities_DeclareReverseLookup(string providerKind)
     {
         using var provider = CreateProvider(providerKind);

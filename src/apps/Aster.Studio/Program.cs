@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Aster.Studio;
 using Aster.AspNetCore;
 using Aster.Core.Extensions;
@@ -7,6 +9,9 @@ using Microsoft.Extensions.FileProviders;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls(builder.Configuration["Urls"] ?? "http://localhost:5210");
+// SDK results carry enums such as lifecycle states and policy outcomes; the SPA reads them as kebab-case names.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower)));
 builder.Services.AddAsterCore();
 builder.Services.AddAsterSqliteJson(options =>
 {

@@ -3,6 +3,7 @@ using Aster.Core.Definitions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Tests.Persistence;
 using Aster.Tests.Tenancy;
@@ -147,6 +148,75 @@ public sealed class PostgresJsonbConcurrencyTests : IDisposable
     }
 
     [SkippableFact]
+    public async Task ActivateAndPruneOfOneVersion_Concurrently_EndActiveOrPrunedNeverBoth()
+    {
+        // #180: the manager checks that a version exists before activating it; the store re-checks under the lock
+        // prune takes, so the race ends with exactly one of the two operations applied.
+        const int Resources = 20;
+        await using var setup = database.CreateProvider();
+        await TenantScopeTestFixtures.RegisterProductDefinitionAsync(setup);
+        var writer = setup.GetRequiredService<IResourceVersionWriter>();
+        for (var index = 0; index < Resources; index++)
+        {
+            foreach (var version in new[] { 1, 2 })
+                await writer.SaveVersionAsync(TenantScopeTestFixtures.CreateResource($"raced-{index}", $"v{version}", version: version));
+        }
+
+        await using var activating = database.CreateProvider();
+        await using var pruning = database.CreateProvider();
+        var manager = activating.GetRequiredService<IResourceManager>();
+        var pruner = pruning.GetRequiredService<IResourceVersionPruningStore>();
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var races = Enumerable.Range(0, Resources).Select(index => (
+            Activate: Task.Run(async () =>
+            {
+                await start.Task;
+                await manager.ActivateAsync($"raced-{index}", 1, "Published");
+            }),
+            Prune: Task.Run(async () =>
+            {
+                await start.Task;
+                return await pruner.PruneVersionAsync($"raced-{index}", 1, TenantScope.Default);
+            }))).ToList();
+        start.SetResult();
+
+        var reader = setup.GetRequiredService<IResourceVersionReader>();
+        foreach (var (index, race) in races.Select((race, index) => (index, race)))
+        {
+            var activated = await Succeeded(race.Activate);
+            var pruned = await Succeeded(race.Prune);
+            var versions = (await reader.ReadVersionsAsync(new ResourceVersionReadRequest
+            {
+                Scope = ResourceVersionScope.AllVersions,
+                ResourceIds = [$"raced-{index}"],
+            })).Select(static resource => resource.Version).ToList();
+            var active = (await reader.ReadVersionsAsync(new ResourceVersionReadRequest
+            {
+                Scope = ResourceVersionScope.Active,
+                ActivationChannel = "Published",
+                ResourceIds = [$"raced-{index}"],
+            })).Select(static resource => resource.Version).ToList();
+
+            Assert.True(activated != pruned, $"raced-{index}: activated {activated}, pruned {pruned}.");
+            Assert.Equal(activated ? [1, 2] : [2], versions);
+            Assert.Equal(activated ? [1] : [], active);
+        }
+
+        static async Task<bool> Succeeded(Task task)
+        {
+            try
+            {
+                await task;
+                return task is not Task<bool> pruned || pruned.Result;
+            }
+            catch (Exception exception) when (exception is VersionNotFoundException or InvalidOperationException)
+            {
+                return false;
+            }
+        }
+    }
+
+    [SkippableFact]
     public async Task SchemaBootstrap_ConcurrentProvidersOnAFreshDatabase_AllStart()
     {
         // Every provider bootstraps the schema when its stores are first resolved.
@@ -170,7 +240,7 @@ public sealed class PostgresJsonbConcurrencyTests : IDisposable
         }
 
         Assert.Equal(
-            ["activation_states", "aspect_definitions", "lifecycle_markers", "resource_definitions", "resource_versions"],
+            ["activation_states", "aspect_definitions", "aster_infrastructure_steps", "lifecycle_markers", "resource_definitions", "resource_versions"],
             ReadTableNames());
     }
 

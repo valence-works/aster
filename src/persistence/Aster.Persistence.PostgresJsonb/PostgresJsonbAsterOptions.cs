@@ -11,8 +11,9 @@ public sealed class PostgresJsonbAsterOptions
     public string ConnectionString { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets whether the provider creates its tables on first use. Bootstrap is idempotent and safe
-    /// when several processes start at once. Turn it off when the schema is created out of band.
+    /// Gets or sets whether the provider applies its pending infrastructure steps (tables and indexes) on first use.
+    /// Safe when several processes start at once: each step runs once. Turn it off to apply them explicitly, from a
+    /// deployment step through <c>IInfrastructureRunner</c>; the provider then never changes the schema itself.
     /// </summary>
     public bool InitializeSchema { get; set; } = true;
 }

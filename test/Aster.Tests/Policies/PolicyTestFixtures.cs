@@ -135,6 +135,9 @@ internal static class PolicyTestFixtures
             await store.RegisterDefinitionAsync(definition, tenantScope, CancellationToken.None);
     }
 
+    // Well before the tests' AppliedAt and evaluation timestamps, so the 30-day age criteria match.
+    public static readonly DateTime DefaultCreated = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     public static async Task<Resource> SaveResourceAsync(
         IServiceProvider provider,
         string resourceId,
@@ -151,7 +154,7 @@ internal static class PolicyTestFixtures
             DefinitionId = "Product",
             DefinitionVersion = 1,
             Version = version,
-            Created = created ?? DateTime.UtcNow,
+            Created = created ?? DefaultCreated,
             Aspects = new Dictionary<string, object>
             {
                 ["Title"] = new { Title = resourceId },

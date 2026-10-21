@@ -5,7 +5,9 @@ using Aster.Core.InMemory;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Services;
+using Aster.Persistence.PostgresJsonb;
 using Aster.Persistence.SqliteJson;
+using Aster.Tests.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Tests.Querying;
@@ -15,11 +17,14 @@ public sealed class ProviderConformanceTests : IDisposable
     private readonly string sqliteDatabasePath =
         Path.Combine(Path.GetTempPath(), $"aster-conformance-{Guid.NewGuid():N}.db");
 
+    private readonly PostgresTestDatabase postgres = new();
+
     public void Dispose()
     {
         TryDelete(sqliteDatabasePath);
         TryDelete($"{sqliteDatabasePath}-shm");
         TryDelete($"{sqliteDatabasePath}-wal");
+        postgres.Dispose();
     }
 
     [Fact]
@@ -40,6 +45,46 @@ public sealed class ProviderConformanceTests : IDisposable
 
         await ProviderConformanceSuite.AssertConformsAsync(inMemory);
         await ProviderConformanceSuite.AssertConformsAsync(sqlite);
+    }
+
+    [SkippableFact]
+    public async Task PostgresProvider_PassesSharedConformanceSuite()
+    {
+        await using var provider = await CreatePostgresProviderAsync();
+
+        await ProviderConformanceSuite.AssertConformsAsync(new ProviderConformanceSubject(
+            "PostgreSQL JSONB",
+            PostgresJsonbQueryCapabilitiesProvider.ProviderKey,
+            provider,
+            RequiresNonEmptyResults: true));
+    }
+
+    // Conformance alone checks that a supported query runs and finds something; this checks every provider finds
+    // the same versions, in the same order where the query sorts.
+    [SkippableFact]
+    public async Task BuiltInProviders_ReturnIdenticalResultsForEveryConformanceQuery()
+    {
+        await using var inMemory = await CreateInMemoryProviderAsync();
+        await using var sqlite = await CreateSqliteProviderAsync();
+        await using var postgresProvider = await CreatePostgresProviderAsync();
+        var capabilities = new SqliteJsonQueryCapabilitiesProvider().Capabilities;
+
+        foreach (var (name, query) in ProviderConformanceSuite.SupportedQueries(capabilities))
+        {
+            var expected = await ResultsAsync(inMemory, query);
+            Assert.True(expected.Count > 0 || query.Filter is null, $"{name}: the fixture matches nothing.");
+            Assert.Equal(expected, await ResultsAsync(sqlite, query));
+            Assert.Equal(expected, await ResultsAsync(postgresProvider, query));
+        }
+
+        static async Task<List<(string, int)>> ResultsAsync(IServiceProvider provider, ResourceQuery query)
+        {
+            var results = (await provider.GetRequiredService<IResourceQueryService>().QueryAsync(query))
+                .Select(resource => (resource.ResourceId, resource.Version));
+            return query.Sorts.Count > 0
+                ? results.ToList()
+                : results.Order().ToList();
+        }
     }
 
     [Fact]
@@ -156,6 +201,17 @@ public sealed class ProviderConformanceTests : IDisposable
             {
                 options.ConnectionString = $"Data Source={sqliteDatabasePath}";
             })
+            .BuildServiceProvider();
+        await SeedAsync(provider);
+
+        return provider;
+    }
+
+    private async Task<ServiceProvider> CreatePostgresProviderAsync()
+    {
+        var provider = new ServiceCollection()
+            .AddAsterCore()
+            .AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString)
             .BuildServiceProvider();
         await SeedAsync(provider);
 
@@ -414,6 +470,9 @@ internal static class ProviderConformanceSuite
 
         return failures;
     }
+
+    public static IEnumerable<(string Name, ResourceQuery Query)> SupportedQueries(QueryCapabilityDescription capabilities) =>
+        SupportedCases(capabilities).Concat(ArrayCases(capabilities)).Select(static queryCase => (queryCase.Name, queryCase.Query));
 
     private static async Task EvaluateSupportedCaseAsync(
         ProviderConformanceSubject subject,
