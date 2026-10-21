@@ -54,7 +54,22 @@ internal sealed class BenchmarkData : IAsyncDisposable
 
         var data = new BenchmarkData(services.BuildServiceProvider(), databasePath, Math.Max(1, (totalVersions - Authors) / VersionsPerArticle));
         await data.SeedAsync();
+        if (databasePath is not null)
+            CheckpointWal(databasePath);
         return data;
+    }
+
+    /// <summary>
+    /// Folds the seeding writes into the main database file, so measured operations don't pay for
+    /// checkpointing a write-ahead log that seeding left behind.
+    /// </summary>
+    public static void CheckpointWal(string databasePath)
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+        command.ExecuteNonQuery();
     }
 
     public static Dictionary<string, object> ArticleAspects(int index, int version) => new()
