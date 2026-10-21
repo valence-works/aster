@@ -178,6 +178,7 @@ internal static class OperationsEndpoints
         }
         catch (VersionNotFoundException)
         {
+            // Thrown only when the resource has no versions at all.
             return ResourceNotFound(resourceId);
         }
         catch (ConcurrencyException exception)
@@ -291,15 +292,17 @@ internal static class OperationsEndpoints
             result.Candidates));
     }
 
-    private static IResult ResourceNotFound(string resourceId) =>
-        Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not found", detail: $"Resource '{resourceId}' was not found.");
+    private static IResult ResourceNotFound(string resourceId) => NotFound("resource-not-found", $"Resource '{resourceId}' was not found.");
 
-    private static IResult DefinitionNotFound(string definitionId) =>
-        Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not found", detail: $"Definition '{definitionId}' was not found.");
+    private static IResult DefinitionNotFound(string definitionId) => NotFound("definition-not-found", $"Definition '{definitionId}' was not found.");
 
-    private static IResult Problem<TDiagnostic>(int statusCode, string title, IReadOnlyList<TDiagnostic> diagnostics) =>
+    private static IResult NotFound(string code, string message) =>
+        Problem(StatusCodes.Status404NotFound, "Not found", [new DiagnosticDto(code, null, null, message)], message);
+
+    private static IResult Problem<TDiagnostic>(int statusCode, string title, IReadOnlyList<TDiagnostic> diagnostics, string? detail = null) =>
         Results.Problem(
             statusCode: statusCode,
             title: title,
+            detail: detail,
             extensions: new Dictionary<string, object?> { ["diagnostics"] = diagnostics });
 }

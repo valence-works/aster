@@ -157,3 +157,20 @@ test("activates a historical version without moving latest, and shows maintenanc
   await expect(versionRow(page, 2).getByText("latest")).toBeVisible();
   await expect(page.getByText("base v2")).toBeVisible();
 });
+
+test("answers operations on a missing resource or definition with a stable not-found code", async ({ page }) => {
+  const codes = async (response: Awaited<ReturnType<typeof page.request.get>>, status: number) => {
+    expect(response.status()).toBe(status);
+    return ((await response.json()).diagnostics as { code: string }[]).map((diagnostic) => diagnostic.code);
+  };
+
+  expect(await codes(await page.request.get("/api/studio/resources/missing-resource/lifecycle"), 404)).toEqual(["resource-not-found"]);
+  expect(await codes(await page.request.get("/api/studio/definitions/missing-definition/policies"), 404)).toEqual(["definition-not-found"]);
+  expect(await codes(await page.request.post("/api/studio/resources/missing-resource/schema-upgrade", { data: { baseVersion: 1 } }), 404))
+    .toEqual(["resource-not-found"]);
+
+  // A stale base version on an existing resource is a conflict, not a missing version.
+  const resourceId = await createArticle(page, unique("Upgrade base article"));
+  expect(await codes(await page.request.post(`/api/studio/resources/${resourceId}/schema-upgrade`, { data: { baseVersion: 99 } }), 409))
+    .toEqual(["concurrency-conflict"]);
+});
