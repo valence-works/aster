@@ -236,8 +236,12 @@ internal static class AsterQueryTranslator
         {
             if (filter.Aspect is null || filter.Facet is null || filter.Op is not null || filter.Value is not null)
                 return Fail(out error, "query-filter-invalid", path, "A reference filter needs aspect, facet and references, and no op or value.");
-            if (string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(filter.Aspect) || string.IsNullOrWhiteSpace(filter.Facet))
-                return Fail(out error, "query-value-required", $"{path}.references", "A reference filter needs a non-empty aspect, facet and references.");
+            if (string.IsNullOrWhiteSpace(filter.Aspect))
+                return Fail(out error, "query-value-required", $"{path}.aspect", "A reference filter needs a non-empty aspect.");
+            if (string.IsNullOrWhiteSpace(filter.Facet))
+                return Fail(out error, "query-value-required", $"{path}.facet", "A reference filter needs a non-empty facet.");
+            if (string.IsNullOrWhiteSpace(target))
+                return Fail(out error, "query-value-required", $"{path}.references", "A reference filter needs a non-empty references.");
 
             // Translated to an Or of two facet filters; the validator's paths into it all name this node.
             paths.MarkOpaque(corePath, valueKey: "references");

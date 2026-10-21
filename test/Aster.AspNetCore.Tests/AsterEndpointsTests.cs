@@ -426,6 +426,18 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, withOp.StatusCode);
         var diagnostic = (await ReadAsync(withOp)).GetProperty("diagnostics")[0];
         Assert.Equal(("query-filter-invalid", "filter"), (diagnostic.GetProperty("code").GetString(), diagnostic.GetProperty("path").GetString()));
+
+        // A blank member is reported at that member.
+        foreach (var (body, expectedPath) in new (object, string)[]
+        {
+            (new { aspect = " ", facet = "Primary", references = "a-1" }, "filter.aspect"),
+            (new { aspect = "Links", facet = " ", references = "a-1" }, "filter.facet"),
+            (new { aspect = "Links", facet = "Primary", references = " " }, "filter.references"),
+        })
+        {
+            var blank = (await ReadAsync(await client.PostAsJsonAsync("/api/aster/resources/query/validate", new { filter = body }, Web))).GetProperty("diagnostics")[0];
+            Assert.Equal(("query-value-required", expectedPath), (blank.GetProperty("code").GetString(), blank.GetProperty("path").GetString()));
+        }
     }
 
     [Theory]
