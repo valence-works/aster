@@ -124,7 +124,7 @@ See `specs/001-core-sdk-foundation/` for a complete example.
 The store tests in `test/Aster.Tests/Persistence/` run against every persistent provider. The Postgres runs skip unless `ASTER_TEST_POSTGRES` names a server; each test creates and drops its own database there.
 
 ```bash
-docker run -d --name aster-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
+docker run -d --name aster-pg -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:5432:5432 postgres:16
 export ASTER_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres"
 dotnet test Aster.sln
 ```
