@@ -693,6 +693,98 @@ async function getRecordedDefinition(resource: Pick<ResourceDetailDto, "definiti
   }
 }
 
+// Studio's facet types name the UI control; the store's are the SDK's. "number" is stored as decimal.
+function toSdkFacetType(type: string): string {
+  if (type.endsWith("[]")) return `${toSdkFacetType(type.slice(0, -2))}[]`;
+  switch (type.toLowerCase()) {
+    case "number":
+      return "decimal";
+    case "boolean":
+      return "bool";
+    default:
+      return type.toLowerCase();
+  }
+}
+
+function toAsterAspect(aspectId: string, requiresName: boolean, facets: FacetDto[]): AsterAspectDefinition {
+  return {
+    aspectDefinitionId: aspectId,
+    id: crypto.randomUUID(),
+    version: 0,
+    requiresName,
+    isShared: false,
+    facetDefinitions: facets.map((facet) => {
+      const { minValue, maxValue, ...rest } = facet.metadata ?? {};
+      const metadata = Object.fromEntries(Object.entries({ ...rest, minimum: minValue, maximum: maxValue })
+        .filter(([, value]) => value !== undefined && value !== null)) as AsterFacetMetadata;
+      return {
+        facetDefinitionId: facet.facetId,
+        id: crypto.randomUUID(),
+        version: 1,
+        type: toSdkFacetType(facet.type),
+        isRequired: facet.isRequired,
+        metadata: facet.metadata ? metadata : null,
+      };
+    }),
+  };
+}
+
+// The store appends on every registration, so a save that changes nothing is skipped. Compared as stored: SDK
+// types, and metadata without empty values, in a fixed key order.
+function shapeOf(requiresName: boolean, facets: FacetDto[]): string {
+  const metadata = (value: FacetMetadata | null) => Object.entries(value ?? {})
+    .filter(([, entry]) => entry !== undefined && entry !== null && entry !== "")
+    .sort(([left], [right]) => ordinal(left, right));
+  return JSON.stringify([requiresName, facets.map((facet) => [facet.facetId, toSdkFacetType(facet.type), facet.isRequired, metadata(facet.metadata)])]);
+}
+
+function checkAspect(aspectId: string, facets: FacetDto[]) {
+  const fail = (code: string, message: string, facetId: string | null = null): never => {
+    throw new ApiError(400, "Validation failed", [{ code, aspectKey: aspectId, facetId, message }]);
+  };
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(aspectId)) fail("aspect-id-invalid", "Aspect id must start with a letter and contain only letters, digits, '-' or '_'.");
+  if (facets.length === 0) fail("aspect-facets-required", "An aspect must declare at least one facet.");
+  const seen = new Set<string>();
+  for (const facet of facets) {
+    if (!facet.facetId.trim()) fail("aspect-facet-id-required", "Every facet needs an id.");
+    if (seen.has(facet.facetId)) fail("aspect-facet-id-duplicate", `Facet '${facet.facetId}' is declared more than once.`, facet.facetId);
+    seen.add(facet.facetId);
+  }
+}
+
+// Shared aspects register through the Aster endpoint's compare-and-set (#175): creating expects no version yet, and
+// saving expects the version the form was loaded from, so a concurrent edit is never superseded.
+async function createAspect(body: CreateAspectRequest): Promise<SharedAspectDto> {
+  checkAspect(body.aspectId, body.facets);
+  try {
+    await request<AsterAspectDefinition>(`${aster}/aspects?expectedLatestVersion=0`, json("POST", toAsterAspect(body.aspectId, body.requiresName, body.facets)));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) throw new ApiError(409, `Aspect '${body.aspectId}' already exists.`);
+    throw error;
+  }
+
+  return getAspect(body.aspectId);
+}
+
+async function updateAspect(aspectId: string, body: UpdateAspectRequest): Promise<SharedAspectDto> {
+  checkAspect(aspectId, body.facets);
+  const latest = await getAspect(aspectId);
+  if (latest.version === body.baseVersion && shapeOf(latest.requiresName, latest.facets) === shapeOf(body.requiresName, body.facets)) return latest;
+
+  try {
+    await request<AsterAspectDefinition>(`${aster}/aspects?expectedLatestVersion=${body.baseVersion}`, json("POST", toAsterAspect(aspectId, body.requiresName, body.facets)));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      throw new ApiError(409, `Aspect '${aspectId}' was changed since you opened it. Reload and reapply your changes.`);
+    }
+    throw error;
+  }
+
+  return getAspect(aspectId);
+}
+
+const getAspect = (aspectId: string) => request<SharedAspectDto>(`${studio}/aspects/${segment(aspectId)}`);
+
 async function createDefinition(body: CreateDefinitionRequest): Promise<DefinitionDetailDto> {
   // The endpoint re-resolves each shared attachment from the aspect store by (id, version), so a stub is enough.
   const aspectDefinitions: Record<string, AsterAspectDefinition> = {};
@@ -726,9 +818,9 @@ async function createDefinition(body: CreateDefinitionRequest): Promise<Definiti
 export const api = {
   getTenants: () => request<TenantDto[]>(`${studio}/tenants`),
   getAspects: () => request<SharedAspectDto[]>(`${studio}/aspects`),
-  getAspect: (aspectId: string) => request<SharedAspectDto>(`${studio}/aspects/${segment(aspectId)}`),
-  createAspect: (body: CreateAspectRequest) => request<SharedAspectDto>(`${studio}/aspects`, json("POST", body)),
-  updateAspect: (aspectId: string, body: UpdateAspectRequest) => request<SharedAspectDto>(`${studio}/aspects/${segment(aspectId)}`, json("PUT", body)),
+  getAspect,
+  createAspect,
+  updateAspect,
   previewAspectUpgrade: (aspectId: string) => request<AspectUpgradePreviewDto>(`${studio}/aspects/${segment(aspectId)}/upgrade-preview`),
   applyAspectUpgrade: (aspectId: string, targetVersion: number, definitionIds: string[]) =>
     request<AspectUpgradeResultDto>(`${studio}/aspects/${segment(aspectId)}/upgrade`, json("POST", { targetVersion, definitionIds })),

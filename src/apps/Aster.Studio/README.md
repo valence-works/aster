@@ -117,13 +117,13 @@ database in a temporary directory, so runs never touch `App_Data`. CI runs the s
 
 Studio is the integration test bed for the [`Aster.AspNetCore`](../../hosting/Aster.AspNetCore/README.md) package (#110):
 
-- **`/api/aster`:** `app.MapAster(...)` serves every resource and definition operation the SPA uses: read a resource or one of its versions, version history, create, update, activate, deactivate, read a definition, and create one. Errors are problem details; validation failures carry `diagnostics: [{ code, aspectKey, facetId, message }]`.
+- **`/api/aster`:** `app.MapAster(...)` serves every resource, definition and aspect operation the SPA uses: read a resource or one of its versions, version history, create, update, activate, deactivate, read a definition, create one, and register a shared aspect version. Errors are problem details; validation failures carry `diagnostics: [{ code, aspectKey, facetId, message }]`.
   - **Content types are create-only:** a filter rejects definition registration unless it names `expectedLatestVersion=0`, so no request can append a version to an existing type.
-  - **The package's aspect group is not mapped:** its registration appends unconditionally, which would bypass Studio's aspect checks (#175).
+  - **Aspects register conditionally (#175):** a filter rejects aspect registration without `expectedLatestVersion`. The Aspect Library creates with `0` and saves with the version it loaded, so a concurrent edit gets a conflict instead of being superseded; a save that changes nothing adds no version.
 - **Tenancy:** Studio registers an `ITenantScopeAccessor` that reads the `X-Aster-Tenant` header, which the SPA sends with every request. The package's endpoints and Studio's own resolve the tenant through it. Studio has no sign-in to check the header against, so it accepts only its seeded tenants (`default`, `acme`) and rejects others with `tenant-unknown`; a real host resolves the tenant from the caller's identity.
 - **`/api/studio`:** only what the package doesn't provide:
   - **View aggregates:** definitions with resource counts, and a definition's resources with title, tags, active channels and a total count.
-  - **The shared-aspect library:** versions and usage, create-only-if-missing, save based on a base version, and upgrade preview and apply.
+  - **The shared-aspect library:** reads with versions and usage, and upgrade preview and apply. Creating and saving go through the package (above).
   - **Operations (#111)** over the SDK's lifecycle, schema and policy services:
     - `resources/{id}/lifecycle` (read, archive or soft-delete), `restore-preview` and `restore`, each restore naming the state it expects to clear.
     - `resources/{id}/schema` and `schema-upgrade` (based on `baseVersion`).

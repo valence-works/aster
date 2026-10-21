@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Services;
 
@@ -9,6 +10,7 @@ namespace Aster.Core.Services;
 internal sealed class ResourceLifecycleMarkerService : IResourceLifecycleMarkerService
 {
     private readonly IResourceLifecycleMarkerTransitionService transitions;
+    private readonly IResourceLifecycleMarkerStore markerStore;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ResourceLifecycleMarkerService"/>.
@@ -16,14 +18,28 @@ internal sealed class ResourceLifecycleMarkerService : IResourceLifecycleMarkerS
     public ResourceLifecycleMarkerService(
         IResourceVersionReader versionReader,
         IResourceLifecycleMarkerStore markerStore)
-        : this(new ResourceLifecycleMarkerTransitionService(versionReader, markerStore))
+        : this(new ResourceLifecycleMarkerTransitionService(versionReader, markerStore), markerStore)
     {
     }
 
-    internal ResourceLifecycleMarkerService(IResourceLifecycleMarkerTransitionService transitions)
+    internal ResourceLifecycleMarkerService(
+        IResourceLifecycleMarkerTransitionService transitions,
+        IResourceLifecycleMarkerStore markerStore)
     {
         ArgumentNullException.ThrowIfNull(transitions);
+        ArgumentNullException.ThrowIfNull(markerStore);
         this.transitions = transitions;
+        this.markerStore = markerStore;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<ResourceLifecycleMarker?> GetAsync(
+        string resourceId,
+        TenantScope? tenantScope = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
+        return markerStore.GetMarkerAsync(resourceId, TenantScopeResolver.Resolve(tenantScope), cancellationToken);
     }
 
     /// <inheritdoc />

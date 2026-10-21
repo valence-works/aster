@@ -62,6 +62,7 @@ Aster.Core.Abstractions.IResourceLifecycleMarkerClearStore
 Aster.Core.Abstractions.IResourceLifecycleMarkerClearStore.ClearMarkerAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope! tenantScope, Aster.Core.Models.Instances.ResourceLifecycleMarkerState expectedState, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Aster.Core.Abstractions.IResourceLifecycleMarkerService
 Aster.Core.Abstractions.IResourceLifecycleMarkerService.ApplyAsync(Aster.Core.Models.Instances.ResourceLifecycleMarkerRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarkerResult!>
+Aster.Core.Abstractions.IResourceLifecycleMarkerService.GetAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope? tenantScope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarker?>
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.GetMarkerAsync(string! resourceId, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceLifecycleMarker?>
 Aster.Core.Abstractions.IResourceLifecycleMarkerStore.GetMarkersAsync(System.Collections.Generic.IEnumerable<string!>! resourceIds, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<string!, Aster.Core.Models.Instances.ResourceLifecycleMarker!>!>
@@ -2470,6 +2471,7 @@ const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyCriteriaUns
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyEvaluationTimestampRequired = "policy-evaluation-timestamp-required" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyInvalid = "policy-invalid" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyKindUnsupported = "policy-kind-unsupported" -> string!
+const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyNeverApplies = "policy-never-applies" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyOutcomeUnsupported = "policy-outcome-unsupported" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyPruningCandidateInvalid = "policy-pruning-candidate-invalid" -> string!
 const Aster.Core.Models.Policies.ResourcePolicyDiagnosticCodes.PolicyPruningPolicyMismatch = "policy-pruning-policy-mismatch" -> string!
@@ -3343,3 +3345,23 @@ override Aster.Core.Models.Policies.ResourceVersionPruneFloor.GetHashCode() -> i
 override Aster.Core.Models.Policies.ResourceVersionPruneFloor.ToString() -> string!
 static Aster.Core.Models.Policies.ResourceVersionPruneFloor.operator !=(Aster.Core.Models.Policies.ResourceVersionPruneFloor? left, Aster.Core.Models.Policies.ResourceVersionPruneFloor? right) -> bool
 static Aster.Core.Models.Policies.ResourceVersionPruneFloor.operator ==(Aster.Core.Models.Policies.ResourceVersionPruneFloor? left, Aster.Core.Models.Policies.ResourceVersionPruneFloor? right) -> bool
+Aster.Core.Abstractions.IAspectDefinitionStore.RegisterIfLatestAsync(Aster.Core.Models.Definitions.AspectDefinition! aspect, int expectedLatestVersion, Aster.Core.Models.Tenancy.TenantScope? tenantScope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult!>
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.<Clone>$() -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult!
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Aspect.get -> Aster.Core.Models.Definitions.AspectDefinition?
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Aspect.init -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.AspectDefinitionRegistrationResult() -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Equals(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? other) -> bool
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.IsRegistered.get -> bool
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.LatestVersion.get -> int
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.LatestVersion.init -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Status.get -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Status.init -> void
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus.Registered = 0 -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus.VersionConflict = 1 -> Aster.Core.Models.Definitions.AspectDefinitionRegistrationStatus
+override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.Equals(object? obj) -> bool
+override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.GetHashCode() -> int
+override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.ToString() -> string!
+static Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.operator !=(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? left, Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? right) -> bool
+static Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.operator ==(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? left, Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? right) -> bool

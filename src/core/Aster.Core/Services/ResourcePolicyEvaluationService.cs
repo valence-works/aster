@@ -104,7 +104,15 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
                 if (policy.Kind == ResourcePolicyKind.VersionPruning)
                 {
                     draftVersionKeys ??= await ReadVersionKeysAsync(tenant, ResourceVersionScope.Draft, activationChannel: null, cancellationToken);
-                    AddPruningCandidates(policy, definitionResources, activationMatches, draftVersionKeys, candidates, diagnostics);
+                    AddPruningCandidates(
+                        policy,
+                        definitionResources,
+                        request.EvaluationTimestamp,
+                        markers,
+                        activationMatches,
+                        draftVersionKeys,
+                        candidates,
+                        diagnostics);
                 }
                 else
                     AddResourceCandidates(policy, definitionResources, request.EvaluationTimestamp, markers, activationMatches, candidates);
@@ -187,12 +195,16 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
         }
     }
 
-    // Versions outside the retained count that are active on any channel are left out, with a diagnostic carrying
-    // the code pruning application would refuse them with, so applying a preview never meets that refusal (#187).
-    // The latest version is always within the retained count.
+    // Applies the criteria pruning application re-checks, so applying a fresh preview unchanged never meets a
+    // refusal: resources outside the lifecycle state are skipped (#206), versions younger than the minimum age are
+    // not proposed (#206), and versions outside the retained count that are active on any channel are left out with
+    // a diagnostic carrying the code application would refuse them with (#187). The retained count still covers the
+    // newest versions regardless of age, as application's safety floor does. The latest version is always retained.
     private static void AddPruningCandidates(
         ResourcePolicyDeclaration policy,
         IReadOnlyList<Resource> resources,
+        DateTimeOffset? evaluationTimestamp,
+        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers,
         IReadOnlySet<ResourceVersionKey>? activationMatches,
         IReadOnlySet<ResourceVersionKey> draftVersionKeys,
         ICollection<ResourcePolicyCandidateOutcome> candidates,
@@ -201,6 +213,9 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
         var retainedVersions = policy.Criteria.MaximumRetainedVersions.GetValueOrDefault();
         foreach (var group in resources.GroupBy(static resource => resource.ResourceId, StringComparer.Ordinal))
         {
+            if (!MatchesLifecycle(policy, group.Key, markers))
+                continue;
+
             var ordered = group
                 .Where(resource => MatchesActivation(policy, resource, activationMatches))
                 .OrderByDescending(static resource => resource.Version)
@@ -218,6 +233,9 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
 
             foreach (var resource in pruneCandidates)
             {
+                if (!MatchesAge(policy, resource, evaluationTimestamp))
+                    continue;
+
                 if (!draftVersionKeys.Contains(new ResourceVersionKey(resource.ResourceId, resource.Version)))
                 {
                     diagnostics.Add(ResourcePolicyValidator.Diagnostic(
@@ -247,32 +265,19 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
             .GroupBy(static resource => resource.ResourceId, StringComparer.Ordinal)
             .Select(static group => group.OrderByDescending(static resource => resource.Version).First());
 
+    // PreviewAsync skips age-based policies when no evaluation timestamp is given, so one is present here.
     private static bool MatchesAge(
         ResourcePolicyDeclaration policy,
         Resource resource,
-        DateTimeOffset? evaluationTimestamp)
-    {
-        if (policy.Criteria.MinimumAge is not { } minimumAge)
-            return true;
-
-        var created = new DateTimeOffset(DateTime.SpecifyKind(resource.Created, DateTimeKind.Utc));
-        return evaluationTimestamp!.Value - created >= minimumAge;
-    }
+        DateTimeOffset? evaluationTimestamp) =>
+        policy.Criteria.MinimumAge is null
+        || ResourcePolicyCriteriaMatching.MatchesMinimumAge(policy.Criteria, resource, evaluationTimestamp!.Value);
 
     private static bool MatchesLifecycle(
         ResourcePolicyDeclaration policy,
         string resourceId,
-        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers)
-    {
-        if (policy.Criteria.LifecycleState is not { } expected)
-            return true;
-
-        var actual = markers.TryGetValue(resourceId, out var marker)
-            ? marker.State
-            : ResourceLifecycleMarkerState.None;
-
-        return actual == expected;
-    }
+        IReadOnlyDictionary<string, ResourceLifecycleMarker> markers) =>
+        ResourcePolicyCriteriaMatching.MatchesLifecycleState(policy.Criteria, resourceId, markers);
 
     private async ValueTask<IReadOnlySet<ResourceVersionKey>?> GetActivationMatchesAsync(
         ResourcePolicyDeclaration policy,

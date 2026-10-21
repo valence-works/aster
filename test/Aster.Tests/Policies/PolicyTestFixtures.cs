@@ -116,6 +116,33 @@ internal static class PolicyTestFixtures
             ResourceVersion = resourceVersion,
         };
 
+    // The preview's candidates, submitted unchanged to pruning application.
+    public static List<ResourcePolicyPruningApplicationCandidate> PruningCandidates(ResourcePolicyEvaluationPreview preview) =>
+        preview.Candidates.Select(static outcome => new ResourcePolicyPruningApplicationCandidate
+        {
+            PolicyId = outcome.PolicyId,
+            PolicyKind = outcome.PolicyKind,
+            Outcome = outcome.Outcome,
+            ResourceId = outcome.ResourceId,
+            ResourceVersion = outcome.ResourceVersion,
+        }).ToList();
+
+    public static async Task ArchiveAsync(
+        IServiceProvider provider,
+        string resourceId,
+        TenantScope? tenantScope = null)
+    {
+        var result = await provider.GetRequiredService<IResourceLifecycleMarkerService>().ApplyAsync(new ResourceLifecycleMarkerRequest
+        {
+            TenantScope = tenantScope,
+            ResourceId = resourceId,
+            State = ResourceLifecycleMarkerState.Archived,
+            MarkedAt = DateTimeOffset.UtcNow,
+        });
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Archiving '{resourceId}' failed.");
+    }
+
     public static ResourceDefinition ProductDefinition(params ResourcePolicyDeclaration[] policies) =>
         new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")

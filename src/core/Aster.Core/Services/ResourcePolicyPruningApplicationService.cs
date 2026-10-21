@@ -389,7 +389,7 @@ internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyP
             return false;
         }
 
-        if (policy.Criteria.MinimumAge is { } minimumAge)
+        if (policy.Criteria.MinimumAge is not null)
         {
             if (appliedAt is null)
             {
@@ -397,8 +397,7 @@ internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyP
                 return false;
             }
 
-            var created = new DateTimeOffset(DateTime.SpecifyKind(target.Created, DateTimeKind.Utc));
-            if (appliedAt.Value - created < minimumAge)
+            if (!ResourcePolicyCriteriaMatching.MatchesMinimumAge(policy.Criteria, target, appliedAt.Value))
             {
                 path = "criteria/minimumAge";
                 return false;
@@ -411,16 +410,10 @@ internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyP
             return false;
         }
 
-        if (policy.Criteria.LifecycleState is { } expectedLifecycleState)
+        if (!ResourcePolicyCriteriaMatching.MatchesLifecycleState(policy.Criteria, target.ResourceId, markers))
         {
-            var actual = markers.TryGetValue(target.ResourceId, out var marker)
-                ? marker.State
-                : ResourceLifecycleMarkerState.None;
-            if (actual != expectedLifecycleState)
-            {
-                path = "criteria/lifecycleState";
-                return false;
-            }
+            path = "criteria/lifecycleState";
+            return false;
         }
 
         path = "";
