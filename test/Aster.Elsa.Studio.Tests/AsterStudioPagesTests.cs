@@ -200,6 +200,30 @@ public sealed class AsterStudioPagesTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SlowVersionLoad_AfterNavigating_DoesNotReplaceTheNewResource()
+    {
+        await server.RegisterAsync(AsterTestServer.Product());
+        await server.CreateAsync("Product", "saw", new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Saw" } });
+        await server.CreateAsync("Product", "hammer", new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Hammer" } });
+        context.Render<MudPopoverProvider>();
+
+        var editor = context.Render<ResourceEditor>(parameters => parameters.Add(page => page.ResourceId, "saw"));
+        editor.WaitForElement("tr[data-aster-version='1'] button.aster-view", Timeout);
+
+        // Viewing saw's version 1 is slow; the user moves on to hammer before it answers.
+        var release = new TaskCompletionSource();
+        server.Recorder.Gate = ("/api/aster/resources/saw?version=1", release.Task);
+        await RaiseAsync(editor, () => editor.Find("tr[data-aster-version='1'] button.aster-view").Click());
+        editor.Render(parameters => parameters.Add(page => page.ResourceId, "hammer"));
+        editor.WaitForAssertion(() => Assert.Equal("Hammer", editor.Find(Input("Title")).GetAttribute("value")), Timeout);
+
+        release.SetResult();
+        await Task.Delay(200);
+        editor.WaitForAssertion(() => Assert.Equal("Hammer", editor.Find(Input("Title")).GetAttribute("value")), Timeout);
+        Assert.NotEmpty(editor.FindAll("button.aster-save"));
+    }
+
+    [Fact]
     public async Task StaleEdit_ShowsTheConcurrencyConflict()
     {
         await server.RegisterAsync(AsterTestServer.Supplier());

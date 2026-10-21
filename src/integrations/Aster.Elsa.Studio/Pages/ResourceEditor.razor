@@ -199,6 +199,11 @@
     private bool findingReferrers;
     private int generation;
 
+    // Bumped on every navigation. A load that started before the latest navigation drops its result, so a slow
+    // response for one resource never fills the form of another (and Save never sends one resource's content
+    // under another's identity).
+    private int navigation;
+
     /// <summary>The definition of a new resource (the <c>/new</c> route).</summary>
     [Parameter] public string? DefinitionId { get; set; }
 
@@ -214,6 +219,7 @@
     /// <inheritdoc />
     protected override Task OnParametersSetAsync()
     {
+        navigation++;
         newResourceId = null;
         referrers = null;
         return ReloadAsync();
@@ -221,6 +227,7 @@
 
     private async Task ReloadAsync()
     {
+        var current = navigation;
         loadError = null;
         conflict = null;
         errors = AsterFormErrors.None;
@@ -230,15 +237,19 @@
             {
                 latest = shown = null;
                 versions = [];
-                await ShowAsync(DefinitionId!, definitionVersion: null, resource: null);
+                await ShowAsync(DefinitionId!, definitionVersion: null, resource: null, current);
             }
             else if (await Client.GetResourceAsync(ResourceId!) is { } resource)
             {
+                var resourceVersions = await Client.GetVersionsAsync(resource.ResourceId);
+                if (current != navigation)
+                    return;
+
                 latest = resource;
-                versions = await Client.GetVersionsAsync(resource.ResourceId);
-                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource);
+                versions = resourceVersions;
+                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource, current);
             }
-            else
+            else if (current == navigation)
             {
                 loadError = $"Resource '{ResourceId}' was not found.";
             }
@@ -250,11 +261,16 @@
     }
 
     // Builds the form from the schema of the definition version the resource was saved against (#106).
-    private async Task ShowAsync(string definitionId, int? definitionVersion, AsterResourceDocument? resource)
+    private async Task ShowAsync(string definitionId, int? definitionVersion, AsterResourceDocument? resource, int current)
     {
-        if (model is null || model.DefinitionId != definitionId || model.DefinitionVersion != definitionVersion || definitionVersion is null)
-            model = AsterFormModel.FromSchema(await Client.GetDefinitionSchemaAsync(definitionId, definitionVersion));
+        var form = model;
+        if (form is null || form.DefinitionId != definitionId || form.DefinitionVersion != definitionVersion || definitionVersion is null)
+            form = AsterFormModel.FromSchema(await Client.GetDefinitionSchemaAsync(definitionId, definitionVersion));
 
+        if (current != navigation)
+            return;
+
+        model = form;
         shown = resource;
         state = AsterFormState.Create(model, resource?.Aspects);
         breadcrumbs =
@@ -366,13 +382,14 @@
 
     private async Task ShowVersionAsync(int version)
     {
+        var current = navigation;
         try
         {
-            if (await Client.GetResourceAsync(latest!.ResourceId, version) is { } resource)
+            if (await Client.GetResourceAsync(latest!.ResourceId, version) is { } resource && current == navigation)
             {
                 errors = AsterFormErrors.None;
                 message = null;
-                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource);
+                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource, current);
             }
         }
         catch (AsterApiException exception)

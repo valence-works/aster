@@ -31,6 +31,7 @@ builder.Services
 ```
 
 - **`AddAsterStudioModule`** registers the module's Elsa Studio feature (its assembly joins the Studio router), the **Resources** menu entry and the reference picker editor. It returns the `IHttpClientBuilder` of the module's `HttpClient`, so the host adds the same authentication handler it uses for the Elsa API.
+- **Transport.** Use an `https` address for any endpoint reached over a network you don't control. The module sends resource content, writes and the host's credentials to that address, and doesn't refuse `http`, so that loopback and in-cluster hosts keep working.
 - **Authentication.** `Elsa.Studio.Login.HttpMessageHandlers.AuthenticatingApiHttpMessageHandler` is the handler Elsa Studio's login module registers for the Elsa API. A host with its own authentication adds its own handler instead.
 - **UI-hint editors.** Forms render through Elsa Studio's `IUIHintService`, so the host needs Elsa Studio's default UI-hint handlers (`AddDefaultUIHintHandlers`). `AddWorkflowsModule` registers them.
 - **Tenants and authorization are the server's.** The module sends the host's credentials and nothing else. The Aster server resolves the tenant (`ITenantScopeAccessor`) and authorizes each request.

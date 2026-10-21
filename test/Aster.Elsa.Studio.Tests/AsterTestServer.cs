@@ -129,10 +129,16 @@ internal sealed class RecordingHandler(HttpMessageHandler inner) : DelegatingHan
 
     public void Clear() => requests.Clear();
 
+    /// <summary>When set, a request whose path and query matches waits for it before it is sent.</summary>
+    public (string PathAndQuery, Task Release)? Gate { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
         requests.Enqueue(new RecordedRequest(request.Method.Method, request.RequestUri!.PathAndQuery, body is null ? null : JsonNode.Parse(body)));
+        if (Gate is { } gate && request.RequestUri.PathAndQuery == gate.PathAndQuery)
+            await gate.Release;
+
         return await base.SendAsync(request, cancellationToken);
     }
 }
