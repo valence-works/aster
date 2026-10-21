@@ -1041,8 +1041,13 @@ public sealed class ResourcePortabilityService : IResourcePortabilityService
                 },
             }, cancellationToken);
 
-            storeSnapshot = new PortableStoreSnapshot
+            // Merge every collection, shared aspect versions included: the pins of added definitions must travel too.
+            storeSnapshot = storeSnapshot with
             {
+                AspectDefinitions = storeSnapshot.AspectDefinitions
+                    .Concat(added.AspectDefinitions)
+                    .DistinctBy(static aspect => (aspect.AspectDefinitionId, aspect.Version))
+                    .ToList(),
                 Definitions = storeSnapshot.Definitions
                     .Concat(added.Definitions)
                     .DistinctBy(static definition => (definition.DefinitionId, definition.Version))

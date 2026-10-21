@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Aster.Core.Abstractions;
+using Aster.Core.Definitions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
@@ -312,6 +313,54 @@ public sealed class ReferencePortabilityTests : IDisposable
         Assert.Equal(
             new[] { "Agent", "Workflow" },
             snapshot.Definitions.Select(static definition => definition.DefinitionId).Distinct().Order(StringComparer.Ordinal).ToArray());
+
+        await using var target = CreateProvider(providerKind);
+        var result = await target.GetRequiredService<IResourcePortabilityService>().ImportAsync(snapshot);
+        Assert.Equal(PortableImportStatus.Imported, result.Status);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    public async Task ExportWithReferencedResources_CarriesTheSharedAspectPinsOfAddedDefinitions(string providerKind)
+    {
+        await using var source = CreateProvider(providerKind);
+        var aspects = source.GetRequiredService<IAspectDefinitionStore>();
+        await aspects.RegisterAsync(new AspectDefinition
+        {
+            AspectDefinitionId = "Contact",
+            Id = "aspect-contact",
+            Version = 1,
+            FacetDefinitions = [Facet("Email", "string")],
+        });
+        var definitions = source.GetRequiredService<IResourceDefinitionStore>();
+        await definitions.RegisterDefinitionAsync(await new ResourceDefinitionBuilder()
+            .WithDefinitionId("Agent")
+            .WithAspect("Profile").WithFacet("Name", "string")
+            .WithSharedAspect("Contact")
+            .BuildAsync(aspects));
+        await definitions.RegisterDefinitionAsync(WorkflowDefinition);
+        var manager = source.GetRequiredService<IResourceManager>();
+        await CreateAgentAsync(manager, "agent-a", "Alpha");
+        await manager.CreateAsync("Workflow", new CreateResourceRequest
+        {
+            ResourceId = "workflow-1",
+            InitialAspects = new Dictionary<string, object>
+            {
+                ["Steps"] = new Dictionary<string, object> { ["Primary"] = "agent-a", ["Agents"] = new[] { "agent-a" } },
+            },
+        });
+
+        var snapshot = await ExportAsync(source, new PortableSnapshotExportRequest
+        {
+            ScopeMode = PortableExportScopeMode.SelectedResources,
+            ResourceIds = ["workflow-1"],
+            IncludeReferencedResources = true,
+        });
+
+        var contact = Assert.Single(snapshot.AspectDefinitions);
+        Assert.Equal(("Contact", 1), (contact.AspectDefinitionId, contact.Version));
 
         await using var target = CreateProvider(providerKind);
         var result = await target.GetRequiredService<IResourcePortabilityService>().ImportAsync(snapshot);
