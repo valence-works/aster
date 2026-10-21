@@ -68,6 +68,7 @@ Caller-selected import behavior.
 - Strict mode fails before writing when divergent collisions exist.
 - Remap mode plans deterministic replacement identifiers for divergent collisions.
 - Identical existing content is treated as already satisfied in all modes.
+- Definitions match by `(DefinitionId, Version)` and compare by content; the generated definition, aspect and facet `Id`s are not content (#221, see research.md).
 
 ## Import Preview
 
