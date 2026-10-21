@@ -68,7 +68,9 @@ Vite proxies `/api` to http://localhost:5210.
 
 Studio is the integration test bed for the [`Aster.AspNetCore`](../../hosting/Aster.AspNetCore/README.md) package (#110):
 
-- **`/api/aster`:** `app.MapAster(...)` serves every resource and definition operation the SPA uses: read a resource or one of its versions, version history, create, update, activate, deactivate, read a definition, and create one (with `expectedLatestVersion=0`, so creating never appends to an existing type). Errors are problem details; validation failures carry `diagnostics: [{ code, aspectKey, facetId, message }]`.
+- **`/api/aster`:** `app.MapAster(...)` serves every resource and definition operation the SPA uses: read a resource or one of its versions, version history, create, update, activate, deactivate, read a definition, and create one. Errors are problem details; validation failures carry `diagnostics: [{ code, aspectKey, facetId, message }]`.
+  - **Content types are create-only:** a filter rejects definition registration unless it names `expectedLatestVersion=0`, so no request can append a version to an existing type.
+  - **The package's aspect group is not mapped:** its registration appends unconditionally, which would bypass Studio's aspect checks (#175).
 - **`/api/studio`:** only what the package doesn't provide:
   - **View aggregates:** definitions with resource counts, and a definition's resources with title, tags, active channels and a total count.
   - **The shared-aspect library:** versions and usage, create-only-if-missing, save based on a base version, and upgrade preview and apply.

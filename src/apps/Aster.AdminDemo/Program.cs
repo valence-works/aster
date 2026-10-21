@@ -29,8 +29,20 @@ if (app.Environment.IsDevelopment())
 
 await DemoSeedData.InitializeAsync(app.Services, app.Logger, app.Lifetime.ApplicationStopping);
 
-// Resource, definition and aspect operations come from the package; Studio adds only its view endpoints (#110).
-app.MapAster("/api/aster");
+// Resource and definition operations come from the package; Studio adds only its view endpoints (#110).
+// Studio keeps two write rules the package endpoints leave to the host:
+// - Shared aspects are written only through Studio's create-only and base-version checks, so the package's
+//   unconditional aspect registration is not mapped (#175 adds a conditional one).
+// - Content types are create-only: registering a definition must name expectedLatestVersion=0.
+app.MapAster("/api/aster", options =>
+{
+    options.Groups = AsterEndpointGroups.Definitions | AsterEndpointGroups.Resources;
+    options.ConfigureGroup = static (group, builder) =>
+    {
+        if (group == AsterEndpointGroups.Definitions)
+            builder.AddEndpointFilter(RequireCreateOnlyDefinitionRegistration);
+    };
+});
 app.MapStudioApi();
 
 var clientDist = Path.Combine(app.Environment.ContentRootPath, "ClientApp", "dist");
@@ -54,6 +66,20 @@ if (Directory.Exists(clientDist))
 }
 
 app.Run();
+
+static ValueTask<object?> RequireCreateOnlyDefinitionRegistration(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+{
+    var request = context.HttpContext.Request;
+    if (HttpMethods.IsPost(request.Method) && request.Query["expectedLatestVersion"] != "0")
+    {
+        return ValueTask.FromResult<object?>(Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Content types are create-only in Studio.",
+            detail: "Register a definition with ?expectedLatestVersion=0."));
+    }
+
+    return next(context);
+}
 
 static string ResolveSqliteConnectionString(string? configured, string contentRoot, string defaultDatabasePath)
 {
