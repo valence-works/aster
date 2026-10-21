@@ -1810,12 +1810,14 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             _ => JsonContentEquals(left, right),
         };
 
+    // Definitions match by (DefinitionId, Version) and compare by content (#221), like shared aspect versions (#195):
+    // the definition Id and the Ids of its aspects and facets are generated per registration and ignored, so an
+    // environment that registered the same definition from the same code matches. Everything else is content.
     private static bool ContentEquals(ResourceDefinition left, ResourceDefinition right) =>
         string.Equals(left.DefinitionId, right.DefinitionId, StringComparison.Ordinal)
-        && string.Equals(left.Id, right.Id, StringComparison.Ordinal)
         && left.Version == right.Version
         && left.IsSingleton == right.IsSingleton
-        && DictionaryContentEquals(left.AspectDefinitions, right.AspectDefinitions)
+        && DictionaryContentEquals(DefinitionAspectContent(left), DefinitionAspectContent(right))
         && left.PolicyDeclarations.Count == right.PolicyDeclarations.Count
         && left.PolicyDeclarations
             .OrderBy(static policy => policy.PolicyId, StringComparer.Ordinal)
@@ -1943,12 +1945,24 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
     private static bool AspectContentEquals(AspectDefinition left, AspectDefinition right) =>
         JsonContentEquals(AspectContent(left), AspectContent(right));
 
-    private static AspectDefinition AspectContent(AspectDefinition aspect) => aspect with
-    {
-        Id = string.Empty,
-        IsShared = false,
-        FacetDefinitions = aspect.FacetDefinitions.Select(static facet => facet with { Id = string.Empty }).ToList(),
-    };
+    private static AspectDefinition AspectContent(AspectDefinition aspect) => WithoutGeneratedIds(aspect)! with { IsShared = false };
+
+    // A definition's aspects without their generated IDs. IsShared stays: pinning a shared aspect and declaring a
+    // definition-local one with the same facets are different definitions.
+    private static IReadOnlyDictionary<string, AspectDefinition?> DefinitionAspectContent(ResourceDefinition definition) =>
+        definition.AspectDefinitions.ToDictionary(
+            static pair => pair.Key,
+            static pair => WithoutGeneratedIds(pair.Value),
+            StringComparer.Ordinal);
+
+    // Snapshot validation does not reject null definition-local aspects or facet entries, so they compare as null.
+    private static AspectDefinition? WithoutGeneratedIds(AspectDefinition? aspect) => aspect is null
+        ? null
+        : aspect with
+        {
+            Id = string.Empty,
+            FacetDefinitions = aspect.FacetDefinitions?.Select(static facet => facet is null ? null! : facet with { Id = string.Empty }).ToList()!,
+        };
 
     // A definition that pins an aspect version the target already holds embeds the target's copy, so its pins keep
     // matching the target's store exactly once imported.

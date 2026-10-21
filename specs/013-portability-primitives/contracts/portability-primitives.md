@@ -113,6 +113,7 @@ Rules:
 
 - Strict mode is the default.
 - Identical existing content is reused/no-op.
+- Definitions are identical when their content is; the generated definition, aspect and facet `Id`s are ignored, and the target's copy is kept (#221).
 - Divergent existing content is a collision.
 - Strict mode fails before writing when divergent collisions exist.
 - Remap mode maps divergent collisions to deterministic replacement identifiers.

@@ -176,6 +176,11 @@ Aster.Core.Abstractions.UpdateResourceRequest.TenantScope.get -> Aster.Core.Mode
 Aster.Core.Abstractions.UpdateResourceRequest.TenantScope.set -> void
 Aster.Core.Abstractions.UpdateResourceRequest.UpdateResourceRequest() -> void
 Aster.Core.Definitions.AspectDefinitionBuilder
+Aster.Core.Definitions.ReferenceFacetAttribute
+Aster.Core.Definitions.ReferenceFacetAttribute.ReferenceFacetAttribute(params string![]! targetDefinitionIds) -> void
+Aster.Core.Definitions.ReferenceFacetAttribute.ReferenceResolution.get -> string?
+Aster.Core.Definitions.ReferenceFacetAttribute.ReferenceResolution.set -> void
+Aster.Core.Definitions.ReferenceFacetAttribute.TargetDefinitionIds.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Aster.Core.Definitions.ResourceDefinitionBuilder
 Aster.Core.Definitions.ResourceDefinitionBuilder.Build() -> Aster.Core.Models.Definitions.ResourceDefinition!
 Aster.Core.Definitions.ResourceDefinitionBuilder.BuildAsync(Aster.Core.Abstractions.IAspectDefinitionStore! aspectDefinitionStore, Aster.Core.Models.Tenancy.TenantScope? tenantScope = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Definitions.ResourceDefinition!>
