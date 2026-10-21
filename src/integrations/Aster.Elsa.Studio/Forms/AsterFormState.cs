@@ -88,15 +88,10 @@ internal sealed class AsterFormState
                 continue;
 
             var payload = original[section.AspectKey] is JsonObject existing ? existing.DeepClone().AsObject() : [];
+            // Each value goes back under the key it was read from. Any other key the aspect holds is kept, as other
+            // unknown facets are: the form never writes a second spelling, so there is nothing of its own to clean up.
             foreach (var field in section.Fields)
-            {
-                // One key per facet: the one the value was read from, without the other spelling.
-                var key = storedKeys[field.Key];
-                var other = key == field.FacetId ? ToCamelCase(field.FacetId) : field.FacetId;
-                if (other != key && Model.FindField(section.AspectKey, other) is null)
-                    payload.Remove(other);
-                payload[key] = values.GetValueOrDefault(field.Key)?.DeepClone();
-            }
+                payload[storedKeys[field.Key]] = values.GetValueOrDefault(field.Key)?.DeepClone();
 
             aspects[section.AspectKey] = payload;
         }

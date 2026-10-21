@@ -178,6 +178,22 @@ public sealed class AsterFormModelTests
     }
 
     [Fact]
+    public void UpdatePayload_KeepsAnotherSpellingOfAKnownFacet()
+    {
+        var model = AsterFormModel.FromSchema(JsonNode.Parse("""
+            { "title": "T", "properties": { "A": { "type": "object", "properties": { "Title": { "type": "string", "x-aster-type": "string" } } } } }
+            """)!.AsObject());
+        var state = AsterFormState.Create(model, JsonNode.Parse("""{ "A": { "Title": "Exact", "title": "Other" } }""")!.AsObject());
+
+        var title = model.FindField("A", "Title")!;
+        Assert.True(state.SetEditorValue(title, AsterEditorMapping.Resolve(title), "Edited"));
+        var aspect = state.BuildAspects()["A"]!.AsObject();
+
+        Assert.Equal("Edited", aspect["Title"]!.GetValue<string>());
+        Assert.Equal("Other", aspect["title"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void UpdatePayload_KeepsFacetsTheFormDoesNotKnow()
     {
         var model = AsterFormModel.FromSchema(JsonNode.Parse("""
