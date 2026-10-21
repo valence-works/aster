@@ -44,7 +44,9 @@ internal sealed record AspectDto(
     string AspectKey,
     string DisplayName,
     bool RequiresName,
-    IReadOnlyList<FacetDto> Facets);
+    IReadOnlyList<FacetDto> Facets,
+    string? SharedAspectId,
+    int? SharedVersion);
 
 internal sealed record DiagnosticDto(
     string Code,
@@ -56,11 +58,65 @@ internal sealed record DiagnosticsEnvelope(IReadOnlyList<DiagnosticDto> Diagnost
 
 internal sealed record ErrorEnvelope(string Error);
 
-internal sealed record AspectTemplateDto(
-    string Key,
+internal sealed record AspectUsageDto(
+    string DefinitionId,
+    int DefinitionVersion,
+    string AttachmentKey,
+    int PinnedVersion);
+
+internal sealed record SharedAspectDto(
+    string AspectId,
     string DisplayName,
-    string Description,
+    int Version,
+    bool RequiresName,
+    IReadOnlyList<FacetDto> Facets,
+    IReadOnlyList<int> Versions,
+    IReadOnlyList<AspectUsageDto> UsedBy);
+
+internal sealed record CreateSharedAspectRequest(
+    string AspectId,
+    bool RequiresName,
     IReadOnlyList<FacetDto> Facets);
+
+internal sealed record UpdateSharedAspectRequest(
+    int BaseVersion,
+    bool RequiresName,
+    IReadOnlyList<FacetDto> Facets);
+
+internal sealed record AspectFacetChangeDto(
+    string FacetId,
+    string Kind,
+    string? From,
+    string? To);
+
+internal sealed record AspectUpgradeCandidateDto(
+    string DefinitionId,
+    int DefinitionVersion,
+    string AttachmentKey,
+    int PinnedVersion,
+    IReadOnlyList<AspectFacetChangeDto> Changes);
+
+internal sealed record AspectUpgradePreviewDto(
+    string AspectId,
+    int? TargetVersion,
+    IReadOnlyList<AspectUpgradeCandidateDto> Candidates,
+    IReadOnlyList<DiagnosticDto> Diagnostics);
+
+internal sealed record AspectUpgradeRequestDto(
+    int? TargetVersion,
+    IReadOnlyList<string> DefinitionIds);
+
+internal sealed record AspectUpgradeOutcomeDto(
+    string DefinitionId,
+    string Status,
+    int? NewDefinitionVersion,
+    IReadOnlyList<string> AttachmentKeys,
+    IReadOnlyList<DiagnosticDto> Diagnostics);
+
+internal sealed record AspectUpgradeResultDto(
+    int? TargetVersion,
+    IReadOnlyList<AspectUpgradeOutcomeDto> Outcomes,
+    IReadOnlyList<DiagnosticDto> Diagnostics);
 
 internal sealed record DefinitionSummaryDto(
     string DefinitionId,
@@ -83,9 +139,9 @@ internal sealed record CreateDefinitionRequest(
     IReadOnlyList<CreateAspectRequest> Aspects);
 
 internal sealed record CreateAspectRequest(
-    string AspectKey,
-    string? TemplateKey,
-    IReadOnlyList<FacetDto>? Facets);
+    string AspectId,
+    int? Version,
+    string? Name);
 
 internal sealed record ResourceListResponse(
     IReadOnlyList<ResourceListItemDto> Items,

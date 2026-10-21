@@ -1,39 +1,43 @@
-using Aster.Core.Definitions;
+using System.Text.Json;
 using Aster.Core.Models.Definitions;
 
 namespace Aster.AdminDemo;
 
 internal static class DemoDefinitions
 {
-    public static ResourceDefinition BuildDefinition(
-        string definitionId,
-        bool isSingleton,
-        IEnumerable<(string AspectKey, IReadOnlyList<FacetDto> Facets)> aspects)
-    {
-        var aspectDefinitions = new Dictionary<string, AspectDefinition>(StringComparer.Ordinal);
-        foreach (var (aspectKey, facets) in aspects)
-        {
-            if (!aspectDefinitions.TryAdd(aspectKey, new AspectDefinition
-            {
-                AspectDefinitionId = aspectKey,
-                Id = Guid.NewGuid().ToString("N"),
-                Version = 1,
-                RequiresName = false,
-                FacetDefinitions = facets.Select(ToFacetDefinition).ToList(),
-            }))
-            {
-                throw new InvalidOperationException($"Aspect '{aspectKey}' is duplicated.");
-            }
-        }
+    private static readonly JsonSerializerOptions ShapeOptions = new(JsonSerializerDefaults.Web);
 
-        return new ResourceDefinitionBuilder()
-            .WithDefinitionId(definitionId)
-            .WithSingleton(isSingleton)
-            .Build() with
-            {
-                AspectDefinitions = aspectDefinitions,
-            };
-    }
+    /// <summary>
+    /// Builds an aspect definition from Studio facet rows; the store assigns the version.
+    /// </summary>
+    public static AspectDefinition BuildAspect(string aspectId, bool requiresName, IReadOnlyList<FacetDto> facets) => new()
+    {
+        AspectDefinitionId = aspectId,
+        Id = Guid.NewGuid().ToString("N"),
+        Version = 0,
+        RequiresName = requiresName,
+        FacetDefinitions = facets.Select(ToFacetDefinition).ToList(),
+    };
+
+    /// <summary>
+    /// Whether two aspect versions declare the same facets, ignoring version-specific IDs. Versions are
+    /// append-only, so Studio compares before registering instead of appending an identical version.
+    /// </summary>
+    public static bool HasSameShape(AspectDefinition left, AspectDefinition right) =>
+        left.RequiresName == right.RequiresName
+        && string.Equals(ShapeOf(left), ShapeOf(right), StringComparison.Ordinal);
+
+    public static SharedAspectDto ToSharedAspectDto(
+        AspectDefinition aspect,
+        IReadOnlyList<int> versions,
+        IReadOnlyList<AspectUsageDto> usedBy) => new(
+        aspect.AspectDefinitionId,
+        ToDisplayName(aspect.AspectDefinitionId),
+        aspect.Version,
+        aspect.RequiresName,
+        OrderFacets(aspect.FacetDefinitions).Select(ToFacetDto).ToList(),
+        versions,
+        usedBy);
 
     public static DefinitionDetailDto ToDetailDto(ResourceDefinition definition) => new(
         definition.DefinitionId,
@@ -46,12 +50,18 @@ internal static class DemoDefinitions
                 item.Key,
                 ToDisplayName(item.Key),
                 item.Value.RequiresName,
-                item.Value.FacetDefinitions
-                    .OrderBy(static facet => facet.Metadata?.DisplayOrder ?? int.MaxValue)
-                    .ThenBy(static facet => facet.FacetDefinitionId, StringComparer.Ordinal)
-                    .Select(ToFacetDto)
-                    .ToList()))
+                OrderFacets(item.Value.FacetDefinitions).Select(ToFacetDto).ToList(),
+                item.Value.IsShared ? item.Value.AspectDefinitionId : null,
+                item.Value.IsShared ? item.Value.Version : null))
             .ToList());
+
+    private static IEnumerable<FacetDefinition> OrderFacets(IEnumerable<FacetDefinition> facets) => facets
+        .OrderBy(static facet => facet.Metadata?.DisplayOrder ?? int.MaxValue)
+        .ThenBy(static facet => facet.FacetDefinitionId, StringComparer.Ordinal);
+
+    private static string ShapeOf(AspectDefinition aspect) => JsonSerializer.Serialize(
+        aspect.FacetDefinitions.Select(static facet => new { facet.FacetDefinitionId, facet.Type, facet.IsRequired, facet.Metadata }),
+        ShapeOptions);
 
     public static FacetDto ToFacetDto(FacetDefinition facet) => new(
         facet.FacetDefinitionId,

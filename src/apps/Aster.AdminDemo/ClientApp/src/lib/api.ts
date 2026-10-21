@@ -27,6 +27,8 @@ export type AspectDto = {
   displayName: string;
   requiresName: boolean;
   facets: FacetDto[];
+  sharedAspectId: string | null;
+  sharedVersion: number | null;
 };
 
 export type DiagnosticDto = {
@@ -36,11 +38,67 @@ export type DiagnosticDto = {
   message: string;
 };
 
-export type AspectTemplateDto = {
-  key: string;
+export type AspectUsageDto = {
+  definitionId: string;
+  definitionVersion: number;
+  attachmentKey: string;
+  pinnedVersion: number;
+};
+
+export type SharedAspectDto = {
+  aspectId: string;
   displayName: string;
-  description: string;
+  version: number;
+  requiresName: boolean;
   facets: FacetDto[];
+  versions: number[];
+  usedBy: AspectUsageDto[];
+};
+
+export type CreateAspectRequest = {
+  aspectId: string;
+  requiresName: boolean;
+  facets: FacetDto[];
+};
+
+export type UpdateAspectRequest = {
+  baseVersion: number;
+  requiresName: boolean;
+  facets: FacetDto[];
+};
+
+export type AspectFacetChangeDto = {
+  facetId: string;
+  kind: "added" | "removed" | "type-changed" | "required-changed" | "metadata-changed";
+  from: string | null;
+  to: string | null;
+};
+
+export type AspectUpgradeCandidateDto = {
+  definitionId: string;
+  definitionVersion: number;
+  attachmentKey: string;
+  pinnedVersion: number;
+  changes: AspectFacetChangeDto[];
+};
+
+export type AspectUpgradePreviewDto = {
+  aspectId: string;
+  targetVersion: number | null;
+  candidates: AspectUpgradeCandidateDto[];
+  diagnostics: DiagnosticDto[];
+};
+
+export type AspectUpgradeResultDto = {
+  targetVersion: number | null;
+  outcomes: Array<{
+    definitionId: string;
+    status: "upgraded" | "not-applicable" | "failed";
+    newDefinitionVersion: number | null;
+    attachmentKeys: string[];
+    diagnostics: DiagnosticDto[];
+  }>;
+  diagnostics: DiagnosticDto[];
 };
 
 export type DefinitionSummaryDto = {
@@ -63,7 +121,7 @@ export type DefinitionDetailDto = {
 export type CreateDefinitionRequest = {
   definitionId: string;
   isSingleton: boolean;
-  aspects: Array<{ aspectKey: string; templateKey?: string; facets?: FacetDto[] }>;
+  aspects: Array<{ aspectId: string; version?: number; name?: string }>;
 };
 
 export type ResourceSummaryDto = {
@@ -163,7 +221,13 @@ function isErrorEnvelope(value: unknown): value is { error: string } {
 }
 
 export const api = {
-  getAspectTemplates: () => request<AspectTemplateDto[]>("/api/aspect-templates"),
+  getAspects: () => request<SharedAspectDto[]>("/api/aspects"),
+  getAspect: (aspectId: string) => request<SharedAspectDto>(`/api/aspects/${encodeURIComponent(aspectId)}`),
+  createAspect: (body: CreateAspectRequest) => request<SharedAspectDto>("/api/aspects", { method: "POST", body: JSON.stringify(body) }),
+  updateAspect: (aspectId: string, body: UpdateAspectRequest) => request<SharedAspectDto>(`/api/aspects/${encodeURIComponent(aspectId)}`, { method: "PUT", body: JSON.stringify(body) }),
+  previewAspectUpgrade: (aspectId: string) => request<AspectUpgradePreviewDto>(`/api/aspects/${encodeURIComponent(aspectId)}/upgrade-preview`),
+  applyAspectUpgrade: (aspectId: string, targetVersion: number, definitionIds: string[]) =>
+    request<AspectUpgradeResultDto>(`/api/aspects/${encodeURIComponent(aspectId)}/upgrade`, { method: "POST", body: JSON.stringify({ targetVersion, definitionIds }) }),
   getDefinitions: () => request<DefinitionSummaryDto[]>("/api/definitions"),
   getDefinition: (definitionId: string) => request<DefinitionDetailDto>(`/api/definitions/${encodeURIComponent(definitionId)}`),
   createDefinition: (body: CreateDefinitionRequest) => request<DefinitionDetailDto>("/api/definitions", { method: "POST", body: JSON.stringify(body) }),

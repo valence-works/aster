@@ -1,27 +1,88 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Definitions;
+using Aster.Core.Models.Definitions;
 
 namespace Aster.AdminDemo;
 
 internal static class DemoSeedData
 {
+    // Starting content for the shared aspect store. Seeded only when an aspect is missing, so edits made in the
+    // Aspect Library survive restarts; Studio reads aspects from the store, never from this list.
+    private static readonly IReadOnlyList<AspectDefinition> SeedAspects =
+    [
+        DemoDefinitions.BuildAspect("content", false,
+        [
+            new("title", "string", true, new FacetMetadataDto { Label = "Title", UiHint = "text", MaxLength = 200, DisplayOrder = 1 }),
+            new("summary", "string", false, new FacetMetadataDto { UiHint = "multiline", MaxLength = 500, DisplayOrder = 2 }),
+            new("body", "string", false, new FacetMetadataDto { UiHint = "richtext", DisplayOrder = 3 }),
+        ]),
+        DemoDefinitions.BuildAspect("seo", false,
+        [
+            new("slug", "string", true, new FacetMetadataDto { UiHint = "slug", Pattern = "^[a-z0-9]+(-[a-z0-9]+)*$", DisplayOrder = 1 }),
+            new("metaTitle", "string", false, new FacetMetadataDto { MaxLength = 60, DisplayOrder = 2 }),
+            new("metaDescription", "string", false, new FacetMetadataDto { UiHint = "multiline", MaxLength = 160, DisplayOrder = 3 }),
+        ]),
+        DemoDefinitions.BuildAspect("publishable", false,
+        [
+            new("publishFrom", "datetime", false, new FacetMetadataDto { UiHint = "date", DisplayOrder = 1 }),
+            new("publishUntil", "datetime", false, new FacetMetadataDto { UiHint = "date", DisplayOrder = 2 }),
+        ]),
+        DemoDefinitions.BuildAspect("taggable", false,
+        [
+            new("tags", "string[]", false, new FacetMetadataDto { UiHint = "tags", Description = "Up to 10 distinct tags", MaxLength = 40, MaxItems = 10, UniqueItems = true, DisplayOrder = 1 }),
+        ]),
+        DemoDefinitions.BuildAspect("navigation", false,
+        [
+            new("menuOrder", "number", false, new FacetMetadataDto { MinValue = 0, MaxValue = 100, DefaultValue = 0m, DisplayOrder = 1 }),
+            new("showInMenu", "boolean", false, new FacetMetadataDto { UiHint = "toggle", DefaultValue = false, DisplayOrder = 2 }),
+        ]),
+    ];
+
     public static async Task InitializeAsync(IServiceProvider services, ILogger logger, CancellationToken cancellationToken = default)
     {
         await using var scope = services.CreateAsyncScope();
+        var aspectStore = scope.ServiceProvider.GetRequiredService<IAspectDefinitionStore>();
         var definitionStore = scope.ServiceProvider.GetRequiredService<IResourceDefinitionStore>();
         var resourceManager = scope.ServiceProvider.GetRequiredService<IResourceManager>();
+
+        await SeedAspectsAsync(aspectStore, logger, cancellationToken);
 
         if ((await definitionStore.ListDefinitionsAsync(cancellationToken)).Any())
             return;
 
         logger.LogInformation("Seeding Aster AdminDemo SQLite database.");
-        await SeedDefinitionsAsync(definitionStore, cancellationToken);
+        await SeedDefinitionsAsync(definitionStore, aspectStore, cancellationToken);
         await SeedResourcesAsync(resourceManager, cancellationToken);
     }
 
-    private static async Task SeedDefinitionsAsync(IResourceDefinitionStore definitionStore, CancellationToken cancellationToken)
+    private static async Task SeedAspectsAsync(IAspectDefinitionStore aspectStore, ILogger logger, CancellationToken cancellationToken)
     {
-        await definitionStore.RegisterDefinitionAsync(BuildFromTemplates("article", false, ["content", "seo", "publishable", "taggable"]), cancellationToken);
-        await definitionStore.RegisterDefinitionAsync(BuildFromTemplates("page", false, ["content", "seo", "publishable", "navigation"]), cancellationToken);
+        foreach (var aspect in SeedAspects)
+        {
+            if (await aspectStore.GetLatestAsync(aspect.AspectDefinitionId, cancellationToken: cancellationToken) is not null)
+                continue;
+
+            await aspectStore.RegisterAsync(aspect, cancellationToken: cancellationToken);
+            logger.LogInformation("Seeded shared aspect '{AspectId}'.", aspect.AspectDefinitionId);
+        }
+    }
+
+    private static async Task SeedDefinitionsAsync(
+        IResourceDefinitionStore definitionStore,
+        IAspectDefinitionStore aspectStore,
+        CancellationToken cancellationToken)
+    {
+        await definitionStore.RegisterDefinitionAsync(await PinAsync("article", ["content", "seo", "publishable", "taggable"]), cancellationToken);
+        await definitionStore.RegisterDefinitionAsync(await PinAsync("page", ["content", "seo", "publishable", "navigation"]), cancellationToken);
+
+        async Task<ResourceDefinition> PinAsync(string definitionId, IReadOnlyList<string> aspectIds)
+        {
+            var builder = new ResourceDefinitionBuilder().WithDefinitionId(definitionId);
+            foreach (var aspectId in aspectIds)
+                builder.WithSharedAspect(aspectId);
+
+            return await builder.BuildAsync(aspectStore, cancellationToken: cancellationToken);
+        }
     }
 
     private static async Task SeedResourcesAsync(IResourceManager resourceManager, CancellationToken cancellationToken)
@@ -47,14 +108,14 @@ internal static class DemoSeedData
 
         var articleAspects = await CreateAsync(resourceManager, "article", "article-horizontal-aspects", new()
         {
-            ["content"] = new() { ["title"] = "Composing Horizontal Aspects", ["summary"] = "Reuse content, SEO, publishing, and tagging aspects.", ["body"] = "Aspect templates let teams share fields across content types." },
-            ["seo"] = new() { ["slug"] = "composing-horizontal-aspects", ["metaTitle"] = "Horizontal Aspects", ["metaDescription"] = "Compose content types from reusable aspect templates." },
+            ["content"] = new() { ["title"] = "Composing Horizontal Aspects", ["summary"] = "Reuse content, SEO, publishing, and tagging aspects.", ["body"] = "Shared aspects let teams share fields across content types." },
+            ["seo"] = new() { ["slug"] = "composing-horizontal-aspects", ["metaTitle"] = "Horizontal Aspects", ["metaDescription"] = "Compose content types from reusable shared aspects." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-02" },
             ["taggable"] = new() { ["tags"] = new[] { "aspects", "composition" } },
         }, cancellationToken);
         articleAspects = await UpdateAsync(resourceManager, articleAspects.ResourceId, 1, new()
         {
-            ["content"] = new() { ["title"] = "Composing Horizontal Aspects", ["summary"] = "Reuse content, SEO, publishing, and tagging fields.", ["body"] = "Aspect templates let teams share fields across content types." },
+            ["content"] = new() { ["title"] = "Composing Horizontal Aspects", ["summary"] = "Reuse content, SEO, publishing, and tagging fields.", ["body"] = "Shared aspects let teams share fields across content types." },
         }, cancellationToken);
         await resourceManager.ActivateAsync(articleAspects.ResourceId, 1, "live", cancellationToken: cancellationToken);
         await resourceManager.ActivateAsync(articleAspects.ResourceId, 2, "preview", cancellationToken: cancellationToken);
@@ -113,16 +174,6 @@ internal static class DemoSeedData
         }, cancellationToken);
         await resourceManager.ActivateAsync(contact.ResourceId, 2, "preview", cancellationToken: cancellationToken);
     }
-
-    private static Aster.Core.Models.Definitions.ResourceDefinition BuildFromTemplates(string definitionId, bool isSingleton, IReadOnlyList<string> templateKeys) =>
-        DemoDefinitions.BuildDefinition(
-            definitionId,
-            isSingleton,
-            templateKeys.Select(key =>
-            {
-                var template = AspectTemplateCatalog.Find(key) ?? throw new InvalidOperationException($"Template '{key}' was not found.");
-                return (template.Key, template.Facets);
-            }));
 
     private static async Task<Aster.Core.Models.Instances.Resource> CreateAsync(
         IResourceManager resourceManager,
