@@ -298,11 +298,14 @@ src/
   persistence/
     Aster.Persistence.SqliteJson/
       ← SQLite JSON definition/resource version/query provider
+  hosting/
+    Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
   apps/
     Aster.AdminDemo/         ← Aster Studio: reference host (ASP.NET Core + React SPA)
     Aster.Web/               ← Legacy workbench (to be retired, see #109)
 test/
   Aster.Tests/               ← xUnit tests (unit + integration)
+  Aster.AspNetCore.Tests/    ← HTTP integration tests for Aster.AspNetCore (TestServer)
 docs/                        ← Architecture review, coding conventions, roadmap
 specs/                       ← Feature specs (001-core-sdk-foundation, …)
 ```

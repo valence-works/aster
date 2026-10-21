@@ -1,0 +1,114 @@
+# ASP.NET Core Endpoints
+
+`Aster.AspNetCore` maps Aster's REST surface onto a host app, so hosts don't re-implement it. Aster Studio and Elsa Studio are the first two such hosts.
+
+```csharp
+builder.Services.AddAsterCore();
+builder.Services.AddAsterSqliteJson(options => options.ConnectionString = "Data Source=aster.db");
+
+// The host owns authorization; register every policy named below.
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("aster-admin", policy => policy.RequireRole("aster-admin")));
+
+var app = builder.Build();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapAster("/api/aster", options =>
+{
+    options.AuthorizationPolicies[AsterEndpointGroups.Definitions] = "aster-admin";
+}).RequireAuthorization();
+```
+
+`MapAster` returns the route group that holds every endpoint, so host conventions (authorization, rate limiting, CORS) apply with the usual `RouteGroupBuilder` calls.
+
+## Endpoints
+
+| Method and path | Purpose |
+|---|---|
+| `GET /definitions` | The latest version of each resource definition |
+| `GET /definitions/{id}[?version=]` | One definition: the latest version, or a specific one |
+| `GET /definitions/{id}/schema[?version=]` | The definition as JSON Schema 2020-12 ([JSON Schema Export](Json-Schema-Export)) |
+| `POST /definitions[?expectedLatestVersion=]` | Register a new definition version; with `expectedLatestVersion`, only if the latest version is still that one (`0`: must not exist), otherwise `409` |
+| `GET /aspects` | The latest version of each shared aspect definition |
+| `GET /aspects/{id}[?version=]` | One shared aspect |
+| `GET /aspects/{id}/versions` | Every version of a shared aspect |
+| `GET /aspects/{id}/schema[?version=]` | The aspect payload as JSON Schema 2020-12 |
+| `POST /aspects` | Register a new shared aspect version |
+| `GET /resources?definitionId=&scope=&channel=&lifecycle=&skip=&take=` | List resources |
+| `POST /resources/query` | Query with filters, sorting and paging (see below) |
+| `GET /resources/{id}[?version=]` | One resource: the latest version, or a specific one |
+| `GET /resources/{id}/versions` | Version history with active channels and lifecycle state |
+| `POST /resources` | Create version 1: `{ definitionId, resourceId?, aspects }` |
+| `PUT /resources/{id}` | Save a new version: `{ baseVersion, aspects }` |
+| `POST /resources/{id}/activate` / `deactivate` | `{ version, channel, allowMultipleActive? }` |
+
+Shared aspect attachments in `POST /definitions` are pins: for every attachment with `isShared: true`, the endpoint embeds the stored aspect version named by `(aspectDefinitionId, version)`, whatever facets the client sent (ADR 0003). An unknown pin returns `400` with `aspect-definition-not-found`.
+
+## Options
+
+| Option | Default | Effect |
+|---|---|---|
+| `Groups` | `All` | Which groups to map: `Definitions`, `Aspects`, `Resources` |
+| `ReadOnly` | `false` | Map only reading endpoints; `POST /resources/query` stays |
+| `AuthorizationPolicies` | none | A policy name per group, applied with `RequireAuthorization` |
+| `ConfigureGroup` | none | A callback per mapped group's `RouteGroupBuilder` |
+| `DefaultPageSize` / `MaxPageSize` | 50 / 500 | Paging for list and query endpoints |
+
+## Errors
+
+All errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses:
+
+| Status | When | Extensions |
+|---|---|---|
+| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
+| `403` | Denied by `IAsterResourceAuthorizer` | |
+| `404` | Missing definition, aspect, resource or version | |
+| `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition version conflict, lifecycle hook veto | `code` |
+
+## Query format
+
+`POST /resources/query` takes a portable query in a wire format that needs no type discriminators:
+
+```json
+{
+  "definitionId": "Article",
+  "scope": "latest",
+  "lifecycle": "active",
+  "filter": {
+    "and": [
+      { "exists": "Seo" },
+      { "aspect": "Content", "facet": "Views", "op": "range", "value": { "min": 10, "max": 100, "includeMax": false } },
+      { "or": [
+        { "field": "ResourceId", "op": "equals", "value": "news-home" },
+        { "aspect": "Taggable", "facet": "Tags", "op": "arrayContainsAny", "value": ["featured", "pinned"] }
+      ] }
+    ]
+  },
+  "sort": [{ "field": "Views", "aspect": "Content", "descending": true }],
+  "skip": 0,
+  "take": 20
+}
+```
+
+- **Filter nodes:** each node sets exactly one of these shapes:
+  - `and`, `or` or `not`
+  - `exists` (aspect presence)
+  - `field` + `op` + `value` (a metadata field)
+  - `aspect` + `facet` + `op` + `value` (a facet value)
+- **`op`:** names a `ComparisonOperator`, case-insensitively.
+- **`scope`:** `latest` (default), `allVersions`, `active` (requires `channel`) or `draft`.
+- **`lifecycle`:** `active` (default), `archived`, `softDeleted` or `all`. List and query endpoints therefore exclude archived and soft-deleted resources unless asked; `ResourceQuery` itself stays explicit.
+- **Response:** `{ items, hasMore }`. The endpoint fetches one row beyond the page to compute `hasMore`, and returns no total count, because counting is a second full query on most providers.
+
+## Tenancy and authorization
+
+- **Tenant:** register an `ITenantScopeAccessor` to resolve the tenant from the request: claims, route or headers. Every endpoint uses it. Without one, the default tenant is used. Never trust a client-named tenant without checking it against the caller's identity.
+- **Endpoint authorization:** use host policies, either per group through `AuthorizationPolicies` or on the returned route group. Aster ships no RBAC.
+- **Resource authorization:** register an `IAsterResourceAuthorizer` for per-resource checks. It receives the operation (`Read`, `Create`, `Update`, `Activate`), the definition, the resource ID and the current version.
+  - A denied single-resource request returns `403`.
+  - List and query endpoints drop denied items, so a page can hold fewer items than `take`.
+
+## JSON
+
+Endpoints use the host's minimal-API JSON options (`ConfigureHttpJsonOptions`). Enum values in responses, such as lifecycle state in version history, serialize as numbers unless the host adds `JsonStringEnumConverter`.
