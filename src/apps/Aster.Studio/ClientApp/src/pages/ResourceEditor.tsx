@@ -30,8 +30,12 @@ export function ResourceEditor({ mode }: { mode: "create" | "edit" }) {
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Diagnostics name the fields of the definition they were raised against, so they go with it.
   useEffect(() => {
-    if (definition.data && !resource.loading) setAspects(initialAspects(definition.data, resource.data));
+    if (!definition.data || resource.loading) return;
+    setAspects(initialAspects(definition.data, resource.data));
+    setErrors({});
+    setFormErrors([]);
   }, [definition.data, resource.data, resource.loading]);
 
   if (resource.loading) return <TableSkeleton />;

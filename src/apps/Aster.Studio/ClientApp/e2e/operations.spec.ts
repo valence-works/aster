@@ -165,6 +165,7 @@ test("upgrades an article saved against an older definition and reports carried-
   // The carried-forward keys come from the SDK's upgrade preview, which writes nothing.
   const preview = await (await page.request.get("/api/studio/resources/article-horizontal-aspects/schema")).json();
   expect(preview.upgrade).toEqual({ status: "upgraded", targetDefinitionVersion: 2, carriedForwardAspectKeys: ["navigation"], diagnostics: [] });
+  const before = await (await page.request.get("/api/aster/resources/article-horizontal-aspects")).json();
 
   await schema(page).getByRole("button", { name: "Upgrade to definition v2" }).click();
   const dialog = page.getByRole("dialog");
@@ -181,6 +182,9 @@ test("upgrades an article saved against an older definition and reports carried-
   await expect(page.getByText("Generated from definition article v2.")).toBeVisible();
   await expect(schema(page).getByText(editedAgainstNotice)).toBeHidden();
   await expect(page.getByRole("heading", { name: "Navigation", exact: true })).toBeHidden();
+  const after = await (await page.request.get("/api/aster/resources/article-horizontal-aspects")).json();
+  expect(before.aspects.navigation).toBeDefined();
+  expect(after.aspects.navigation).toEqual(before.aspects.navigation);
 });
 
 test("activates a historical version without moving latest, and shows maintenance hints", async ({ page }) => {
