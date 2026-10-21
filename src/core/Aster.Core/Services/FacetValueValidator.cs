@@ -90,6 +90,15 @@ internal static class FacetValueValidator
             return;
         }
 
+        // A value queries can't find: the payload stores it under another JSON name (#162).
+        if (AspectFacetValueResolver.StoredNameMismatch(payload, facet.FacetDefinitionId) is { } storedName)
+        {
+            Add(
+                FacetValueDiagnosticCodes.StoredNameMismatch,
+                $"The value is stored as '{storedName}', which queries for facet '{facet.FacetDefinitionId}' can't find. Name the facet '{storedName}', or the property's JSON name '{facet.FacetDefinitionId}'.");
+            return;
+        }
+
         if (descriptor.IsArray)
         {
             ValidateArrayValue(facet, descriptor.Element, rawValue, Add);

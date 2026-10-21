@@ -3276,6 +3276,7 @@ virtual Aster.Core.Models.Querying.FilterExpression.Equals(Aster.Core.Models.Que
 virtual Aster.Core.Models.Querying.FilterExpression.PrintMembers(System.Text.StringBuilder! builder) -> bool
 ~override Aster.Core.Abstractions.ResourceVersionReadResourceIdSelection.Equals(object obj) -> bool
 ~override Aster.Core.Abstractions.ResourceVersionReadResourceIdSelection.ToString() -> string
+const Aster.Core.Models.Definitions.FacetValueDiagnosticCodes.StoredNameMismatch = "facet-value-stored-name-mismatch" -> string!
 Aster.Core.Abstractions.IInfrastructureRunner
 Aster.Core.Abstractions.IInfrastructureRunner.ApplyAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.InfrastructureStep!>!>
 Aster.Core.Abstractions.IInfrastructureRunner.GetAppliedAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Infrastructure.AppliedInfrastructureStep!>!>
