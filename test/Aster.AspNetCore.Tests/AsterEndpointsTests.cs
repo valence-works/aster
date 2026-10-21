@@ -11,6 +11,7 @@ using Aster.Core.Definitions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Persistence.SqliteJson;
 using Microsoft.AspNetCore.Authentication;
@@ -438,6 +439,20 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
 
         Assert.Equal(providerKey, capabilities.GetProperty("providerKey").GetString());
         Assert.Equal(services.GetRequiredService<IResourceQueryValidator>().Capabilities!.ProviderName, capabilities.GetProperty("providerName").GetString());
+    }
+
+    [Fact]
+    public async Task Query_Capabilities_NotFound_WhenTheValidatorDeclaresNone()
+    {
+        // A validator written before IResourceQueryValidator.Capabilities existed still compiles and reports none.
+        var (client, _) = await StartAsync(services: static services => services.AddSingleton<IResourceQueryValidator, AcceptEverything>());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/aster/resources/query/capabilities")).StatusCode);
+    }
+
+    private sealed class AcceptEverything : IResourceQueryValidator
+    {
+        public QueryValidationResult Validate(ResourceQuery query) => QueryValidationResult.Success;
     }
 
     // ──────────────────────────────────────────────────────────────────────────

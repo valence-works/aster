@@ -10,9 +10,9 @@ public interface IResourceQueryValidator
     /// <summary>
     /// Gets the active provider's capability declaration that <see cref="Validate"/> checks queries against, or
     /// <see langword="null"/> when the active provider declares none (every query then fails with
-    /// <c>capabilities-not-declared</c>).
+    /// <c>capabilities-not-declared</c>). Implementations that predate this member report none.
     /// </summary>
-    QueryCapabilityDescription? Capabilities { get; }
+    QueryCapabilityDescription? Capabilities => null;
 
     /// <summary>
     /// Validates a query without mutating it.
