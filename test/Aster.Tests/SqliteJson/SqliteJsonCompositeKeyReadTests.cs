@@ -46,7 +46,9 @@ public sealed class SqliteJsonCompositeKeyReadTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        // Only this test's pool: clearing every pool disposes connections that parallel tests are using (#213).
+        using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+            SqliteConnection.ClearPool(connection);
         foreach (var path in new[] { databasePath, databasePath + "-wal", databasePath + "-shm" })
         {
             if (File.Exists(path))
