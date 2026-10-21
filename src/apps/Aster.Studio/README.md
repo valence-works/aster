@@ -43,17 +43,15 @@ v1, so they offer a schema upgrade, and `article-horizontal-aspects` carries
 `navigation` forward when upgraded. Startup seeds an aspect only when the store doesn't have it, so
 edits made in the Aspect Library survive restarts.
 
-A second tenant, `acme`, gets the same five shared aspects (the seed gives them fixed IDs, so both tenants hold
-identical versions) and its own content: a `page` type with only `content` and `seo`, a `product` type, and two
+A second tenant, `acme`, gets the same five shared aspects (registered separately; portability matches aspect
+versions by content, so both tenants' copies match) and its own content: a `page` type with only `content` and `seo`, a `product` type, and two
 of each. Its `page` type and `page-home` share IDs with the default tenant's but not their content, so importing
 those from the default tenant shows remapping.
 
 The demo database is disposable. After pulling changes to the seed data, delete
 `App_Data/aster-demo.db` and restart to reseed. Databases seeded before shared
 aspects (#96) keep `article` and `page` with definition-local aspects: they
-still work, but upgrades in the Aspect Library don't reach them. Databases seeded before the Acme tenant (#112)
-keep shared aspects with random IDs, so their default tenant's aspects differ from Acme's and an import into Acme
-fails with `divergent-identity-collision` on them: shared aspects are never remapped.
+still work, but upgrades in the Aspect Library don't reach them.
 
 ### Frontend dev loop
 
@@ -82,6 +80,7 @@ Playwright drives the core flows end to end:
 - archive, the lifecycle filter, and restore, including a restore preview that went stale (`lifecycle-restore-marker-mismatch`)
 - policy preview and archive application, including a stale candidate (`policy-application-stale-candidate`)
 - version pruning; active versions are left out of the preview and reported as `policy-pruning-version-protected-active`
+- editing an article against the definition version it records (#191): `article-horizontal-aspects` renders from `article` v1, `navigation` included, and both the form and the save reject a value v1's rules forbid
 - a schema upgrade that carries an undeclared aspect forward
 - historical activation and maintenance hints
 
@@ -104,7 +103,7 @@ database in a temporary directory, so runs never touch `App_Data`. CI runs the s
 | Aspect Library | Shared aspects from `IAspectDefinitionStore`: create one, edit its facets and save a new version, then preview and apply the upgrade to the content types that pin an older version |
 | Content Types | Definitions list; create a new type by pinning shared aspects at their latest version |
 | Content list | Paged resources with version, channel and lifecycle badges; filter by tag and by lifecycle state (active, archived, soft-deleted) |
-| Resource editor | **Centerpiece** — form generated 100% from facet metadata (uiHints, ordering, constraints); server diagnostics map to fields |
+| Resource editor | **Centerpiece** — form generated 100% from facet metadata (uiHints, ordering, constraints); server diagnostics map to fields. A new resource uses the latest definition; an existing one renders from the definition version it records, the one its save validates against (ADR 0002, #130), and the Schema card says "Edited against vN; vM available" beside the upgrade when a newer version exists (#191) |
 | Operations (resource editor) | Archive or soft-delete through `IResourceLifecycleMarkerService`; restore after a preview through `IResourceLifecycleRestoreService`; schema status from `IResourceSchemaVersionService` and an explicit upgrade that reports the carried-forward aspect keys |
 | Version history | Immutable versions with maintenance hints from `IResourceVersionHistoryService` (protected or possible prune candidate) and the definition version each was saved against; activate/deactivate any version on preview/live, including historical activation that leaves latest alone |
 | Policies (content type detail) | The definition's policy declarations and their validation; a preview as of any date; apply selected archive or soft-delete outcomes, or prune selected versions. The preview leaves out the versions pruning protects and lists them as diagnostics. Results show each candidate's status and diagnostic codes |

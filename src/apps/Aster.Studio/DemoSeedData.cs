@@ -88,14 +88,6 @@ internal static class DemoSeedData
         await ForTenant(StudioTenants.Acme).SeedAsync(SeedAcmeTenantAsync);
     }
 
-    // Fixed IDs in place of BuildAspect's random ones: every tenant registers identical aspect versions, so a snapshot
-    // pinning them imports into another tenant by reusing that tenant's copy instead of colliding with it.
-    private static AspectDefinition WithSeedIds(AspectDefinition aspect) => aspect with
-    {
-        Id = $"seed-{aspect.AspectDefinitionId}",
-        FacetDefinitions = aspect.FacetDefinitions.Select(facet => facet with { Id = $"seed-{aspect.AspectDefinitionId}-{facet.FacetDefinitionId}" }).ToList(),
-    };
-
     private static async Task SeedDefaultTenantAsync(Seeder seeder)
     {
         await seeder.RegisterDefinitionAsync("article", ["content", "seo", "publishable", "taggable", "navigation"]);
@@ -252,7 +244,7 @@ internal static class DemoSeedData
                 if (await aspectStore.GetLatestAsync(aspect.AspectDefinitionId, tenant, cancellationToken) is not null)
                     continue;
 
-                await aspectStore.RegisterAsync(WithSeedIds(aspect), tenant, cancellationToken);
+                await aspectStore.RegisterAsync(aspect, tenant, cancellationToken);
                 logger.LogInformation("Seeded shared aspect '{AspectId}' in tenant '{TenantId}'.", aspect.AspectDefinitionId, tenant.TenantId);
             }
 

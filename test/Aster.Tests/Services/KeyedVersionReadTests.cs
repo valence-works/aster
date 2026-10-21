@@ -169,7 +169,9 @@ public sealed class KeyedVersionReadTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        // Only this test's pool: clearing every pool disposes connections that parallel tests are using (#213).
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={databasePath}"))
+            Microsoft.Data.Sqlite.SqliteConnection.ClearPool(connection);
         foreach (var path in new[] { databasePath, databasePath + "-wal", databasePath + "-shm" })
         {
             if (File.Exists(path))

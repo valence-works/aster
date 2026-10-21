@@ -1,10 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createArticle, saveNewVersion, setChannel, unique, versionRow } from "./support";
+import { createArticle, field, saveNewVersion, setChannel, unique, versionRow } from "./support";
 
 // Smoke coverage for the operations screens (#111): lifecycle markers and restore, policy preview and application,
 // version pruning, schema upgrades and historical activation, all through the SDK services against SQLite.
-// Each test that changes data creates it, except the schema upgrade, which needs an article saved before the seed
-// bumped the article definition; no other test touches that article.
+// Each test that changes data creates it, except the two that need an article saved before the seed bumped the
+// article definition: editing it against its recorded definition version, then upgrading it. No other test touches
+// that article.
 
 const lifecycle = (page: Page) => page.getByRole("region", { name: "Lifecycle" });
 const schema = (page: Page) => page.getByRole("region", { name: "Schema" });
@@ -119,12 +120,47 @@ test("prunes an unprotected version and reports active ones as protected", async
   await expect(versionRow(page, 1)).toHaveCount(0);
 });
 
-test("upgrades an article saved against an older definition and reports carried-forward aspects", async ({ page }) => {
-  // Seeded on article v1, which still attached navigation; the seed then registered v2 without it.
+const editedAgainstNotice = "Edited against v1; v2 available.";
+
+test("edits an article against the definition version it records, and the save validates against it", async ({ page }) => {
+  // Seeded on article v1, which still attached navigation; the seed then registered v2 without it (#191).
   await page.goto("/content/article/article-horizontal-aspects");
+  await expect(page.getByText("base v2")).toBeVisible();
+  await expect(page.getByText("Generated from definition article v1.")).toBeVisible();
+  await expect(schema(page).getByText(editedAgainstNotice)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Navigation", exact: true })).toBeVisible();
+  await expect(field(page, "navigation", "menuOrder")).toHaveValue("30");
+
+  // The form checks v1's navigation rules...
+  await field(page, "navigation", "menuOrder").fill("101");
+  await page.getByRole("button", { name: "Save new version" }).click();
+  await expect(page.getByText("Must be at most 100.")).toBeVisible();
+
+  // ...and so does the server, which validates an update against the recorded version: v2 would ignore navigation.
+  const rejected = await page.request.put("/api/aster/resources/article-horizontal-aspects", {
+    data: { baseVersion: 2, aspects: { navigation: { menuOrder: 101, showInMenu: true } } },
+  });
+  expect(rejected.status()).toBe(400);
+  expect((await rejected.json()).diagnostics).toContainEqual(expect.objectContaining({ aspectKey: "navigation", facetId: "menuOrder" }));
+
+  await field(page, "navigation", "menuOrder").fill("31");
+  await page.getByRole("button", { name: "Save new version" }).click();
+  await expect(page.getByText("base v3")).toBeVisible();
+  await expect(versionRow(page, 3).getByText("definition v1", { exact: false })).toBeVisible();
+
+  await page.reload();
+  await expect(field(page, "navigation", "menuOrder")).toHaveValue("31");
+  await expect(schema(page).getByText(editedAgainstNotice)).toBeVisible();
+});
+
+test("upgrades an article saved against an older definition and reports carried-forward aspects", async ({ page }) => {
+  // Seeded on article v1, which still attached navigation; the seed then registered v2 without it. The test above
+  // may have saved another version against v1, so the versions are counted from the one shown.
+  await page.goto("/content/article/article-horizontal-aspects");
+  const base = Number((await page.getByText(/^base v\d+$/).textContent())!.replace("base v", ""));
   await expect(schema(page).getByText("upgrade available")).toBeVisible();
-  await expect(schema(page).getByText("v2 was saved against definition v1; the latest is v2.")).toBeVisible();
-  await expect(schema(page).getByText("navigation")).toBeVisible();
+  await expect(schema(page).getByText(`v${base} was saved against definition v1; the latest is v2.`)).toBeVisible();
+  await expect(schema(page).getByText("navigation", { exact: true })).toBeVisible();
 
   await schema(page).getByRole("button", { name: "Upgrade to definition v2" }).click();
   const dialog = page.getByRole("dialog");
@@ -132,10 +168,15 @@ test("upgrades an article saved against an older definition and reports carried-
   await dialog.getByRole("button", { name: "Upgrade" }).click();
   await expect(dialog).toBeHidden();
 
-  await expect(page.getByText("base v3")).toBeVisible();
+  await expect(page.getByText(`base v${base + 1}`)).toBeVisible();
   await expect(schema(page).getByText("current", { exact: true })).toBeVisible();
   await expect(schema(page).getByText("Last upgrade: upgraded, definition v1 → v2, carried forward navigation.")).toBeVisible();
-  await expect(versionRow(page, 3).getByText("definition v2", { exact: false })).toBeVisible();
+  await expect(versionRow(page, base + 1).getByText("definition v2", { exact: false })).toBeVisible();
+
+  // The form now renders from v2, which doesn't declare navigation; the upgrade carried its value forward.
+  await expect(page.getByText("Generated from definition article v2.")).toBeVisible();
+  await expect(schema(page).getByText(editedAgainstNotice)).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Navigation", exact: true })).toBeHidden();
 });
 
 test("activates a historical version without moving latest, and shows maintenance hints", async ({ page }) => {
