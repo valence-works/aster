@@ -85,11 +85,12 @@ A `reference` facet holds the `ResourceId` of another resource; `reference[]` ho
 | `ReferenceResolution` | `null` or `"latest"`: resolve the target's latest version. Any other value names the activation channel whose active version is used. |
 
 ```csharp
-new ResourceDefinitionBuilder()
+var definition = new ResourceDefinitionBuilder()
     .WithDefinitionId("Agent")
     .WithAspect("Links")
     .WithFacet("Secret", "reference", isRequired: true)
-    .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = ["Secret"], ReferenceResolution = "production" });
+    .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = ["Secret"], ReferenceResolution = "production" })
+    .Build();
 
 var resolution = await referenceResolver.ResolveAsync(definition, "Links", "Secret", "sec-openai", tenant);
 // resolution.Status: Resolved, TargetNotFound, TargetTypeMismatch, or NotActiveInChannel
