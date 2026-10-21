@@ -154,6 +154,34 @@ Stable failure/diagnostic codes should include:
 
 Cancellation uses normal cancellation semantics and is not converted into a lifecycle failure code.
 
+## Operation Outcome Contract
+
+Added by #219. See the spec's [Failure Semantics](../spec.md#failure-semantics).
+
+```csharp
+public abstract record ResourceLifecycleContext
+{
+    // ...
+    public LifecycleOperationStatus OperationStatus { get; init; }   // Pending | Succeeded | Failed
+    public LifecycleOperationFailure? OperationFailure { get; init; } // set when Failed
+}
+
+public sealed record LifecycleOperationFailure
+{
+    public const string OperationFailedCode = "lifecycle-operation-failed";
+    public required string Code { get; init; }
+    public required string Message { get; init; }
+    public Exception? Exception { get; init; }
+}
+```
+
+Rules:
+
+- Before hooks see `Pending`.
+- After hooks run once all before hooks continued, whether the operation succeeded or failed. They see `Succeeded` or `Failed`.
+- `Failed` means the state change the context describes did not happen. On a failed activation or deactivation, `ActiveVersions` is the set the write tried to store. On a failed save, `Resource` is the proposed version.
+- Save, activation, and deactivation failures use `lifecycle-operation-failed` with the thrown exception. Portability failures use the code of the error diagnostic that failed the operation.
+
 ## Compatibility Contract
 
 Rules:

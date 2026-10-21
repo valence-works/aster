@@ -109,6 +109,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
 
         PortableSnapshot? snapshot = null;
         PortableSnapshotExportResult result;
+        LifecycleOperationFailure? failure = null;
         try
         {
             var storeSnapshot = await portabilityStore.ReadSnapshotAsync(
@@ -181,6 +182,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                     },
                 ],
             };
+            failure = LifecycleOperationFailures.FromDiagnostics(result.Diagnostics, exception);
         }
 
         try
@@ -191,6 +193,8 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterExport,
                 CancellationToken = cancellationToken,
+                OperationStatus = failure is null ? LifecycleOperationStatus.Succeeded : LifecycleOperationStatus.Failed,
+                OperationFailure = failure,
                 ExportRequest = ResourceLifecycleHookContextSnapshots.Snapshot(request),
                 Snapshot = snapshot,
                 ExportResult = result,
@@ -250,6 +254,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         }
 
         PortableImportPreview preview;
+        LifecycleOperationFailure? failure = null;
         try
         {
             var plan = await BuildImportPlanAsync(snapshot, options, cancellationToken);
@@ -266,8 +271,10 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             preview = FailedPreview(ToImportPlanningFailedDiagnostic(exception), sourceTenant, targetTenant);
+            failure = LifecycleOperationFailures.FromDiagnostics(preview.Diagnostics, exception);
         }
 
+        // A preview whose plan has error diagnostics still succeeded: it answered, with CanImport false.
         try
         {
             await lifecycleHooks.InvokeAfterPreviewImportAsync(new ResourceImportLifecycleContext
@@ -276,6 +283,8 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterPreviewImport,
                 CancellationToken = cancellationToken,
+                OperationStatus = failure is null ? LifecycleOperationStatus.Succeeded : LifecycleOperationStatus.Failed,
+                OperationFailure = failure,
                 Snapshot = snapshot,
                 ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
                 Preview = preview,
@@ -331,8 +340,10 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             result = FailedImport(ToImportPlanningFailedDiagnostic(exception), sourceTenant, targetTenant);
-            return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
+            return await InvokeAfterImportAsync(operationId, snapshot, options, result, exception, cancellationToken);
         }
+
+        Exception? applyFailure = null;
 
         if (plan.Diagnostics.Any(static diagnostic => diagnostic.Severity == PortableDiagnosticSeverity.Error))
         {
@@ -363,6 +374,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+                applyFailure = exception;
                 result = new PortableImportResult
                 {
                     SourceTenantScope = sourceTenant,
@@ -396,7 +408,7 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
             };
         }
 
-        return await InvokeAfterImportAsync(operationId, snapshot, options, result, cancellationToken);
+        return await InvokeAfterImportAsync(operationId, snapshot, options, result, applyFailure, cancellationToken);
     }
 
     private async ValueTask<PortableImportResult> InvokeAfterImportAsync(
@@ -404,8 +416,10 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
         PortableSnapshot snapshot,
         PortableImportOptions options,
         PortableImportResult result,
+        Exception? operationException,
         CancellationToken cancellationToken)
     {
+        var failed = result.Status == PortableImportStatus.Failed;
         try
         {
             await lifecycleHooks.InvokeAfterImportAsync(new ResourceImportLifecycleContext
@@ -414,6 +428,8 @@ internal sealed class ResourcePortabilityService : IResourcePortabilityService
                 OperationId = operationId,
                 LifecyclePoint = LifecyclePoint.AfterImport,
                 CancellationToken = cancellationToken,
+                OperationStatus = failed ? LifecycleOperationStatus.Failed : LifecycleOperationStatus.Succeeded,
+                OperationFailure = failed ? LifecycleOperationFailures.FromDiagnostics(result.Diagnostics, operationException) : null,
                 Snapshot = snapshot,
                 ImportOptions = ResourceLifecycleHookContextSnapshots.Snapshot(options),
                 ImportResult = result,

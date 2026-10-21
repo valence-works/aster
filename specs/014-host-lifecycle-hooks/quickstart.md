@@ -99,7 +99,7 @@ Portability hook rejections and failures surface through structured diagnostics 
 
 - Hooks are explicit: no scanning, attributes, or naming conventions.
 - Before hooks can reject before mutation.
-- After hooks observe successful operations only.
+- After hooks run paired with before hooks, also when the operation fails. Check `context.OperationStatus == LifecycleOperationStatus.Succeeded` before recording a change; `context.OperationFailure` says why a failed operation failed.
 - Cancellation stops later hook invocation.
 - Hook failures are visible to callers.
 - Providers do not need storage-specific hook implementations.

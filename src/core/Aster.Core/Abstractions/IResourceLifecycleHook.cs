@@ -5,6 +5,14 @@ namespace Aster.Core.Abstractions;
 /// <summary>
 /// Host hook that can observe or gate resource lifecycle operations.
 /// </summary>
+/// <remarks>
+/// Before and after calls are paired: once every before hook for an operation continues, the after hooks run
+/// whether the underlying operation then succeeds or fails. An after hook reads
+/// <see cref="ResourceLifecycleContext.OperationStatus"/> to tell the two apart, and
+/// <see cref="ResourceLifecycleContext.OperationFailure"/> for the reason of a failure. Hooks that should only
+/// observe completed changes, such as audit or notification hooks, return early unless the status is
+/// <see cref="LifecycleOperationStatus.Succeeded"/>.
+/// </remarks>
 public interface IResourceLifecycleHook
 {
     /// <summary>

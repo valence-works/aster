@@ -378,12 +378,13 @@ internal sealed class ResourceSchemaVersionService : IResourceSchemaVersionServi
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            await TryInvokeAfterSaveAsync(afterContext, exception, cancellationToken);
             throw;
         }
 
         await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
         {
+            OperationStatus = LifecycleOperationStatus.Succeeded,
             DefinitionId = persisted.DefinitionId,
             ResourceId = persisted.ResourceId,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
@@ -392,13 +393,19 @@ internal sealed class ResourceSchemaVersionService : IResourceSchemaVersionServi
         return persisted;
     }
 
+    // Paired with the before hooks on a failed write, with a Failed outcome (#219); see DefaultResourceManager.
     private async ValueTask TryInvokeAfterSaveAsync(
         ResourceSaveLifecycleContext context,
+        Exception writeFailure,
         CancellationToken cancellationToken)
     {
         try
         {
-            await lifecycleHooks.InvokeAfterSaveAsync(context, cancellationToken);
+            await lifecycleHooks.InvokeAfterSaveAsync(context with
+            {
+                OperationStatus = LifecycleOperationStatus.Failed,
+                OperationFailure = LifecycleOperationFailures.FromException(writeFailure),
+            }, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

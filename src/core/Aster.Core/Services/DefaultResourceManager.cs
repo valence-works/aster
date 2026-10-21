@@ -180,12 +180,13 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            await TryInvokeAfterSaveAsync(afterContext, exception, cancellationToken);
             throw;
         }
 
         await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
         {
+            OperationStatus = LifecycleOperationStatus.Succeeded,
             ResourceId = persisted.ResourceId,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
         }, cancellationToken);
@@ -269,12 +270,13 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await TryInvokeAfterSaveAsync(afterContext, cancellationToken);
+            await TryInvokeAfterSaveAsync(afterContext, exception, cancellationToken);
             throw;
         }
 
         await lifecycleHooks.InvokeAfterSaveAsync(afterContext with
         {
+            OperationStatus = LifecycleOperationStatus.Succeeded,
             DefinitionId = persisted.DefinitionId,
             ResourceId = persisted.ResourceId,
             Resource = ResourceLifecycleHookContextSnapshots.Snapshot(persisted),
@@ -408,11 +410,13 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await TryInvokeAfterActivateAsync(afterContext, cancellationToken);
+            await TryInvokeAfterActivateAsync(afterContext, exception, cancellationToken);
             throw;
         }
 
-        await lifecycleHooks.InvokeAfterActivateAsync(afterContext, cancellationToken);
+        await lifecycleHooks.InvokeAfterActivateAsync(
+            afterContext with { OperationStatus = LifecycleOperationStatus.Succeeded },
+            cancellationToken);
 
         LogResourceActivated(resourceId, version, channel);
     }
@@ -478,11 +482,13 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await TryInvokeAfterDeactivateAsync(afterContext, cancellationToken);
+            await TryInvokeAfterDeactivateAsync(afterContext, exception, cancellationToken);
             throw;
         }
 
-        await lifecycleHooks.InvokeAfterDeactivateAsync(afterContext, cancellationToken);
+        await lifecycleHooks.InvokeAfterDeactivateAsync(
+            afterContext with { OperationStatus = LifecycleOperationStatus.Succeeded },
+            cancellationToken);
 
         LogResourceDeactivated(resourceId, version, channel);
     }
@@ -598,13 +604,21 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         await versionWriter.UpdateActivationAsync(resourceId, channel, state, cancellationToken);
     }
 
+    // A failed write still runs the after hooks so before/after calls stay paired, with a Failed outcome so no hook
+    // mistakes it for a completed change (#219). A hook failure here is dropped: the write's exception is the one the
+    // caller receives.
     private async ValueTask TryInvokeAfterSaveAsync(
         ResourceSaveLifecycleContext context,
+        Exception writeFailure,
         CancellationToken cancellationToken)
     {
         try
         {
-            await lifecycleHooks.InvokeAfterSaveAsync(context, cancellationToken);
+            await lifecycleHooks.InvokeAfterSaveAsync(context with
+            {
+                OperationStatus = LifecycleOperationStatus.Failed,
+                OperationFailure = LifecycleOperationFailures.FromException(writeFailure),
+            }, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -613,11 +627,16 @@ internal sealed partial class DefaultResourceManager : IResourceManager
 
     private async ValueTask TryInvokeAfterActivateAsync(
         ResourceActivationLifecycleContext context,
+        Exception writeFailure,
         CancellationToken cancellationToken)
     {
         try
         {
-            await lifecycleHooks.InvokeAfterActivateAsync(context, cancellationToken);
+            await lifecycleHooks.InvokeAfterActivateAsync(context with
+            {
+                OperationStatus = LifecycleOperationStatus.Failed,
+                OperationFailure = LifecycleOperationFailures.FromException(writeFailure),
+            }, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -626,11 +645,16 @@ internal sealed partial class DefaultResourceManager : IResourceManager
 
     private async ValueTask TryInvokeAfterDeactivateAsync(
         ResourceActivationLifecycleContext context,
+        Exception writeFailure,
         CancellationToken cancellationToken)
     {
         try
         {
-            await lifecycleHooks.InvokeAfterDeactivateAsync(context, cancellationToken);
+            await lifecycleHooks.InvokeAfterDeactivateAsync(context with
+            {
+                OperationStatus = LifecycleOperationStatus.Failed,
+                OperationFailure = LifecycleOperationFailures.FromException(writeFailure),
+            }, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

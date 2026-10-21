@@ -3445,3 +3445,27 @@ static Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.oper
 static Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.operator ==(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? left, Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? right) -> bool
 static Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.operator !=(Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? left, Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? right) -> bool
 static Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.operator ==(Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? left, Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? right) -> bool
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.<Clone>$() -> Aster.Core.Models.Lifecycle.LifecycleOperationFailure!
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Code.get -> string!
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Code.init -> void
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Equals(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? other) -> bool
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Exception.get -> System.Exception?
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Exception.init -> void
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.LifecycleOperationFailure() -> void
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Message.get -> string!
+Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Message.init -> void
+Aster.Core.Models.Lifecycle.LifecycleOperationStatus
+Aster.Core.Models.Lifecycle.LifecycleOperationStatus.Failed = 2 -> Aster.Core.Models.Lifecycle.LifecycleOperationStatus
+Aster.Core.Models.Lifecycle.LifecycleOperationStatus.Pending = 0 -> Aster.Core.Models.Lifecycle.LifecycleOperationStatus
+Aster.Core.Models.Lifecycle.LifecycleOperationStatus.Succeeded = 1 -> Aster.Core.Models.Lifecycle.LifecycleOperationStatus
+Aster.Core.Models.Lifecycle.ResourceLifecycleContext.OperationFailure.get -> Aster.Core.Models.Lifecycle.LifecycleOperationFailure?
+Aster.Core.Models.Lifecycle.ResourceLifecycleContext.OperationFailure.init -> void
+Aster.Core.Models.Lifecycle.ResourceLifecycleContext.OperationStatus.get -> Aster.Core.Models.Lifecycle.LifecycleOperationStatus
+Aster.Core.Models.Lifecycle.ResourceLifecycleContext.OperationStatus.init -> void
+const Aster.Core.Models.Lifecycle.LifecycleOperationFailure.OperationFailedCode = "lifecycle-operation-failed" -> string!
+override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.Equals(object? obj) -> bool
+override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.GetHashCode() -> int
+override Aster.Core.Models.Lifecycle.LifecycleOperationFailure.ToString() -> string!
+static Aster.Core.Models.Lifecycle.LifecycleOperationFailure.operator !=(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? left, Aster.Core.Models.Lifecycle.LifecycleOperationFailure? right) -> bool
+static Aster.Core.Models.Lifecycle.LifecycleOperationFailure.operator ==(Aster.Core.Models.Lifecycle.LifecycleOperationFailure? left, Aster.Core.Models.Lifecycle.LifecycleOperationFailure? right) -> bool
