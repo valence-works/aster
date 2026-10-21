@@ -119,6 +119,7 @@ public static class AsterCoreServiceCollectionExtensions
                 sp.GetRequiredService<IResourceLifecycleMarkerClearStore>(),
                 sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
         services.AddSingleton<IResourceVersionHistoryService, ResourceVersionHistoryService>();
+        services.AddSingleton<IResourceReferenceResolver, ResourceReferenceResolver>();
 
         // Query service
         services.AddSingleton<InMemoryQueryService>();

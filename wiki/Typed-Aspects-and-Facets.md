@@ -75,6 +75,28 @@ Query array facets with `ArrayContains`, `ArrayContainsAny` and `ArrayContainsAl
 
 An `object` facet stores a structured value, such as model settings or connector configuration, as a JSON object, verbatim. On save the value must be a JSON object, a dictionary, or a POCO; anything else is `facet-value-type-mismatch`. Object facets are opaque in 1.0: nested facet definitions, `AllowedValues`, `DefaultValue` and other value constraints do not apply, and only `Exists` is meaningful in queries (queries are definition-agnostic, so other operators simply do not match object values).
 
+### Reference facets
+
+A `reference` facet holds the `ResourceId` of another resource; `reference[]` holds several (with the usual array constraints). On save the value must be a non-blank string. How a reference resolves is declared once per facet:
+
+| Metadata | Meaning |
+|---|---|
+| `TargetDefinitionIds` | Definition IDs the target may have; undeclared means any. Non-empty, no blank or duplicate entries. |
+| `ReferenceResolution` | `null` or `"latest"`: resolve the target's latest version. Any other value names the activation channel whose active version is used. |
+
+```csharp
+new ResourceDefinitionBuilder()
+    .WithDefinitionId("Agent")
+    .WithAspect("Links")
+    .WithFacet("Secret", "reference", isRequired: true)
+    .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = ["Secret"], ReferenceResolution = "production" });
+
+var resolution = await referenceResolver.ResolveAsync(definition, "Links", "Secret", "sec-openai", tenant);
+// resolution.Status: Resolved, TargetNotFound, TargetTypeMismatch, or NotActiveInChannel
+```
+
+`IResourceReferenceResolver` looks targets up in the given tenant only (cross-tenant references are not supported). With channel resolution, if several versions are active (activated with `allowMultipleActive: true`), the newest one wins. References are stored as plain strings, so they can be queried with `Equals`, `In` and the array operators. Per-value version pins are not supported (ADR 0002 §6): store an exact version in a sibling `int` facet when you need one. References are never derived from typed aspect properties; declare them explicitly.
+
 ### Untyped aspects
 
 Aspects stored as dictionaries declare their facets explicitly:

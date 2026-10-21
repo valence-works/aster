@@ -55,6 +55,16 @@ public static class FacetMetadataDiagnosticCodes
     /// The facet's declared <c>Type</c> is not a supported facet type descriptor.
     /// </summary>
     public const string TypeUnknown = "facet-type-unknown";
+
+    /// <summary>
+    /// <c>TargetDefinitionIds</c> is declared but empty, or contains a blank or duplicate entry.
+    /// </summary>
+    public const string ReferenceTargetsInvalid = "facet-metadata-reference-targets-invalid";
+
+    /// <summary>
+    /// <c>ReferenceResolution</c> is declared but blank.
+    /// </summary>
+    public const string ReferenceResolutionInvalid = "facet-metadata-reference-resolution-invalid";
 }
 
 /// <summary>
