@@ -261,9 +261,9 @@ public sealed class AspectDefinitionPortabilityTests : IDisposable
         Assert.NotEqual(snapshot.AspectDefinitions[0].Id, own.Id);
         if (targetHasArticle)
         {
-            // Its own Article too, so the snapshot's Article collides and is remapped.
+            // Its own Article too, with an aspect the snapshot's lacks, so the snapshot's Article collides and is remapped.
             await provider.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(
-                await new ResourceDefinitionBuilder().WithDefinitionId("Article").WithSharedAspect("Seo", 1).BuildAsync(aspects, Target),
+                await new ResourceDefinitionBuilder().WithDefinitionId("Article").WithSharedAspect("Seo", 1).WithAspect("Notes").BuildAsync(aspects, Target),
                 Target,
                 CancellationToken.None);
         }
