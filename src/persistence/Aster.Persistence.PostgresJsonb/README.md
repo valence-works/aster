@@ -54,5 +54,6 @@ services.AddAsterPostgresJsonb(options =>
   - `ResourceId`, `Id`, `DefinitionId` and `Owner`: a B-tree on the upper-cased column; `Version` and `Created`: on the column
 - **Results never change.** The translator adds an index-matching condition beside the predicate it accompanies, implied by it, and only where the predicate isn't negated. Queries the index can't serve still run, as before.
 - **Lifecycle:** the infrastructure runner creates the index of each declared projection and drops indexes of projections no longer declared (`GetPendingAsync` lists both). Indexes are named after a hash of their definition, so redeclaring one is a no-op and changing one replaces it. Building an index locks writes to `resource_versions` for its duration; on a large table, apply from a deployment step.
+- **One declaration per database:** every process that applies infrastructure against a database must declare the same projections. A process applies its own declaration, so one that declares fewer, such as an older version still running in a rolling deployment, drops the others' indexes. Use `InitializeSchema = false` in application processes and apply from the deployment step.
 - **Capabilities:** `QueryCapabilityDescription.IndexProjections` lists the declared, indexed projections. Invalid declarations fail at registration.
 

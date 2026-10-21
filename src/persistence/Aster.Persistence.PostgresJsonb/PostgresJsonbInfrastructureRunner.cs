@@ -60,7 +60,8 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     {
         Task task;
         lock (startupGate)
-            task = startup ??= ApplyAsync().AsTask();
+            // On the thread pool, so a caller blocking on a single-threaded synchronization context can't deadlock.
+            task = startup ??= Task.Run(async () => await ApplyAsync().ConfigureAwait(false));
 
         try
         {
