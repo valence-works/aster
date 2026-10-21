@@ -1,0 +1,27 @@
+#nullable enable
+Aster.Elsa.Studio.AsterStudioServiceCollectionExtensions
+Aster.Elsa.Studio.Components.ReferencePicker
+Aster.Elsa.Studio.Components.ReferencePicker.EditorContext.get -> Elsa.Studio.Models.DisplayInputEditorContext!
+Aster.Elsa.Studio.Components.ReferencePicker.EditorContext.set -> void
+Aster.Elsa.Studio.Components.ReferencePicker.ReferencePicker() -> void
+Aster.Elsa.Studio.Pages.DefinitionList
+Aster.Elsa.Studio.Pages.DefinitionList.DefinitionList() -> void
+Aster.Elsa.Studio.Pages.ResourceEditor
+Aster.Elsa.Studio.Pages.ResourceEditor.DefinitionId.get -> string?
+Aster.Elsa.Studio.Pages.ResourceEditor.DefinitionId.set -> void
+Aster.Elsa.Studio.Pages.ResourceEditor.ResourceEditor() -> void
+Aster.Elsa.Studio.Pages.ResourceEditor.ResourceId.get -> string?
+Aster.Elsa.Studio.Pages.ResourceEditor.ResourceId.set -> void
+Aster.Elsa.Studio.Pages.ResourceList
+Aster.Elsa.Studio.Pages.ResourceList.DefinitionId.get -> string!
+Aster.Elsa.Studio.Pages.ResourceList.DefinitionId.set -> void
+Aster.Elsa.Studio.Pages.ResourceList.ResourceList() -> void
+override Aster.Elsa.Studio.Components.ReferencePicker.OnParametersSet() -> void
+override Aster.Elsa.Studio.Pages.DefinitionList.OnInitializedAsync() -> System.Threading.Tasks.Task!
+override Aster.Elsa.Studio.Pages.ResourceEditor.OnParametersSetAsync() -> System.Threading.Tasks.Task!
+override Aster.Elsa.Studio.Pages.ResourceList.OnParametersSetAsync() -> System.Threading.Tasks.Task!
+static Aster.Elsa.Studio.AsterStudioServiceCollectionExtensions.AddAsterStudioModule(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Uri! apiBaseAddress) -> Microsoft.Extensions.DependencyInjection.IHttpClientBuilder!
+~override Aster.Elsa.Studio.Components.ReferencePicker.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override Aster.Elsa.Studio.Pages.DefinitionList.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override Aster.Elsa.Studio.Pages.ResourceEditor.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void
+~override Aster.Elsa.Studio.Pages.ResourceList.BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder) -> void

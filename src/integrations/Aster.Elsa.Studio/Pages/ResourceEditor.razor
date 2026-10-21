@@ -1,0 +1,472 @@
+@* No _Imports.razor: Razor would compile it into a public _Imports class. *@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Aster.Elsa.Studio.Client
+@using Aster.Elsa.Studio.Forms
+@page "/aster/definitions/{DefinitionId}/new"
+@page "/aster/resources/{ResourceId}"
+@attribute [Authorize]
+@using System.Globalization
+@using global::Elsa.Studio.Contracts
+@using global::Elsa.Studio.Models
+@inject AsterStudioClient Client
+@inject IUIHintService UIHintService
+@inject NavigationManager Navigation
+
+<PageTitle>@(ResourceId ?? $"New {DefinitionId}")</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="aster-studio py-4">
+    <MudBreadcrumbs Items="@breadcrumbs" Class="px-0" />
+
+    @if (loadError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="aster-error">@loadError</MudAlert>
+    }
+    else if (model is null || state is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <div class="d-flex align-center justify-space-between mb-2">
+            <MudText Typo="Typo.h5" Class="aster-title">
+                @(IsNew ? $"New {model.DefinitionId}" : ResourceId)
+                @if (shown is not null)
+                {
+                    <MudChip T="string" Size="Size.Small" Class="ml-2 aster-version">v@(shown.Version)</MudChip>
+                }
+            </MudText>
+            @if (!IsReadOnly)
+            {
+                <MudButton OnClick="@SaveAsync" Disabled="@saving" Variant="Variant.Filled" Color="Color.Primary" Class="aster-save">Save</MudButton>
+            }
+        </div>
+
+        @if (IsReadOnly)
+        {
+            <MudAlert Severity="Severity.Info" Class="aster-viewing mb-3">
+                Viewing version @shown!.Version, read-only.
+                <MudButton OnClick="@ShowLatestAsync" Size="Size.Small" Variant="Variant.Text" Class="aster-show-latest">Edit the latest version</MudButton>
+            </MudAlert>
+        }
+        @if (message is not null)
+        {
+            <MudAlert Severity="Severity.Success" Class="aster-message mb-3">@message</MudAlert>
+        }
+        @if (conflict is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="aster-conflict mb-3">
+                @conflict
+                <MudButton OnClick="@ReloadAsync" Size="Size.Small" Variant="Variant.Text">Reload</MudButton>
+            </MudAlert>
+        }
+        @foreach (var unplaced in errors.Unplaced)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="aster-error mb-2">@unplaced</MudAlert>
+        }
+
+        <MudTabs Elevation="0" KeepPanelsAlive="true" Class="aster-tabs">
+            <MudTabPanel Text="Edit">
+                @if (IsNew)
+                {
+                    <MudTextField T="string" @bind-Value="newResourceId" Label="Resource ID" HelperText="Generated when empty."
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="aster-resource-id mt-3"
+                                  Error="@errors.For("resourceId").Any()" ErrorText="@string.Join(" ", errors.For("resourceId"))" />
+                }
+
+                @foreach (var section in model.Sections)
+                {
+                    <MudPaper Outlined="true" Class="pa-4 my-3 aster-section" data-aster-aspect="@section.AspectKey">
+                        <MudText Typo="Typo.h6">@section.AspectKey</MudText>
+                        @if (section.AspectDefinitionId != section.AspectKey || section.IsShared)
+                        {
+                            <MudText Typo="Typo.caption">@section.AspectDefinitionId@(section.IsShared ? " (shared)" : "")</MudText>
+                        }
+                        @foreach (var sectionError in errors.For(AsterDiagnosticMapper.SectionKey(section.AspectKey)))
+                        {
+                            <MudText Color="Color.Error" Typo="Typo.body2" Class="aster-section-error">@sectionError</MudText>
+                        }
+
+                        @foreach (var field in section.Fields)
+                        {
+                            <div class="aster-field mt-2" data-aster-field="@field.Key" data-aster-editor="@editors[field.Key].UiHint" @key="@($"{generation}:{field.Key}")">
+                                @RenderEditor(field)
+                                @foreach (var fieldError in FieldErrors(field))
+                                {
+                                    <MudText Color="Color.Error" Typo="Typo.caption" Class="aster-field-error">@fieldError</MudText>
+                                }
+                            </div>
+                        }
+                    </MudPaper>
+                }
+            </MudTabPanel>
+
+            @if (!IsNew)
+            {
+                <MudTabPanel Text="Versions">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="my-3">
+                        <MudTextField T="string" @bind-Value="channel" Label="Channel" Variant="Variant.Outlined" Margin="Margin.Dense" Class="aster-channel"
+                                      Error="@errors.For("channel").Any()" ErrorText="@string.Join(" ", errors.For("channel"))" />
+                        <MudCheckBox T="bool" @bind-Value="allowMultipleActive" Label="Keep other active versions" Class="aster-allow-multiple" />
+                    </MudStack>
+                    <MudSimpleTable Dense="true" Hover="true" Class="aster-versions">
+                        <thead>
+                            <tr>
+                                <th>Version</th>
+                                <th>Created</th>
+                                <th>Active in</th>
+                                <th>State</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var version in versions)
+                            {
+                                <tr data-aster-version="@version.Version">
+                                    <td>
+                                        @version.Version
+                                        @if (version.IsLatest)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Class="ml-1">latest</MudChip>
+                                        }
+                                    </td>
+                                    <td>@version.Created.ToString("u", CultureInfo.InvariantCulture)</td>
+                                    <td>
+                                        @foreach (var active in version.ActiveChannels)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="aster-active-channel" data-aster-channel="@active"
+                                                     OnClose="@(() => DeactivateAsync(version.Version, active))">@active</MudChip>
+                                        }
+                                    </td>
+                                    <td>@(version.IsDraft ? "draft" : "active")@(version.LifecycleState is "none" or "None" ? "" : $", {version.LifecycleState}")</td>
+                                    <td class="text-right">
+                                        <MudButton OnClick="@(() => ShowVersionAsync(version.Version))" Size="Size.Small" Variant="Variant.Text" Class="aster-view">View</MudButton>
+                                        <MudButton OnClick="@(() => ActivateAsync(version.Version))" Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Class="aster-activate">Activate in @channel</MudButton>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Referenced by">
+                    <MudButton OnClick="@FindReferrersAsync" Disabled="@findingReferrers" Variant="Variant.Outlined" Class="my-3 aster-find-referrers">Find referencing resources</MudButton>
+                    @if (referrers is { Count: 0 })
+                    {
+                        <MudText Class="aster-no-referrers">No resource references @ResourceId.</MudText>
+                    }
+                    else if (referrers is not null)
+                    {
+                        <MudSimpleTable Dense="true" Class="aster-referrers">
+                            <tbody>
+                                @foreach (var referrer in referrers)
+                                {
+                                    <tr data-aster-referrer="@referrer.ResourceId">
+                                        <td><MudLink Href="@EditHref(referrer.ResourceId)">@referrer.ResourceId</MudLink></td>
+                                        <td>@referrer.DefinitionId</td>
+                                        <td>@string.Join(", ", referrer.Via)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudTabPanel>
+            }
+        </MudTabs>
+    }
+</MudContainer>
+
+@code {
+    private readonly Dictionary<string, AsterFieldEditor> editors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DisplayInputEditorContext> contexts = new(StringComparer.Ordinal);
+
+    private AsterFormModel? model;
+    private AsterFormState? state;
+    private AsterResourceDocument? latest;
+    private AsterResourceDocument? shown;
+    private IReadOnlyList<AsterVersionSummary> versions = [];
+    private IReadOnlyList<AsterReferrer>? referrers;
+    private AsterFormErrors errors = AsterFormErrors.None;
+    private List<BreadcrumbItem> breadcrumbs = [];
+    private string? newResourceId;
+    private string? loadError;
+    private string? message;
+    private string? conflict;
+    private string channel = "Published";
+    private bool allowMultipleActive;
+    private bool saving;
+    private bool findingReferrers;
+    private int generation;
+
+    // Bumped by every load (navigation, reload, viewing a version). Only the latest load writes the form, so a
+    // slow response for one resource or version never replaces a later one (and Save never sends one resource's
+    // content under another's identity).
+    private int navigation;
+
+    /// <summary>The definition of a new resource (the <c>/new</c> route).</summary>
+    [Parameter] public string? DefinitionId { get; set; }
+
+    /// <summary>The resource to edit.</summary>
+    [Parameter] public string? ResourceId { get; set; }
+
+    private bool IsNew => ResourceId is null;
+
+    private bool IsReadOnly => shown is not null && latest is not null && shown.Version != latest.Version;
+
+    internal static string EditHref(string resourceId) => $"aster/resources/{Uri.EscapeDataString(resourceId)}";
+
+    /// <inheritdoc />
+    protected override Task OnParametersSetAsync()
+    {
+        newResourceId = null;
+        referrers = null;
+        return ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var current = ++navigation;
+        loadError = null;
+        conflict = null;
+        errors = AsterFormErrors.None;
+        try
+        {
+            if (IsNew)
+            {
+                latest = shown = null;
+                versions = [];
+                await ShowAsync(DefinitionId!, definitionVersion: null, resource: null, current);
+            }
+            else if (await Client.GetResourceAsync(ResourceId!) is { } resource)
+            {
+                var resourceVersions = await Client.GetVersionsAsync(resource.ResourceId);
+                if (current != navigation)
+                    return;
+
+                latest = resource;
+                versions = resourceVersions;
+                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource, current);
+            }
+            else if (current == navigation)
+            {
+                loadError = $"Resource '{ResourceId}' was not found.";
+            }
+        }
+        catch (Exception exception) when (exception is AsterApiException or HttpRequestException)
+        {
+            if (current == navigation)
+                loadError = $"Could not load the resource: {exception.Message}";
+        }
+    }
+
+    // Builds the form from the schema of the definition version the resource was saved against (#106).
+    private async Task ShowAsync(string definitionId, int? definitionVersion, AsterResourceDocument? resource, int current)
+    {
+        var form = model;
+        if (form is null || form.DefinitionId != definitionId || form.DefinitionVersion != definitionVersion || definitionVersion is null)
+            form = AsterFormModel.FromSchema(await Client.GetDefinitionSchemaAsync(definitionId, definitionVersion));
+
+        if (current != navigation)
+            return;
+
+        model = form;
+        shown = resource;
+        state = AsterFormState.Create(model, resource?.Aspects);
+        breadcrumbs =
+        [
+            new BreadcrumbItem("Definitions", "aster/definitions"),
+            new BreadcrumbItem(definitionId, DefinitionList.ResourceListHref(definitionId)),
+            new BreadcrumbItem(resource?.ResourceId ?? "New", href: null, disabled: true),
+        ];
+        BuildEditors();
+    }
+
+    private void BuildEditors()
+    {
+        generation++;
+        editors.Clear();
+        contexts.Clear();
+        foreach (var field in model!.Fields)
+        {
+            var editor = AsterEditorMapping.Resolve(field);
+            var handler = UIHintService.GetHandler(editor.UiHint);
+            editors[field.Key] = editor;
+            contexts[field.Key] = AsterEditorContexts.Create(
+                model,
+                field,
+                editor,
+                handler,
+                state!.GetEditorValue(field, editor),
+                IsReadOnly,
+                value => OnFieldChangedAsync(field, editor, value));
+        }
+    }
+
+    private RenderFragment RenderEditor(AsterFormField field) =>
+        contexts[field.Key].UIHintHandler.DisplayInputEditor(contexts[field.Key]);
+
+    private IEnumerable<string> FieldErrors(AsterFormField field)
+    {
+        if (state!.InputErrors.TryGetValue(field.Key, out var inputError))
+            yield return inputError;
+        foreach (var serverError in errors.For(field.Key))
+            yield return serverError;
+    }
+
+    private Task OnFieldChangedAsync(AsterFormField field, AsterFieldEditor editor, object? value)
+    {
+        state!.SetEditorValue(field, editor, value);
+        message = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveAsync()
+    {
+        message = null;
+        conflict = null;
+        errors = AsterFormErrors.None;
+        if (state!.InputErrors.Count > 0)
+        {
+            errors = new AsterFormErrors(new Dictionary<string, IReadOnlyList<string>>(), ["Fix the highlighted fields before saving."]);
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            if (IsNew)
+            {
+                var created = await Client.CreateResourceAsync(model!.DefinitionId, newResourceId, state.BuildAspects());
+                Navigation.NavigateTo(EditHref(created.ResourceId));
+                return;
+            }
+
+            var saved = await Client.UpdateResourceAsync(latest!.ResourceId, latest.Version, state.BuildAspects());
+            await ReloadAsync();
+            message = $"Saved version {saved.Version}.";
+        }
+        catch (AsterApiException exception)
+        {
+            ShowProblem(exception.Problem, AsterDiagnosticMapper.ResourceTargets(model!));
+        }
+        catch (HttpRequestException exception)
+        {
+            errors = new AsterFormErrors(new Dictionary<string, IReadOnlyList<string>>(), [exception.Message]);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    // An unhandled exception in a Blazor Server event handler ends the circuit, losing unsaved edits.
+    private void ShowTransportError(HttpRequestException exception) =>
+        errors = new AsterFormErrors(new Dictionary<string, IReadOnlyList<string>>(), [exception.Message]);
+
+    private void ShowProblem(AsterProblem problem, IEnumerable<AsterErrorTarget> targets)
+    {
+        if (problem.Status == 409)
+        {
+            conflict = problem.Code == "concurrency-conflict"
+                ? "Someone saved a newer version since this one was loaded. Reload to edit the latest version."
+                : $"{problem.Summary} ({problem.Code})";
+            return;
+        }
+
+        errors = problem.Diagnostics.Count > 0
+            ? AsterDiagnosticMapper.Map(problem.Diagnostics, targets)
+            : new AsterFormErrors(new Dictionary<string, IReadOnlyList<string>>(), [problem.Summary]);
+    }
+
+    private async Task ShowVersionAsync(int version)
+    {
+        var current = ++navigation;
+        try
+        {
+            if (await Client.GetResourceAsync(latest!.ResourceId, version) is { } resource && current == navigation)
+            {
+                errors = AsterFormErrors.None;
+                message = null;
+                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource, current);
+            }
+        }
+        catch (AsterApiException exception)
+        {
+            if (current == navigation)
+                ShowProblem(exception.Problem, []);
+        }
+        catch (HttpRequestException exception)
+        {
+            if (current == navigation)
+                ShowTransportError(exception);
+        }
+    }
+
+    private Task ShowLatestAsync() => ReloadAsync();
+
+    private Task ActivateAsync(int version) =>
+        ChangeActivationAsync(() => Client.ActivateAsync(latest!.ResourceId, version, channel, allowMultipleActive), $"Activated version {version} in {channel}.");
+
+    private Task DeactivateAsync(int version, string activeChannel) =>
+        ChangeActivationAsync(() => Client.DeactivateAsync(latest!.ResourceId, version, activeChannel), $"Deactivated version {version} in {activeChannel}.");
+
+    // Activation and referrer lookups don't replace the form, so they don't supersede a load; they only drop
+    // their result once the editor has moved to another resource.
+    private bool IsShowing(string resourceId) => ResourceId == resourceId && latest?.ResourceId == resourceId;
+
+    private async Task ChangeActivationAsync(Func<Task> change, string done)
+    {
+        var resourceId = latest!.ResourceId;
+        message = null;
+        conflict = null;
+        errors = AsterFormErrors.None;
+        try
+        {
+            await change();
+            var resourceVersions = await Client.GetVersionsAsync(resourceId);
+            if (!IsShowing(resourceId))
+                return;
+
+            versions = resourceVersions;
+            message = done;
+        }
+        catch (AsterApiException exception)
+        {
+            if (IsShowing(resourceId))
+                ShowProblem(exception.Problem, [new AsterErrorTarget("channel", "channel")]);
+        }
+        catch (HttpRequestException exception)
+        {
+            if (IsShowing(resourceId))
+                ShowTransportError(exception);
+        }
+    }
+
+    private async Task FindReferrersAsync()
+    {
+        var resourceId = latest!.ResourceId;
+        findingReferrers = true;
+        try
+        {
+            var found = await AsterQueries.FindReferrersAsync(Client, resourceId, latest.DefinitionId);
+            if (IsShowing(resourceId))
+                referrers = found;
+        }
+        catch (AsterApiException exception)
+        {
+            if (IsShowing(resourceId))
+                ShowProblem(exception.Problem, []);
+        }
+        catch (HttpRequestException exception)
+        {
+            if (IsShowing(resourceId))
+                ShowTransportError(exception);
+        }
+        finally
+        {
+            findingReferrers = false;
+        }
+    }
+}

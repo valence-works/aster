@@ -57,6 +57,7 @@ dotnet add package Aster.Persistence.SqlServerJson # optional: SQL Server persis
 dotnet add package Aster.AspNetCore               # optional: REST endpoints
 dotnet add package Aster.Elsa                     # optional: Elsa Workflows 3 activities and triggers
 dotnet add package Aster.Elsa.Agents              # optional: Elsa agent definitions stored on Aster
+dotnet add package Aster.Elsa.Studio              # optional: Elsa Studio 3 resource lists and editors
 ```
 
 Packages target .NET 8, 9 and 10. Until 1.0 they are published as `0.x` releases and the API may change between minor versions.
@@ -335,6 +336,7 @@ src/
   integrations/
     Aster.Elsa/              ← Elsa Workflows 3 module: activities and lifecycle triggers over Aster resources (UseAster)
     Aster.Elsa.Agents/       ← Elsa's IAgentStore on Aster: versioned agents read from a channel (UseAsterAgentStore)
+    Aster.Elsa.Studio/       ← Elsa Studio 3 module: schema-driven resource editors over HTTP (AddAsterStudioModule)
   apps/
     Aster.Studio/            ← Aster Studio: the reference host (ASP.NET Core + React SPA)
 samples/                     ← Runnable use-case samples (see samples/README.md)
@@ -345,6 +347,7 @@ test/
   Aster.AspNetCore.Tests/    ← HTTP integration tests for Aster.AspNetCore (TestServer)
   Aster.Elsa.Tests/          ← Elsa workflows run in process over the Aster activities and triggers
   Aster.Elsa.Agents.Tests/   ← The agent store on every provider, in an in-process Elsa host, and the migration
+  Aster.Elsa.Studio.Tests/   ← The Studio module's forms, mapping and pages (bUnit) against Aster.AspNetCore (TestServer)
   Aster.Samples.*.Tests/     ← Tests that keep the samples working
 docs/                        ← Architecture review, coding conventions, roadmap
 specs/                       ← Feature specs (001-core-sdk-foundation, …)
@@ -367,7 +370,7 @@ Execution is tracked in the [Aster 1.0 program](https://github.com/valence-works
 
 ### Packages
 
-Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.Persistence.SqlServerJson`, `Aster.AspNetCore`, `Aster.Elsa` and `Aster.Elsa.Agents` ([Elsa integration](wiki/Elsa-Integration.md)).
+Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.Persistence.SqlServerJson`, `Aster.AspNetCore`, `Aster.Elsa`, `Aster.Elsa.Agents` and `Aster.Elsa.Studio` ([Elsa integration](wiki/Elsa-Integration.md)).
 
 Splitting `Aster.Core` into smaller packages is deferred.
 

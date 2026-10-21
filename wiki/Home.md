@@ -19,7 +19,7 @@ Welcome to the Aster documentation wiki.
 | [Querying](Querying) | The portable `ResourceQuery` AST, capability discovery, validation, typed helpers, and provider behavior |
 | [JSON Schema Export](Json-Schema-Export) | Exporting definitions as JSON Schema 2020-12 for host-generated forms, with `x-aster-*` extensions |
 | [ASP.NET Core Endpoints](AspNetCore-Endpoints) | Mounting Aster's REST endpoints in a host with `MapAster`: options, errors, query format, tenancy and authorization |
-| [Elsa Integration](Elsa-Integration) | The `Aster.Elsa` module: Elsa Workflows activities and lifecycle triggers over Aster resources, faults with stable codes, and tenant mapping; `Aster.Elsa.Agents`: Elsa agent definitions on Aster |
+| [Elsa Integration](Elsa-Integration) | The `Aster.Elsa` module: Elsa Workflows activities and lifecycle triggers over Aster resources, faults with stable codes, and tenant mapping; `Aster.Elsa.Agents`: Elsa agent definitions on Aster; `Aster.Elsa.Studio`: resource lists and schema-driven editors in Elsa Studio |
 | [DI Registration & Configuration](DI-Registration) | Service registrations and extension points |
 | [Exception Reference](Exception-Reference) | All typed exceptions, when they are thrown, and how to handle them |
 | [Architecture Overview](Architecture-Overview) | Layered design, package layout, key design decisions |

@@ -41,7 +41,7 @@
 | `Aster.Elsa` | Feature registration, tenant mapping, activities (#115), lifecycle triggers (#116) | `Aster.Core`, `Elsa.Workflows.Runtime` (which brings `Elsa.Common`) |
 | `Aster.Elsa.Agents` (#118) | `IAgentStore` adapter and the one-time import from Elsa's agent store | `Aster.Elsa`, `Elsa.Agents.Persistence` |
 | `Aster.Elsa.Labels` (later) | `ILabelStore` and `IWorkflowDefinitionLabelStore` adapters | `Aster.Elsa`, `Elsa.Labels` |
-| `Aster.Elsa.Studio` (#117) | Elsa Studio (Blazor) module: definition list, resource editors, version history | `Aster.AspNetCore` endpoints over HTTP; Elsa Studio packages |
+| `Aster.Elsa.Studio` (#117) | Elsa Studio (Blazor) module: definition list, resource lists and editors, version history with channel activation, reference picker | `Elsa.Studio.UIHints` `[3.9.0, 4.0.0)`; the `Aster.AspNetCore` endpoints over HTTP, with no package reference to Aster |
 
 `Elsa.Workflows.Runtime` reaches `CShells.AspNetCore.Abstractions` (through `Elsa.Tenants` and `Elsa.Api.Common`), which declares a framework reference to `Microsoft.AspNetCore.App`. So `Aster.Elsa` brings in the ASP.NET Core shared framework transitively, as any Elsa 3.9 host already has. It does not depend on `Aster.AspNetCore`.
 
@@ -178,9 +178,38 @@ Promotion between channels is a composite activity over the two explicit calls (
    - Imported agents are activated whatever `AutoActivate` says.
 8. **Elsa's EF Core agent store can't run beside the Aster store in one Elsa module.** `EFCoreAgentPersistenceFeature.Configure()` calls `UseAgentStore` while Elsa applies features, after the host's configuration, so the EF Core store wins. The migration therefore runs in a host that still uses Elsa's store, with `AddAsterElsaAgents()` beside it; afterwards the host switches to `UseAsterAgentStore()`.
 
+## Elsa Studio module (#117)
+
+`Aster.Elsa.Studio` was built against the Elsa Studio 3.9.0 packages. Every Elsa Studio API it uses was checked in the decompiled 3.9.0 assemblies (`net8.0`):
+
+| API | Package | How the module uses it |
+|---|---|---|
+| `IFeature` / `FeatureBase` | `Elsa.Studio.Core` | `AsterStudioFeature`, registered as a scoped `IFeature`. The shell's `App` adds the assembly of every `IFeature` to its router's `AdditionalAssemblies`, which is how the module's pages become routable. |
+| `IMenuProvider`, `MenuItem`, `MenuItemGroups.General` | `Elsa.Studio.Core` | The **Resources** menu entry (`aster/definitions`). |
+| `IUIHintHandler`, `IUIHintService` (`DefaultUIHintService`: first handler whose `GetSupportsUIHint` matches), `AddUIHintHandler<T>` | `Elsa.Studio.Core` | Each form field renders through `IUIHintService.GetHandler(hint).DisplayInputEditor(context)`. The reference picker is registered as one more handler. |
+| `DisplayInputEditorContext`, `InputDescriptor` (`IsWrapped`, `UIHint`, `UISpecifications`) | `Elsa.Studio.Core`, `Elsa.Api.Client` | One context per facet, as an unwrapped input. |
+| `InputUIHints` and the `UISpecifications` readers (`GetSelectList`, `GetCheckList`, `GetRadioList`, `GetCodeEditorOptions`) | `Elsa.Studio.UIHints` | The hint names the mapping produces, and the shape of the options it passes. Tests read the options back with Elsa's own readers. |
+| `AddDefaultUIHintHandlers` | `Elsa.Studio.UIHints` | Called by `AddWorkflowsModule` (`Elsa.Studio.Workflows`); the host needs it for the editors. |
+
+Elsa Studio 3.9 ships `net8.0`, `net9.0` and `net10.0`, so the module multi-targets the same three as the rest of Aster. Its UI library is MudBlazor 9.0.0, which `Elsa.Studio.Core` brings; the module doesn't reference MudBlazor itself.
+
+**Decisions:**
+- **Elsa Studio's own editors, reused.** Elsa's UI-hint editors are built for activity inputs, but they only need a `DisplayInputEditorContext`. The module describes each facet as an unwrapped input (`IsWrapped = false`). The editor then shows no expression syntax picker and writes a plain value: a string, a `bool`, a list of strings, or a `WrappedInput` literal from the JSON and code editors. The module converts it to the facet's JSON type. The workflow definition, activity and activity descriptor in the context are placeholders; the code editor and field extensions read them.
+- **Forms from the JSON Schema export only.** The form is built from `GET /definitions/{id}/schema` (#106) and its `x-aster-*` keywords, at the definition version the resource was saved against. No definition-specific code exists anywhere, so a definition registered at runtime is editable at once.
+- **HTTP only.** The module references no Aster package. Its client and DTOs are internal and read the endpoints' JSON loosely (enum names under any naming policy). It mirrors the standard UI hint names, as Aster Studio's SPA does.
+- **Diagnostics by request-body path.** Query diagnostics carry `path` (#194). Save diagnostics carry `aspectKey`, `facetId` and `elementIndex`, which the module turns into `aspects.{aspectKey}.{facetId}`. Each lands on the field with the longest matching path, at a member or index boundary; the rest show as an alert.
+- **Minimal public surface.** Public: `AddAsterStudioModule`, the three routable pages (the Blazor router only finds exported component types) and `ReferencePicker`, which hosts can reuse. Razor compiles every component as public, so the module has no `_Imports.razor` (it would compile to a public `_Imports` class). Razor emits `BuildRenderTree` without nullable annotations, so RS0041 is off in this project.
+
+**Deviations from the plan above and from `docs/ui-hints.md`:**
+- **`switch` renders as `checkbox`.** `docs/ui-hints.md` mapped it to `SwitchEditor`. In Elsa Studio 3.9, `switch-editor` is the Switch activity's case editor, not an on/off toggle.
+- **No dedicated editors for `number`, `secret`, `markdown` and `html`.** Elsa Studio 3.9 has no numeric, masked, Markdown or rich-text UI-hint editor. `number` and `secret` use `singleline` (`number` is parsed and validated as a number, and `secret` is not masked), and `markdown` and `html` use `multiline`.
+- **The reverse lookup goes through the query endpoint.** `Aster.AspNetCore` has no referrers endpoint. The **Referenced by** tab reads every definition's schema and runs `POST /resources/query` with a `references` filter for each reference facet that may point to the resource. That costs one request per definition plus one per such facet.
+- **No sample Studio host.** A runnable host needs an Elsa server, the Studio shell and its login. The package README and the wiki document the wiring instead, and CI gains no job: the tests render the pages with bUnit against `Aster.AspNetCore` on TestServer.
+- **Not in the module:** definition and aspect editing (Aster Studio does it), and archive, restore and schema upgrade, which `Aster.AspNetCore` doesn't expose yet.
+
 ## Consequences
 
-- #115, #116 and #118 are built in this repository against Elsa 3.9 packages, with tests that run workflows in process. #117 follows the same layout as `Aster.Elsa.Studio`.
+- #115, #116 and #118 are built in this repository against Elsa 3.9 packages, with tests that run workflows in process. #117 follows the same layout as `Aster.Elsa.Studio`, with tests that render its pages with bUnit (see [Elsa Studio module](#elsa-studio-module-117)).
 - #116 depends on #219 (`OperationStatus` on after-hook contexts) and adds the archive and restore hook points.
 - #118 builds `Aster.Elsa.Agents` and depends on #222, so `AgentConfig.Agents` can map to `reference[]` facets.
 - SQL Server hosts depend on #152.

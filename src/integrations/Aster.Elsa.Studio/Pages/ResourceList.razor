@@ -1,0 +1,185 @@
+@* No _Imports.razor: Razor would compile it into a public _Imports class. *@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Aster.Elsa.Studio.Client
+@using Aster.Elsa.Studio.Forms
+@page "/aster/definitions/{DefinitionId}"
+@attribute [Authorize]
+@using System.Globalization
+@inject AsterStudioClient Client
+
+<PageTitle>@DefinitionId</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="aster-studio py-4">
+    <MudBreadcrumbs Items="@breadcrumbs" Class="px-0" />
+    <div class="d-flex align-center justify-space-between mb-4">
+        <MudText Typo="Typo.h5">@DefinitionId</MudText>
+        <MudButton Href="@DefinitionList.NewResourceHref(DefinitionId)" Variant="Variant.Filled" Color="Color.Primary" Class="aster-new">New resource</MudButton>
+    </div>
+
+    <MudStack Row="true" AlignItems="AlignItems.Start" Class="mb-2">
+        <MudTextField T="string" @bind-Value="search" Label="Resource ID" Variant="Variant.Outlined" Margin="Margin.Dense" Class="aster-search"
+                      Error="@errors.For(SearchKey).Any()" ErrorText="@string.Join(" ", errors.For(SearchKey))"
+                      HelperText="@searchHelp" OnKeyUp="@OnSearchKeyUpAsync" />
+        <MudSelect T="string" @bind-Value="lifecycle" Label="Lifecycle" Variant="Variant.Outlined" Margin="Margin.Dense" Class="aster-lifecycle"
+                   Error="@errors.For(LifecycleKey).Any()" ErrorText="@string.Join(" ", errors.For(LifecycleKey))">
+            <MudSelectItem T="string" Value="@("active")">Active</MudSelectItem>
+            <MudSelectItem T="string" Value="@("archived")">Archived</MudSelectItem>
+            <MudSelectItem T="string" Value="@("softDeleted")">Soft-deleted</MudSelectItem>
+            <MudSelectItem T="string" Value="@("all")">All</MudSelectItem>
+        </MudSelect>
+        <MudButton OnClick="@(() => LoadAsync(0))" Variant="Variant.Outlined" Class="aster-search-button mt-1">Search</MudButton>
+    </MudStack>
+
+    @foreach (var message in errors.Unplaced.Concat(errors.For(PagingKey)))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="aster-error mb-2">@message</MudAlert>
+    }
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="aster-error mb-2">@error</MudAlert>
+    }
+
+    @if (page is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (page.Items.Count == 0)
+    {
+        <MudText Class="aster-empty">No resources match.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true" Class="aster-resources">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>Version</th>
+                    <th>Created</th>
+                    <th>Owner</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var resource in page.Items)
+                {
+                    <tr data-aster-resource="@resource.ResourceId">
+                        <td><MudLink Href="@ResourceEditor.EditHref(resource.ResourceId)">@resource.ResourceId</MudLink></td>
+                        <td>@resource.Version</td>
+                        <td>@resource.Created.ToString("u", CultureInfo.InvariantCulture)</td>
+                        <td>@resource.Owner</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudStack Row="true" Class="mt-2">
+        <MudButton Disabled="@(skip == 0)" OnClick="@(() => LoadAsync(Math.Max(0, skip - PageSize)))" Size="Size.Small">Previous</MudButton>
+        <MudButton Disabled="@(page?.HasMore != true)" OnClick="@(() => LoadAsync(skip + PageSize))" Size="Size.Small">Next</MudButton>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private const int PageSize = 25;
+    private const string SearchKey = "search";
+    private const string LifecycleKey = "lifecycle";
+    private const string PagingKey = "paging";
+
+    // Where the query's request-body paths show their diagnostics (POST /resources/query/validate, #194).
+    private static readonly AsterErrorTarget[] Targets =
+    [
+        new(SearchKey, "filter"),
+        new(SearchKey, "definitionId"),
+        new(LifecycleKey, "lifecycle"),
+        new(PagingKey, "take"),
+        new(PagingKey, "skip"),
+    ];
+
+    private AsterResourcePageResult? page;
+    private AsterFormErrors errors = AsterFormErrors.None;
+    private string? error;
+    private string? search;
+    private string? searchHelp;
+    private string lifecycle = "active";
+    private int skip;
+    private List<BreadcrumbItem> breadcrumbs = [];
+
+    /// <summary>The definition whose resources are listed.</summary>
+    [Parameter] public string DefinitionId { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        breadcrumbs = [new BreadcrumbItem("Definitions", AsterStudioMenuHref), new BreadcrumbItem(DefinitionId, href: null, disabled: true)];
+        search = null;
+        lifecycle = "active";
+        await LoadAsync(0);
+    }
+
+    private const string AsterStudioMenuHref = "aster/definitions";
+
+    private async Task OnSearchKeyUpAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await LoadAsync(0);
+    }
+
+    // Bumped by every load. Only the latest load writes the page, so a slow response for an earlier search,
+    // lifecycle or definition never replaces the results of a later one.
+    private int load;
+
+    private async Task LoadAsync(int from)
+    {
+        var current = ++load;
+        var (definitionId, term, state) = (DefinitionId, search, lifecycle);
+        error = null;
+        errors = AsterFormErrors.None;
+        try
+        {
+            var capabilities = await Client.GetQueryCapabilitiesAsync();
+            if (current != load)
+                return;
+
+            var (query, filtersText) = AsterQueries.Search(definitionId, term, capabilities, PageSize, from, state);
+
+            // Validate first, so a refused query shows each diagnostic on the input its path names.
+            var validation = await Client.ValidateQueryAsync(query);
+            if (current != load)
+                return;
+
+            searchHelp = string.IsNullOrWhiteSpace(term) || filtersText
+                ? null
+                : "The query provider can't search resource IDs, so this page shows every resource.";
+            if (!validation.IsValid)
+            {
+                errors = AsterDiagnosticMapper.Map(validation.Diagnostics, Targets);
+                page = new AsterResourcePageResult([], false);
+                return;
+            }
+
+            var result = await Client.QueryResourcesAsync(query);
+            if (current != load)
+                return;
+
+            page = result;
+            skip = from;
+        }
+        catch (AsterApiException exception) when (exception.Problem.Diagnostics.Count > 0)
+        {
+            if (current != load)
+                return;
+
+            errors = AsterDiagnosticMapper.Map(exception.Problem.Diagnostics, Targets);
+            page = new AsterResourcePageResult([], false);
+        }
+        catch (Exception exception) when (exception is AsterApiException or HttpRequestException)
+        {
+            if (current != load)
+                return;
+
+            error = $"Could not load the resources: {exception.Message}";
+            page = new AsterResourcePageResult([], false);
+        }
+    }
+}

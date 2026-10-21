@@ -1,0 +1,133 @@
+@* No _Imports.razor: Razor would compile it into a public _Imports class. *@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Aster.Elsa.Studio.Client
+@using Aster.Elsa.Studio.Forms
+@using System.Text.Json
+@using global::Elsa.Studio.Models
+@inject AsterStudioClient Client
+
+@* The reference picker editor (#117): searches the facet's target definitions through POST /resources/query. *@
+<div class="aster-reference-picker" data-aster-reference-picker="@EditorContext.InputDescriptor.Name">
+    @if (multiple)
+    {
+        <MudText Typo="Typo.caption">@DisplayName</MudText>
+        <div class="d-flex flex-wrap gap-1 mb-1">
+            @foreach (var selected in selectedIds)
+            {
+                <MudChip T="string" Value="@selected" Text="@selected" Size="Size.Small" OnClose="@(() => RemoveAsync(selected))" Disabled="@EditorContext.IsReadOnly" />
+            }
+        </div>
+    }
+    <MudAutocomplete T="string"
+                     Label="@(multiple ? "Add a reference" : DisplayName)"
+                     HelperText="@HelperText"
+                     Value="@(multiple ? null : singleId)"
+                     ValueChanged="@OnPickedAsync"
+                     SearchFunc="@SearchAsync"
+                     CoerceValue="true"
+                     ResetValueOnEmptyText="true"
+                     Clearable="@(!multiple)"
+                     DebounceInterval="250"
+                     MaxItems="@AsterQueries.PickerPageSize"
+                     Variant="Variant.Outlined"
+                     Margin="Margin.Dense"
+                     Disabled="@EditorContext.IsReadOnly"
+                     ReadOnly="@EditorContext.IsReadOnly" />
+</div>
+
+@code {
+    private readonly List<string> selectedIds = [];
+    private IReadOnlyList<string> targets = [];
+    private bool multiple;
+    private string? singleId;
+
+    /// <summary>The editor context Elsa Studio's UI-hint handler passes.</summary>
+    [Parameter, EditorRequired] public DisplayInputEditorContext EditorContext { get; set; } = default!;
+
+    private string DisplayName => EditorContext.InputDescriptor.DisplayName ?? EditorContext.InputDescriptor.Name;
+
+    private string HelperText
+    {
+        get
+        {
+            var scope = targets.Count == 0 ? "any definition" : string.Join(", ", targets);
+            var description = EditorContext.InputDescriptor.Description;
+            return string.IsNullOrEmpty(description) ? $"Resources of {scope}" : $"{description} (resources of {scope})";
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (EditorContext.InputDescriptor.UISpecifications?.TryGetValue(AsterEditorMapping.ReferenceSpecificationKey, out var raw) == true
+            && raw is JsonElement { ValueKind: JsonValueKind.Object } options)
+        {
+            multiple = options.TryGetProperty("multiple", out var many) && many.ValueKind == JsonValueKind.True;
+            targets = options.TryGetProperty("targetDefinitionIds", out var ids) && ids.ValueKind == JsonValueKind.Array
+                ? ids.EnumerateArray().Select(static id => id.GetString()).OfType<string>().ToList()
+                : [];
+        }
+
+        // Read through Elsa's helpers, so the picker also works on a wrapped activity input (an Input<string>).
+        selectedIds.Clear();
+        singleId = null;
+        if (multiple)
+            selectedIds.AddRange(ParseIds(EditorContext.GetObjectValueOrDefault()));
+        else if (EditorContext.GetLiteralValueOrDefault() is { Length: > 0 } id)
+            singleId = id;
+    }
+
+    private static IEnumerable<string> ParseIds(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Array
+                ? document.RootElement.EnumerateArray().Select(static item => item.ToString()).ToList()
+                : [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private async Task<IEnumerable<string>> SearchAsync(string? text, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var candidates = await AsterQueries.SearchReferenceCandidatesAsync(Client, targets, text, cancellationToken: cancellationToken);
+            return candidates.Select(static candidate => candidate.ResourceId).Where(id => !selectedIds.Contains(id));
+        }
+        catch (AsterApiException)
+        {
+            // A search the server refuses offers nothing; the typed ID can still be used as is.
+            return [];
+        }
+    }
+
+    private async Task OnPickedAsync(string? id)
+    {
+        if (multiple)
+        {
+            if (string.IsNullOrWhiteSpace(id) || selectedIds.Contains(id))
+                return;
+            selectedIds.Add(id.Trim());
+            await EditorContext.UpdateValueOrObjectExpressionAsync(selectedIds.ToList());
+            return;
+        }
+
+        singleId = string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+        await EditorContext.UpdateValueOrLiteralExpressionAsync(singleId ?? "");
+    }
+
+    private async Task RemoveAsync(string id)
+    {
+        selectedIds.Remove(id);
+        await EditorContext.UpdateValueOrObjectExpressionAsync(selectedIds.ToList());
+    }
+}

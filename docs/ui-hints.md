@@ -41,21 +41,24 @@
 
 ## Mapping to Elsa Studio
 
-Elsa Studio picks its input editors by UI hint, through the `UIHints` names in Elsa 3. The Aster module (#114) maps the standard hints like this. Treat the right-hand column as the intended mapping; #114 checks it against the Elsa version it targets.
+Elsa Studio picks its input editors by UI hint, through the `InputUIHints` names of `Elsa.Studio.UIHints`. The `Aster.Elsa.Studio` module (#117) maps the standard hints like this, checked against Elsa Studio 3.9:
 
-| Aster hint | Elsa Studio editor (`UIHints`) |
+| Aster hint | Elsa Studio editor (`InputUIHints`) |
 |---|---|
-| `text`, `slug`, `email`, `url` | `SingleLine` |
+| `text`, `slug`, `email`, `url`, `secret` | `SingleLine` (`secret` is not masked: Elsa Studio has no masked editor) |
+| `number` | `SingleLine`, parsed as a number |
 | `multiline`, `markdown`, `html` | `MultiLine` |
 | `code` | `CodeEditor` |
 | `json` | `JsonEditor` |
 | `select` | `DropDown` (scalar) / `CheckList` (array) |
 | `radio` | `RadioList` |
 | `checkbox` | `Checkbox` (bool) / `CheckList` (array) |
-| `switch` | `SwitchEditor` |
+| `switch` | `Checkbox`: Elsa's `SwitchEditor` is the Switch activity's case editor, not a toggle |
 | `date`, `datetime` | `DateTimePicker` |
 | `tags` | `MultiText` |
-| `number`, `secret`, `reference-picker` | No direct equivalent: `SingleLine`, or an Aster-provided editor |
+| `reference-picker` | `aster-reference-picker`, the module's own editor |
+
+Without a usable hint, the module falls back by type as the rules above say. The [package README](../src/integrations/Aster.Elsa.Studio/README.md#forms) has the fallback table.
 
 ## Aster Studio
 
