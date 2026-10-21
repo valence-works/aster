@@ -1,6 +1,6 @@
 # Aster.Elsa
 
-An [Elsa Workflows](https://github.com/elsa-workflows/elsa-core) 3 module for [Aster](https://github.com/valence-works/aster): activities that create, update, read, query, activate, deactivate, promote and archive Aster resources from a workflow.
+An [Elsa Workflows](https://github.com/elsa-workflows/elsa-core) 3 module for [Aster](https://github.com/valence-works/aster): activities that create, update, read, query, activate, deactivate, promote and archive Aster resources from a workflow, and triggers that start or resume workflows when resources are saved, activated, deactivated or archived.
 
 **Supported Elsa versions:** 3.9.0 and later 3.x releases (`[3.9.0, 4.0.0)`). Targets .NET 8, 9 and 10.
 
@@ -18,7 +18,7 @@ builder.Services.AddAsterSqliteJson(options => options.ConnectionString = connec
 builder.Services.AddElsa(elsa => elsa.UseAster());
 ```
 
-Shell-based (CShells) hosts enable the `Aster` shell feature instead (`Aster.Elsa.ShellFeatures.AsterFeature`). Both features call the same registration. The module depends on Elsa's workflow management and workflow runtime features.
+Shell-based (CShells) hosts enable the `Aster` shell feature instead (`Aster.Elsa.ShellFeatures.AsterFeature`). Both features call the same registration: the activities, the triggers, and the Aster lifecycle hook that feeds the triggers. The module depends on Elsa's workflow management and workflow runtime features.
 
 ## Activities
 
@@ -40,6 +40,77 @@ All activities are in the **Aster** category.
 - **Archived resources are hidden:** Query Resources excludes archived and soft-deleted resources unless `IncludeArchived` is set or the query sets `LifecycleState` itself, as the list endpoints of `Aster.AspNetCore` do. Get Resource reads by ID and returns them like any other resource.
 - **Promote** is two explicit calls: it reads the version active in the source channel and activates it in the target channel. It faults with `promote-source-not-active` when no version is active there and with `promote-source-ambiguous` when several are.
 - **Typed inputs.** `Query` takes a `ResourceQuery`, so it is set from code or a C# expression. Designer UI for definition-driven inputs (forms built from a definition's facets) belongs to the Elsa Studio module (#117).
+
+## Triggers
+
+Triggers start a workflow, or resume one that waits, when Aster commits a change. All are in the **Aster** category, and their result is a `ResourceLifecycleEvent`: `Kind`, `TenantId` (the Elsa tenant), `ResourceId`, `DefinitionId`, `ResourceVersion`, `Channel`, `SaveKind` and `OperationId`.
+
+| Trigger | Fires when | Filters |
+|---|---|---|
+| **Resource Saved** | A version is saved: created, updated or schema-upgraded (`SaveKind` says which) | `DefinitionId` |
+| **Resource Activated** | A version is activated in a channel, including through Promote Resource | `DefinitionId`, `Channel` |
+| **Resource Deactivated** | A version is deactivated from a channel | `DefinitionId`, `Channel` |
+| **Resource Archived** | A resource is archived: by Archive Resource, `IResourceLifecycleMarkerService` or policy application. Soft-deletes don't fire it | `DefinitionId` |
+
+- **Start or resume.** As a workflow's start activity (`CanStartWorkflow`), a trigger starts a new instance for every matching event. Placed later in a workflow, it waits with a bookmark and resumes once, on the next matching event.
+- **Filters.** An empty filter matches every value. Filters are read when Elsa indexes the workflow (on publish) or creates the bookmark, so use literals or expressions that don't depend on the event.
+- **Tenants.** A trigger only fires for changes in the Elsa tenant its workflow runs in, mapped as in [Tenants](#tenants): an Aster write in `TenantScope.Default` fires workflows in Elsa's default tenant. Changes in an Aster tenant that has no Elsa tenant fire nothing.
+- **Only committed changes fire.** A save, activation, deactivation or archive that fails fires nothing.
+- **Inline.** Workflows run in the flow of the Aster call that made the change, until they finish or suspend, so the call returns after them. A workflow that saves a resource matching its own trigger fires itself again.
+
+### Delivery is at-most-once
+
+Each committed change is sent to Elsa once, right after the commit. Nothing is persisted or retried:
+
+- **A failing send never fails the Aster write.** The module logs a warning with the trigger, resource, version, channel and tenant, and the caller and other lifecycle hooks don't see the failure. The change stays committed.
+- **No retry.** Retrying could start a workflow twice, so a failed send is not repeated.
+- **Lost on a crash.** If the process stops between the commit and the send, the event is lost.
+
+A host that needs every change delivered should reconcile from Aster's state, for example with a scheduled workflow that queries for what it missed.
+
+Elsa queues a stimulus that resumes no bookmark for `BookmarkQueuePurgeOptions.Ttl` (10 minutes by default), so a matching bookmark created in that window resumes on the earlier event. This is Elsa's behaviour for every stimulus.
+
+### Example
+
+Start a payment workflow when an invoice is approved:
+
+```csharp
+public class PayApprovedInvoice : WorkflowBase
+{
+    protected override void Build(IWorkflowBuilder builder)
+    {
+        var approved = builder.WithVariable<ResourceLifecycleEvent>("Approved", default!);
+
+        builder.Root = new Sequence
+        {
+            Activities =
+            {
+                new ResourceActivated
+                {
+                    CanStartWorkflow = true,
+                    DefinitionId = new("Invoice"),
+                    Channel = new("approved"),
+                    Result = new(approved),
+                },
+                new GetResource
+                {
+                    ResourceId = new(context => approved.Get(context)!.ResourceId),
+                    ResourceVersion = new(context => approved.Get(context)!.ResourceVersion),
+                },
+                // ... pay the invoice
+            },
+        };
+    }
+}
+```
+
+### Stimulus contract
+
+Hosts that send their own events, or inspect bookmarks, use the same contract:
+
+- **Stimulus.** `ResourceLifecycleStimulus(TenantId, DefinitionId, Channel)`, sent with `IStimulusSender.SendAsync` under the trigger's activity type name, such as `Aster.ResourceActivated`. `TenantId` is the Elsa tenant ID; `null` stands for an empty filter.
+- **One send per filter combination.** Elsa matches hashes exactly, so the module sends one stimulus per combination of the event's definition ID and channel with `null`: two for Saved and Archived, four for Activated and Deactivated. Each trigger matches exactly one.
+- **Event.** The `ResourceLifecycleEvent` travels as workflow input under `ResourceLifecycleEvent.WorkflowInputKey`.
 
 ## Faults
 

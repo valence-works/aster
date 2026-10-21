@@ -35,12 +35,17 @@ Named moment in a core operation where hooks may run.
 - `AfterPreviewImport`
 - `BeforeImport`
 - `AfterImport`
+- `BeforeArchive` (#116)
+- `AfterArchive` (#116)
+- `BeforeRestore` (#116)
+- `AfterRestore` (#116)
 
 **Validation rules**:
 
 - Before lifecycle points run before the underlying operation mutates state or materializes a completed export.
 - After lifecycle points run once all before hooks continued, whether the underlying operation then succeeds or fails (#219).
 - After hooks receive the outcome in `OperationStatus` and `OperationFailure`, so a failed operation is never presented as a success.
+- The archive and restore points (#116) are default interface members on `IResourceLifecycleHook` and `IResourceLifecycleHookDispatcher`, and virtual members on `ResourceLifecycleHook`, so hooks and dispatchers written before them keep compiling. The archive points cover both marker states, archived and soft-deleted.
 
 ## Lifecycle Hook Context
 
@@ -69,6 +74,12 @@ Immutable operation-specific data supplied to a hook.
 - `Channel`: activation channel.
 - `AllowMultipleActive`: whether activation allows multiple active versions.
 - `ActiveVersions`: resulting active versions for after hooks when available.
+
+**Archive context fields** (`ResourceArchiveLifecycleContext`, archive and restore points, #116):
+
+- `ResourceId`: logical resource identifier.
+- `DefinitionId`: definition of the resource's latest version.
+- `Marker`: the marker an archive writes (the stored marker after a successful archive) or a restore clears. `Marker.State` tells archiving and soft-deleting apart.
 
 **Portability context fields**:
 
@@ -119,6 +130,7 @@ Structured failure presented to the caller when hook invocation blocks or fails 
 
 - Save, activation, and deactivation hook failures SHOULD surface through structured exceptions because those operations currently fail with exceptions.
 - Export, preview import, and write import hook failures SHOULD surface as portability diagnostics because those operations already return diagnostics.
+- Archive and restore hook failures surface as policy diagnostics on the marker, restore, or policy application result, with the hook's code and the path `lifecycle/<point>` (for example `lifecycle/beforeArchive`), because those services already return per-resource diagnostics (#116).
 - Cancellation MUST preserve normal cancellation semantics through `OperationCanceledException`.
 
 ## State Transitions
@@ -153,4 +165,18 @@ Write import request
   -> reject/fail/cancel OR plan/apply import
   -> after-import hooks with the success or failure outcome
   -> return import result with diagnostics as needed
+
+Archive request (marker service or policy application) that writes a marker (#116)
+  -> before-archive hooks
+  -> reject/fail/cancel OR write the archive or soft-delete marker
+  -> after-archive hooks with the success or failure outcome
+  -> return the marker result with diagnostics as needed; a failed store write is rethrown
+
+Restore request that clears a marker (#116)
+  -> before-restore hooks
+  -> reject/fail/cancel OR clear the marker
+  -> after-restore hooks with the success or failure outcome
+  -> return the restore result with diagnostics as needed; a failed store write is rethrown
 ```
+
+Requests that write nothing run no archive or restore hooks: a marker already in the requested state, a marker conflict, a missing resource, a restore preview, and an already-restored resource.

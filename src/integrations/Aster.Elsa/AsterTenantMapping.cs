@@ -55,4 +55,14 @@ public static class AsterTenantMapping
     /// <returns>The Aster tenant scope.</returns>
     /// <exception cref="TenantScopeException">The current Elsa tenant ID is <c>*</c> or <c>default</c>.</exception>
     public static TenantScope FromTenantAccessor(ITenantAccessor? tenantAccessor) => FromElsaTenantId(tenantAccessor?.TenantId);
+
+    /// <summary>
+    /// Gets the Elsa tenant ID for an Aster tenant scope, the reverse of <see cref="FromElsaTenantId"/>:
+    /// <see cref="TenantScope.Default"/> is <c>""</c> (Elsa's default tenant) and any other scope is its tenant ID.
+    /// The lifecycle triggers use it to send each event in the Elsa tenant of the Aster write.
+    /// </summary>
+    /// <param name="tenantScope">The Aster tenant scope; <see langword="null"/> is the default scope.</param>
+    /// <returns>The Elsa tenant ID.</returns>
+    public static string ToElsaTenantId(TenantScope? tenantScope) =>
+        tenantScope is null || tenantScope.IsDefault ? ElsaTenant.DefaultTenantId : tenantScope.TenantId;
 }

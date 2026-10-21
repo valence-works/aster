@@ -69,6 +69,22 @@ internal sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDi
     public ValueTask InvokeAfterImportAsync(ResourceImportLifecycleContext context, CancellationToken cancellationToken = default) =>
         InvokeAfterAsync(context, static (hook, ctx, ct) => hook.OnAfterImportAsync(ctx, ct), cancellationToken);
 
+    /// <inheritdoc />
+    public ValueTask InvokeBeforeArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        InvokeBeforeAsync(context, static (hook, ctx, ct) => hook.OnBeforeArchiveAsync(ctx, ct), cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask InvokeAfterArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        InvokeAfterAsync(context, static (hook, ctx, ct) => hook.OnAfterArchiveAsync(ctx, ct), cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask InvokeBeforeRestoreAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        InvokeBeforeAsync(context, static (hook, ctx, ct) => hook.OnBeforeRestoreAsync(ctx, ct), cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask InvokeAfterRestoreAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        InvokeAfterAsync(context, static (hook, ctx, ct) => hook.OnAfterRestoreAsync(ctx, ct), cancellationToken);
+
     private async ValueTask InvokeBeforeAsync<TContext>(
         TContext context,
         Func<IResourceLifecycleHook, TContext, CancellationToken, ValueTask<LifecycleHookOutcome>> invoke,

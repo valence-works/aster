@@ -9,8 +9,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
-    <Description>Elsa Workflows 3 module for Aster: activities that create, update, read, query, activate, deactivate, promote and archive Aster resources, with Elsa tenants mapped to Aster tenant scopes. Supports Elsa 3.9 and later 3.x releases.</Description>
-    <PackageTags>aster;elsa;elsa-workflows;workflow;activities</PackageTags>
+    <Description>Elsa Workflows 3 module for Aster: activities that create, update, read, query, activate, deactivate, promote and archive Aster resources, and triggers that start or resume workflows when resources are saved, activated, deactivated or archived, with Elsa tenants mapped to Aster tenant scopes. Supports Elsa 3.9 and later 3.x releases.</Description>
+    <PackageTags>aster;elsa;elsa-workflows;workflow;activities;triggers</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
