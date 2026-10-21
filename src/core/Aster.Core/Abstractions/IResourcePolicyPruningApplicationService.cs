@@ -22,12 +22,20 @@ public interface IResourcePolicyPruningApplicationService
 public interface IResourceVersionPruningStore
 {
     /// <summary>
-    /// Removes one resource version in the supplied tenant.
+    /// Removes one resource version in the supplied tenant. The latest version, an active version, and a version
+    /// whose removal would break <paramref name="floor"/> are refused, checked atomically with the delete.
     /// </summary>
+    /// <param name="resourceId">The resource whose version is removed.</param>
+    /// <param name="resourceVersion">The version to remove.</param>
+    /// <param name="tenantScope">The tenant the resource belongs to.</param>
+    /// <param name="floor">The versions that must remain afterwards, or <see langword="null" /> for no floor.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <exception cref="Exceptions.ResourceVersionPruneFloorException">Removing the version would break <paramref name="floor"/>.</exception>
     /// <returns><see langword="true" /> when a matching version existed and was removed; otherwise <see langword="false" />.</returns>
     ValueTask<bool> PruneVersionAsync(
         string resourceId,
         int resourceVersion,
         TenantScope tenantScope,
+        ResourceVersionPruneFloor? floor = null,
         CancellationToken cancellationToken = default);
 }

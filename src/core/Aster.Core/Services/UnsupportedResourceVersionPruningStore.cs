@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Models.Policies;
 using Aster.Core.Models.Tenancy;
 
 namespace Aster.Core.Services;
@@ -13,6 +14,7 @@ internal sealed class UnsupportedResourceVersionPruningStore : IResourceVersionP
         string resourceId,
         int resourceVersion,
         TenantScope tenantScope,
+        ResourceVersionPruneFloor? floor = null,
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("The active resource version provider does not support destructive version pruning.");
 }
