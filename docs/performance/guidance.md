@@ -29,8 +29,8 @@ Facet queries filter every latest version in the tenant. No provider indexes fac
 | Scalar facet `Equals` / `Range` | 16–28 ms | 53–65 ms |
 | Array facet `ArrayContains` | 132 ms | 178 ms |
 | Reverse reference lookup | 140 ms | 328 ms |
-| Metadata `ResourceId` (#171) | 11 ms | 98 ms |
-| Import preview, 100 resources (#171) | 148 ms | 1.2 s |
+| Metadata `ResourceId` (see [Known outliers](#known-outliers)) | 11 ms | 98 ms |
+| Import preview, 100 resources (after #171) | 20 ms | 17 ms |
 
 Version history:
 - **Storage:** about 4.2 KB per version on SQLite (ADR 0005), so 1M versions is about 4 GB.
@@ -67,8 +67,6 @@ Revisit if a host needs SQLite beyond about 25k resources per definition with in
 
 ## Known outliers
 
-Issue #171 tracks two SQLite paths that should be bounded by their input but still grow with the tenant:
-- import preview
-- the `ResourceId` metadata query
+The `ResourceId` metadata query still scans the tenant. Portable text `Equals` is case-insensitive (`OrdinalIgnoreCase`), so SQLite can't answer it from the primary key. NOCASE folds only ASCII, so it can't safely narrow the scan either. For a bounded lookup by ID, use the keyed `IResourceManager` reads (`GetLatestVersionAsync`, `GetVersionAsync`) rather than a query.
 
-Import builds the same plan as its preview, so until #171 is fixed, expect both to take seconds on tenants of 25k+ resources.
+Import preview no longer grows with the tenant: #171 made its composite-key reads seek by key (148 ms → 20 ms at 2.5k resources, 1.2 s → 17 ms at 25k). Measured with the same harness on the #171 fix (`8922e9a`, `--filter '*Portability*'`); the baseline report predates it.
