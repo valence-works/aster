@@ -58,7 +58,7 @@ Shared aspect attachments in `POST /definitions` are pins: for every attachment 
 
 ## Errors
 
-All errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses:
+Errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses, except the `415` routing returns (below):
 
 | Status | When | Extensions |
 |---|---|---|
@@ -66,7 +66,7 @@ All errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) response
 | `403` | Denied by `IAsterResourceAuthorizer` | |
 | `404` | Missing definition, aspect, resource or version | |
 | `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition version conflict, lifecycle hook veto | `code` |
-| `415` | A request body that is not JSON | |
+| `415` | A request body without a JSON `Content-Type`. Routing rejects a non-JSON `Content-Type` before the endpoint runs, with an empty body (add `AddProblemDetails()` and `UseStatusCodePages()` in the host for one); a body with no `Content-Type` reaches the endpoint and gets a problem | |
 
 ## Query format
 
