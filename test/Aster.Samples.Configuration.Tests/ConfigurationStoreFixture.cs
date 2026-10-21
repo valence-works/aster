@@ -2,7 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Aster.Core.Abstractions;
 using Aster.Samples.Configuration.Model;
-using Aster.Samples.Configuration.Releases;
+using Aster.Samples.Configuration.Promotion;
 
 namespace Aster.Samples.Configuration.Tests;
 

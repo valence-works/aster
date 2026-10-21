@@ -27,7 +27,7 @@ The in-memory store needs no setup. The program starts two application instances
 | Typed aspects with derived facets, including `string[]` and `object` | [`Model/FeatureFlag.cs`](Model/FeatureFlag.cs), [`Model/AppSettings.cs`](Model/AppSettings.cs) |
 | Facet metadata enforced on save (`Pattern`, `Minimum`/`Maximum`, `UniqueItems`) | [`Model/ConfigurationDefinitions.cs`](Model/ConfigurationDefinitions.cs) |
 | Immutable versions with optimistic concurrency | `ConfigurationReleases.SaveAsync` |
-| Activation channels as environments | [`Releases/ConfigurationReleases.cs`](Releases/ConfigurationReleases.cs) |
+| Activation channels as environments | [`Promotion/ConfigurationReleases.cs`](Promotion/ConfigurationReleases.cs) |
 | Historical activation (021) for rollback | `ConfigurationReleases.RollbackAsync` |
 | Queries over the active version in a channel | [`ChannelConfiguration/ChannelConfigurationLoader.cs`](ChannelConfiguration/ChannelConfigurationLoader.cs) |
 | Lifecycle hooks after activation and deactivation | [`ChannelConfiguration/ConfigurationReloadHook.cs`](ChannelConfiguration/ConfigurationReloadHook.cs) |

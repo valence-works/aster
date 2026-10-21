@@ -5,7 +5,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
 using Aster.Samples.Configuration.App;
 using Aster.Samples.Configuration.Model;
-using Aster.Samples.Configuration.Releases;
+using Aster.Samples.Configuration.Promotion;
 
 namespace Aster.Samples.Configuration;
 
