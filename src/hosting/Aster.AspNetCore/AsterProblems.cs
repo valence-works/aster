@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Aster.Core.Exceptions;
 using Microsoft.AspNetCore.Http;
 
@@ -20,26 +21,22 @@ public sealed record AsterDiagnostic(string Code, string? AspectKey, string? Fac
 internal static class AsterProblems
 {
     public static IResult Validation(string title, IEnumerable<AsterDiagnostic> diagnostics) =>
-        Results.Problem(
-            statusCode: StatusCodes.Status400BadRequest,
-            title: title,
-            extensions: new Dictionary<string, object?> { ["diagnostics"] = diagnostics.ToList() });
+        new ProblemResult(StatusCodes.Status400BadRequest, title, detail: null, "diagnostics", diagnostics.ToList());
 
     public static IResult Validation(string code, string message) =>
         Validation(message, [new AsterDiagnostic(code, null, null, message)]);
 
     public static IResult NotFound(string detail) =>
-        Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not found", detail: detail);
+        new ProblemResult(StatusCodes.Status404NotFound, "Not found", detail);
 
     public static IResult Conflict(string code, string detail) =>
-        Results.Problem(
-            statusCode: StatusCodes.Status409Conflict,
-            title: "Conflict",
-            detail: detail,
-            extensions: new Dictionary<string, object?> { ["code"] = code });
+        new ProblemResult(StatusCodes.Status409Conflict, "Conflict", detail, "code", code);
 
     public static IResult Forbidden() =>
-        Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden");
+        new ProblemResult(StatusCodes.Status403Forbidden, "Forbidden", detail: null);
+
+    public static IResult UnsupportedMediaType() =>
+        new ProblemResult(StatusCodes.Status415UnsupportedMediaType, "Unsupported media type", "The request body must be JSON (application/json).");
 
     public static IResult? FromException(Exception exception) => exception switch
     {
@@ -62,6 +59,26 @@ internal static class AsterProblems
         VersionNotFoundException e => NotFound(e.Message),
         _ => null,
     };
+}
+
+/// <summary>
+/// A ProblemDetails response whose Aster extension member (<c>diagnostics</c> or <c>code</c>) is serialized with the
+/// endpoint's own serializer options, so its shape does not depend on the host's JSON options. The envelope still goes
+/// through the host's ProblemDetails pipeline (<c>AddProblemDetails</c> customizations apply), and its standard members
+/// have fixed names.
+/// </summary>
+internal sealed class ProblemResult(int statusCode, string title, string? detail, string? extensionName = null, object? extensionValue = null)
+    : IResult, IStatusCodeHttpResult
+{
+    public int? StatusCode => statusCode;
+
+    public Task ExecuteAsync(HttpContext httpContext)
+    {
+        var extensions = extensionName is null
+            ? null
+            : new Dictionary<string, object?> { [extensionName] = JsonSerializer.SerializeToElement(extensionValue, AsterJson.Options(httpContext)) };
+        return TypedResults.Problem(statusCode: statusCode, title: title, detail: detail, extensions: extensions).ExecuteAsync(httpContext);
+    }
 }
 
 /// <summary>
