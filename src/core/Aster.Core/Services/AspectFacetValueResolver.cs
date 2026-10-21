@@ -63,10 +63,16 @@ internal static class AspectFacetValueResolver
 
     // Facet IDs derived from typed aspects use [JsonPropertyName] when present, matched exactly as serialized;
     // otherwise fall back to the CLR property name, case-insensitively.
-    private static PropertyInfo? FindProperty(object aspectPayload, string facetKey) =>
-        aspectPayload.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(candidate => string.Equals(
-                candidate.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name, facetKey, StringComparison.Ordinal))
+    // A [JsonPropertyName] equal to either name queries look for (the facet key or its camel form) wins over the
+    // CLR property name.
+    private static PropertyInfo? FindProperty(object aspectPayload, string facetKey)
+    {
+        var camel = ToCamelCase(facetKey);
+        return aspectPayload.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(candidate =>
+                    candidate.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name is { } name
+                    && (string.Equals(name, facetKey, StringComparison.Ordinal) || string.Equals(name, camel, StringComparison.Ordinal)))
             ?? aspectPayload.GetType().GetProperty(facetKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+    }
 
     private static bool IsDictionary(object value) =>
         value is IReadOnlyDictionary<string, object>

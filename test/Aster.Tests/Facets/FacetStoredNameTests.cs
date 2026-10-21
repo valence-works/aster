@@ -39,6 +39,8 @@ public sealed class FacetStoredNameTests : IDisposable
 
     private sealed record ExplicitLink([property: JsonPropertyName("Target")] string Target);
 
+    private sealed record CamelNamedLink([property: JsonPropertyName("target")] string Destination);
+
     private sealed record TypedLink([property: JsonPropertyName("targetRef")] string Target);
 
     [SkippableTheory]
@@ -71,6 +73,21 @@ public sealed class FacetStoredNameTests : IDisposable
 
         Assert.Equal(["home"], await QueryTargetsAsync(provider, "Target", "home"));
         Assert.Equal(["about", "home"], await SortedTargetsAsync(provider, "Target"));
+    }
+
+    [SkippableTheory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    [InlineData(Postgres)]
+    public async Task Save_JsonNameMatchingTheCamelFacetId_IsStoredAndFound(string providerKind)
+    {
+        // Queries find facet "Target" stored as "target", so a differently named property carrying that JSON name
+        // holds the facet's value.
+        await using var provider = CreateProvider(providerKind);
+        var manager = await RegisterAsync(provider, LinkDefinition("Target"));
+        await manager.CreateAsync("Page", Link(new CamelNamedLink("home")));
+
+        Assert.Equal(["home"], await QueryTargetsAsync(provider, "Target", "home"));
     }
 
     [SkippableTheory]
@@ -165,7 +182,8 @@ public sealed class FacetStoredNameTests : IDisposable
     {
         var resources = await provider.GetRequiredService<IResourceQueryService>().QueryAsync(query);
         return resources
-            .Select(resource => System.Text.Json.JsonSerializer.SerializeToElement(resource.Aspects[aspectKey]).GetProperty(facetId).GetString()!)
+            .Select(resource => System.Text.Json.JsonSerializer.SerializeToElement(resource.Aspects[aspectKey]).EnumerateObject()
+                .First(property => string.Equals(property.Name, facetId, StringComparison.OrdinalIgnoreCase)).Value.GetString()!)
             .ToList();
     }
 }
