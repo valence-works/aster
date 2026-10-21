@@ -3,7 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 /// <summary>
 /// The Aspect Library API over <see cref="IAspectDefinitionStore"/> and <see cref="IAspectUpgradeService"/>.

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Aster.Core.Models.Definitions;
 
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 internal static class DemoDefinitions
 {

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 internal sealed record FacetDto(
     string FacetId,

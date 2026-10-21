@@ -2,7 +2,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
 using Aster.Core.Models.Definitions;
 
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 internal static class DemoSeedData
 {
@@ -50,7 +50,7 @@ internal static class DemoSeedData
         if ((await definitionStore.ListDefinitionsAsync(cancellationToken)).Any())
             return;
 
-        logger.LogInformation("Seeding Aster AdminDemo SQLite database.");
+        logger.LogInformation("Seeding Aster Studio SQLite database.");
         await SeedDefinitionsAsync(definitionStore, aspectStore, cancellationToken);
         await SeedResourcesAsync(resourceManager, cancellationToken);
     }
@@ -140,14 +140,14 @@ internal static class DemoSeedData
 
         var home = await CreateAsync(resourceManager, "page", "page-home", new()
         {
-            ["content"] = new() { ["title"] = "Home", ["summary"] = "Admin demo landing page.", ["body"] = "Welcome to the Aster AdminDemo." },
-            ["seo"] = new() { ["slug"] = "home", ["metaTitle"] = "Aster AdminDemo", ["metaDescription"] = "Demo admin experience for the Aster SDK." },
+            ["content"] = new() { ["title"] = "Home", ["summary"] = "Studio landing page.", ["body"] = "Welcome to the Aster Studio." },
+            ["seo"] = new() { ["slug"] = "home", ["metaTitle"] = "Aster Studio", ["metaDescription"] = "Demo admin experience for the Aster SDK." },
             ["publishable"] = new() { ["publishFrom"] = "2026-07-01" },
             ["navigation"] = new() { ["menuOrder"] = 0, ["showInMenu"] = true },
         }, cancellationToken);
         home = await UpdateAsync(resourceManager, home.ResourceId, 1, new()
         {
-            ["content"] = new() { ["title"] = "Home", ["summary"] = "Aster AdminDemo landing page.", ["body"] = "Welcome to the Aster AdminDemo backend and SDK showcase." },
+            ["content"] = new() { ["title"] = "Home", ["summary"] = "Aster Studio landing page.", ["body"] = "Welcome to the Aster Studio backend and SDK showcase." },
         }, cancellationToken);
         await resourceManager.ActivateAsync(home.ResourceId, 2, "live", cancellationToken: cancellationToken);
         await resourceManager.ActivateAsync(home.ResourceId, 2, "preview", cancellationToken: cancellationToken);

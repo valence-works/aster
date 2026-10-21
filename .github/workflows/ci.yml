@@ -81,7 +81,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: src/apps/Aster.AdminDemo/ClientApp
+        working-directory: src/apps/Aster.Studio/ClientApp
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,7 +91,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: src/apps/Aster.AdminDemo/ClientApp/package-lock.json
+          cache-dependency-path: src/apps/Aster.Studio/ClientApp/package-lock.json
 
       - name: Install
         run: npm ci

@@ -22,9 +22,8 @@ dotnet build Aster.sln
 # Run all tests
 dotnet test Aster.sln
 
-# Run the workbench
-cd src/apps/Aster.Web
-dotnet run
+# Run Aster Studio, the reference host (see its README for the SPA build)
+dotnet run --project src/apps/Aster.Studio
 ```
 
 ---
@@ -34,7 +33,8 @@ dotnet run
 ```
 src/
   core/Aster.Core/        -- Main SDK library
-  apps/Aster.Web/         -- Workbench (ASP.NET Core minimal API)
+  hosting/Aster.AspNetCore/ -- Mountable Aster endpoints (MapAster)
+  apps/Aster.Studio/      -- Aster Studio: the reference host (ASP.NET Core + React SPA)
 test/
   Aster.Tests/            -- xUnit tests (unit + integration)
 docs/                     -- Architecture review, coding conventions, roadmap

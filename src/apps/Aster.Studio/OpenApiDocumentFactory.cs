@@ -1,4 +1,4 @@
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 internal static class OpenApiDocumentFactory
 {

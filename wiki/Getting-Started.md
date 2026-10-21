@@ -202,9 +202,9 @@ Console.WriteLine($"{price?.Amount} {price?.Currency}"); // "99.99 USD"
 
 ---
 
-## 9. Full Example (Workbench / Seed Data)
+## 9. Full Example (Seed Data)
 
-The `Aster.Web` project seeds the following on startup as a reference:
+A minimal seed with typed aspects:
 
 ```csharp
 // Register definition
@@ -227,21 +227,19 @@ var resource = await resourceManager.CreateAsync("Product", new CreateResourceRe
 await resourceManager.ActivateAsync(resource.ResourceId, 1, "Published");
 ```
 
-Then browse:
-
-- `GET /api/definitions` — all registered definitions (latest version per ID)
-- `GET /api/resources/{definitionId}` — all resource versions for that type
+To serve it over HTTP, map the Aster endpoints with `app.MapAster("/api/aster")` from `Aster.AspNetCore`. Then browse `GET /api/aster/definitions` and `GET /api/aster/resources?definitionId=Product`.
 
 ---
 
-## Running the Workbench
+## Running Aster Studio
+
+Aster Studio is the reference host: an ASP.NET Core app on `Aster.AspNetCore` with a React SPA that generates editing forms from facet metadata.
 
 ```bash
-cd src/apps/Aster.Web
-dotnet run
+dotnet run --project src/apps/Aster.Studio
 ```
 
-Navigate to `http://localhost:5000` for the index page linking to both endpoints.
+See `src/apps/Aster.Studio/README.md` for building the SPA and the development setup.
 
 ---
 

@@ -3,7 +3,7 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Aster.AdminDemo;
+namespace Aster.Studio;
 
 internal static class EndpointMappings
 {
