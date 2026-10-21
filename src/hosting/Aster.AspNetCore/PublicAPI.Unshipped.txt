@@ -55,6 +55,8 @@ Aster.AspNetCore.AsterEndpointOptions.MaxPageSize.get -> int
 Aster.AspNetCore.AsterEndpointOptions.MaxPageSize.set -> void
 Aster.AspNetCore.AsterEndpointOptions.ReadOnly.get -> bool
 Aster.AspNetCore.AsterEndpointOptions.ReadOnly.set -> void
+Aster.AspNetCore.AsterEndpointOptions.SerializerOptions.get -> System.Text.Json.JsonSerializerOptions!
+Aster.AspNetCore.AsterEndpointOptions.SerializerOptions.set -> void
 Aster.AspNetCore.AsterEndpointRouteBuilderExtensions
 Aster.AspNetCore.AsterFilter
 Aster.AspNetCore.AsterFilter.<Clone>$() -> Aster.AspNetCore.AsterFilter!

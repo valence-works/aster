@@ -7,6 +7,8 @@ import { ContentTypes } from "@/pages/ContentTypes";
 import { DefinitionDetail } from "@/pages/DefinitionDetail";
 import { ContentList } from "@/pages/ContentList";
 import { ResourceEditor } from "@/pages/ResourceEditor";
+import { Portability } from "@/pages/Portability";
+import { QueryBuilder } from "@/pages/QueryBuilder";
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
         <Route path="content/:definitionId" element={<ContentList />} />
         <Route path="content/:definitionId/new" element={<ResourceEditor mode="create" />} />
         <Route path="content/:definitionId/:resourceId" element={<ResourceEditor mode="edit" />} />
+        <Route path="portability" element={<Portability />} />
+        <Route path="query" element={<QueryBuilder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -54,17 +54,19 @@ Shared aspect attachments in `POST /definitions` are pins: for every attachment 
 | `AuthorizationPolicies` | none | A policy name per group, applied with `RequireAuthorization` |
 | `ConfigureGroup` | none | A callback per mapped group's `RouteGroupBuilder` |
 | `DefaultPageSize` / `MaxPageSize` | 50 / 500 | Paging for list and query endpoints |
+| `SerializerOptions` | web defaults, camelCase enum names | The JSON options for every request body and response; see [JSON](#json) |
 
 ## Errors
 
-All errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses:
+Errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses, except the `415` routing returns (below):
 
 | Status | When | Extensions |
 |---|---|---|
-| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
+| `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
 | `403` | Denied by `IAsterResourceAuthorizer` | |
 | `404` | Missing definition, aspect, resource or version | |
 | `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition version conflict, lifecycle hook veto | `code` |
+| `415` | A request body without a JSON `Content-Type`. Routing rejects a non-JSON `Content-Type` before the endpoint runs, with an empty body (add `AddProblemDetails()` and `UseStatusCodePages()` in the host for one); a body with no `Content-Type` reaches the endpoint and gets a problem | |
 
 ## Query format
 
@@ -111,4 +113,21 @@ All errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) response
 
 ## JSON
 
-Endpoints use the host's minimal-API JSON options (`ConfigureHttpJsonOptions`). Enum values in responses, such as lifecycle state in version history, serialize as numbers unless the host adds `JsonStringEnumConverter`.
+The endpoints read every request body and write every response with `AsterEndpointOptions.SerializerOptions`, independent of the host's minimal-API JSON options (`ConfigureHttpJsonOptions`). A host can change its own endpoints' JSON without changing Aster's wire format.
+
+- **Defaults:** `JsonSerializerDefaults.Web` (camelCase properties, case-insensitive reads) plus `JsonStringEnumConverter(JsonNamingPolicy.CamelCase)`. Enums are written as camelCase names:
+
+  ```json
+  { "version": 1, "isLatest": false, "lifecycleState": "softDeleted", "maintenanceDisposition": "possibleCandidate" }
+  ```
+
+  Requests accept the names and, for compatibility, enum integers.
+- **Problem details:** the Aster members (`diagnostics`, `code`) are serialized with the same options. The envelope (`type`, `title`, `status`, `detail`) goes through the host's ProblemDetails pipeline, so `AddProblemDetails` customizations still apply.
+- **Replacing them:** assign other options in `MapAster`. `MapAster` makes them read-only. Aster Studio uses kebab-case enum names, matching its own API:
+
+  ```csharp
+  app.MapAster("/api/aster", options => options.SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+  {
+      Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
+  });
+  ```

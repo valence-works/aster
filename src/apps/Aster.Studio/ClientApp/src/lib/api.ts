@@ -184,10 +184,11 @@ export type Channel = "preview" | "live";
 
 // ── Operations (#111): the SDK's lifecycle, schema and policy results, enums as kebab-case names ──────────
 
-/** A diagnostic with its stable code, as the SDK's lifecycle and policy services report it. */
+/** A diagnostic with its stable code, as the SDK's lifecycle, policy and portability services report it. */
 export type CodedDiagnostic = {
   code: string;
   message: string;
+  severity?: "info" | "warning" | "error";
   path?: string | null;
   policyId?: string | null;
   resourceId?: string | null;
@@ -295,6 +296,127 @@ export type PruningResultDto = {
   candidates: Array<{ index: number; status: "pruned" | "already-pruned" | "skipped" | "failed"; policyId: string | null; resourceId: string | null; resourceVersion: number | null; diagnostics: CodedDiagnostic[] }>;
 };
 
+export type TenantDto = { tenantId: string; displayName: string };
+
+// ── Portability (#112): the SDK's export, import preview and import results, each with its summary ─────────
+
+export type ExportScopeMode = "definition-with-resources" | "definitions-only" | "selected-resources";
+export type ExportVersionScope = "all-versions" | "latest-only" | "specific-versions";
+export type CollisionMode = "strict" | "remap-divergent";
+
+export type ExportRequest = {
+  scopeMode: ExportScopeMode;
+  definitionIds: string[];
+  resourceIds: string[];
+  resourceVersionScope: ExportVersionScope;
+  specificResourceVersions: Array<{ resourceId: string; version: number }>;
+  includeReferencedResources: boolean;
+};
+
+/** A portable snapshot, passed back to import as it was exported. */
+export type PortableSnapshot = {
+  formatVersion: number;
+  sourceTenantScope: { tenantId: string };
+  aspectDefinitions: unknown[];
+  definitions: unknown[];
+  resources: unknown[];
+  activationStates: unknown[];
+  lifecycleMarkers: unknown[];
+};
+
+export type PortableCounts = {
+  aspectDefinitions: number;
+  definitions: number;
+  resources: number;
+  resourceVersions: number;
+  activationEntries: number;
+  lifecycleMarkers: number;
+  reusedIdenticalItems: number;
+  remappedItems: number;
+};
+
+export type IdentityMapping = {
+  entityKind: "definition" | "definition-version" | "resource" | "resource-version" | "activation-entry" | "lifecycle-marker" | "aspect-definition-version" | "reference-value";
+  /** A JSON array of the identity's parts, such as ["page",1]; a plain resource ID for reference values. */
+  sourceId: string;
+  targetId: string;
+  reason: "preserved" | "reused-identical" | "remapped-divergent" | "collided-divergent";
+  /** For a rewritten reference value: resources/{resourceId}/{version}/{aspectKey}/{facetId}[/{index}]. */
+  location: string | null;
+};
+
+export type ExportResultDto = {
+  summary: { aspectDefinitionCount: number; definitionCount: number; resourceVersionCount: number; activationEntryCount: number; lifecycleMarkerCount: number; skippedActivationEntryCount: number; hasErrors: boolean };
+  result: { snapshot: PortableSnapshot | null; diagnostics: CodedDiagnostic[] };
+};
+
+export type ImportPreviewDto = {
+  summary: { totalPlannedItemCount: number; hasErrors: boolean };
+  result: { canImport: boolean; counts: PortableCounts; identityMap: IdentityMapping[]; diagnostics: CodedDiagnostic[] };
+};
+
+export type ImportResultDto = {
+  summary: { totalActualItemCount: number; hasErrors: boolean };
+  result: { status: "imported" | "no-op" | "failed"; counts: PortableCounts; identityMap: IdentityMapping[]; diagnostics: CodedDiagnostic[] };
+};
+
+// ── Query builder (#112): IResourceQueryValidator failures and the provider's QueryCapabilityDescription ─────
+
+export type ComparisonOperator = "equals" | "not-equals" | "in" | "contains" | "starts-with" | "range" | "exists" | "array-contains" | "array-contains-any" | "array-contains-all";
+export type VersionScope = "latest" | "all-versions" | "active" | "draft";
+
+/** One condition; condition i is the filter's operand i, so failures at Filter.Operands[i] belong to it. */
+export type QueryCondition = {
+  kind: "metadata" | "facet" | "exists" | "references";
+  field?: string;
+  aspectKey?: string;
+  facetId?: string;
+  operator: ComparisonOperator;
+  /** A range is { min, max }; in and array operators take a list. */
+  value?: unknown;
+};
+
+export type QueryRequest = {
+  definitionId: string | null;
+  scope: VersionScope;
+  channel: string | null;
+  lifecycle: LifecycleFilter;
+  match: "and" | "or";
+  conditions: QueryCondition[];
+  sort: Array<{ field: string; aspectKey: string | null; descending: boolean }>;
+  take: number;
+};
+
+export type QueryValidationFailure = { code: string; message: string; path: string | null; feature: string | null };
+
+export type QueryValidationDto = {
+  summary: { totalFailureCount: number; isValid: boolean };
+  failures: QueryValidationFailure[];
+};
+
+export type QueryResultDto = {
+  items: Array<{ resourceId: string; definitionId: string; version: number; created: string; title: string }>;
+  hasMore: boolean;
+};
+
+export type QueryCapabilities = {
+  providerKey: string;
+  providerName: string;
+  supportedScopes: VersionScope[];
+  requiresActivationChannelForActiveScope: boolean;
+  supportedFilterTypes: string[];
+  supportedLogicalOperators: string[];
+  supportedComparisonOperators: Partial<Record<"metadata" | "facet-value", ComparisonOperator[]>>;
+  supportedMetadataFields: string[];
+  metadataContainsFields: string[];
+  supportsMetadataSorting: boolean;
+  supportsFacetSorting: boolean;
+  facetRangeSupport: string[];
+  unsupportedFeatures: string[];
+  maxArrayQueryElements: number | null;
+  supportsLifecycleStateFiltering: boolean;
+};
+
 export class ApiError extends Error {
   status: number;
   diagnostics?: DiagnosticDto[];
@@ -312,10 +434,35 @@ export class ApiError extends Error {
 const aster = "/api/aster";
 const studio = "/api/studio";
 
+// Every request names the selected tenant; both the Aster endpoints and Studio's resolve it through the host's
+// ITenantScopeAccessor. The choice persists across reloads.
+const tenantStorageKey = "aster-studio.tenant";
+let tenant = readStoredTenant();
+
+function readStoredTenant() {
+  try {
+    return localStorage.getItem(tenantStorageKey) || "default";
+  } catch {
+    return "default";
+  }
+}
+
+export const currentTenant = () => tenant;
+
+export function selectTenant(next: string) {
+  tenant = next;
+  try {
+    localStorage.setItem(tenantStorageKey, next);
+  } catch {
+    // The selection still holds for this page.
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: {
       "Content-Type": "application/json",
+      "X-Aster-Tenant": tenant,
       ...init?.headers,
     },
     ...init,
@@ -555,6 +702,7 @@ async function createDefinition(body: CreateDefinitionRequest): Promise<Definiti
 }
 
 export const api = {
+  getTenants: () => request<TenantDto[]>(`${studio}/tenants`),
   getAspects: () => request<SharedAspectDto[]>(`${studio}/aspects`),
   getAspect: (aspectId: string) => request<SharedAspectDto>(`${studio}/aspects/${segment(aspectId)}`),
   createAspect: (body: CreateAspectRequest) => request<SharedAspectDto>(`${studio}/aspects`, json("POST", body)),
@@ -592,6 +740,14 @@ export const api = {
     request<PolicyApplicationResultDto>(`${studio}/policies/apply`, json("POST", { candidates: candidates.map(toApplicationCandidate) })),
   pruneVersions: (candidates: PolicyCandidateDto[]) =>
     request<PruningResultDto>(`${studio}/policies/prune`, json("POST", { candidates: candidates.map(toApplicationCandidate) })),
+  exportSnapshot: (body: ExportRequest) => request<ExportResultDto>(`${studio}/portability/export`, json("POST", body)),
+  previewImport: (snapshot: PortableSnapshot, collisionMode: CollisionMode) =>
+    request<ImportPreviewDto>(`${studio}/portability/preview`, json("POST", { snapshot, collisionMode })),
+  importSnapshot: (snapshot: PortableSnapshot, collisionMode: CollisionMode) =>
+    request<ImportResultDto>(`${studio}/portability/import`, json("POST", { snapshot, collisionMode })),
+  getQueryCapabilities: () => request<QueryCapabilities>(`${studio}/query/capabilities`),
+  validateQuery: (query: QueryRequest) => request<QueryValidationDto>(`${studio}/query/validate`, json("POST", query)),
+  runQuery: (query: QueryRequest) => request<QueryResultDto>(`${studio}/query`, json("POST", query)),
 };
 
 // Application re-checks a preview candidate by its identity: the policy, the outcome and the previewed version.

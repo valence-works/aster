@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 
@@ -56,4 +58,25 @@ public sealed class AsterEndpointOptions
 
     /// <summary>Gets or sets the largest page size <c>GET /resources</c> and the query endpoint accept. Defaults to 500.</summary>
     public int MaxPageSize { get; set; } = 500;
+
+    /// <summary>
+    /// Gets or sets the JSON options that read every request body and write every response of the Aster endpoints,
+    /// independent of the host's <c>ConfigureHttpJsonOptions</c>, so the wire format does not change with the host's
+    /// global JSON settings. Defaults to web defaults (camelCase properties, case-insensitive reads) with enums
+    /// written as camelCase names, such as <c>softDeleted</c> or <c>possibleCandidate</c>; enum integers are still
+    /// accepted on read. A host may adjust these options or replace them, for example with kebab-case enum names.
+    /// <c>MapAster</c> makes them read-only.
+    /// </summary>
+    public JsonSerializerOptions SerializerOptions
+    {
+        get => serializerOptions;
+        set => serializerOptions = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    private JsonSerializerOptions serializerOptions = CreateDefaultSerializerOptions();
+
+    internal static JsonSerializerOptions CreateDefaultSerializerOptions() => new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+    };
 }

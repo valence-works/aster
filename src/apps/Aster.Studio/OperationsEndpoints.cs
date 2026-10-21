@@ -52,14 +52,16 @@ internal static class OperationsEndpoints
     // version history reports the state alone.
     private static async Task<IResult> GetLifecycleAsync(
         string resourceId,
+        HttpContext http,
         IResourceManager resourceManager,
         IResourceLifecycleMarkerStore markerStore,
         CancellationToken cancellationToken)
     {
-        if (await resourceManager.GetLatestVersionAsync(resourceId, cancellationToken) is null)
+        var tenant = http.GetTenantScope();
+        if (await resourceManager.GetLatestVersionAsync(resourceId, tenant, cancellationToken) is null)
             return ResourceNotFound(resourceId);
 
-        var marker = await markerStore.GetMarkerAsync(resourceId, TenantScope.Default, cancellationToken);
+        var marker = await markerStore.GetMarkerAsync(resourceId, tenant, cancellationToken);
         return Results.Ok(new LifecycleStateDto(
             resourceId,
             marker?.State ?? ResourceLifecycleMarkerState.None,
@@ -70,11 +72,13 @@ internal static class OperationsEndpoints
     private static async Task<IResult> MarkAsync(
         string resourceId,
         LifecycleMarkerRequestDto request,
+        HttpContext http,
         IResourceLifecycleMarkerService markerService,
         CancellationToken cancellationToken)
     {
         var result = await markerService.ApplyAsync(new ResourceLifecycleMarkerRequest
         {
+            TenantScope = http.GetTenantScope(),
             ResourceId = resourceId,
             State = request.State,
             MarkedAt = DateTimeOffset.UtcNow,
@@ -95,10 +99,11 @@ internal static class OperationsEndpoints
     private static async Task<IResult> PreviewRestoreAsync(
         string resourceId,
         LifecycleRestoreRequestDto request,
+        HttpContext http,
         IResourceLifecycleRestoreService restoreService,
         CancellationToken cancellationToken)
     {
-        var preview = await restoreService.PreviewRestoreAsync(RestoreRequest(resourceId, request, restoredAt: null), cancellationToken);
+        var preview = await restoreService.PreviewRestoreAsync(RestoreRequest(http.GetTenantScope(), resourceId, request, restoredAt: null), cancellationToken);
         return Results.Ok(new OperationResultDto<ResourceLifecycleRestorePreviewSummary, ResourceLifecycleRestoreCandidateResult>(
             preview.ToSummary(),
             preview.Candidates));
@@ -107,39 +112,44 @@ internal static class OperationsEndpoints
     private static async Task<IResult> RestoreAsync(
         string resourceId,
         LifecycleRestoreRequestDto request,
+        HttpContext http,
         IResourceLifecycleRestoreService restoreService,
         CancellationToken cancellationToken)
     {
-        var result = await restoreService.RestoreAsync(RestoreRequest(resourceId, request, DateTimeOffset.UtcNow), cancellationToken);
+        var result = await restoreService.RestoreAsync(RestoreRequest(http.GetTenantScope(), resourceId, request, DateTimeOffset.UtcNow), cancellationToken);
         return Results.Ok(new OperationResultDto<ResourceLifecycleRestoreApplicationSummary, ResourceLifecycleRestoreCandidateResult>(
             result.ToSummary(),
             result.Candidates));
     }
 
     private static ResourceLifecycleRestoreRequest RestoreRequest(
+        TenantScope tenant,
         string resourceId,
         LifecycleRestoreRequestDto request,
         DateTimeOffset? restoredAt) => new()
     {
+        TenantScope = tenant,
         Candidates = [new ResourceLifecycleRestoreCandidate { ResourceId = resourceId, ExpectedState = request.ExpectedState }],
         RestoredAt = restoredAt,
     };
 
     private static async Task<IResult> GetSchemaStatusAsync(
         string resourceId,
+        HttpContext http,
         IResourceManager resourceManager,
         IResourceDefinitionStore definitionStore,
         IResourceSchemaVersionService schemaService,
         CancellationToken cancellationToken)
     {
-        if (await resourceManager.GetLatestVersionAsync(resourceId, cancellationToken) is not { } latest)
+        var tenant = http.GetTenantScope();
+        if (await resourceManager.GetLatestVersionAsync(resourceId, tenant, cancellationToken) is not { } latest)
             return ResourceNotFound(resourceId);
 
         var status = await schemaService.GetSchemaStatusAsync(latest, cancellationToken);
 
         // The upgrade reports carried-forward aspect keys only after it has written the new version. Showing them
         // beforehand means repeating its rule: payload keys the target definition does not declare.
-        var definition = await definitionStore.GetDefinitionAsync(latest.DefinitionId, cancellationToken);
+        var definition = await definitionStore.GetDefinitionAsync(latest.DefinitionId, tenant, cancellationToken);
         var undeclared = definition is null
             ? []
             : latest.Aspects.Keys
@@ -161,13 +171,14 @@ internal static class OperationsEndpoints
     private static async Task<IResult> UpgradeSchemaAsync(
         string resourceId,
         SchemaUpgradeRequestDto request,
+        HttpContext http,
         IResourceSchemaVersionService schemaService,
         CancellationToken cancellationToken)
     {
         // Upgrade failures are exceptions rather than result diagnostics; map each onto problem details.
         try
         {
-            var result = await schemaService.UpgradeAsync(resourceId, new ResourceSchemaUpgradeRequest { BaseVersion = request.BaseVersion }, cancellationToken);
+            var result = await schemaService.UpgradeAsync(resourceId, new ResourceSchemaUpgradeRequest { TenantScope = http.GetTenantScope(), BaseVersion = request.BaseVersion }, cancellationToken);
             return Results.Ok(new SchemaUpgradeResultDto(
                 result.Status,
                 result.Resource?.Version,
@@ -193,11 +204,12 @@ internal static class OperationsEndpoints
 
     private static async Task<IResult> GetPoliciesAsync(
         string definitionId,
+        HttpContext http,
         IResourceDefinitionStore definitionStore,
         IResourcePolicyValidator validator,
         CancellationToken cancellationToken)
     {
-        if (await definitionStore.GetDefinitionAsync(definitionId, cancellationToken) is not { } definition)
+        if (await definitionStore.GetDefinitionAsync(definitionId, http.GetTenantScope(), cancellationToken) is not { } definition)
             return DefinitionNotFound(definitionId);
 
         return Results.Ok(new DefinitionPoliciesDto(
@@ -210,15 +222,18 @@ internal static class OperationsEndpoints
     private static async Task<IResult> PreviewPoliciesAsync(
         string definitionId,
         PolicyPreviewRequestDto request,
+        HttpContext http,
         IResourceDefinitionStore definitionStore,
         IResourcePolicyEvaluationService evaluationService,
         CancellationToken cancellationToken)
     {
-        if (await definitionStore.GetDefinitionAsync(definitionId, cancellationToken) is null)
+        var tenant = http.GetTenantScope();
+        if (await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken) is null)
             return DefinitionNotFound(definitionId);
 
         var preview = await evaluationService.PreviewAsync(new ResourcePolicyEvaluationRequest
         {
+            TenantScope = tenant,
             DefinitionIds = [definitionId],
             EvaluationTimestamp = request.EvaluationTimestamp ?? DateTimeOffset.UtcNow,
         }, cancellationToken);
@@ -237,6 +252,7 @@ internal static class OperationsEndpoints
 
     private static async Task<IResult> ApplyPoliciesAsync(
         PolicyApplicationRequestDto request,
+        HttpContext http,
         IResourcePolicyApplicationService applicationService,
         CancellationToken cancellationToken)
     {
@@ -245,6 +261,7 @@ internal static class OperationsEndpoints
 
         var result = await applicationService.ApplyAsync(new ResourcePolicyApplicationRequest
         {
+            TenantScope = http.GetTenantScope(),
             Candidates = [.. request.Candidates],
             AppliedAt = DateTimeOffset.UtcNow,
             Reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(),
@@ -257,6 +274,7 @@ internal static class OperationsEndpoints
 
     private static async Task<IResult> PruneVersionsAsync(
         PolicyPruningRequestDto request,
+        HttpContext http,
         IResourcePolicyPruningApplicationService pruningService,
         CancellationToken cancellationToken)
     {
@@ -265,6 +283,7 @@ internal static class OperationsEndpoints
 
         var result = await pruningService.ApplyAsync(new ResourcePolicyPruningApplicationRequest
         {
+            TenantScope = http.GetTenantScope(),
             Candidates = [.. request.Candidates],
             AppliedAt = DateTimeOffset.UtcNow,
         }, cancellationToken);

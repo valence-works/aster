@@ -1,6 +1,9 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
+using Aster.Core.Models.Portability;
+using Aster.Core.Models.Querying;
 
 namespace Aster.Studio;
 
@@ -201,3 +204,45 @@ internal sealed record PolicyApplicationRequestDto(
 
 internal sealed record PolicyPruningRequestDto(IReadOnlyList<ResourcePolicyPruningApplicationCandidate> Candidates);
 
+internal sealed record TenantDto(string TenantId, string DisplayName);
+
+/// <summary>A portability result with the summary the SDK's summary helpers make of it.</summary>
+internal sealed record PortabilityResultDto<TSummary, TResult>(TSummary Summary, TResult Result);
+
+internal sealed record SnapshotImportRequestDto(PortableSnapshot? Snapshot, PortableImportCollisionMode CollisionMode);
+
+/// <summary>
+/// The query builder's query: conditions combined by <paramref name="Match"/>, so condition <c>i</c> is the filter's
+/// operand <c>i</c> and validation paths such as <c>Filter.Operands[1].Value</c> point at a condition.
+/// </summary>
+internal sealed record QueryRequestDto(
+    string? DefinitionId,
+    ResourceVersionScope Scope,
+    string? Channel,
+    string? Lifecycle,
+    LogicalOperator Match,
+    IReadOnlyList<QueryConditionDto>? Conditions,
+    IReadOnlyList<QuerySortDto>? Sort,
+    int? Take);
+
+/// <summary>
+/// One condition. <paramref name="Kind"/> is <c>metadata</c> (<paramref name="Field"/>), <c>facet</c>
+/// (<paramref name="AspectKey"/> and <paramref name="FacetId"/>), <c>exists</c> (<paramref name="AspectKey"/>) or
+/// <c>references</c> (a reference facet naming the resource ID in <paramref name="Value"/>). A range value is an
+/// object with <c>min</c> and <c>max</c>.
+/// </summary>
+internal sealed record QueryConditionDto(
+    string Kind,
+    string? Field,
+    string? AspectKey,
+    string? FacetId,
+    ComparisonOperator Operator,
+    JsonElement? Value);
+
+internal sealed record QuerySortDto(string Field, string? AspectKey, bool Descending);
+
+internal sealed record QueryValidationDto(QueryValidationSummary Summary, IReadOnlyList<QueryValidationFailure> Failures);
+
+internal sealed record QueryResultItemDto(string ResourceId, string DefinitionId, int Version, DateTime Created, string Title);
+
+internal sealed record QueryResultDto(IReadOnlyList<QueryResultItemDto> Items, bool HasMore);

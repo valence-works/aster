@@ -1,11 +1,13 @@
-import { BookTemplate, Boxes, ChevronRight, DatabaseZap, Layers3, LayoutDashboard, LibraryBig, MoreHorizontal, PanelLeftClose, Sparkles } from "lucide-react";
-import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { ArrowLeftRight, BookTemplate, Boxes, Building2, ChevronRight, DatabaseZap, Layers3, LayoutDashboard, LibraryBig, ListFilter, MoreHorizontal, PanelLeftClose, Sparkles } from "lucide-react";
+import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { api } from "@/lib/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { api, currentTenant, selectTenant } from "@/lib/api";
 import { toTitle } from "@/lib/utils";
 import { useAsync } from "@/hooks/useAsync";
 
@@ -13,13 +15,33 @@ const staticNav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/content-types", label: "Content Types", icon: BookTemplate },
   { to: "/aspects", label: "Aspect Library", icon: LibraryBig },
+  { to: "/portability", label: "Portability", icon: ArrowLeftRight },
+  { to: "/query", label: "Query Builder", icon: ListFilter },
 ];
 
+// Screens about one definition, resource or aspect; their entity may not exist in another tenant.
+const entityRoute = /^\/(content|content-types|aspects)\/./;
+
 export function AppShell() {
-  const definitions = useAsync(api.getDefinitions, []);
+  const [tenant, setTenant] = useState(currentTenant);
+  const tenants = useAsync(api.getTenants, []);
+  const definitions = useAsync(api.getDefinitions, [tenant]);
   const location = useLocation();
+  const navigate = useNavigate();
   const params = useParams();
   const crumbs = makeCrumbs(location.pathname, params.definitionId);
+  const tenantName = tenants.data?.find((candidate) => candidate.tenantId === tenant)?.displayName ?? tenant;
+
+  function switchTenant(next: string) {
+    selectTenant(next);
+    setTenant(next);
+    if (entityRoute.test(location.pathname)) navigate("/");
+  }
+
+  // A stored tenant the host no longer knows would fail every request.
+  useEffect(() => {
+    if (tenants.data && !tenants.data.some((candidate) => candidate.tenantId === tenant)) switchTenant("default");
+  }, [tenants.data]);
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -64,6 +86,10 @@ export function AppShell() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Select value={tenant} onValueChange={switchTenant}>
+                <SelectTrigger aria-label="Tenant" className="h-9 w-36 gap-2"><Building2 className="h-4 w-4 shrink-0 text-muted-foreground" /><SelectValue /></SelectTrigger>
+                <SelectContent>{(tenants.data ?? [{ tenantId: tenant, displayName: tenant }]).map((candidate) => <SelectItem key={candidate.tenantId} value={candidate.tenantId}>{candidate.displayName}</SelectItem>)}</SelectContent>
+              </Select>
               <Tooltip>
                 <TooltipTrigger asChild><Badge variant="schema" className="hidden sm:inline-flex">API contract v1</Badge></TooltipTrigger>
                 <TooltipContent>Frontend calls only the frozen /api contract.</TooltipContent>
@@ -80,7 +106,8 @@ export function AppShell() {
               </DropdownMenu>
             </div>
           </header>
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8 lg:py-8"><Outlet context={{ reloadDefinitions: definitions.reload }} /></div>
+          {/* Keyed by tenant, so every screen reloads its data from the newly selected tenant. */}
+          <div key={tenant} className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8 lg:py-8"><Outlet context={{ reloadDefinitions: definitions.reload, tenantName }} /></div>
         </main>
       </div>
     </TooltipProvider>
@@ -102,6 +129,8 @@ function makeCrumbs(pathname: string, definitionId?: string) {
   if (pathname.startsWith("/aspects")) return ["Aster Studio", "Aspect Library"];
   if (pathname.startsWith("/content-types/")) return ["Aster Studio", "Content Types", toTitle(pathname.split("/").pop() ?? "Detail")];
   if (pathname.startsWith("/content-types")) return ["Aster Studio", "Content Types"];
+  if (pathname.startsWith("/portability")) return ["Aster Studio", "Portability"];
+  if (pathname.startsWith("/query")) return ["Aster Studio", "Query Builder"];
   if (pathname.includes("/new")) return ["Aster Studio", "Content", toTitle(definitionId ?? "Content"), "New Resource"];
   if (pathname.startsWith("/content/")) return ["Aster Studio", "Content", toTitle(definitionId ?? "Content")];
   return ["Aster Studio"];

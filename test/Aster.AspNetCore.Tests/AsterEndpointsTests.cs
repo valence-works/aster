@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
 using Aster.Core.Extensions;
@@ -52,7 +55,8 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
     private async Task<(HttpClient Client, IServiceProvider Services)> StartAsync(
         string provider = InMemory,
         Action<AsterEndpointOptions>? configure = null,
-        Action<IServiceCollection>? services = null)
+        Action<IServiceCollection>? services = null,
+        Action<WebApplication>? map = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -73,6 +77,7 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapAster("/api/aster", configure);
+        map?.Invoke(app);
         await app.StartAsync();
         apps.Add(app);
 
@@ -395,6 +400,138 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
             Assert.False(string.IsNullOrWhiteSpace(endpoint.Metadata.GetMetadata<IEndpointSummaryMetadata>()?.Summary), endpoint.DisplayName);
             Assert.NotEmpty(endpoint.Metadata.GetMetadata<ITagsMetadata>()?.Tags ?? []);
         });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // JSON wire format (#190)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private const string PruningPolicyByName =
+        """[{"policyId":"prune","kind":"versionPruning","target":"resourceVersion","outcome":"prunePreview","criteria":{"maximumRetainedVersions":3}}]""";
+
+    private static string ArticleJson(string policyDeclarations)
+    {
+        var definition = JsonSerializer.SerializeToNode(Article(), Web)!.AsObject();
+        definition["policyDeclarations"] = JsonNode.Parse(policyDeclarations);
+        return definition.ToJsonString();
+    }
+
+    private static Task<HttpResponseMessage> PostRawAsync(HttpClient client, string uri, string body, string contentType = "application/json") =>
+        client.PostAsync(uri, new StringContent(body, Encoding.UTF8, contentType));
+
+    /// <summary>Registers Article with a pruning policy, saves two versions of <c>a-1</c> and archives it.</summary>
+    private static async Task<(string Definition, string History)> SeedHistoryAsync(HttpClient client, IServiceProvider services, string policyDeclarations = PruningPolicyByName)
+    {
+        var registered = await PostRawAsync(client, "/api/aster/definitions", ArticleJson(policyDeclarations));
+        Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
+        Assert.Equal("/api/aster/definitions/Article", registered.Headers.Location?.OriginalString);
+
+        Assert.Equal(HttpStatusCode.Created, (await CreateAsync(client, "a-1", "One")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync("/api/aster/resources/a-1", new { baseVersion = 1, aspects = Content("Two") }, Web)).StatusCode);
+        await services.GetRequiredService<IResourceLifecycleMarkerService>().ApplyAsync(new ResourceLifecycleMarkerRequest
+        {
+            ResourceId = "a-1",
+            State = ResourceLifecycleMarkerState.Archived,
+            MarkedAt = DateTimeOffset.UtcNow,
+        });
+
+        return (await registered.Content.ReadAsStringAsync(), await client.GetStringAsync("/api/aster/resources/a-1/versions"));
+    }
+
+    [Fact]
+    public async Task Json_WithoutHostOptions_EnumsAreCamelCaseNames()
+    {
+        var (client, services) = await StartAsync();
+
+        var (definition, history) = await SeedHistoryAsync(client, services);
+
+        Assert.Contains("\"kind\":\"versionPruning\",\"target\":\"resourceVersion\",\"outcome\":\"prunePreview\"", definition);
+        Assert.Contains("\"lifecycleState\":\"archived\"", history);
+        Assert.Contains("\"maintenanceDisposition\":\"protected\"", history);
+        Assert.Contains("\"maintenanceDisposition\":\"possibleCandidate\"", history);
+        Assert.Contains("\"kind\":\"versionPruning\"", await client.GetStringAsync("/api/aster/definitions/Article"));
+    }
+
+    [Fact]
+    public async Task Json_HostJsonOptions_DoNotChangeTheAsterWireFormat()
+    {
+        // Host options that would misread camelCase bodies and write SNAKE_CASE members with KEBAB-CASE enums.
+        var (client, services) = await StartAsync(
+            services: static services =>
+            {
+                services.AddProblemDetails();
+                services.ConfigureHttpJsonOptions(static options =>
+                {
+                    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper;
+                    options.SerializerOptions.PropertyNameCaseInsensitive = false;
+                    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseUpper));
+                });
+            },
+            map: static app => app.MapGet("/host", static () => new { LifecycleState = ResourceLifecycleMarkerState.SoftDeleted }));
+
+        var (definition, history) = await SeedHistoryAsync(client, services);
+
+        Assert.Contains("\"definitionId\":\"Article\"", definition);
+        Assert.Contains("\"kind\":\"versionPruning\"", definition);
+        Assert.Contains("\"resourceId\":\"a-1\"", history);
+        Assert.Contains("\"lifecycleState\":\"archived\"", history);
+        Assert.Contains("\"maintenanceDisposition\":\"possibleCandidate\"", history);
+
+        // Problem details keep their standard members and Aster's camelCase diagnostics.
+        var invalid = await client.PostAsJsonAsync("/api/aster/resources", new { definitionId = "Article", aspects = Content(new string('x', 30)) }, Web);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal("application/problem+json", invalid.Content.Headers.ContentType?.MediaType);
+        var problem = await ReadAsync(invalid);
+        Assert.Equal(400, problem.GetProperty("status").GetInt32());
+        Assert.Equal("Content", problem.GetProperty("diagnostics")[0].GetProperty("aspectKey").GetString());
+
+        // The host's own endpoints still use the host's options.
+        Assert.Equal("{\"LIFECYCLE_STATE\":\"SOFT-DELETED\"}", await client.GetStringAsync("/host"));
+    }
+
+    [Fact]
+    public async Task Json_HostCanReplaceTheSerializerOptions()
+    {
+        var kebab = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) } };
+        var (client, services) = await StartAsync(configure: options => options.SerializerOptions = kebab);
+        Assert.True(kebab.IsReadOnly);
+
+        var (definition, history) = await SeedHistoryAsync(
+            client,
+            services,
+            """[{"policyId":"prune","kind":"version-pruning","target":"resource-version","outcome":"prune-preview","criteria":{"maximumRetainedVersions":3}}]""");
+
+        Assert.Contains("\"kind\":\"version-pruning\",\"target\":\"resource-version\",\"outcome\":\"prune-preview\"", definition);
+        Assert.Contains("\"maintenanceDisposition\":\"possible-candidate\"", history);
+    }
+
+    [Fact]
+    public async Task Json_RequestBodies_AcceptEnumIntegersAndReportUnreadableBodies()
+    {
+        var (client, _) = await StartAsync();
+
+        // Integers are still accepted for enums; responses use names.
+        var integers = await PostRawAsync(client, "/api/aster/definitions", ArticleJson("""[{"policyId":"prune","kind":3,"target":1,"outcome":3,"criteria":{"maximumRetainedVersions":3}}]"""));
+        Assert.Equal(HttpStatusCode.Created, integers.StatusCode);
+        Assert.Contains("\"kind\":\"versionPruning\"", await integers.Content.ReadAsStringAsync());
+
+        async Task AssertBadRequest(HttpResponseMessage response, string code)
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(code, (await ReadAsync(response)).GetProperty("diagnostics")[0].GetProperty("code").GetString());
+        }
+
+        await AssertBadRequest(await PostRawAsync(client, "/api/aster/definitions", ArticleJson("""[{"policyId":"p","kind":"bogus","target":"resource","outcome":"retain"}]""")), "request-body-invalid");
+        await AssertBadRequest(await PostRawAsync(client, "/api/aster/resources/query", "{\"take\":"), "request-body-invalid");
+        await AssertBadRequest(await PostRawAsync(client, "/api/aster/resources", ""), "request-body-required");
+        await AssertBadRequest(await PostRawAsync(client, "/api/aster/resources/a-1/activate", "null"), "request-body-required");
+
+        // Routing rejects a non-JSON content type; a request without one reaches the endpoint and gets a problem.
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await PostRawAsync(client, "/api/aster/resources/query", "{}", "text/plain")).StatusCode);
+        var noContentType = await client.PostAsync("/api/aster/resources/query", null);
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, noContentType.StatusCode);
+        Assert.Equal("application/problem+json", noContentType.Content.Headers.ContentType?.MediaType);
     }
 
     private sealed class HideSecrets : IAsterResourceAuthorizer

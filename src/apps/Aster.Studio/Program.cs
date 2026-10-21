@@ -23,6 +23,7 @@ builder.Services.AddAsterSqliteJson(options =>
         Path.Combine(dataDirectory, "aster-demo.db"));
     options.InitializeSchema = true;
 });
+builder.Services.AddSingleton<ITenantScopeAccessor, StudioTenantAccessor>();
 
 var app = builder.Build();
 
@@ -33,6 +34,7 @@ if (app.Environment.IsDevelopment())
 }
 
 await DemoSeedData.InitializeAsync(app.Services, app.Logger, app.Lifetime.ApplicationStopping);
+app.UseStudioTenants();
 
 // Resource and definition operations come from the package; Studio adds only its view endpoints (#110).
 // Studio keeps two write rules the package endpoints leave to the host:
@@ -42,6 +44,11 @@ await DemoSeedData.InitializeAsync(app.Services, app.Logger, app.Lifetime.Applic
 app.MapAster("/api/aster", options =>
 {
     options.Groups = AsterEndpointGroups.Definitions | AsterEndpointGroups.Resources;
+    // The package endpoints have their own JSON options (camelCase enums); keep the SPA's kebab-case enum names there too.
+    options.SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
+    };
     options.ConfigureGroup = static (group, builder) =>
     {
         if (group == AsterEndpointGroups.Definitions)
