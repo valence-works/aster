@@ -34,7 +34,7 @@ public sealed class PolicyApplicationCompatibilityTests
     }
 
     [Fact]
-    public async Task ApplyAsync_DoesNotInvokeLifecycleHooks()
+    public async Task ApplyAsync_DoesNotInvokeSaveHooks()
     {
         await using var provider = new ServiceCollection()
             .AddAsterCore()

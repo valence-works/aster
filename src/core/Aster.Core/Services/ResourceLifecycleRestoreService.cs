@@ -201,7 +201,7 @@ internal sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestor
                 tenant,
                 apply,
                 markers,
-                latestResources.ContainsKey(candidate.ResourceId!),
+                latestResources.GetValueOrDefault(candidate.ResourceId!),
                 cancellationToken);
         }
 
@@ -215,7 +215,7 @@ internal sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestor
         TenantScope tenant,
         bool apply,
         IDictionary<string, ResourceLifecycleMarker> markers,
-        bool targetExists,
+        Resource? latest,
         CancellationToken cancellationToken)
     {
         markers.TryGetValue(candidate.ResourceId!, out var marker);
@@ -225,7 +225,8 @@ internal sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestor
             ResourceId = candidate.ResourceId!,
             ExpectedState = expectedState,
             Apply = apply,
-            TargetExists = targetExists,
+            TargetExists = latest is not null,
+            TargetDefinitionId = latest?.DefinitionId,
             HasTargetExistence = true,
             TargetNotFoundDiagnosticPath = "resourceId",
             CurrentMarker = marker,

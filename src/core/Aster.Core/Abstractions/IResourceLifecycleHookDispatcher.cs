@@ -72,4 +72,29 @@ public interface IResourceLifecycleHookDispatcher
     /// Invokes after-import hooks.
     /// </summary>
     ValueTask InvokeAfterImportAsync(ResourceImportLifecycleContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Invokes before-archive hooks. The default invokes none, so a dispatcher written before the archive points
+    /// existed keeps compiling; the dispatcher <c>AddAsterCore()</c> registers invokes them.
+    /// </summary>
+    ValueTask InvokeBeforeArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Invokes after-archive hooks. The default invokes none.
+    /// </summary>
+    ValueTask InvokeAfterArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Invokes before-restore hooks. The default invokes none.
+    /// </summary>
+    ValueTask InvokeBeforeRestoreAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Invokes after-restore hooks. The default invokes none.
+    /// </summary>
+    ValueTask InvokeAfterRestoreAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default) =>
+        ValueTask.CompletedTask;
 }
