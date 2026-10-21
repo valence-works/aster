@@ -16,6 +16,9 @@ public static class AspectDefinitionBuilder
     /// <typeparam name="T">The POCO type representing the aspect.</typeparam>
     /// <param name="requiresName">Whether every attachment of the aspect must be named.</param>
     /// <returns>An aspect definition; the store assigns its <c>Version</c> on registration.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// A property marked <see cref="ReferenceFacetAttribute"/> is not a string or a collection of strings.
+    /// </exception>
     public static AspectDefinition FromType<T>(bool requiresName = false) => new()
     {
         AspectDefinitionId = typeof(T).Name,
