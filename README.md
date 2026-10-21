@@ -316,9 +316,12 @@ src/
     Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
   apps/
     Aster.Studio/            ← Aster Studio: the reference host (ASP.NET Core + React SPA)
+samples/                     ← Runnable use-case samples (see samples/README.md)
+  Aster.Samples.PromptRegistry/ ← AI prompt and agent registry with candidate/production channels and A/B tests
 test/
   Aster.Tests/               ← xUnit tests (unit + integration)
   Aster.AspNetCore.Tests/    ← HTTP integration tests for Aster.AspNetCore (TestServer)
+  Aster.Samples.*.Tests/     ← Tests that keep the samples working
 docs/                        ← Architecture review, coding conventions, roadmap
 specs/                       ← Feature specs (001-core-sdk-foundation, …)
 ```
