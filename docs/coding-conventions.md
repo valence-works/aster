@@ -332,6 +332,7 @@ Every packable library (`Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Asp
 
 -   **Adding, changing or removing a public member fails the build** (RS0016 / RS0017) until `PublicAPI.Unshipped.txt` lists the change. A diff to that file is a public API change and should be reviewed as one.
 -   **Updating the file:** apply the IDE code fix, or run `dotnet format analyzers <project> --diagnostics RS0016 RS0017 --severity info`.
+-   **Removing a shipped member:** the code fix only edits `Unshipped`, so RS0017 on a member listed in `PublicAPI.Shipped.txt` stays until you add its line to `PublicAPI.Unshipped.txt` with a `*REMOVED*` prefix (for example `*REMOVED*Aster.Core.Foo.Bar() -> void`). It is a breaking change, so call it out in the PR.
 -   **On release:** move the `Unshipped` entries into `Shipped`.
 -   **Default to `internal`.** Implementations behind a public interface that `AddAsterCore()` or a provider extension registers stay internal, so hosts depend on the interface. Tests reach internals through `InternalsVisibleTo("Aster.Tests")`.
 
