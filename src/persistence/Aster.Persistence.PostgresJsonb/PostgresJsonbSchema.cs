@@ -1,4 +1,5 @@
 using Aster.Core.Models.Tenancy;
+using Aster.Persistence.PostgresJsonb.Querying;
 
 namespace Aster.Persistence.PostgresJsonb;
 
@@ -63,6 +64,22 @@ internal static class PostgresJsonbSchema
         );
         """;
 
+    // Functions rather than inline SQL so projection indexes can be built on them; IMMUTABLE holds because both
+    // use fixed formats and the database's default collation only.
+    private static readonly string QueryFunctions = $$"""
+        CREATE OR REPLACE FUNCTION aster_date_key(text) RETURNS text
+            LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+            AS $function$ SELECT {{PostgresDateKey.Sql("$1")}} $function$;
+
+        CREATE OR REPLACE FUNCTION aster_upper_strings(jsonb) RETURNS jsonb
+            LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+            AS $function$
+                SELECT COALESCE(jsonb_agg(upper((element.value #>> '{}') COLLATE "default")), '[]'::jsonb)
+                FROM jsonb_array_elements(CASE WHEN jsonb_typeof($1) = 'array' THEN $1 ELSE '[]'::jsonb END) element(value)
+                WHERE jsonb_typeof(element.value) = 'string'
+            $function$;
+        """;
+
     /// <summary>
     /// The provider's infrastructure steps, in order. Applied steps are recorded, so a step never changes once
     /// shipped: later changes are new steps.
@@ -70,5 +87,6 @@ internal static class PostgresJsonbSchema
     public static IReadOnlyList<PostgresJsonbInfrastructureStep> Steps { get; } =
     [
         new("0001-initial-schema", "Tables for definitions, resource versions, activation state, lifecycle markers and shared aspects.", Ddl),
+        new("0002-query-functions", "Immutable functions that queries and projection indexes share: date keys and upper-cased array strings.", QueryFunctions),
     ];
 }

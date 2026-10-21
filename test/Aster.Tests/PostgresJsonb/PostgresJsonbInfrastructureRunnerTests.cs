@@ -18,6 +18,8 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
         "Records each time it runs.",
         "CREATE TABLE step_runs (run integer); INSERT INTO step_runs VALUES (1);");
 
+    private static readonly string[] SchemaStepIds = [.. PostgresJsonbSchema.Steps.Select(static step => step.Id)];
+
     private readonly PostgresTestDatabase database = new();
 
     public void Dispose() => database.Dispose();
@@ -33,11 +35,11 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
         var again = await runner.ApplyAsync();
         var verification = await runner.VerifyAsync();
 
-        Assert.Equal(["0001-initial-schema"], pending.Select(static step => step.Id));
+        Assert.Equal(SchemaStepIds, pending.Select(static step => step.Id));
         Assert.Equal(pending, applied);
         Assert.Empty(again);
         Assert.True(verification.IsCurrent);
-        Assert.Equal(["0001-initial-schema"], (await runner.GetAppliedAsync()).Select(static step => step.Id));
+        Assert.Equal(SchemaStepIds, (await runner.GetAppliedAsync()).Select(static step => step.Id));
         Assert.Contains("resource_versions", ReadTableNames());
     }
 
@@ -53,7 +55,7 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
         var applied = await runner.ApplyAsync();
 
         Assert.Equal([CountingStep.Id], applied.Select(static step => step.Id));
-        Assert.Equal(["0001-initial-schema", CountingStep.Id], (await runner.GetAppliedAsync()).Select(static step => step.Id));
+        Assert.Equal([.. SchemaStepIds, CountingStep.Id], (await runner.GetAppliedAsync()).Select(static step => step.Id));
         Assert.Equal(1L, Scalar("SELECT count(*) FROM step_runs;"));
     }
 
@@ -66,7 +68,7 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
 
         var applied = await runner.ApplyAsync();
 
-        Assert.Equal(["0001-initial-schema"], applied.Select(static step => step.Id));
+        Assert.Equal(SchemaStepIds, applied.Select(static step => step.Id));
         Assert.True((await runner.VerifyAsync()).IsCurrent);
     }
 
@@ -97,11 +99,11 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
                 await release.ExecuteNonQueryAsync();
             var applied = await Task.WhenAll(running);
 
-            // One startup applied both steps; the other nine found them recorded.
-            Assert.Single(applied, static steps => steps.Count == 2);
+            // One startup applied every step; the other nine found them recorded.
+            Assert.Single(applied, static steps => steps.Count == SchemaStepIds.Length + 1);
             Assert.Equal(9, applied.Count(static steps => steps.Count == 0));
             Assert.Equal(1L, Scalar("SELECT count(*) FROM step_runs;"));
-            Assert.Equal(2L, Scalar("SELECT count(*) FROM aster_infrastructure_steps;"));
+            Assert.Equal((long)SchemaStepIds.Length + 1, Scalar("SELECT count(*) FROM aster_infrastructure_steps;"));
         }
         finally
         {
@@ -122,7 +124,7 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
         var pending = await runner.GetPendingAsync();
         var verification = await runner.VerifyAsync();
 
-        Assert.Single(pending);
+        Assert.Equal(SchemaStepIds, pending.Select(static step => step.Id));
         Assert.False(verification.IsCurrent);
         Assert.Empty(ReadTableNames());
     }
