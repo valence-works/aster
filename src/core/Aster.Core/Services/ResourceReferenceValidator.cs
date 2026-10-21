@@ -9,7 +9,7 @@ namespace Aster.Core.Services;
 /// Default <see cref="IResourceReferenceValidator"/>, built on bounded <see cref="IResourceVersionReader"/>
 /// reads so every provider validates identically.
 /// </summary>
-public sealed class ResourceReferenceValidator(IResourceVersionReader versionReader) : IResourceReferenceValidator
+internal sealed class ResourceReferenceValidator(IResourceVersionReader versionReader) : IResourceReferenceValidator
 {
     private const string LatestResolution = "latest";
 

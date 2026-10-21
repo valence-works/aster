@@ -10,7 +10,7 @@ namespace Aster.Core.Services;
 /// Default <see cref="IResourceSchemaExporter"/>. Maps facet types and metadata onto JSON Schema 2020-12 keywords
 /// so that every value <see cref="FacetValueValidator"/> accepts also validates against the schema.
 /// </summary>
-public sealed class ResourceSchemaExporter : IResourceSchemaExporter
+internal sealed class ResourceSchemaExporter : IResourceSchemaExporter
 {
     /// <summary>The JSON Schema dialect of exported documents.</summary>
     public const string SchemaDialect = "https://json-schema.org/draft/2020-12/schema";

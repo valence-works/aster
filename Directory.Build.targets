@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    Every packable library tracks its public API (#75). Adding, removing or changing a public member
+    without updating PublicAPI.Unshipped.txt fails the build (RS0016 / RS0017, errors under
+    TreatWarningsAsErrors). On release, move the Unshipped entries into PublicAPI.Shipped.txt.
+  -->
+  <!--
+    RS0026 / RS0027 police optional-parameter overloads. The SDK's tenant pattern pairs
+    X(..., CancellationToken = default) with X(..., TenantScope, CancellationToken) by design, so
+    they are off; RS0016 / RS0017 (the surface tracking) stay on.
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <NoWarn>$(NoWarn);RS0026;RS0027</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="4.14.0" PrivateAssets="all" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

@@ -326,6 +326,15 @@ The root `Directory.Build.props` enforces these settings across all projects:
 
 Combined with `TreatWarningsAsErrors`, missing XML documentation on public types/members causes a build failure.
 
+### Public API tracking
+
+Every packable library (`Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.AspNetCore`) runs `Microsoft.CodeAnalysis.PublicApiAnalyzers`, wired in `Directory.Build.targets`. Each project keeps `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`.
+
+-   **Adding, changing or removing a public member fails the build** (RS0016 / RS0017) until `PublicAPI.Unshipped.txt` lists the change. A diff to that file is a public API change and should be reviewed as one.
+-   **Updating the file:** apply the IDE code fix, or run `dotnet format analyzers <project> --diagnostics RS0016 RS0017 --severity info`.
+-   **On release:** move the `Unshipped` entries into `Shipped`.
+-   **Default to `internal`.** Implementations behind a public interface that `AddAsterCore()` or a provider extension registers stay internal, so hosts depend on the interface. Tests reach internals through `InternalsVisibleTo("Aster.Tests")`.
+
 ### Central Package Management
 
 Package versions are managed centrally in `Directory.Packages.props`. Never specify versions in individual `.csproj` files — use `<PackageReference Include="..." />` without a `Version` attribute.

@@ -9,7 +9,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default host-controlled lifecycle restore workflow service.
 /// </summary>
-public sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreService
+internal sealed class ResourceLifecycleRestoreService : IResourceLifecycleRestoreService
 {
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceLifecycleMarkerClearStore markerStore;

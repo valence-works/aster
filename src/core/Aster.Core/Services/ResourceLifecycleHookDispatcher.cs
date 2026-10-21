@@ -8,7 +8,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default deterministic lifecycle hook dispatcher.
 /// </summary>
-public sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDispatcher
+internal sealed class ResourceLifecycleHookDispatcher : IResourceLifecycleHookDispatcher
 {
     private readonly IServiceScopeFactory scopeFactory;
 

@@ -7,7 +7,7 @@ namespace Aster.Core.Services;
 /// <see cref="ITypedFacetBinder"/> implementation using <c>System.Text.Json</c>.
 /// Applies State Replace semantics: the entire facet value is replaced on each write.
 /// </summary>
-public sealed class SystemTextJsonFacetBinder : ITypedFacetBinder
+internal sealed class SystemTextJsonFacetBinder : ITypedFacetBinder
 {
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 

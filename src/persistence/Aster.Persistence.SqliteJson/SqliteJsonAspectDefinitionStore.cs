@@ -12,7 +12,7 @@ namespace Aster.Persistence.SqliteJson;
 /// SQLite JSON implementation of <see cref="IAspectDefinitionStore"/>, over the additive
 /// <c>aspect_definitions</c> table (ADR 0003).
 /// </summary>
-public sealed class SqliteJsonAspectDefinitionStore : IAspectDefinitionStore
+internal sealed class SqliteJsonAspectDefinitionStore : IAspectDefinitionStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 

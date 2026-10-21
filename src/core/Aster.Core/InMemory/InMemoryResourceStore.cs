@@ -11,7 +11,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory store for <see cref="Resource"/> versions and activation state.
 /// Intended for use by <see cref="InMemoryResourceManager"/> only.
 /// </summary>
-public sealed class InMemoryResourceStore :
+internal sealed class InMemoryResourceStore :
     IResourceVersionReader,
     IResourceVersionWriter,
     IResourceVersionPruningStore,

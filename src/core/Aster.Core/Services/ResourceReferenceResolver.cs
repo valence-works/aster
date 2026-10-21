@@ -10,7 +10,7 @@ namespace Aster.Core.Services;
 /// Default <see cref="IResourceReferenceResolver"/>, built on <see cref="IResourceManager"/> reads so
 /// every provider resolves identically.
 /// </summary>
-public sealed class ResourceReferenceResolver(IResourceManager resourceManager) : IResourceReferenceResolver
+internal sealed class ResourceReferenceResolver(IResourceManager resourceManager) : IResourceReferenceResolver
 {
     private const string LatestResolution = "latest";
 

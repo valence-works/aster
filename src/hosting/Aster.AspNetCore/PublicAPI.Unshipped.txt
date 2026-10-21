@@ -1,0 +1,199 @@
+#nullable enable
+Aster.AspNetCore.AsterActivationRequest
+Aster.AspNetCore.AsterActivationRequest.<Clone>$() -> Aster.AspNetCore.AsterActivationRequest!
+Aster.AspNetCore.AsterActivationRequest.AllowMultipleActive.get -> bool
+Aster.AspNetCore.AsterActivationRequest.AllowMultipleActive.init -> void
+Aster.AspNetCore.AsterActivationRequest.AsterActivationRequest(int Version, string! Channel, bool AllowMultipleActive = false) -> void
+Aster.AspNetCore.AsterActivationRequest.Channel.get -> string!
+Aster.AspNetCore.AsterActivationRequest.Channel.init -> void
+Aster.AspNetCore.AsterActivationRequest.Deconstruct(out int Version, out string! Channel, out bool AllowMultipleActive) -> void
+Aster.AspNetCore.AsterActivationRequest.Equals(Aster.AspNetCore.AsterActivationRequest? other) -> bool
+Aster.AspNetCore.AsterActivationRequest.Version.get -> int
+Aster.AspNetCore.AsterActivationRequest.Version.init -> void
+Aster.AspNetCore.AsterCreateResourceRequest
+Aster.AspNetCore.AsterCreateResourceRequest.<Clone>$() -> Aster.AspNetCore.AsterCreateResourceRequest!
+Aster.AspNetCore.AsterCreateResourceRequest.Aspects.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>?
+Aster.AspNetCore.AsterCreateResourceRequest.Aspects.init -> void
+Aster.AspNetCore.AsterCreateResourceRequest.AsterCreateResourceRequest(string! DefinitionId, string? ResourceId, System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>? Aspects) -> void
+Aster.AspNetCore.AsterCreateResourceRequest.Deconstruct(out string! DefinitionId, out string? ResourceId, out System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>? Aspects) -> void
+Aster.AspNetCore.AsterCreateResourceRequest.DefinitionId.get -> string!
+Aster.AspNetCore.AsterCreateResourceRequest.DefinitionId.init -> void
+Aster.AspNetCore.AsterCreateResourceRequest.Equals(Aster.AspNetCore.AsterCreateResourceRequest? other) -> bool
+Aster.AspNetCore.AsterCreateResourceRequest.ResourceId.get -> string?
+Aster.AspNetCore.AsterCreateResourceRequest.ResourceId.init -> void
+Aster.AspNetCore.AsterDiagnostic
+Aster.AspNetCore.AsterDiagnostic.<Clone>$() -> Aster.AspNetCore.AsterDiagnostic!
+Aster.AspNetCore.AsterDiagnostic.AspectKey.get -> string?
+Aster.AspNetCore.AsterDiagnostic.AspectKey.init -> void
+Aster.AspNetCore.AsterDiagnostic.AsterDiagnostic(string! Code, string? AspectKey, string? FacetId, string! Message, int? ElementIndex = null) -> void
+Aster.AspNetCore.AsterDiagnostic.Code.get -> string!
+Aster.AspNetCore.AsterDiagnostic.Code.init -> void
+Aster.AspNetCore.AsterDiagnostic.Deconstruct(out string! Code, out string? AspectKey, out string? FacetId, out string! Message, out int? ElementIndex) -> void
+Aster.AspNetCore.AsterDiagnostic.ElementIndex.get -> int?
+Aster.AspNetCore.AsterDiagnostic.ElementIndex.init -> void
+Aster.AspNetCore.AsterDiagnostic.Equals(Aster.AspNetCore.AsterDiagnostic? other) -> bool
+Aster.AspNetCore.AsterDiagnostic.FacetId.get -> string?
+Aster.AspNetCore.AsterDiagnostic.FacetId.init -> void
+Aster.AspNetCore.AsterDiagnostic.Message.get -> string!
+Aster.AspNetCore.AsterDiagnostic.Message.init -> void
+Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointGroups.All = Aster.AspNetCore.AsterEndpointGroups.Definitions | Aster.AspNetCore.AsterEndpointGroups.Aspects | Aster.AspNetCore.AsterEndpointGroups.Resources -> Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointGroups.Aspects = 2 -> Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointGroups.Definitions = 1 -> Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointGroups.None = 0 -> Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointGroups.Resources = 4 -> Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointOptions
+Aster.AspNetCore.AsterEndpointOptions.AsterEndpointOptions() -> void
+Aster.AspNetCore.AsterEndpointOptions.AuthorizationPolicies.get -> System.Collections.Generic.IDictionary<Aster.AspNetCore.AsterEndpointGroups, string!>!
+Aster.AspNetCore.AsterEndpointOptions.ConfigureGroup.get -> System.Action<Aster.AspNetCore.AsterEndpointGroups, Microsoft.AspNetCore.Routing.RouteGroupBuilder!>?
+Aster.AspNetCore.AsterEndpointOptions.ConfigureGroup.set -> void
+Aster.AspNetCore.AsterEndpointOptions.DefaultPageSize.get -> int
+Aster.AspNetCore.AsterEndpointOptions.DefaultPageSize.set -> void
+Aster.AspNetCore.AsterEndpointOptions.Groups.get -> Aster.AspNetCore.AsterEndpointGroups
+Aster.AspNetCore.AsterEndpointOptions.Groups.set -> void
+Aster.AspNetCore.AsterEndpointOptions.MaxPageSize.get -> int
+Aster.AspNetCore.AsterEndpointOptions.MaxPageSize.set -> void
+Aster.AspNetCore.AsterEndpointOptions.ReadOnly.get -> bool
+Aster.AspNetCore.AsterEndpointOptions.ReadOnly.set -> void
+Aster.AspNetCore.AsterEndpointRouteBuilderExtensions
+Aster.AspNetCore.AsterFilter
+Aster.AspNetCore.AsterFilter.<Clone>$() -> Aster.AspNetCore.AsterFilter!
+Aster.AspNetCore.AsterFilter.And.get -> System.Collections.Generic.IReadOnlyList<Aster.AspNetCore.AsterFilter!>?
+Aster.AspNetCore.AsterFilter.And.init -> void
+Aster.AspNetCore.AsterFilter.Aspect.get -> string?
+Aster.AspNetCore.AsterFilter.Aspect.init -> void
+Aster.AspNetCore.AsterFilter.AsterFilter() -> void
+Aster.AspNetCore.AsterFilter.Equals(Aster.AspNetCore.AsterFilter? other) -> bool
+Aster.AspNetCore.AsterFilter.Exists.get -> string?
+Aster.AspNetCore.AsterFilter.Exists.init -> void
+Aster.AspNetCore.AsterFilter.Facet.get -> string?
+Aster.AspNetCore.AsterFilter.Facet.init -> void
+Aster.AspNetCore.AsterFilter.Field.get -> string?
+Aster.AspNetCore.AsterFilter.Field.init -> void
+Aster.AspNetCore.AsterFilter.Not.get -> Aster.AspNetCore.AsterFilter?
+Aster.AspNetCore.AsterFilter.Not.init -> void
+Aster.AspNetCore.AsterFilter.Op.get -> string?
+Aster.AspNetCore.AsterFilter.Op.init -> void
+Aster.AspNetCore.AsterFilter.Or.get -> System.Collections.Generic.IReadOnlyList<Aster.AspNetCore.AsterFilter!>?
+Aster.AspNetCore.AsterFilter.Or.init -> void
+Aster.AspNetCore.AsterFilter.Value.get -> System.Text.Json.JsonElement?
+Aster.AspNetCore.AsterFilter.Value.init -> void
+Aster.AspNetCore.AsterQueryRequest
+Aster.AspNetCore.AsterQueryRequest.<Clone>$() -> Aster.AspNetCore.AsterQueryRequest!
+Aster.AspNetCore.AsterQueryRequest.AsterQueryRequest() -> void
+Aster.AspNetCore.AsterQueryRequest.Channel.get -> string?
+Aster.AspNetCore.AsterQueryRequest.Channel.init -> void
+Aster.AspNetCore.AsterQueryRequest.DefinitionId.get -> string?
+Aster.AspNetCore.AsterQueryRequest.DefinitionId.init -> void
+Aster.AspNetCore.AsterQueryRequest.Equals(Aster.AspNetCore.AsterQueryRequest? other) -> bool
+Aster.AspNetCore.AsterQueryRequest.Filter.get -> Aster.AspNetCore.AsterFilter?
+Aster.AspNetCore.AsterQueryRequest.Filter.init -> void
+Aster.AspNetCore.AsterQueryRequest.Lifecycle.get -> string?
+Aster.AspNetCore.AsterQueryRequest.Lifecycle.init -> void
+Aster.AspNetCore.AsterQueryRequest.Scope.get -> string?
+Aster.AspNetCore.AsterQueryRequest.Scope.init -> void
+Aster.AspNetCore.AsterQueryRequest.Skip.get -> int?
+Aster.AspNetCore.AsterQueryRequest.Skip.init -> void
+Aster.AspNetCore.AsterQueryRequest.Sort.get -> System.Collections.Generic.IReadOnlyList<Aster.AspNetCore.AsterSort!>?
+Aster.AspNetCore.AsterQueryRequest.Sort.init -> void
+Aster.AspNetCore.AsterQueryRequest.Take.get -> int?
+Aster.AspNetCore.AsterQueryRequest.Take.init -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext
+Aster.AspNetCore.AsterResourceAuthorizationContext.<Clone>$() -> Aster.AspNetCore.AsterResourceAuthorizationContext!
+Aster.AspNetCore.AsterResourceAuthorizationContext.AsterResourceAuthorizationContext(Microsoft.AspNetCore.Http.HttpContext! HttpContext, Aster.AspNetCore.AsterResourceOperation Operation, string! DefinitionId, string? ResourceId, Aster.Core.Models.Instances.Resource? Resource) -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext.Deconstruct(out Microsoft.AspNetCore.Http.HttpContext! HttpContext, out Aster.AspNetCore.AsterResourceOperation Operation, out string! DefinitionId, out string? ResourceId, out Aster.Core.Models.Instances.Resource? Resource) -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext.DefinitionId.get -> string!
+Aster.AspNetCore.AsterResourceAuthorizationContext.DefinitionId.init -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext.Equals(Aster.AspNetCore.AsterResourceAuthorizationContext? other) -> bool
+Aster.AspNetCore.AsterResourceAuthorizationContext.HttpContext.get -> Microsoft.AspNetCore.Http.HttpContext!
+Aster.AspNetCore.AsterResourceAuthorizationContext.HttpContext.init -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext.Operation.get -> Aster.AspNetCore.AsterResourceOperation
+Aster.AspNetCore.AsterResourceAuthorizationContext.Operation.init -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext.Resource.get -> Aster.Core.Models.Instances.Resource?
+Aster.AspNetCore.AsterResourceAuthorizationContext.Resource.init -> void
+Aster.AspNetCore.AsterResourceAuthorizationContext.ResourceId.get -> string?
+Aster.AspNetCore.AsterResourceAuthorizationContext.ResourceId.init -> void
+Aster.AspNetCore.AsterResourceOperation
+Aster.AspNetCore.AsterResourceOperation.Activate = 3 -> Aster.AspNetCore.AsterResourceOperation
+Aster.AspNetCore.AsterResourceOperation.Create = 1 -> Aster.AspNetCore.AsterResourceOperation
+Aster.AspNetCore.AsterResourceOperation.Read = 0 -> Aster.AspNetCore.AsterResourceOperation
+Aster.AspNetCore.AsterResourceOperation.Update = 2 -> Aster.AspNetCore.AsterResourceOperation
+Aster.AspNetCore.AsterResourcePage
+Aster.AspNetCore.AsterResourcePage.<Clone>$() -> Aster.AspNetCore.AsterResourcePage!
+Aster.AspNetCore.AsterResourcePage.AsterResourcePage(System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.Resource!>! Items, bool HasMore) -> void
+Aster.AspNetCore.AsterResourcePage.Deconstruct(out System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.Resource!>! Items, out bool HasMore) -> void
+Aster.AspNetCore.AsterResourcePage.Equals(Aster.AspNetCore.AsterResourcePage? other) -> bool
+Aster.AspNetCore.AsterResourcePage.HasMore.get -> bool
+Aster.AspNetCore.AsterResourcePage.HasMore.init -> void
+Aster.AspNetCore.AsterResourcePage.Items.get -> System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.Resource!>!
+Aster.AspNetCore.AsterResourcePage.Items.init -> void
+Aster.AspNetCore.AsterSort
+Aster.AspNetCore.AsterSort.<Clone>$() -> Aster.AspNetCore.AsterSort!
+Aster.AspNetCore.AsterSort.Aspect.get -> string?
+Aster.AspNetCore.AsterSort.Aspect.init -> void
+Aster.AspNetCore.AsterSort.AsterSort(string! Field, bool Descending = false, string? Aspect = null) -> void
+Aster.AspNetCore.AsterSort.Deconstruct(out string! Field, out bool Descending, out string? Aspect) -> void
+Aster.AspNetCore.AsterSort.Descending.get -> bool
+Aster.AspNetCore.AsterSort.Descending.init -> void
+Aster.AspNetCore.AsterSort.Equals(Aster.AspNetCore.AsterSort? other) -> bool
+Aster.AspNetCore.AsterSort.Field.get -> string!
+Aster.AspNetCore.AsterSort.Field.init -> void
+Aster.AspNetCore.AsterUpdateResourceRequest
+Aster.AspNetCore.AsterUpdateResourceRequest.<Clone>$() -> Aster.AspNetCore.AsterUpdateResourceRequest!
+Aster.AspNetCore.AsterUpdateResourceRequest.Aspects.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>?
+Aster.AspNetCore.AsterUpdateResourceRequest.Aspects.init -> void
+Aster.AspNetCore.AsterUpdateResourceRequest.AsterUpdateResourceRequest(int BaseVersion, System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>? Aspects) -> void
+Aster.AspNetCore.AsterUpdateResourceRequest.BaseVersion.get -> int
+Aster.AspNetCore.AsterUpdateResourceRequest.BaseVersion.init -> void
+Aster.AspNetCore.AsterUpdateResourceRequest.Deconstruct(out int BaseVersion, out System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>? Aspects) -> void
+Aster.AspNetCore.AsterUpdateResourceRequest.Equals(Aster.AspNetCore.AsterUpdateResourceRequest? other) -> bool
+Aster.AspNetCore.IAsterResourceAuthorizer
+Aster.AspNetCore.IAsterResourceAuthorizer.AuthorizeAsync(Aster.AspNetCore.AsterResourceAuthorizationContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Aster.AspNetCore.ITenantScopeAccessor
+Aster.AspNetCore.ITenantScopeAccessor.GetTenantScope(Microsoft.AspNetCore.Http.HttpContext! httpContext) -> Aster.Core.Models.Tenancy.TenantScope!
+override Aster.AspNetCore.AsterActivationRequest.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterActivationRequest.GetHashCode() -> int
+override Aster.AspNetCore.AsterActivationRequest.ToString() -> string!
+override Aster.AspNetCore.AsterCreateResourceRequest.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterCreateResourceRequest.GetHashCode() -> int
+override Aster.AspNetCore.AsterCreateResourceRequest.ToString() -> string!
+override Aster.AspNetCore.AsterDiagnostic.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterDiagnostic.GetHashCode() -> int
+override Aster.AspNetCore.AsterDiagnostic.ToString() -> string!
+override Aster.AspNetCore.AsterFilter.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterFilter.GetHashCode() -> int
+override Aster.AspNetCore.AsterFilter.ToString() -> string!
+override Aster.AspNetCore.AsterQueryRequest.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterQueryRequest.GetHashCode() -> int
+override Aster.AspNetCore.AsterQueryRequest.ToString() -> string!
+override Aster.AspNetCore.AsterResourceAuthorizationContext.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterResourceAuthorizationContext.GetHashCode() -> int
+override Aster.AspNetCore.AsterResourceAuthorizationContext.ToString() -> string!
+override Aster.AspNetCore.AsterResourcePage.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterResourcePage.GetHashCode() -> int
+override Aster.AspNetCore.AsterResourcePage.ToString() -> string!
+override Aster.AspNetCore.AsterSort.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterSort.GetHashCode() -> int
+override Aster.AspNetCore.AsterSort.ToString() -> string!
+override Aster.AspNetCore.AsterUpdateResourceRequest.Equals(object? obj) -> bool
+override Aster.AspNetCore.AsterUpdateResourceRequest.GetHashCode() -> int
+override Aster.AspNetCore.AsterUpdateResourceRequest.ToString() -> string!
+static Aster.AspNetCore.AsterActivationRequest.operator !=(Aster.AspNetCore.AsterActivationRequest? left, Aster.AspNetCore.AsterActivationRequest? right) -> bool
+static Aster.AspNetCore.AsterActivationRequest.operator ==(Aster.AspNetCore.AsterActivationRequest? left, Aster.AspNetCore.AsterActivationRequest? right) -> bool
+static Aster.AspNetCore.AsterCreateResourceRequest.operator !=(Aster.AspNetCore.AsterCreateResourceRequest? left, Aster.AspNetCore.AsterCreateResourceRequest? right) -> bool
+static Aster.AspNetCore.AsterCreateResourceRequest.operator ==(Aster.AspNetCore.AsterCreateResourceRequest? left, Aster.AspNetCore.AsterCreateResourceRequest? right) -> bool
+static Aster.AspNetCore.AsterDiagnostic.operator !=(Aster.AspNetCore.AsterDiagnostic? left, Aster.AspNetCore.AsterDiagnostic? right) -> bool
+static Aster.AspNetCore.AsterDiagnostic.operator ==(Aster.AspNetCore.AsterDiagnostic? left, Aster.AspNetCore.AsterDiagnostic? right) -> bool
+static Aster.AspNetCore.AsterEndpointRouteBuilderExtensions.MapAster(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, string! prefix = "/api/aster", System.Action<Aster.AspNetCore.AsterEndpointOptions!>? configure = null) -> Microsoft.AspNetCore.Routing.RouteGroupBuilder!
+static Aster.AspNetCore.AsterFilter.operator !=(Aster.AspNetCore.AsterFilter? left, Aster.AspNetCore.AsterFilter? right) -> bool
+static Aster.AspNetCore.AsterFilter.operator ==(Aster.AspNetCore.AsterFilter? left, Aster.AspNetCore.AsterFilter? right) -> bool
+static Aster.AspNetCore.AsterQueryRequest.operator !=(Aster.AspNetCore.AsterQueryRequest? left, Aster.AspNetCore.AsterQueryRequest? right) -> bool
+static Aster.AspNetCore.AsterQueryRequest.operator ==(Aster.AspNetCore.AsterQueryRequest? left, Aster.AspNetCore.AsterQueryRequest? right) -> bool
+static Aster.AspNetCore.AsterResourceAuthorizationContext.operator !=(Aster.AspNetCore.AsterResourceAuthorizationContext? left, Aster.AspNetCore.AsterResourceAuthorizationContext? right) -> bool
+static Aster.AspNetCore.AsterResourceAuthorizationContext.operator ==(Aster.AspNetCore.AsterResourceAuthorizationContext? left, Aster.AspNetCore.AsterResourceAuthorizationContext? right) -> bool
+static Aster.AspNetCore.AsterResourcePage.operator !=(Aster.AspNetCore.AsterResourcePage? left, Aster.AspNetCore.AsterResourcePage? right) -> bool
+static Aster.AspNetCore.AsterResourcePage.operator ==(Aster.AspNetCore.AsterResourcePage? left, Aster.AspNetCore.AsterResourcePage? right) -> bool
+static Aster.AspNetCore.AsterSort.operator !=(Aster.AspNetCore.AsterSort? left, Aster.AspNetCore.AsterSort? right) -> bool
+static Aster.AspNetCore.AsterSort.operator ==(Aster.AspNetCore.AsterSort? left, Aster.AspNetCore.AsterSort? right) -> bool
+static Aster.AspNetCore.AsterUpdateResourceRequest.operator !=(Aster.AspNetCore.AsterUpdateResourceRequest? left, Aster.AspNetCore.AsterUpdateResourceRequest? right) -> bool
+static Aster.AspNetCore.AsterUpdateResourceRequest.operator ==(Aster.AspNetCore.AsterUpdateResourceRequest? left, Aster.AspNetCore.AsterUpdateResourceRequest? right) -> bool

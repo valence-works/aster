@@ -12,7 +12,7 @@ namespace Aster.Persistence.SqliteJson;
 /// <summary>
 /// SQLite JSON implementation of <see cref="IResourceQueryService"/>.
 /// </summary>
-public sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQueryProviderIdentity
+internal sealed class SqliteJsonQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 

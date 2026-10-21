@@ -8,7 +8,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default read-only resource version history inspection service.
 /// </summary>
-public sealed class ResourceVersionHistoryService : IResourceVersionHistoryService
+internal sealed class ResourceVersionHistoryService : IResourceVersionHistoryService
 {
     private readonly IResourceVersionReader versionReader;
     private readonly IResourceActivationStateReader activationStateReader;

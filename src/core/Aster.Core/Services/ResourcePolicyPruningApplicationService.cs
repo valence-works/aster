@@ -10,7 +10,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default host-controlled policy pruning application service.
 /// </summary>
-public sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPruningApplicationService
+internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyPruningApplicationService
 {
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceVersionReader versionReader;
