@@ -132,6 +132,7 @@
     private async Task LoadAsync(int from)
     {
         var current = ++load;
+        var (definitionId, term, state) = (DefinitionId, search, lifecycle);
         error = null;
         errors = AsterFormErrors.None;
         try
@@ -140,8 +141,7 @@
             if (current != load)
                 return;
 
-            var term = search;
-            var (query, filtersText) = AsterQueries.Search(DefinitionId, term, capabilities, PageSize, from, lifecycle);
+            var (query, filtersText) = AsterQueries.Search(definitionId, term, capabilities, PageSize, from, state);
 
             // Validate first, so a refused query shows each diagnostic on the input its path names.
             var validation = await Client.ValidateQueryAsync(query);
