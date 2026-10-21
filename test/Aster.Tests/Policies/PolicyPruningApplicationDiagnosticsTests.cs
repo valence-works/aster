@@ -156,6 +156,7 @@ public sealed class PolicyPruningApplicationDiagnosticsTests : IDisposable
             string resourceId,
             int resourceVersion,
             TenantScope tenantScope,
+            ResourceVersionPruneFloor? floor = null,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Pruning write failed.");
     }
@@ -166,6 +167,7 @@ public sealed class PolicyPruningApplicationDiagnosticsTests : IDisposable
             string resourceId,
             int resourceVersion,
             TenantScope tenantScope,
+            ResourceVersionPruneFloor? floor = null,
             CancellationToken cancellationToken = default) =>
             throw new DataMisalignedException("Unexpected pruning write failed.");
     }

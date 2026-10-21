@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
 using Aster.Core.Models.Querying;
@@ -73,6 +74,76 @@ public abstract class PolicyPruningApplicationStoreTests(IAsterTestDatabase data
             await pruningStore.PruneVersionAsync("versioned", 1, TenantScope.Default));
 
         Assert.Equal([1, 2], (await PolicyTestFixtures.ReadVersionsAsync(provider, "versioned")).Select(static version => version.Version).ToList());
+    }
+
+    [SkippableFact]
+    public async Task PruneVersionAsync_WithAFloor_RefusesTheDeleteThatWouldBreakIt()
+    {
+        // v4 is latest and v3 active; each prune counts what would remain, active versions only when the floor says.
+        await using var provider = Database.CreateProvider();
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(provider);
+        foreach (var version in new[] { 1, 2, 3, 4 })
+            await PolicyTestFixtures.SaveResourceAsync(provider, "versioned", version);
+        await PolicyTestFixtures.ActivateAsync(provider, "versioned", version: 3);
+        var pruningStore = provider.GetRequiredService<IResourceVersionPruningStore>();
+
+        Assert.True(await pruningStore.PruneVersionAsync("versioned", 1, TenantScope.Default, new ResourceVersionPruneFloor(2, InactiveVersionsOnly: true)));
+        await Assert.ThrowsAsync<ResourceVersionPruneFloorException>(async () =>
+            await pruningStore.PruneVersionAsync("versioned", 2, TenantScope.Default, new ResourceVersionPruneFloor(2, InactiveVersionsOnly: true)));
+        Assert.Equal([2, 3, 4], (await PolicyTestFixtures.ReadVersionsAsync(provider, "versioned")).Select(static version => version.Version).ToList());
+
+        Assert.True(await pruningStore.PruneVersionAsync("versioned", 2, TenantScope.Default, new ResourceVersionPruneFloor(2, InactiveVersionsOnly: false)));
+        Assert.Equal([3, 4], (await PolicyTestFixtures.ReadVersionsAsync(provider, "versioned")).Select(static version => version.Version).ToList());
+    }
+
+    [SkippableFact]
+    public async Task ApplyAsync_TwoPrunesUnderAFloorThatAllowsOne_NeverBothSucceed()
+    {
+        // #199: versions 1-3, none active, and a policy that keeps 2. Each request alone may prune, and each reads
+        // three versions before writing, so only the store's floor check stops the second delete.
+        const int Resources = 20;
+        await using (var setup = Database.CreateProvider())
+        {
+            await PolicyTestFixtures.RegisterProductDefinitionAsync(setup, policies: [PolicyTestFixtures.PruningPolicy("keep-two", retainedVersions: 2)]);
+            for (var index = 0; index < Resources; index++)
+            {
+                foreach (var version in new[] { 1, 2, 3 })
+                    await PolicyTestFixtures.SaveResourceAsync(setup, $"raced-{index}", version);
+            }
+        }
+
+        // Separate providers, as separate processes would have.
+        await using var first = Database.CreateProvider();
+        await using var second = Database.CreateProvider();
+        // Resolved up front, so the race is between the prunes rather than the providers' schema startup.
+        _ = first.GetRequiredService<IResourcePolicyPruningApplicationService>();
+        _ = second.GetRequiredService<IResourcePolicyPruningApplicationService>();
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var races = Enumerable.Range(0, Resources).Select(index => Task.WhenAll(
+            PruneAsync(first, $"raced-{index}", 1),
+            PruneAsync(second, $"raced-{index}", 2))).ToList();
+        start.SetResult();
+
+        foreach (var (outcomes, index) in (await Task.WhenAll(races)).Select((outcomes, index) => (outcomes, index)))
+        {
+            var pruned = Assert.Single(outcomes, static outcome => outcome.Status == ResourcePolicyPruningApplicationCandidateStatus.Pruned);
+            var refused = Assert.Single(outcomes, static outcome => outcome.Status == ResourcePolicyPruningApplicationCandidateStatus.Failed);
+            Assert.Equal(ResourcePolicyDiagnosticCodes.PolicyPruningUnsafe, Assert.Single(refused.Diagnostics).Code);
+            Assert.Equal(
+                new[] { 1, 2, 3 }.Where(version => version != pruned.ResourceVersion),
+                (await PolicyTestFixtures.ReadVersionsAsync(first, $"raced-{index}")).Select(static version => version.Version));
+        }
+
+        async Task<ResourcePolicyPruningApplicationCandidateResult> PruneAsync(IServiceProvider provider, string resourceId, int version)
+        {
+            await start.Task;
+            var result = await provider.GetRequiredService<IResourcePolicyPruningApplicationService>().ApplyAsync(
+                new ResourcePolicyPruningApplicationRequest
+                {
+                    Candidates = [PolicyTestFixtures.PruningCandidate(resourceId, version, policyId: "keep-two")],
+                });
+            return Assert.Single(result.Candidates);
+        }
     }
 
     private static async Task RegisterTenantResourceAsync(IServiceProvider provider, TenantScope tenant)

@@ -125,7 +125,7 @@ Aster.Core.Abstractions.IResourceVersionHistoryService
 Aster.Core.Abstractions.IResourceVersionHistoryService.GetHistoriesAsync(Aster.Core.Models.Instances.ResourceVersionHistoryBatchRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceVersionHistoryBatchResult!>
 Aster.Core.Abstractions.IResourceVersionHistoryService.GetHistoryAsync(Aster.Core.Models.Instances.ResourceVersionHistoryRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceVersionHistoryResult!>
 Aster.Core.Abstractions.IResourceVersionPruningStore
-Aster.Core.Abstractions.IResourceVersionPruningStore.PruneVersionAsync(string! resourceId, int resourceVersion, Aster.Core.Models.Tenancy.TenantScope! tenantScope, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Aster.Core.Abstractions.IResourceVersionPruningStore.PruneVersionAsync(string! resourceId, int resourceVersion, Aster.Core.Models.Tenancy.TenantScope! tenantScope, Aster.Core.Models.Policies.ResourceVersionPruneFloor? floor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Aster.Core.Abstractions.IResourceVersionReader
 Aster.Core.Abstractions.IResourceVersionReader.ReadVersionsAsync(Aster.Core.Abstractions.ResourceVersionReadRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IEnumerable<Aster.Core.Models.Instances.Resource!>!>
 Aster.Core.Abstractions.IResourceVersionWriter
@@ -3325,3 +3325,21 @@ static Aster.Core.Models.Infrastructure.InfrastructureStep.operator !=(Aster.Cor
 static Aster.Core.Models.Infrastructure.InfrastructureStep.operator ==(Aster.Core.Models.Infrastructure.InfrastructureStep? left, Aster.Core.Models.Infrastructure.InfrastructureStep? right) -> bool
 static Aster.Core.Models.Infrastructure.InfrastructureVerification.operator !=(Aster.Core.Models.Infrastructure.InfrastructureVerification? left, Aster.Core.Models.Infrastructure.InfrastructureVerification? right) -> bool
 static Aster.Core.Models.Infrastructure.InfrastructureVerification.operator ==(Aster.Core.Models.Infrastructure.InfrastructureVerification? left, Aster.Core.Models.Infrastructure.InfrastructureVerification? right) -> bool
+Aster.Core.Exceptions.ResourceVersionPruneFloorException
+Aster.Core.Exceptions.ResourceVersionPruneFloorException.ResourceVersionPruneFloorException() -> void
+Aster.Core.Exceptions.ResourceVersionPruneFloorException.ResourceVersionPruneFloorException(string! message) -> void
+Aster.Core.Exceptions.ResourceVersionPruneFloorException.ResourceVersionPruneFloorException(string! message, System.Exception! innerException) -> void
+Aster.Core.Models.Policies.ResourceVersionPruneFloor
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.<Clone>$() -> Aster.Core.Models.Policies.ResourceVersionPruneFloor!
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.Deconstruct(out int MinimumRemainingVersions, out bool InactiveVersionsOnly) -> void
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.Equals(Aster.Core.Models.Policies.ResourceVersionPruneFloor? other) -> bool
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.InactiveVersionsOnly.get -> bool
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.InactiveVersionsOnly.init -> void
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.MinimumRemainingVersions.get -> int
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.MinimumRemainingVersions.init -> void
+Aster.Core.Models.Policies.ResourceVersionPruneFloor.ResourceVersionPruneFloor(int MinimumRemainingVersions, bool InactiveVersionsOnly) -> void
+override Aster.Core.Models.Policies.ResourceVersionPruneFloor.Equals(object? obj) -> bool
+override Aster.Core.Models.Policies.ResourceVersionPruneFloor.GetHashCode() -> int
+override Aster.Core.Models.Policies.ResourceVersionPruneFloor.ToString() -> string!
+static Aster.Core.Models.Policies.ResourceVersionPruneFloor.operator !=(Aster.Core.Models.Policies.ResourceVersionPruneFloor? left, Aster.Core.Models.Policies.ResourceVersionPruneFloor? right) -> bool
+static Aster.Core.Models.Policies.ResourceVersionPruneFloor.operator ==(Aster.Core.Models.Policies.ResourceVersionPruneFloor? left, Aster.Core.Models.Policies.ResourceVersionPruneFloor? right) -> bool

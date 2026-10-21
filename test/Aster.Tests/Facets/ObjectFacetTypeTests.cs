@@ -9,7 +9,9 @@ using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
 using Aster.Core.Models.Querying;
+using Aster.Persistence.PostgresJsonb;
 using Aster.Persistence.SqliteJson;
+using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,23 +19,31 @@ namespace Aster.Tests.Facets;
 
 /// <summary>
 /// #84: the <c>object</c> facet type (ADR 0002 §1, §5, §7) stores structured JSON objects verbatim,
-/// rejects non-object values on save, round-trips through both providers and portability, and is
+/// rejects non-object values on save, round-trips through every provider and portability, and is
 /// derived from nested types on typed aspects.
 /// </summary>
 public sealed class ObjectFacetTypeTests : IDisposable
 {
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
+    private const string Postgres = "postgres";
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
+    private readonly PostgresTestDatabase postgres = new();
 
-    public void Dispose() => SqliteJsonTestDatabase.DeleteFiles(databasePath);
+    public void Dispose()
+    {
+        SqliteJsonTestDatabase.DeleteFiles(databasePath);
+        postgres.Dispose();
+    }
 
     private ServiceProvider CreateProvider(string providerKind)
     {
         var services = new ServiceCollection().AddAsterCore();
         if (providerKind == Sqlite)
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
+        else if (providerKind == Postgres)
+            services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
 
         return services.BuildServiceProvider();
     }
@@ -90,9 +100,10 @@ public sealed class ObjectFacetTypeTests : IDisposable
         await RegisterAsync(provider, Definition(Facet("Settings", type, metadata: new FacetMetadata { Label = "Settings", UiHint = "json" })));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task RegisterDefinitionAsync_ObjectArray_IsUnknownType(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -133,6 +144,8 @@ public sealed class ObjectFacetTypeTests : IDisposable
         { InMemory, new Dictionary<string, object>() },
         { Sqlite, new JsonObject { ["provider"] = "openai" } },
         { InMemory, Expando(("provider", "openai")) },
+        { Postgres, new ModelSettings("openai", "gpt", 0.2m, 512) },
+        { Postgres, JsonSerializer.Deserialize<JsonElement>("""{"provider":"openai","stop":["\n"],"extra":null}""") },
     };
 
     private static System.Dynamic.ExpandoObject Expando(params (string Key, object Value)[] members)
@@ -144,7 +157,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
         return expando;
     }
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(ObjectValues))]
     public async Task CreateAsync_ObjectValue_IsSavedAndRevalidatesAfterReadBack(string providerKind, object value)
     {
@@ -179,6 +192,8 @@ public sealed class ObjectFacetTypeTests : IDisposable
         { InMemory, JsonValue.Create("text") },
         { Sqlite, (Int128)5 },
         { InMemory, new Slug("hello") },
+        { Postgres, new[] { "a", "b" } },
+        { Postgres, "openai" },
     };
 
     [JsonConverter(typeof(SlugConverter))]
@@ -193,7 +208,7 @@ public sealed class ObjectFacetTypeTests : IDisposable
             writer.WriteStringValue(value.Value);
     }
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(NonObjectValues))]
     public async Task CreateAsync_NonObjectValue_IsTypeMismatchAndNothingPersisted(string providerKind, object value)
     {
@@ -209,9 +224,10 @@ public sealed class ObjectFacetTypeTests : IDisposable
         Assert.Empty(await provider.GetRequiredService<IResourceQueryService>().QueryAsync(new ResourceQuery { DefinitionId = "Agent" }));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory, false)]
     [InlineData(Sqlite, true)]
+    [InlineData(Postgres, true)]
     public async Task CreateAsync_RequiredObjectMissingOrNull_IsRequiredViolation(string providerKind, bool explicitNull)
     {
         await using var provider = CreateProvider(providerKind);
@@ -230,9 +246,10 @@ public sealed class ObjectFacetTypeTests : IDisposable
     // Round-trip, query, typed aspects
     // ──────────────────────────────────────────────────────────────────────────
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task ObjectValue_RoundTripsUnchangedThroughStoreAndPortability(string providerKind)
     {
         await using var source = CreateProvider(providerKind);
@@ -273,9 +290,10 @@ public sealed class ObjectFacetTypeTests : IDisposable
         var (leftKind, rightKind) => leftKind == rightKind,
     };
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task Exists_MatchesObjectFacets(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -307,9 +325,10 @@ public sealed class ObjectFacetTypeTests : IDisposable
         public Dictionary<string, string> Headers { get; init; } = [];
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task TypedAspect_NestedTypesDeriveObjectFacetsAndValidate(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
