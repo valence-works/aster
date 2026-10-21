@@ -70,19 +70,31 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
         Assert.True((await runner.VerifyAsync()).IsCurrent);
     }
 
-    [SkippableFact]
-    public async Task ApplyAsync_TenConcurrentStartups_ApplyEachStepExactlyOnce()
+    [SkippableTheory]
+    [InlineData(null)]
+    [InlineData("repeatable read")]
+    public async Task ApplyAsync_TenConcurrentStartups_ApplyEachStepExactlyOnce(string? defaultIsolation)
     {
+        // A stricter server default must not change the outcome: the runner pins its own isolation level.
+        if (defaultIsolation is not null)
+            Execute($"ALTER DATABASE \"{new NpgsqlConnectionStringBuilder(database.ConnectionString).Database}\" SET default_transaction_isolation = '{defaultIsolation}';");
+
         var dataSources = Enumerable.Range(0, 10).Select(_ => NpgsqlDataSource.Create(database.ConnectionString)).ToList();
         try
         {
-            var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            // Hold the runner's lock until every startup is queued behind it, so they all wait on one another.
+            await using var holder = new NpgsqlConnection(database.ConnectionString);
+            await holder.OpenAsync();
+            await using (var take = new NpgsqlCommand($"SELECT pg_advisory_lock({PostgresJsonbInfrastructureRunner.LockKey});", holder))
+                await take.ExecuteNonQueryAsync();
+
             var running = dataSources.Select(dataSource => Task.Run(async () =>
-            {
-                await start.Task;
-                return await new PostgresJsonbInfrastructureRunner(dataSource, [.. PostgresJsonbSchema.Steps, CountingStep]).ApplyAsync();
-            })).ToList();
-            start.SetResult();
+                await new PostgresJsonbInfrastructureRunner(dataSource, [.. PostgresJsonbSchema.Steps, CountingStep]).ApplyAsync())).ToList();
+            while ((long)Scalar("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted;")! < dataSources.Count)
+                await Task.Delay(20);
+
+            await using (var release = new NpgsqlCommand($"SELECT pg_advisory_unlock({PostgresJsonbInfrastructureRunner.LockKey});", holder))
+                await release.ExecuteNonQueryAsync();
             var applied = await Task.WhenAll(running);
 
             // One startup applied both steps; the other nine found them recorded.

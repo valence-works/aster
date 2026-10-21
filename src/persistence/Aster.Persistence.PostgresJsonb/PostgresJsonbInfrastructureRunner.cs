@@ -1,3 +1,4 @@
+using System.Data;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Infrastructure;
 using Npgsql;
@@ -18,7 +19,7 @@ internal sealed record PostgresJsonbInfrastructureStep(string Id, string Descrip
 internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
 {
     // An arbitrary constant shared by every Aster process, so concurrent runs against one database serialize.
-    private const long LockKey = 0x4153_5445_5200_0001; // "ASTER", 1
+    internal const long LockKey = 0x4153_5445_5200_0001; // "ASTER", 1
 
     private const string StepsTable = """
         CREATE TABLE IF NOT EXISTS aster_infrastructure_steps (
@@ -76,7 +77,9 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     public async ValueTask<IReadOnlyList<InfrastructureStep>> ApplyAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        // Read committed, explicitly (Npgsql's default too): the read after the lock must see the steps an earlier holder
+        // committed, which a repeatable-read snapshot taken at the lock statement would not.
+        await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
 
         await using (var command = new NpgsqlCommand("SELECT pg_advisory_xact_lock(@key);", connection, transaction))
         {
