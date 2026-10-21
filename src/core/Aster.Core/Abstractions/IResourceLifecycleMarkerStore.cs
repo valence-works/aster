@@ -49,10 +49,22 @@ public interface IResourceLifecycleMarkerClearStore : IResourceLifecycleMarkerSt
 }
 
 /// <summary>
-/// Host-facing service for explicit archive and soft-delete marker writes.
+/// Host-facing service for explicit archive and soft-delete markers: reads and writes.
 /// </summary>
 public interface IResourceLifecycleMarkerService
 {
+    /// <summary>
+    /// Reads a resource's lifecycle marker: its state, reason, and marked-at time.
+    /// </summary>
+    /// <param name="resourceId">The logical resource ID.</param>
+    /// <param name="tenantScope">The tenant to read in; the default tenant when <see langword="null"/>.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The marker, or <see langword="null"/> when the resource has none in that tenant.</returns>
+    ValueTask<ResourceLifecycleMarker?> GetAsync(
+        string resourceId,
+        TenantScope? tenantScope = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Applies an archive or soft-delete marker to a resource.
     /// </summary>

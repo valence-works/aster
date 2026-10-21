@@ -132,7 +132,9 @@ public static class AsterCoreServiceCollectionExtensions
                 sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
         services.AddSingleton<IResourcePolicyPruningApplicationService, ResourcePolicyPruningApplicationService>();
         services.AddSingleton<IResourceLifecycleMarkerService>(sp =>
-            new ResourceLifecycleMarkerService(sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>()));
+            new ResourceLifecycleMarkerService(
+                sp.GetRequiredService<IResourceLifecycleMarkerTransitionService>(),
+                sp.GetRequiredService<IResourceLifecycleMarkerStore>()));
         services.AddSingleton<IResourceLifecycleRestoreService>(sp =>
             new ResourceLifecycleRestoreService(
                 sp.GetRequiredService<IResourceVersionReader>(),
