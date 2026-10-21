@@ -236,7 +236,34 @@ public sealed class TypedFacetQuery<TValue>
         new FacetValueFilter(aspectKey, facetIdentifier, value, ComparisonOperator.StartsWith);
 
     /// <summary>
-    /// Creates a facet existence filter.
+    /// Creates an array containment filter: the facet's array contains <paramref name="element"/>.
+    /// </summary>
+    /// <typeparam name="TElement">The element type, such as <see cref="string"/> for a <c>string[]</c> facet.</typeparam>
+    /// <param name="element">The element to look for.</param>
+    /// <returns>A portable facet value filter.</returns>
+    public FilterExpression ArrayContains<TElement>(TElement element) =>
+        new FacetValueFilter(aspectKey, facetIdentifier, element!, ComparisonOperator.ArrayContains);
+
+    /// <summary>
+    /// Creates an array containment filter: the facet's array contains at least one of <paramref name="elements"/>.
+    /// </summary>
+    /// <typeparam name="TElement">The element type.</typeparam>
+    /// <param name="elements">The candidate elements; at least one is required.</param>
+    /// <returns>A portable facet value filter.</returns>
+    public FilterExpression ArrayContainsAny<TElement>(params TElement[] elements) =>
+        new FacetValueFilter(aspectKey, facetIdentifier, elements, ComparisonOperator.ArrayContainsAny);
+
+    /// <summary>
+    /// Creates an array containment filter: the facet's array contains every one of <paramref name="elements"/>.
+    /// </summary>
+    /// <typeparam name="TElement">The element type.</typeparam>
+    /// <param name="elements">The required elements; at least one is required.</param>
+    /// <returns>A portable facet value filter.</returns>
+    public FilterExpression ArrayContainsAll<TElement>(params TElement[] elements) =>
+        new FacetValueFilter(aspectKey, facetIdentifier, elements, ComparisonOperator.ArrayContainsAll);
+
+    /// <summary>
+    /// Creates a facet existence filter. Missing values, JSON <c>null</c>, and empty arrays do not exist.
     /// </summary>
     /// <returns>A portable facet value filter.</returns>
     public FilterExpression Exists() =>

@@ -104,8 +104,15 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
                 TextContains($"CAST({value.Value} AS TEXT)", filter.Value),
             ComparisonOperator.StartsWith =>
                 TextStartsWith($"CAST({value.Value} AS TEXT)", filter.Value),
+            // An empty array does not exist; CASE keeps json_array_length away from non-JSON text values.
             ComparisonOperator.Exists =>
-                $"{value.Value} IS NOT NULL",
+                $"CASE WHEN {value.Type} = 'array' THEN json_array_length({value.Value}) > 0 ELSE {value.Value} IS NOT NULL END",
+            ComparisonOperator.ArrayContains =>
+                TranslateArrayContains(value, [filter.Value], requireAll: false),
+            ComparisonOperator.ArrayContainsAny =>
+                TranslateArrayContains(value, ResolveArrayCandidates(filter.Value), requireAll: false),
+            ComparisonOperator.ArrayContainsAll =>
+                TranslateArrayContains(value, ResolveArrayCandidates(filter.Value), requireAll: true),
             ComparisonOperator.Range when filter.Value is RangeValue range =>
                 TranslateRange(value, range),
             ComparisonOperator.Range =>
@@ -237,6 +244,65 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         TryConvertDouble(expected, out var number)
             ? $"{value.IsNumeric} AND CAST({value.Value} AS REAL) = {parameters.Add(number)}"
             : TextEquals($"CAST({value.Value} AS TEXT)", expected);
+
+    // Mirrors InMemoryQueryService.ArrayElementMatches: the candidate's QueryArrayValue kind selects
+    // which JSON element type matches and how. CASE guards json_each from scalar facet values, which
+    // are not JSON documents.
+    private string TranslateArrayContains(SqliteFacetValueExpression value, IReadOnlyList<object?> candidates, bool requireAll)
+    {
+        var matches = candidates.Select(TranslateArrayElementMatch).ToList();
+        var predicate = requireAll
+            ? string.Join(" AND ", matches.Select(match => $"EXISTS (SELECT 1 FROM json_each({value.Value}) element WHERE {match})"))
+            : $"EXISTS (SELECT 1 FROM json_each({value.Value}) element WHERE {string.Join(" OR ", matches.Select(match => $"({match})"))})";
+
+        return $"CASE WHEN {value.Type} = 'array' THEN ({predicate}) ELSE 0 END";
+    }
+
+    private string TranslateArrayElementMatch(object? candidate)
+    {
+        if (!QueryArrayValue.TryClassify(candidate, out var kind))
+            throw Unsupported(
+                "unsupported-array-value-shape",
+                "value shape",
+                "Array candidates must be string, GUID, numeric, boolean, or date/time values.",
+                "Filter.Value");
+
+        return kind switch
+        {
+            QueryArrayElementKind.Text =>
+                $"element.type = 'text' AND {SqliteTextBehavior.EqualsFunction}(element.value, CAST({parameters.Add(QueryArrayValue.FormatText(candidate!))} AS TEXT))",
+            // Whole numbers bind as INTEGER so integer elements compare exactly beyond 2^53; SQLite still
+            // compares an INTEGER parameter with a REAL element (e.g. 2.0) numerically.
+            QueryArrayElementKind.Numeric when QueryArrayValue.TryGetIntegral(candidate!, out var integral) =>
+                $"element.type IN ('integer', 'real') AND element.value = {parameters.Add(integral)}",
+            QueryArrayElementKind.Numeric =>
+                $"element.type IN ('integer', 'real') AND CAST(element.value AS REAL) = {parameters.Add(Convert.ToDouble(candidate, CultureInfo.InvariantCulture))}",
+            QueryArrayElementKind.Boolean =>
+                candidate is true ? "element.type = 'true'" : "element.type = 'false'",
+            _ =>
+                $"element.type = 'text' AND {SqliteDateTimeBehavior.DateKeyFunction}(element.value) = {parameters.Add(ConvertToDateKey(candidate!, "array candidate", "Filter.Value"))}",
+        };
+    }
+
+    private static IReadOnlyList<object?> ResolveArrayCandidates(object? value)
+    {
+        if (value is null or string || value is not IEnumerable enumerable)
+            throw Unsupported(
+                "array-values-required",
+                "value shape",
+                "ArrayContainsAny and ArrayContainsAll predicates require a non-string enumerable value set.",
+                "Filter.Value");
+
+        var candidates = enumerable.Cast<object?>().ToList();
+        if (candidates.Count == 0)
+            throw Unsupported(
+                "empty-array-values",
+                "value shape",
+                "ArrayContainsAny and ArrayContainsAll predicates require at least one candidate value.",
+                "Filter.Value");
+
+        return candidates;
+    }
 
     private static IReadOnlyList<object?> ResolveInValues(object? value)
     {

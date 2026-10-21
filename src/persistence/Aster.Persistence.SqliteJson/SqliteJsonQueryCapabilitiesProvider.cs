@@ -57,6 +57,9 @@ public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabili
                 ComparisonOperator.StartsWith,
                 ComparisonOperator.Range,
                 ComparisonOperator.Exists,
+                ComparisonOperator.ArrayContains,
+                ComparisonOperator.ArrayContainsAny,
+                ComparisonOperator.ArrayContainsAll,
             },
         },
         SupportedMetadataFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -91,5 +94,6 @@ public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabili
         ])
     {
         SupportsLifecycleStateFiltering = true,
+        MaxArrayQueryElements = 100,
     };
 }

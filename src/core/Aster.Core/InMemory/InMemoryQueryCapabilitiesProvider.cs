@@ -57,6 +57,9 @@ public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabiliti
                 ComparisonOperator.StartsWith,
                 ComparisonOperator.Range,
                 ComparisonOperator.Exists,
+                ComparisonOperator.ArrayContains,
+                ComparisonOperator.ArrayContainsAny,
+                ComparisonOperator.ArrayContainsAll,
             },
         },
         SupportedMetadataFields: new HashSet<string>(StringComparer.OrdinalIgnoreCase)

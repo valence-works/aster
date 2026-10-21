@@ -93,11 +93,39 @@ new LogicalExpression(LogicalOperator.Not, [
 | `Contains` | Substring match (strings only) | Yes | Yes |
 | `StartsWith` | Prefix match (strings only, case-insensitive) | Yes | Yes |
 | `Range` | Min/max bounds via `RangeValue` | Numeric / date | Numeric and date-like scalar facets |
-| `Exists` | Facet value is present and non-null | Facets | Facets |
+| `Exists` | Facet value is present, non-null, and not an empty array | Facets | Facets |
+| `ArrayContains` | Facet array contains the single candidate | Facets | Facets |
+| `ArrayContainsAny` | Facet array contains at least one candidate | Facets | Facets (up to 100 candidates) |
+| `ArrayContainsAll` | Facet array contains every candidate | Facets | Facets (up to 100 candidates) |
 
 `Range` values use `new RangeValue(min, max, includeMin, includeMax)`. A `null` min or max means the range is unbounded on that side.
 SQLite date-like facet ranges match JSON string scalar values in the ISO-8601-style shape emitted by `System.Text.Json` for `DateTime` or `DateTimeOffset`. Date-only strings, malformed strings, numbers, booleans, objects, arrays, nulls, and missing facets do not match date-like ranges.
 `In` values must be non-null, non-string enumerables with at least one candidate. `Exists` is represented as a `FacetValueFilter`; providers ignore the value for that operator.
+### Array operators
+
+The array operators match facets stored as JSON arrays, such as `string[]` facets. They are order-insensitive and duplicate-insensitive, and they combine with `And`, `Or` and `Not` like any other filter. A facet that is missing, `null`, or not an array never matches; queries do not look up facet definitions (ADR 0002 §9), so an array operator against a scalar facet simply returns nothing.
+
+Element equality follows the candidate's CLR type (`QueryArrayValue`):
+
+| Candidate | Matches elements that are |
+|---|---|
+| `string`, `Guid` | JSON strings, compared ordinally ignoring case. `Guid` candidates are formatted in the hyphenated `D` form, so GUID case doesn't matter but the stored form does. Elements of a `guid[]` facet are always `D` form, because saves reject other forms; untyped string elements in `N`, `B` or `P` form don't match. |
+| numeric types | JSON numbers with the same value (`2`, `2L` and `2.0` are equal) |
+| `bool` | JSON `true` or `false` |
+| `DateTime`, `DateTimeOffset` | JSON strings in an accepted ISO-8601 shape denoting the same UTC instant |
+
+A string candidate never matches a number element and vice versa: `ArrayContains("3")` does not match `[3]`. `ArrayContains` takes one candidate; `ArrayContainsAny` and `ArrayContainsAll` take a non-empty, non-string enumerable. Invalid shapes fail validation with `array-value-required`, `array-values-required`, `empty-array-values`, `unsupported-array-value-shape` (path `Filter.Value[i]`), or `array-values-limit-exceeded` when the candidates exceed the provider's `QueryCapabilityDescription.MaxArrayQueryElements`. Array operators on metadata filters fail with `unsupported-comparison-operator`.
+
+```csharp
+// All workflows tagged "billing".
+var billing = new FacetValueFilter("Labels", "Tags", "billing", ComparisonOperator.ArrayContains);
+
+// Agents whose allowed environments include staging or prod.
+var deployable = TypedQuery.For<AgentAspect>()
+    .Facet(x => x.Environments)
+    .ArrayContainsAny("staging", "prod");
+```
+
 `MetadataFilter.Value` now accepts `object` so metadata `In` predicates can carry enumerable candidate sets; callers that previously read it as `string` should format or pattern-match the value before using string-specific members.
 
 ---
@@ -251,6 +279,8 @@ var filter = TypedQuery.For<PriceAspect>(aspectKey: "PriceAspect:Sale")
     .Range(min: 10m, max: 100m);
 ```
 
+For array facets, use `ArrayContains`, `ArrayContainsAny` and `ArrayContainsAll`, for example `.Facet(x => x.Tags).ArrayContainsAny("billing", "ops")`. The string `Contains` helper is a substring match on scalar strings.
+
 The generated `AspectPresenceFilter` or `FacetValueFilter` remains inspectable before validation or execution.
 
 Typed sort helpers generate ordinary `SortExpression` values, and logical helpers generate ordinary `LogicalExpression` values. Manual AST construction remains fully supported.
@@ -291,7 +321,7 @@ The provider supports:
 - metadata filtering and sorting over `ResourceId`, `Id`, `DefinitionId`, `Owner`, `Version`, and `Created`.
 - `Skip` and `Take`.
 - aspect presence checks.
-- metadata/facet `Equals`, `NotEquals`, `In`, string `Contains`, string `StartsWith`, facet `Exists`, numeric/date-like facet `Range`, and facet sorting.
+- metadata/facet `Equals`, `NotEquals`, `In`, string `Contains`, string `StartsWith`, facet `Exists`, numeric/date-like facet `Range`, facet `ArrayContains`/`ArrayContainsAny`/`ArrayContainsAll` (via `json_each`, at most 100 candidates), and facet sorting.
 - `And`, `Or`, and single-operand `Not`.
 
 Unsupported SQLite query shapes fail with `UnsupportedQueryFeatureException` instead of falling back to in-memory evaluation. The exception exposes stable `Code`, `Feature`, optional `Path`, and a human-readable message. Current intentional exclusions include metadata range filters, unknown metadata fields, empty ranges, negative paging values, mixed range bound shapes, and invalid date-like range bound values.
