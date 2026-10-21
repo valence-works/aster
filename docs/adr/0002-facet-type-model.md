@@ -122,7 +122,7 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 
 - **Facet ID:** the property name. Reads already tolerate camelCase storage.
 - **`IsRequired`:** set only from the C# `required` modifier (`RequiredMemberAttribute`). Nullability annotations are not used: too implicit, and value types always have a default.
-- **References:** never inferred. Hosts declare them explicitly.
+- **References:** never inferred. Hosts declare them explicitly, by hand or with `[ReferenceFacet]` on a typed aspect property (see the #222 addendum).
 - **Enums (amended during #124):** enum properties produce no facet for now. The stores serialize typed aspects with the same options as lifecycle markers and policy kinds, which SQLite compares as integers, so writing enums as names would change the stored format. A `string` facet over integer-stored enums would make later updates fail with a type mismatch. [#131](https://github.com/valence-works/aster/issues/131) decided to keep skipping them for 1.0; see the addendum below.
 - **Explicit API:** a new `WithFacet(string facetId, string type, bool isRequired = false)` builder method declares facets on dictionary-style aspects, and `WithFacetMetadata(string facetId, FacetMetadata metadata)` targets a facet by ID. `WithTypedFacet<T>()` becomes `[Obsolete]`.
 
@@ -172,3 +172,13 @@ Saves check every reference value: the target must exist in the saving tenant, h
 - **Mode:** `AsterOptions.ReferenceValidation` is `Strict` (the default; the save is rejected) or `Lenient` (the save proceeds; diagnostics are logged and passed to save hooks as `ReferenceWarnings`). Strict is the default because references are new in 1.0, so no existing data depends on dangling targets. `IResourceManager` return types stay unchanged, so lenient warnings reach hosts through hooks or an explicit `IResourceReferenceValidator` preview rather than through the save result.
 - **Updates check only the aspects they write.** Otherwise a target that is deleted or deactivated later would block every unrelated edit of the referrer. Finding such dangling references belongs to reverse lookup (#88).
 - **Reads are bounded:** one latest-version read for all targets, plus one active-version read per channel.
+
+### Typed aspects opt into references with `[ReferenceFacet]` (#222)
+
+**Decision:** a typed aspect property marked `[ReferenceFacet]` derives a `reference` facet from `string` and a `reference[]` facet from any collection that would otherwise derive `string[]`. The attribute carries the per-facet reference options of §6: `[ReferenceFacet("Prompt")]` declares `TargetDefinitionIds`, and its `ReferenceResolution` property declares the resolution channel. On any other property type, including one with its own `[JsonConverter]`, deriving the aspect throws `InvalidOperationException` naming the property.
+
+**Why this is not inference:** "never inferred" (§8) forbids Aster deciding on its own that a string holds a resource ID, by name, shape or content. The attribute is the host's explicit declaration, placed on the property instead of in a separate `WithFacet` call, so a typed aspect no longer has to be re-declared by hand (as the prompt registry sample's `Agent` was) just to hold a reference.
+
+**Same facet, same rules:** derivation produces exactly the facet `WithFacet(id, "reference")` plus `WithFacetMetadata` would, so registration-time metadata validation, JSON Schema export (#106), save-time reference validation (#87), reverse lookup and portability rewriting treat both alike. `WithFacetMetadata` on such a facet keeps the attribute's `TargetDefinitionIds` and `ReferenceResolution` unless the new metadata declares its own, so other constraints such as `UniqueItems` can be added without restating the targets.
+
+**Rejected:** a builder facet-type override (for example `WithFacetType("Prompt", "reference")`). It keeps the reference declaration apart from the property, and an override of arbitrary types would bypass the CLR-to-facet mapping that keeps derived facets consistent with stored JSON.

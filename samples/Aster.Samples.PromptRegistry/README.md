@@ -25,7 +25,7 @@ The in-memory store needs no setup. The program:
 | Capability | Where |
 |---|---|
 | Typed aspects with derived `string[]` and `object` facets | [`Model/Prompt.cs`](Model/Prompt.cs), where `ModelSettings` is a nested record stored as `object` |
-| `reference` and `reference[]` facets with `TargetDefinitionIds`, checked on save | [`Model/RegistryDefinitions.cs`](Model/RegistryDefinitions.cs), `AgentDefinition` |
+| `reference` and `reference[]` facets derived with `[ReferenceFacet]` and `TargetDefinitionIds`, checked on save | [`Model/Agent.cs`](Model/Agent.cs), `AgentDefinition` in [`Model/RegistryDefinitions.cs`](Model/RegistryDefinitions.cs) |
 | Drafts (versions active in no channel), single-active channels | [`Registry/PromptRegistryService.cs`](Registry/PromptRegistryService.cs) |
 | `allowMultipleActive` for A/B tests, `DeactivateAsync` to end them | `StartAbTestAsync`, `ConcludeAbTestAsync` |
 | Batch version history (023) | `PromptRegistryScenario.DescribeAsync` |
@@ -34,7 +34,7 @@ The in-memory store needs no setup. The program:
 
 ## How it fits together
 
-**Definitions.** `Prompt` (name, template, `Variables` as `string[]`, `Model` as `object`) and `Tool` (name, description) derive their facets from records. `Agent` declares its facets explicitly: `Prompt` is a `reference` to a `Prompt` and `Tools` is a `reference[]` to `Tool`s. Aster never infers references, so a typed aspect cannot declare one. With the default strict reference validation, saving an agent that points at a missing prompt, or at a prompt where a tool is expected, fails.
+**Definitions.** `Prompt` (name, template, `Variables` as `string[]`, `Model` as `object`) and `Tool` (name, description) derive their facets from records. So does `Agent`, whose `Prompt` and `Tools` properties are marked `[ReferenceFacet]`: `Prompt` becomes a `reference` to a `Prompt` and `Tools` a `reference[]` to `Tool`s. Aster never infers references; the attribute is the explicit opt-in. With the default strict reference validation, saving an agent that points at a missing prompt, or at a prompt where a tool is expected, fails.
 
 **Channels.** A saved version is active nowhere, which makes it a draft. `ReleaseToCandidateAsync` makes it the one version in `candidate`. `PromoteToProductionAsync` activates the candidate version in `production` as its only version. Promotion is a host helper rather than an SDK call, as the Elsa spike decided (F7 in [the spike findings](../../docs/consumers/elsa-spike.md#decisions)).
 
@@ -45,7 +45,6 @@ The in-memory store needs no setup. The program:
 ## Design notes and SDK gaps found
 
 - **Definitions get stable IDs (workaround).** `ResourceDefinitionBuilder` assigns random IDs to the definition, its aspects and its facets, and import compares definitions including those IDs. When two environments register the same definitions from the same code, an import therefore sees them as divergent. Under `RemapDivergent` it moves the imported resources to new `Prompt__imported`, `Tool__imported` and `Agent__imported` definitions; under `Strict` it fails. `RegistryDefinitions.WithStableIds` derives the IDs from names, so the definitions match and are reused. This is the definition-level counterpart of the problem #195 fixed for shared aspects.
-- **References cannot be derived.** A typed aspect cannot mark a property as a reference, and a derived facet's type cannot be overridden, so `Agent` declares all its facets by hand. ADR 0002 says references are "never inferred"; an opt-in, such as an attribute or a facet-type override in the builder, would let `Agent` use `WithAspect<Agent>()`.
 - **Arm assignment is even and stateless.** The selector splits traffic evenly over the active versions. Weighted splits would need per-version weights stored somewhere, such as a lifecycle marker or a separate experiment resource; that is outside this sample.
 - **Channel-consistent resolution.** An agent resolves its prompt and tools in its own channel, so a `candidate` agent runs with `candidate` prompts. The definitions keep the default `latest` reference resolution, because a fixed `ReferenceResolution` channel would force every referenced prompt to be active in that one channel before an agent could be saved.
 

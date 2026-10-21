@@ -21,7 +21,9 @@ namespace Aster.Core.Definitions;
 /// enums, <c>Nullable&lt;T&gt;</c>, whose null elements an array facet would reject) are skipped,
 /// as is <c>byte[]</c>, which System.Text.Json writes as a base64 string rather than an array.
 /// Enum properties are skipped too: the stores serialize enums as integers, and the facet
-/// representation for enums is decided separately (#131).
+/// representation for enums is decided separately (#131). References are never inferred: a property
+/// marked <see cref="ReferenceFacetAttribute"/> derives <c>reference</c> or <c>reference[]</c> instead of
+/// <c>string</c> or <c>string[]</c>, and any other shape throws.
 /// </remarks>
 internal static class TypedAspectFacets
 {
@@ -38,11 +40,36 @@ internal static class TypedAspectFacets
 
     private static FacetDefinition? ToFacet(PropertyInfo property)
     {
-        // A converter on the property decides its JSON shape, which the CLR type cannot tell.
-        if (property.IsDefined(typeof(JsonConverterAttribute), inherit: true))
-            return null;
+        var reference = property.GetCustomAttribute<ReferenceFacetAttribute>(inherit: true);
 
-        var type = Map(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
+        // A converter on the property decides its JSON shape, which the CLR type cannot tell.
+        var type = property.IsDefined(typeof(JsonConverterAttribute), inherit: true)
+            ? null
+            : Map(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
+
+        FacetMetadata? metadata = null;
+        if (reference is not null)
+        {
+            // An explicit opt-in (ADR 0002 §8): the same facet WithFacet(id, "reference") and WithFacetMetadata declare.
+            type = type switch
+            {
+                "string" => "reference",
+                "string[]" => "reference[]",
+                _ => throw new InvalidOperationException(
+                    $"Property '{property.ReflectedType?.Name}.{property.Name}' is marked [ReferenceFacet], but reference facets "
+                    + $"derive only from a string or a collection of strings without a [JsonConverter]; its type is '{property.PropertyType}'."),
+            };
+
+            if (reference.TargetDefinitionIds.Count > 0 || reference.ReferenceResolution is not null)
+            {
+                metadata = new FacetMetadata
+                {
+                    TargetDefinitionIds = reference.TargetDefinitionIds.Count > 0 ? [.. reference.TargetDefinitionIds] : null,
+                    ReferenceResolution = reference.ReferenceResolution,
+                };
+            }
+        }
+
         if (type is null)
             return null;
 
@@ -54,6 +81,7 @@ internal static class TypedAspectFacets
             Version = 1,
             Type = type,
             IsRequired = property.IsDefined(typeof(RequiredMemberAttribute), inherit: false),
+            Metadata = metadata,
         };
     }
 
