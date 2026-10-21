@@ -45,7 +45,8 @@ public sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluationS
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
         var diagnostics = new List<ResourcePolicyDiagnostic>();
         var candidates = new List<ResourcePolicyCandidateOutcome>();
-        var definitions = (await definitionStore.ListDefinitionsAsync(tenant, cancellationToken)).ToList();
+        var allDefinitions = (await definitionStore.ListDefinitionsAsync(tenant, cancellationToken)).ToList();
+        var definitions = allDefinitions;
 
         if (request.DefinitionIds.Count > 0)
         {
@@ -107,6 +108,8 @@ public sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluationS
             }
         }
 
+        diagnostics.AddRange(InboundReferenceDiagnostics(candidates, resources, allDefinitions));
+
         return new ResourcePolicyEvaluationPreview
         {
             TenantScope = tenant,
@@ -114,6 +117,33 @@ public sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluationS
             Candidates = candidates,
             Diagnostics = diagnostics,
         };
+    }
+
+    /// <summary>
+    /// Archive and soft-delete candidates that other resources reference get one
+    /// <see cref="ResourcePolicyDiagnosticCodes.HasInboundReferences"/> diagnostic per referrer, in the
+    /// order of policy ID, then resource ID (#90). Uses the versions and definitions the preview already read.
+    /// </summary>
+    private static IEnumerable<ResourcePolicyDiagnostic> InboundReferenceDiagnostics(
+        IReadOnlyList<ResourcePolicyCandidateOutcome> candidates,
+        IReadOnlyList<Resource> resources,
+        IReadOnlyList<ResourceDefinition> definitions)
+    {
+        var marking = candidates
+            .Where(static candidate => candidate.Outcome is ResourcePolicyOutcome.Archive or ResourcePolicyOutcome.SoftDelete)
+            .ToList();
+        var referrers = InboundReferences.Find(
+            LatestVersions(resources),
+            definitions,
+            marking.Select(static candidate => candidate.ResourceId).ToHashSet(StringComparer.Ordinal));
+
+        // Candidate order follows the provider's read order, so sort for cross-provider determinism.
+        return marking
+            .OrderBy(static candidate => candidate.PolicyId, StringComparer.Ordinal)
+            .ThenBy(static candidate => candidate.ResourceId, StringComparer.Ordinal)
+            .SelectMany(candidate => referrers.TryGetValue(candidate.ResourceId, out var ids)
+                ? InboundReferences.Diagnostics(candidate.ResourceId, ids, candidate.PolicyId, candidate.ResourceVersion)
+                : []);
     }
 
     private static IEnumerable<ResourcePolicyDeclaration> SelectPolicies(

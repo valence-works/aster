@@ -189,4 +189,11 @@ public static class ResourcePolicyDiagnosticCodes
 
     /// <summary>Lifecycle restore candidate expected state differs from current marker state.</summary>
     public const string LifecycleRestoreMarkerMismatch = "lifecycle-restore-marker-mismatch";
+
+    /// <summary>
+    /// Informational: other resources reference the candidate (<c>reference</c> or <c>reference[]</c> facets
+    /// in their latest versions). Reported per referrer in archive and soft-delete policy previews and in
+    /// lifecycle restore previews. It does not block application.
+    /// </summary>
+    public const string HasInboundReferences = "has-inbound-references";
 }
