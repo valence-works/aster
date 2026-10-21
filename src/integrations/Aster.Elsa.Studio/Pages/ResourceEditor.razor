@@ -199,9 +199,9 @@
     private bool findingReferrers;
     private int generation;
 
-    // Bumped on every navigation. A load that started before the latest navigation drops its result, so a slow
-    // response for one resource never fills the form of another (and Save never sends one resource's content
-    // under another's identity).
+    // Bumped by every load (navigation, reload, viewing a version). Only the latest load writes the form, so a
+    // slow response for one resource or version never replaces a later one (and Save never sends one resource's
+    // content under another's identity).
     private int navigation;
 
     /// <summary>The definition of a new resource (the <c>/new</c> route).</summary>
@@ -219,7 +219,6 @@
     /// <inheritdoc />
     protected override Task OnParametersSetAsync()
     {
-        navigation++;
         newResourceId = null;
         referrers = null;
         return ReloadAsync();
@@ -227,7 +226,7 @@
 
     private async Task ReloadAsync()
     {
-        var current = navigation;
+        var current = ++navigation;
         loadError = null;
         conflict = null;
         errors = AsterFormErrors.None;
@@ -256,7 +255,8 @@
         }
         catch (Exception exception) when (exception is AsterApiException or HttpRequestException)
         {
-            loadError = $"Could not load the resource: {exception.Message}";
+            if (current == navigation)
+                loadError = $"Could not load the resource: {exception.Message}";
         }
     }
 
@@ -382,7 +382,7 @@
 
     private async Task ShowVersionAsync(int version)
     {
-        var current = navigation;
+        var current = ++navigation;
         try
         {
             if (await Client.GetResourceAsync(latest!.ResourceId, version) is { } resource && current == navigation)
@@ -394,11 +394,13 @@
         }
         catch (AsterApiException exception)
         {
-            ShowProblem(exception.Problem, []);
+            if (current == navigation)
+                ShowProblem(exception.Problem, []);
         }
         catch (HttpRequestException exception)
         {
-            ShowTransportError(exception);
+            if (current == navigation)
+                ShowTransportError(exception);
         }
     }
 
@@ -410,41 +412,57 @@
     private Task DeactivateAsync(int version, string activeChannel) =>
         ChangeActivationAsync(() => Client.DeactivateAsync(latest!.ResourceId, version, activeChannel), $"Deactivated version {version} in {activeChannel}.");
 
+    // Activation and referrer lookups don't replace the form, so they don't supersede a load; they only drop
+    // their result once the editor has moved to another resource.
+    private bool IsShowing(string resourceId) => ResourceId == resourceId && latest?.ResourceId == resourceId;
+
     private async Task ChangeActivationAsync(Func<Task> change, string done)
     {
+        var resourceId = latest!.ResourceId;
         message = null;
         conflict = null;
         errors = AsterFormErrors.None;
         try
         {
             await change();
-            versions = await Client.GetVersionsAsync(latest!.ResourceId);
+            var resourceVersions = await Client.GetVersionsAsync(resourceId);
+            if (!IsShowing(resourceId))
+                return;
+
+            versions = resourceVersions;
             message = done;
         }
         catch (AsterApiException exception)
         {
-            ShowProblem(exception.Problem, [new AsterErrorTarget("channel", "channel")]);
+            if (IsShowing(resourceId))
+                ShowProblem(exception.Problem, [new AsterErrorTarget("channel", "channel")]);
         }
         catch (HttpRequestException exception)
         {
-            ShowTransportError(exception);
+            if (IsShowing(resourceId))
+                ShowTransportError(exception);
         }
     }
 
     private async Task FindReferrersAsync()
     {
+        var resourceId = latest!.ResourceId;
         findingReferrers = true;
         try
         {
-            referrers = await AsterQueries.FindReferrersAsync(Client, latest!.ResourceId, latest.DefinitionId);
+            var found = await AsterQueries.FindReferrersAsync(Client, resourceId, latest.DefinitionId);
+            if (IsShowing(resourceId))
+                referrers = found;
         }
         catch (AsterApiException exception)
         {
-            ShowProblem(exception.Problem, []);
+            if (IsShowing(resourceId))
+                ShowProblem(exception.Problem, []);
         }
         catch (HttpRequestException exception)
         {
-            ShowTransportError(exception);
+            if (IsShowing(resourceId))
+                ShowTransportError(exception);
         }
         finally
         {

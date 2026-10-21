@@ -125,20 +125,32 @@
             await LoadAsync(0);
     }
 
+    // Bumped by every load. Only the latest load writes the page, so a slow response for an earlier search,
+    // lifecycle or definition never replaces the results of a later one.
+    private int load;
+
     private async Task LoadAsync(int from)
     {
+        var current = ++load;
         error = null;
         errors = AsterFormErrors.None;
         try
         {
             var capabilities = await Client.GetQueryCapabilitiesAsync();
-            var (query, filtersText) = AsterQueries.Search(DefinitionId, search, capabilities, PageSize, from, lifecycle);
-            searchHelp = string.IsNullOrWhiteSpace(search) || filtersText
-                ? null
-                : "The query provider can't search resource IDs, so this page shows every resource.";
+            if (current != load)
+                return;
+
+            var term = search;
+            var (query, filtersText) = AsterQueries.Search(DefinitionId, term, capabilities, PageSize, from, lifecycle);
 
             // Validate first, so a refused query shows each diagnostic on the input its path names.
             var validation = await Client.ValidateQueryAsync(query);
+            if (current != load)
+                return;
+
+            searchHelp = string.IsNullOrWhiteSpace(term) || filtersText
+                ? null
+                : "The query provider can't search resource IDs, so this page shows every resource.";
             if (!validation.IsValid)
             {
                 errors = AsterDiagnosticMapper.Map(validation.Diagnostics, Targets);
@@ -146,16 +158,26 @@
                 return;
             }
 
-            page = await Client.QueryResourcesAsync(query);
+            var result = await Client.QueryResourcesAsync(query);
+            if (current != load)
+                return;
+
+            page = result;
             skip = from;
         }
         catch (AsterApiException exception) when (exception.Problem.Diagnostics.Count > 0)
         {
+            if (current != load)
+                return;
+
             errors = AsterDiagnosticMapper.Map(exception.Problem.Diagnostics, Targets);
             page = new AsterResourcePageResult([], false);
         }
         catch (Exception exception) when (exception is AsterApiException or HttpRequestException)
         {
+            if (current != load)
+                return;
+
             error = $"Could not load the resources: {exception.Message}";
             page = new AsterResourcePageResult([], false);
         }

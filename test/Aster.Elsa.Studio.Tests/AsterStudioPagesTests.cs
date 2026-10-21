@@ -46,6 +46,17 @@ public sealed class AsterStudioPagesTests : IAsyncLifetime
         await server.DisposeAsync();
     }
 
+    // bUnit re-checks a wait only on a render, and a request held at the gate renders nothing.
+    private async Task RequestedAsync(string pathAndQuery)
+    {
+        var deadline = DateTime.UtcNow + Timeout;
+        while (!server.Recorder.Requests.Any(request => request.PathAndQuery == pathAndQuery))
+        {
+            Assert.True(DateTime.UtcNow < deadline, $"Nothing requested {pathAndQuery}.");
+            await Task.Delay(20);
+        }
+    }
+
     private static string Field(string facetId) => $"[data-aster-field='Details.{facetId}']";
 
     private static string Input(string facetId) => $"input[data-test-field='Details.{facetId}']";
@@ -224,6 +235,30 @@ public sealed class AsterStudioPagesTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SlowVersionLoad_AfterViewingAnother_DoesNotReplaceIt()
+    {
+        await server.RegisterAsync(AsterTestServer.Product());
+        await server.CreateAsync("Product", "saw", new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Saw" } });
+        await server.CreateClient().UpdateResourceAsync("saw", 1, new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Hand saw" } });
+        context.Render<MudPopoverProvider>();
+
+        var editor = context.Render<ResourceEditor>(parameters => parameters.Add(page => page.ResourceId, "saw"));
+        editor.WaitForElement("tr[data-aster-version='2'] button.aster-view", Timeout);
+
+        // Viewing version 1 is slow; the user views version 2 before it answers.
+        var release = new TaskCompletionSource();
+        server.Recorder.Gate = ("/api/aster/resources/saw?version=1", release.Task);
+        await RaiseAsync(editor, () => editor.Find("tr[data-aster-version='1'] button.aster-view").Click());
+        await RaiseAsync(editor, () => editor.Find("tr[data-aster-version='2'] button.aster-view").Click());
+        await RequestedAsync("/api/aster/resources/saw?version=2");
+
+        release.SetResult();
+        await Task.Delay(200);
+        editor.WaitForAssertion(() => Assert.Equal("Hand saw", editor.Find(Input("Title")).GetAttribute("value")), Timeout);
+        Assert.NotEmpty(editor.FindAll("button.aster-save"));
+    }
+
+    [Fact]
     public async Task StaleEdit_ShowsTheConcurrencyConflict()
     {
         await server.RegisterAsync(AsterTestServer.Supplier());
@@ -279,5 +314,28 @@ public sealed class AsterStudioPagesTests : IAsyncLifetime
         await RaiseAsync(list, () => list.Find("button.aster-search-button").Click());
         list.WaitForAssertion(() => Assert.Single(list.FindAll("tr[data-aster-resource]")), Timeout);
         Assert.Equal("aster/resources/globex", list.Find("tr[data-aster-resource='globex'] a").GetAttribute("href"));
+    }
+
+    [Fact]
+    public async Task ResourceList_SlowLoad_AfterNavigating_DoesNotReplaceTheNewList()
+    {
+        await server.RegisterAsync(AsterTestServer.Supplier());
+        await server.RegisterAsync(AsterTestServer.Product());
+        await server.CreateAsync("Supplier", "acme", new JsonObject { ["Info"] = new JsonObject { ["Name"] = "Acme" } });
+        await server.CreateAsync("Product", "saw", new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Saw" } });
+        context.Render<MudPopoverProvider>();
+
+        // The supplier list is slow; the user moves on to the products before it answers.
+        var release = new TaskCompletionSource();
+        server.Recorder.Gate = ("/api/aster/resources/query", release.Task);
+        var list = context.Render<ResourceList>(parameters => parameters.Add(page => page.DefinitionId, "Supplier"));
+        await RequestedAsync("/api/aster/resources/query");
+        list.Render(parameters => parameters.Add(page => page.DefinitionId, "Product"));
+        list.WaitForElement("tr[data-aster-resource='saw']", Timeout);
+
+        release.SetResult();
+        await Task.Delay(200);
+        list.WaitForElement("tr[data-aster-resource='saw']", Timeout);
+        Assert.Empty(list.FindAll("tr[data-aster-resource='acme']"));
     }
 }
