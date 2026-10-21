@@ -80,7 +80,11 @@ function NewContentTypeDialog({ aspects, aspectsLoading, onCreated }: { aspects:
       await api.createDefinition({
         definitionId: cleanedId,
         isSingleton,
-        aspects: attachments.map(({ aspectId, name }) => (requiresName(aspectId) ? { aspectId, name: name.trim() } : { aspectId })),
+        aspects: attachments.map(({ aspectId, name }) => {
+          // Pin the version this dialog listed: the latest when it loaded.
+          const version = aspects.find((aspect) => aspect.aspectId === aspectId)!.version;
+          return requiresName(aspectId) ? { aspectId, version, name: name.trim() } : { aspectId, version };
+        }),
       });
       toast.success(`${cleanedId} content type created`, { description: "Shared aspects pinned at their latest versions." });
       setOpen(false);

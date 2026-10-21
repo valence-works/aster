@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\core\Aster.Core\Aster.Core.csproj" />
     <ProjectReference Include="..\..\persistence\Aster.Persistence.SqliteJson\Aster.Persistence.SqliteJson.csproj" />
+    <ProjectReference Include="..\..\hosting\Aster.AspNetCore\Aster.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>

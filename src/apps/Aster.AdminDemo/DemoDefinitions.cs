@@ -39,22 +39,6 @@ internal static class DemoDefinitions
         versions,
         usedBy);
 
-    public static DefinitionDetailDto ToDetailDto(ResourceDefinition definition) => new(
-        definition.DefinitionId,
-        definition.Version,
-        definition.IsSingleton,
-        ToDisplayName(definition.DefinitionId),
-        definition.AspectDefinitions
-            .OrderBy(static item => item.Key, StringComparer.Ordinal)
-            .Select(static item => new AspectDto(
-                item.Key,
-                ToDisplayName(item.Key),
-                item.Value.RequiresName,
-                OrderFacets(item.Value.FacetDefinitions).Select(ToFacetDto).ToList(),
-                item.Value.IsShared ? item.Value.AspectDefinitionId : null,
-                item.Value.IsShared ? item.Value.Version : null))
-            .ToList());
-
     private static IEnumerable<FacetDefinition> OrderFacets(IEnumerable<FacetDefinition> facets) => facets
         .OrderBy(static facet => facet.Metadata?.DisplayOrder ?? int.MaxValue)
         .ThenBy(static facet => facet.FacetDefinitionId, StringComparer.Ordinal);

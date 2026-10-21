@@ -5,22 +5,18 @@ internal static class OpenApiDocumentFactory
     public static object Create() => new
     {
         openapi = "3.0.1",
-        info = new { title = "Aster AdminDemo API", version = "v1" },
+        info = new { title = "Aster Studio API", version = "v1" },
         servers = new[] { new { url = "http://localhost:5210" } },
         paths = new Dictionary<string, object>
         {
-            ["/api/aspects"] = Path(Get: Operation("List shared aspects"), Post: Operation("Create shared aspect")),
-            ["/api/aspects/{aspectId}"] = Path(Get: Operation("Get shared aspect"), Put: Operation("Save shared aspect as a new version")),
-            ["/api/aspects/{aspectId}/upgrade-preview"] = Path(Get: Operation("Preview content types on older aspect versions")),
-            ["/api/aspects/{aspectId}/upgrade"] = Path(Post: Operation("Re-pin selected content types to an aspect version")),
-            ["/api/definitions"] = Path(Get: Operation("List definitions"), Post: Operation("Create definition")),
-            ["/api/definitions/{definitionId}"] = Path(Get: Operation("Get definition")),
-            ["/api/resources"] = Path(Get: Operation("List resources"), Post: Operation("Create resource")),
-            ["/api/resources/{resourceId}"] = Path(Get: Operation("Get latest resource version"), Put: Operation("Update resource")),
-            ["/api/resources/{resourceId}/versions"] = Path(Get: Operation("List resource versions")),
-            ["/api/resources/{resourceId}/versions/{version}"] = Path(Get: Operation("Get resource version")),
-            ["/api/resources/{resourceId}/activate"] = Path(Post: Operation("Activate resource version")),
-            ["/api/resources/{resourceId}/deactivate"] = Path(Post: Operation("Deactivate resource version")),
+            // Studio's own view endpoints. Resource, definition and aspect operations are the Aster.AspNetCore
+            // endpoints under /api/aster (src/hosting/Aster.AspNetCore/README.md).
+            ["/api/studio/aspects"] = Path(Get: Operation("List shared aspects with versions and usage"), Post: Operation("Create a shared aspect (409 if it exists)")),
+            ["/api/studio/aspects/{aspectId}"] = Path(Get: Operation("Get a shared aspect with versions and usage"), Put: Operation("Save a shared aspect as a new version, based on baseVersion")),
+            ["/api/studio/aspects/{aspectId}/upgrade-preview"] = Path(Get: Operation("Preview content types on older aspect versions")),
+            ["/api/studio/aspects/{aspectId}/upgrade"] = Path(Post: Operation("Re-pin selected content types to an aspect version")),
+            ["/api/studio/definitions"] = Path(Get: Operation("List definitions with resource counts")),
+            ["/api/studio/resources"] = Path(Get: Operation("List a definition's resources with title, tags and active channels")),
         },
     };
 
