@@ -84,3 +84,5 @@ public abstract class LifecycleRestoreStoreTests(IAsterTestDatabase database) : 
 public sealed class SqliteJsonLifecycleRestoreTests() : LifecycleRestoreStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbLifecycleRestoreTests() : LifecycleRestoreStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonLifecycleRestoreTests() : LifecycleRestoreStoreTests(new SqlServerTestDatabase());

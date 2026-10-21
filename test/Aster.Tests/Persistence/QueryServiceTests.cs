@@ -131,6 +131,21 @@ public abstract class QueryServiceTests(IAsterTestDatabase database) : IDisposab
     }
 
     [SkippableFact]
+    public async Task QueryAsync_TakeZero_ReturnsAnEmptyPage()
+    {
+        await using var seed = Database.CreateProvider();
+        var store = seed.GetRequiredService<IResourceVersionWriter>();
+        await store.SaveVersionAsync(CreateResource("product-a", "Product", created: Utc(2026, 1, 1)));
+
+        await using var provider = CreateServiceProvider();
+        var query = provider.GetRequiredService<IResourceQueryService>();
+
+        // Valid (only negative values are rejected); SQL Server's FETCH NEXT needs at least one row.
+        Assert.Empty(await query.QueryAsync(new ResourceQuery { DefinitionId = "Product", Take = 0 }));
+        Assert.Empty(await query.QueryAsync(new ResourceQuery { DefinitionId = "Product", Skip = 0, Take = 0 }));
+    }
+
+    [SkippableFact]
     public async Task QueryAsync_MetadataSorts_UseStableTieBreakerForPaging()
     {
         await using var seed = Database.CreateProvider();
@@ -818,11 +833,23 @@ public sealed class SqliteJsonQueryServiceTests() : QueryServiceTests(new Sqlite
 
 public sealed class PostgresJsonbQueryServiceTests() : QueryServiceTests(new PostgresTestDatabase());
 
+public sealed class SqlServerJsonQueryServiceTests() : QueryServiceTests(new SqlServerTestDatabase());
+
 /// <summary>
 /// #100: the same suite with index projections over the facets it queries, so every index conjunct the translator
 /// adds runs against these cases and must leave the results unchanged.
 /// </summary>
 public sealed class PostgresJsonbIndexedQueryServiceTests() : QueryServiceTests(new PostgresTestDatabase(options =>
+{
+    foreach (var projection in PostgresTestProjections.All)
+        options.IndexProjections.Add(projection);
+}));
+
+/// <summary>
+/// The same suite with index projections over the facets it queries on SQL Server: computed-column indexes and array
+/// element rows, whose conjuncts must leave the results unchanged.
+/// </summary>
+public sealed class SqlServerJsonIndexedQueryServiceTests() : QueryServiceTests(new SqlServerTestDatabase(options =>
 {
     foreach (var projection in PostgresTestProjections.All)
         options.IndexProjections.Add(projection);

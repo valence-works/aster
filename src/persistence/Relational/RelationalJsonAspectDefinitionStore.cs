@@ -114,9 +114,12 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
             """
             SELECT payload
             FROM aspect_definitions
-            WHERE tenant_id = @tenantId AND aspect_definition_id = @aspectDefinitionId
-            ORDER BY version DESC
-            LIMIT 1;
+            WHERE tenant_id = @tenantId
+                AND aspect_definition_id = @aspectDefinitionId
+                AND version = (
+                    SELECT MAX(version)
+                    FROM aspect_definitions
+                    WHERE tenant_id = @tenantId AND aspect_definition_id = @aspectDefinitionId);
             """,
             tenantScope,
             command => Add(command, "@aspectDefinitionId", aspectDefinitionId),
@@ -215,8 +218,9 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
     private ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) =>
         dialect.OpenConnectionAsync(cancellationToken);
 
-    private static void Add(DbCommand command, string name, object? value)
+    private void Add(DbCommand command, string name, object? value)
     {
+        dialect.ValidateParameter(name, value);
         var parameter = command.CreateParameter();
         parameter.ParameterName = name;
         parameter.Value = value ?? DBNull.Value;

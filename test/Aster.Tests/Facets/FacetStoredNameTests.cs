@@ -8,6 +8,7 @@ using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.References;
 using Aster.Persistence.PostgresJsonb;
+using Aster.Persistence.SqlServerJson;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
@@ -25,14 +26,18 @@ public sealed class FacetStoredNameTests : IDisposable
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
     private const string Postgres = "postgres";
+    private const string SqlServer = "sqlserver";
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
     private readonly PostgresTestDatabase postgres = new();
+
+    private readonly SqlServerTestDatabase sqlServer = new();
 
     public void Dispose()
     {
         SqliteJsonTestDatabase.DeleteFiles(databasePath);
         postgres.Dispose();
+        sqlServer.Dispose();
     }
 
     private sealed record RenamedLink([property: JsonPropertyName("targetRef")] string Target);
@@ -47,6 +52,7 @@ public sealed class FacetStoredNameTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task Save_PropertyStoredUnderAnotherJsonName_IsRejected(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -64,6 +70,7 @@ public sealed class FacetStoredNameTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task Save_JsonNameMatchingTheFacetId_IsStoredAndFound(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -79,6 +86,7 @@ public sealed class FacetStoredNameTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task Save_JsonNameMatchingTheCamelFacetId_IsStoredAndFound(string providerKind)
     {
         // Queries find facet "Target" stored as "target", so a differently named property carrying that JSON name
@@ -94,6 +102,7 @@ public sealed class FacetStoredNameTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task Save_TypedAspectFacetNamedAfterItsJsonName_IsStoredAndFound(string providerKind)
     {
         // Facets derived from a typed aspect take the [JsonPropertyName] (ADR 0002 §8), so they always match.
@@ -114,6 +123,7 @@ public sealed class FacetStoredNameTests : IDisposable
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
     [InlineData(Postgres)]
+    [InlineData(SqlServer)]
     public async Task ReverseLookup_ReferenceStoredUnderItsFacetId_FindsTheReferrer(string providerKind)
     {
         await using var provider = CreateProvider(providerKind);
@@ -144,6 +154,8 @@ public sealed class FacetStoredNameTests : IDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         else if (providerKind == Postgres)
             services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
+        else if (providerKind == SqlServer)
+            services.AddAsterSqlServerJson(options => options.ConnectionString = sqlServer.ConnectionString);
 
         return services.BuildServiceProvider();
     }

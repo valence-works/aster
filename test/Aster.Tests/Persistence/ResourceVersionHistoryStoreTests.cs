@@ -70,3 +70,5 @@ public abstract class ResourceVersionHistoryStoreTests(IAsterTestDatabase databa
 public sealed class SqliteJsonResourceVersionHistoryTests() : ResourceVersionHistoryStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbResourceVersionHistoryTests() : ResourceVersionHistoryStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonResourceVersionHistoryTests() : ResourceVersionHistoryStoreTests(new SqlServerTestDatabase());

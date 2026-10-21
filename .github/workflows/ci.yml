@@ -22,9 +22,9 @@ jobs:
   dotnet:
     name: Build and test (.NET 8 / 9 / 10)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # The Postgres provider tests (#97) run against this server; ASTER_REQUIRE_POSTGRES makes them fail rather
-    # than skip if it is missing.
+    timeout-minutes: 30
+    # The Postgres (#97) and SQL Server (#152) provider tests run against these servers; ASTER_REQUIRE_POSTGRES and
+    # ASTER_REQUIRE_SQLSERVER make them fail rather than skip if one is missing.
     services:
       postgres:
         image: postgres:16
@@ -37,6 +37,20 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Aster_Pass123!
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Aster_Pass123!' -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 20s
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,6 +80,8 @@ jobs:
         env:
           ASTER_TEST_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=postgres
           ASTER_REQUIRE_POSTGRES: "1"
+          ASTER_TEST_SQLSERVER: Server=localhost,1433;User Id=sa;Password=Aster_Pass123!;TrustServerCertificate=True
+          ASTER_REQUIRE_SQLSERVER: "1"
         run: >
           dotnet test Aster.sln
           --configuration Release
@@ -86,7 +102,9 @@ jobs:
           dotnet pack src/core/Aster.Core/Aster.Core.csproj --configuration Release --no-build --output artifacts
           dotnet pack src/persistence/Aster.Persistence.SqliteJson/Aster.Persistence.SqliteJson.csproj --configuration Release --no-build --output artifacts
           dotnet pack src/persistence/Aster.Persistence.PostgresJsonb/Aster.Persistence.PostgresJsonb.csproj --configuration Release --no-build --output artifacts
+          dotnet pack src/persistence/Aster.Persistence.SqlServerJson/Aster.Persistence.SqlServerJson.csproj --configuration Release --no-build --output artifacts
           dotnet pack src/hosting/Aster.AspNetCore/Aster.AspNetCore.csproj --configuration Release --no-build --output artifacts
+          dotnet pack src/integrations/Aster.Elsa/Aster.Elsa.csproj --configuration Release --no-build --output artifacts
 
       - name: Upload packages
         uses: actions/upload-artifact@v4

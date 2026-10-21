@@ -1,0 +1,10 @@
+#nullable enable
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions.ConnectionString.get -> string!
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions.ConnectionString.set -> void
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions.IndexProjections.get -> System.Collections.Generic.IList<Aster.Core.Models.Querying.IndexProjection!>!
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions.InitializeSchema.get -> bool
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions.InitializeSchema.set -> void
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions.SqlServerJsonAsterOptions() -> void
+Aster.Persistence.SqlServerJson.SqlServerJsonAsterServiceCollectionExtensions
+static Aster.Persistence.SqlServerJson.SqlServerJsonAsterServiceCollectionExtensions.AddAsterSqlServerJson(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Aster.Persistence.SqlServerJson.SqlServerJsonAsterOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

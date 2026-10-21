@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\core\Aster.Core\Aster.Core.csproj" />
     <ProjectReference Include="..\..\src\persistence\Aster.Persistence.SqliteJson\Aster.Persistence.SqliteJson.csproj" />
     <ProjectReference Include="..\..\src\persistence\Aster.Persistence.PostgresJsonb\Aster.Persistence.PostgresJsonb.csproj" />
+    <ProjectReference Include="..\..\src\persistence\Aster.Persistence.SqlServerJson\Aster.Persistence.SqlServerJson.csproj" />
   </ItemGroup>
 
 </Project>

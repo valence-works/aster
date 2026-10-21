@@ -69,3 +69,5 @@ public abstract class LifecycleMarkerStoreTests(IAsterTestDatabase database) : I
 public sealed class SqliteJsonLifecycleMarkerTests() : LifecycleMarkerStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbLifecycleMarkerTests() : LifecycleMarkerStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonLifecycleMarkerTests() : LifecycleMarkerStoreTests(new SqlServerTestDatabase());

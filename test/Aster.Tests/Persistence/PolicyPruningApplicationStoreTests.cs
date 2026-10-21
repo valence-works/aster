@@ -211,3 +211,5 @@ public abstract class PolicyPruningApplicationStoreTests(IAsterTestDatabase data
 public sealed class SqliteJsonPolicyPruningApplicationTests() : PolicyPruningApplicationStoreTests(new SqliteTestDatabase());
 
 public sealed class PostgresJsonbPolicyPruningApplicationTests() : PolicyPruningApplicationStoreTests(new PostgresTestDatabase());
+
+public sealed class SqlServerJsonPolicyPruningApplicationTests() : PolicyPruningApplicationStoreTests(new SqlServerTestDatabase());

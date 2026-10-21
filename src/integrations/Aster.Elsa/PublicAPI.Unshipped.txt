@@ -1,0 +1,132 @@
+#nullable enable
+Aster.Elsa.Activities.ActivateResourceVersion
+Aster.Elsa.Activities.ActivateResourceVersion.ActivateResourceVersion(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.ActivateResourceVersion.AllowMultipleActive.get -> Elsa.Workflows.Models.Input<bool>?
+Aster.Elsa.Activities.ActivateResourceVersion.AllowMultipleActive.set -> void
+Aster.Elsa.Activities.ActivateResourceVersion.Channel.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.ActivateResourceVersion.Channel.set -> void
+Aster.Elsa.Activities.ActivateResourceVersion.ResourceId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.ActivateResourceVersion.ResourceId.set -> void
+Aster.Elsa.Activities.ActivateResourceVersion.ResourceVersion.get -> Elsa.Workflows.Models.Input<int>!
+Aster.Elsa.Activities.ActivateResourceVersion.ResourceVersion.set -> void
+Aster.Elsa.Activities.ArchiveResource
+Aster.Elsa.Activities.ArchiveResource.ArchiveResource(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.ArchiveResource.Reason.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.ArchiveResource.Reason.set -> void
+Aster.Elsa.Activities.ArchiveResource.ResourceId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.ArchiveResource.ResourceId.set -> void
+Aster.Elsa.Activities.CreateResource
+Aster.Elsa.Activities.CreateResource.Aspects.get -> Elsa.Workflows.Models.Input<object?>?
+Aster.Elsa.Activities.CreateResource.Aspects.set -> void
+Aster.Elsa.Activities.CreateResource.CreateResource(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.CreateResource.DefinitionId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.CreateResource.DefinitionId.set -> void
+Aster.Elsa.Activities.CreateResource.ResourceId.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.CreateResource.ResourceId.set -> void
+Aster.Elsa.Activities.DeactivateResourceVersion
+Aster.Elsa.Activities.DeactivateResourceVersion.Channel.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.DeactivateResourceVersion.Channel.set -> void
+Aster.Elsa.Activities.DeactivateResourceVersion.DeactivateResourceVersion(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.DeactivateResourceVersion.ResourceId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.DeactivateResourceVersion.ResourceId.set -> void
+Aster.Elsa.Activities.DeactivateResourceVersion.ResourceVersion.get -> Elsa.Workflows.Models.Input<int>!
+Aster.Elsa.Activities.DeactivateResourceVersion.ResourceVersion.set -> void
+Aster.Elsa.Activities.GetResource
+Aster.Elsa.Activities.GetResource.Channel.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.GetResource.Channel.set -> void
+Aster.Elsa.Activities.GetResource.GetResource(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.GetResource.ResourceId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.GetResource.ResourceId.set -> void
+Aster.Elsa.Activities.GetResource.ResourceVersion.get -> Elsa.Workflows.Models.Input<int?>?
+Aster.Elsa.Activities.GetResource.ResourceVersion.set -> void
+Aster.Elsa.Activities.PromoteResource
+Aster.Elsa.Activities.PromoteResource.AllowMultipleActive.get -> Elsa.Workflows.Models.Input<bool>?
+Aster.Elsa.Activities.PromoteResource.AllowMultipleActive.set -> void
+Aster.Elsa.Activities.PromoteResource.PromoteResource(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.PromoteResource.ResourceId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.PromoteResource.ResourceId.set -> void
+Aster.Elsa.Activities.PromoteResource.SourceChannel.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.PromoteResource.SourceChannel.set -> void
+Aster.Elsa.Activities.PromoteResource.TargetChannel.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.PromoteResource.TargetChannel.set -> void
+Aster.Elsa.Activities.QueryResources
+Aster.Elsa.Activities.QueryResources.DefinitionId.get -> Elsa.Workflows.Models.Input<string?>?
+Aster.Elsa.Activities.QueryResources.DefinitionId.set -> void
+Aster.Elsa.Activities.QueryResources.IncludeArchived.get -> Elsa.Workflows.Models.Input<bool>?
+Aster.Elsa.Activities.QueryResources.IncludeArchived.set -> void
+Aster.Elsa.Activities.QueryResources.Query.get -> Elsa.Workflows.Models.Input<Aster.Core.Models.Querying.ResourceQuery?>?
+Aster.Elsa.Activities.QueryResources.Query.set -> void
+Aster.Elsa.Activities.QueryResources.QueryResources(string? source = null, int? line = null) -> void
+Aster.Elsa.Activities.UpdateResource
+Aster.Elsa.Activities.UpdateResource.Aspects.get -> Elsa.Workflows.Models.Input<object?>?
+Aster.Elsa.Activities.UpdateResource.Aspects.set -> void
+Aster.Elsa.Activities.UpdateResource.BaseVersion.get -> Elsa.Workflows.Models.Input<int>!
+Aster.Elsa.Activities.UpdateResource.BaseVersion.set -> void
+Aster.Elsa.Activities.UpdateResource.ResourceId.get -> Elsa.Workflows.Models.Input<string!>!
+Aster.Elsa.Activities.UpdateResource.ResourceId.set -> void
+Aster.Elsa.Activities.UpdateResource.UpdateResource(string? source = null, int? line = null) -> void
+Aster.Elsa.AsterActivityDiagnostic
+Aster.Elsa.AsterActivityDiagnostic.<Clone>$() -> Aster.Elsa.AsterActivityDiagnostic!
+Aster.Elsa.AsterActivityDiagnostic.AspectKey.get -> string?
+Aster.Elsa.AsterActivityDiagnostic.AspectKey.init -> void
+Aster.Elsa.AsterActivityDiagnostic.AsterActivityDiagnostic(string! Code, string! Message, string? AspectKey = null, string? FacetId = null, int? ElementIndex = null, string? Path = null, string? Feature = null) -> void
+Aster.Elsa.AsterActivityDiagnostic.Code.get -> string!
+Aster.Elsa.AsterActivityDiagnostic.Code.init -> void
+Aster.Elsa.AsterActivityDiagnostic.Deconstruct(out string! Code, out string! Message, out string? AspectKey, out string? FacetId, out int? ElementIndex, out string? Path, out string? Feature) -> void
+Aster.Elsa.AsterActivityDiagnostic.ElementIndex.get -> int?
+Aster.Elsa.AsterActivityDiagnostic.ElementIndex.init -> void
+Aster.Elsa.AsterActivityDiagnostic.Equals(Aster.Elsa.AsterActivityDiagnostic? other) -> bool
+Aster.Elsa.AsterActivityDiagnostic.FacetId.get -> string?
+Aster.Elsa.AsterActivityDiagnostic.FacetId.init -> void
+Aster.Elsa.AsterActivityDiagnostic.Feature.get -> string?
+Aster.Elsa.AsterActivityDiagnostic.Feature.init -> void
+Aster.Elsa.AsterActivityDiagnostic.Message.get -> string!
+Aster.Elsa.AsterActivityDiagnostic.Message.init -> void
+Aster.Elsa.AsterActivityDiagnostic.Path.get -> string?
+Aster.Elsa.AsterActivityDiagnostic.Path.init -> void
+Aster.Elsa.AsterActivityException
+Aster.Elsa.AsterActivityException.AsterActivityException(string! code, string! message, System.Exception? innerException = null) -> void
+Aster.Elsa.AsterActivityException.AsterActivityException(System.Collections.Generic.IReadOnlyList<Aster.Elsa.AsterActivityDiagnostic!>! diagnostics, string! message, System.Exception? innerException = null) -> void
+Aster.Elsa.AsterActivityException.Code.get -> string!
+Aster.Elsa.AsterActivityException.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Aster.Elsa.AsterActivityDiagnostic!>!
+Aster.Elsa.AsterActivityException.GetSafeMetadata() -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Aster.Elsa.AsterActivityFaultCodes
+Aster.Elsa.AsterModuleExtensions
+Aster.Elsa.AsterTenantMapping
+Aster.Elsa.Features.AsterFeature
+Aster.Elsa.Features.AsterFeature.AsterFeature(Elsa.Features.Services.IModule! module) -> void
+Aster.Elsa.ShellFeatures.AsterFeature
+Aster.Elsa.ShellFeatures.AsterFeature.AsterFeature() -> void
+Aster.Elsa.ShellFeatures.AsterFeature.ConfigureServices(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> void
+const Aster.Elsa.AsterActivityFaultCodes.AspectsInvalid = "aspects-invalid" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.ChannelRequired = "channel-required" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.ConcurrencyConflict = "concurrency-conflict" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.DefinitionIdRequired = "definition-id-required" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.DefinitionNotFound = "definition-not-found" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.DuplicateAspectAttachment = "duplicate-aspect-attachment" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.DuplicateResourceId = "duplicate-resource-id" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.FacetValueInvalid = "facet-value-invalid" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.PromoteSourceAmbiguous = "promote-source-ambiguous" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.PromoteSourceNotActive = "promote-source-not-active" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.ResourceIdRequired = "resource-id-required" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.ResourceNotFound = "resource-not-found" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.ResourceSelectorInvalid = "resource-selector-invalid" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.SingletonViolation = "singleton-violation" -> string!
+const Aster.Elsa.AsterActivityFaultCodes.VersionNotFound = "version-not-found" -> string!
+override Aster.Elsa.Activities.ActivateResourceVersion.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.ArchiveResource.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.CreateResource.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.DeactivateResourceVersion.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.GetResource.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.PromoteResource.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.QueryResources.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.Activities.UpdateResource.ExecuteAsync(Elsa.Workflows.ActivityExecutionContext! context) -> System.Threading.Tasks.ValueTask
+override Aster.Elsa.AsterActivityDiagnostic.Equals(object? obj) -> bool
+override Aster.Elsa.AsterActivityDiagnostic.GetHashCode() -> int
+override Aster.Elsa.AsterActivityDiagnostic.ToString() -> string!
+override Aster.Elsa.Features.AsterFeature.Apply() -> void
+static Aster.Elsa.AsterActivityDiagnostic.operator !=(Aster.Elsa.AsterActivityDiagnostic? left, Aster.Elsa.AsterActivityDiagnostic? right) -> bool
+static Aster.Elsa.AsterActivityDiagnostic.operator ==(Aster.Elsa.AsterActivityDiagnostic? left, Aster.Elsa.AsterActivityDiagnostic? right) -> bool
+static Aster.Elsa.AsterModuleExtensions.UseAster(this Elsa.Features.Services.IModule! module, System.Action<Aster.Elsa.Features.AsterFeature!>? configure = null) -> Elsa.Features.Services.IModule!
+static Aster.Elsa.AsterTenantMapping.FromElsaTenantId(string? elsaTenantId) -> Aster.Core.Models.Tenancy.TenantScope!
+static Aster.Elsa.AsterTenantMapping.FromTenantAccessor(Elsa.Common.Multitenancy.ITenantAccessor? tenantAccessor) -> Aster.Core.Models.Tenancy.TenantScope!

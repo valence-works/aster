@@ -53,6 +53,9 @@ Resources follow an **append-only versioning model** — versions are never muta
 dotnet add package Aster.Core
 dotnet add package Aster.Persistence.SqliteJson   # optional: SQLite persistence
 dotnet add package Aster.Persistence.PostgresJsonb # optional: PostgreSQL persistence
+dotnet add package Aster.Persistence.SqlServerJson # optional: SQL Server persistence
+dotnet add package Aster.AspNetCore               # optional: REST endpoints
+dotnet add package Aster.Elsa                     # optional: Elsa Workflows 3 activities
 ```
 
 Packages target .NET 8, 9 and 10. Until 1.0 they are published as `0.x` releases and the API may change between minor versions.
@@ -84,6 +87,16 @@ builder.Services.AddAsterCore();
 builder.Services.AddAsterPostgresJsonb(options =>
 {
     options.ConnectionString = "Host=localhost;Database=aster;Username=aster;Password=...";
+});
+```
+
+For SQL Server 2019 or later, call `AddAsterSqlServerJson(...)`. It supports the same query surface too, translated to SQL over `OPENJSON`, with JSON payloads in `nvarchar(max)`.
+
+```csharp
+builder.Services.AddAsterCore();
+builder.Services.AddAsterSqlServerJson(options =>
+{
+    options.ConnectionString = "Server=localhost;Database=aster;User Id=aster;Password=...;Encrypt=True";
 });
 ```
 
@@ -313,9 +326,13 @@ src/
       ← SQLite JSON definition/resource version/query provider
     Aster.Persistence.PostgresJsonb/
       ← PostgreSQL jsonb definition/resource version provider
+    Aster.Persistence.SqlServerJson/
+      ← SQL Server JSON (nvarchar + OPENJSON) definition/resource version provider
     Relational/              ← Store core shared by the relational providers (linked source, ADR 0004)
   hosting/
     Aster.AspNetCore/        ← Mountable minimal-API endpoints (MapAster) with ProblemDetails and OpenAPI
+  integrations/
+    Aster.Elsa/              ← Elsa Workflows 3 module: activities over Aster resources (UseAster)
   apps/
     Aster.Studio/            ← Aster Studio: the reference host (ASP.NET Core + React SPA)
 samples/                     ← Runnable use-case samples (see samples/README.md)
@@ -324,6 +341,7 @@ samples/                     ← Runnable use-case samples (see samples/README.m
 test/
   Aster.Tests/               ← xUnit tests (unit + integration)
   Aster.AspNetCore.Tests/    ← HTTP integration tests for Aster.AspNetCore (TestServer)
+  Aster.Elsa.Tests/          ← Elsa workflows run in process over the Aster activities
   Aster.Samples.*.Tests/     ← Tests that keep the samples working
 docs/                        ← Architecture review, coding conventions, roadmap
 specs/                       ← Feature specs (001-core-sdk-foundation, …)
@@ -346,7 +364,7 @@ Execution is tracked in the [Aster 1.0 program](https://github.com/valence-works
 
 ### Packages
 
-Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.AspNetCore`.
+Current: `Aster.Core`, `Aster.Persistence.SqliteJson`, `Aster.Persistence.PostgresJsonb`, `Aster.Persistence.SqlServerJson`, `Aster.AspNetCore`, `Aster.Elsa` ([Elsa integration](wiki/Elsa-Integration.md)).
 
 Splitting `Aster.Core` into smaller packages is deferred.
 
