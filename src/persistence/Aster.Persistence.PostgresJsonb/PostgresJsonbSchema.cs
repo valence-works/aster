@@ -1,12 +1,9 @@
 using Aster.Core.Models.Tenancy;
-using Npgsql;
 
 namespace Aster.Persistence.PostgresJsonb;
 
 /// <summary>
-/// Creates the provider's tables. Bootstrap is idempotent and runs under a transaction-scoped advisory lock,
-/// so processes starting at once against a fresh database serialize instead of racing on the catalog
-/// (<c>CREATE TABLE IF NOT EXISTS</c> alone can fail with a unique violation in <c>pg_type</c>).
+/// The provider's schema, as the infrastructure steps <see cref="PostgresJsonbInfrastructureRunner"/> applies.
 /// </summary>
 internal static class PostgresJsonbSchema
 {
@@ -66,26 +63,12 @@ internal static class PostgresJsonbSchema
         );
         """;
 
-    // An arbitrary constant shared by every Aster process, so concurrent bootstraps of one database serialize.
-    private const long BootstrapLockKey = 0x4153_5445_5200_0001; // "ASTER", schema generation 1
-
     /// <summary>
-    /// Creates any missing table or index. Safe to call repeatedly and from several processes at once.
+    /// The provider's infrastructure steps, in order. Applied steps are recorded, so a step never changes once
+    /// shipped: later changes are new steps.
     /// </summary>
-    public static void Initialize(NpgsqlDataSource dataSource)
-    {
-        using var connection = dataSource.OpenConnection();
-        using var transaction = connection.BeginTransaction();
-
-        using (var command = new NpgsqlCommand("SELECT pg_advisory_xact_lock(@key);", connection, transaction))
-        {
-            command.Parameters.AddWithValue("key", BootstrapLockKey);
-            command.ExecuteNonQuery();
-        }
-
-        using (var command = new NpgsqlCommand(Ddl, connection, transaction))
-            command.ExecuteNonQuery();
-
-        transaction.Commit();
-    }
+    public static IReadOnlyList<PostgresJsonbInfrastructureStep> Steps { get; } =
+    [
+        new("0001-initial-schema", "Tables for definitions, resource versions, activation state, lifecycle markers and shared aspects.", Ddl),
+    ];
 }

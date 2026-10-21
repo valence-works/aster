@@ -10,15 +10,16 @@ namespace Aster.Persistence.PostgresJsonb;
 internal sealed class PostgresJsonbAspectDefinitionStore : RelationalJsonAspectDefinitionStore
 {
     /// <summary>
-    /// Initializes a new instance of <see cref="PostgresJsonbAspectDefinitionStore"/>, creating the schema when
-    /// <see cref="PostgresJsonbAsterOptions.InitializeSchema"/> is set (idempotent).
+    /// Initializes a new instance of <see cref="PostgresJsonbAspectDefinitionStore"/>, applying pending infrastructure
+    /// steps when <see cref="PostgresJsonbAsterOptions.InitializeSchema"/> is set.
     /// </summary>
     /// <param name="dataSource">The provider's data source.</param>
+    /// <param name="infrastructure">The provider's infrastructure runner.</param>
     /// <param name="options">Provider options.</param>
-    public PostgresJsonbAspectDefinitionStore(PostgresJsonbDataSource dataSource, PostgresJsonbAsterOptions options)
+    public PostgresJsonbAspectDefinitionStore(PostgresJsonbDataSource dataSource, PostgresJsonbInfrastructureRunner infrastructure, PostgresJsonbAsterOptions options)
         : base(new PostgresJsonbDialect(dataSource.Value))
     {
         if (options.InitializeSchema)
-            PostgresJsonbSchema.Initialize(dataSource.Value);
+            infrastructure.EnsureApplied();
     }
 }

@@ -10,7 +10,17 @@ services.AddAsterPostgresJsonb(options =>
 });
 ```
 
-- **Schema:** with `InitializeSchema` (the default), the provider creates its tables on first use. Bootstrap is idempotent and serialized by an advisory lock, so several processes can start against a fresh database at once. Set it to `false` when the schema is managed out of band.
+- **Schema:** the provider's tables are a list of ordered infrastructure steps, recorded in `aster_infrastructure_steps` as they are applied. `IInfrastructureRunner` applies, lists and verifies them.
+  - **Automatic (default):** with `InitializeSchema = true`, the first store resolved applies pending steps. Runs are serialized by an advisory lock, so any number of processes can start against a fresh or outdated database at once; each step runs once, and a failed run rolls back as a whole.
+  - **Explicit (recommended for production):** set `InitializeSchema = false` so the application never changes the schema, and apply steps from a deployment step with an account allowed to run DDL:
+
+    ```csharp
+    var runner = app.Services.GetRequiredService<IInfrastructureRunner>();
+    await runner.ApplyAsync();                    // returns the steps it applied
+    var check = await runner.VerifyAsync();       // at startup: fail fast if !check.IsCurrent
+    ```
+
+    `VerifyAsync` also reports steps applied by a newer version of the provider than the one running.
 - **Tenancy:** every table is keyed by `tenant_id`.
 - **Concurrency:** versions are keyed by `(tenant_id, resource_id, version)`. A writer that loses a race on the same base version gets `ConcurrencyException`; it never produces a duplicate version.
 - **Queries:** `IResourceQueryService` translates each `ResourceQuery` to one parameterized SQL statement over `jsonb`.
