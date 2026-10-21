@@ -38,10 +38,12 @@
 
 | Package | Contents | Depends on |
 |---|---|---|
-| `Aster.Elsa` | Feature registration, tenant mapping, activities (#115), lifecycle triggers (#116) | `Aster.Core`, `Elsa.Workflows.Runtime`, `Elsa.Common` |
+| `Aster.Elsa` | Feature registration, tenant mapping, activities (#115), lifecycle triggers (#116) | `Aster.Core`, `Elsa.Workflows.Runtime` (which brings `Elsa.Common`) |
 | `Aster.Elsa.Agents` (#118) | `IAgentStore` adapter and the one-time import from Elsa's agent store | `Aster.Elsa`, `Elsa.Agents.Persistence` |
 | `Aster.Elsa.Labels` (later) | `ILabelStore` and `IWorkflowDefinitionLabelStore` adapters | `Aster.Elsa`, `Elsa.Labels` |
 | `Aster.Elsa.Studio` (#117) | Elsa Studio (Blazor) module: definition list, resource editors, version history | `Aster.AspNetCore` endpoints over HTTP; Elsa Studio packages |
+
+`Elsa.Workflows.Runtime` reaches `CShells.AspNetCore.Abstractions` (through `Elsa.Tenants` and `Elsa.Api.Common`), which declares a framework reference to `Microsoft.AspNetCore.App`. So `Aster.Elsa` brings in the ASP.NET Core shared framework transitively, as any Elsa 3.9 host already has. It does not depend on `Aster.AspNetCore`.
 
 NuGet has no optional dependencies, so each store adapter is its own package. A host that doesn't move agents or labels never installs Elsa's agents or labels packages through Aster.
 
@@ -69,7 +71,7 @@ builder.Services.AddElsa(elsa => elsa
 
 - **Provider registration stays with the host.** `UseAster()` doesn't choose a provider. The host registers Aster's provider with the existing `AddAster*` calls, as any Aster host does. Elsa's persistence features don't expose a connection string the module could reuse safely, and guessing one would hide a configuration choice.
 - **Opting in is the feature flag.** A store adapter is active only when the host passes it to Elsa's own seam (`UseAgentStore`, `LabelsFeature.LabelStore`). That satisfies #118's "behind a flag" without a new switch, and leaving it out keeps Elsa's built-in store.
-- **Feature dependencies.** The Aster feature depends on Elsa's workflow runtime feature (for activities and triggers). It works with or without Elsa's multitenancy feature: without it, every call uses the default tenant.
+- **Feature dependencies.** The Aster feature depends on Elsa's workflow management feature (activities are registered through `ManagementOptions.ActivityTypes`) and its workflow runtime feature (to run them and, later, for triggers). It works with or without Elsa's multitenancy feature: without it, every call uses the default tenant.
 
 ## Tenants
 
@@ -81,6 +83,7 @@ Elsa scopes everything by `Entity.TenantId`, read through `ITenantAccessor.Tenan
 | any other ID | `TenantScope.FromTenantId(id)` | Exact match, no transformation, so exported snapshots name the same tenant in both products. |
 | `"*"` (`Tenant.AgnosticTenantId`) | refused (`TenantScopeException`) | Aster has no cross-tenant scope. An agnostic read or write would silently pick one tenant. |
 | `"default"` | refused (`TenantScopeException`) | It would alias Elsa's default tenant onto the same Aster scope and share its data. |
+| whitespace only | refused (`TenantScopeException`) | Aster tenant IDs can't be blank, and trimming would alias it onto another tenant. |
 
 The refusals throw, so a misconfigured tenant fails at its first Aster call rather than reading or writing another tenant's data.
 
@@ -132,7 +135,11 @@ Both rules below are reused from `Aster.AspNetCore`, so a client sees the same b
 - **Stable fault codes.** Aster's diagnostic codes surface as activity faults with the same code, including the concurrency conflict on `BaseVersion`.
 - **Archived resources are hidden by default.** Queries hide archived and soft-deleted resources unless the activity opts in (spike decision F12).
 
-Promotion between channels is a composite activity over the two explicit calls (spike decision F7).
+Promotion between channels is a composite activity over the two explicit calls (spike decision F7). It faults when the source channel has no active version, or several (A/B), instead of guessing.
+
+**Naming.** Version inputs are named `ResourceVersion`: Elsa's `Activity.Version` is the activity type's own version, so an input called `Version` would hide it.
+
+**Fault codes are shared by convention.** `Aster.AspNetCore` maps exceptions to `IResult` problems, which an activity can't reuse, so `Aster.Elsa` mirrors the same mapping with the same codes. Comments on both mappings say to change them together.
 
 ## Which entities move, and in what order
 
