@@ -43,12 +43,46 @@ public sealed class AsterFieldValuesTests
     }
 
     [Fact]
+    public void Numbers_ReadADecimalCommaInTheUsersCulture()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            Assert.Equal(1.5m, Convert(Field(AsterValueKind.Number, "number"), "1,5")!.GetValue<decimal>());
+            Assert.Equal(1.5m, Convert(Field(AsterValueKind.Number, "number"), "1.5")!.GetValue<decimal>());
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
     public void Checkbox_WritesBooleans()
     {
         var field = Field(AsterValueKind.Boolean, "switch");
         Assert.True(Convert(field, true)!.GetValue<bool>());
         Assert.False(Convert(field, false)!.GetValue<bool>());
         Assert.Equal(true, AsterFieldValues.ToEditorValue(field, AsterEditorMapping.Resolve(field), JsonValue.Create(true)));
+    }
+
+    [Fact]
+    public void DateTime_ReadsPickerTextInTheUsersCulture()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            // en-GB writes day/month: this is 4 March, which the invariant culture would read as 3 April.
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-GB");
+            var field = Field(AsterValueKind.DateTime, "datetime");
+            Assert.Equal("2026-03-04T05:06:07Z", Convert(field, "04/03/2026 05:06:07")!.GetValue<string>());
+            Assert.Equal("2026-03-04T05:06:07Z", Convert(field, "2026-03-04T05:06:07")!.GetValue<string>());
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Elsa.Api.Client.Resources.Scripting.Models;
 using Elsa.Api.Client.Shared.Models;
 
@@ -13,7 +14,7 @@ namespace Aster.Elsa.Studio.Forms;
 /// list of strings, and the JSON and code editors a <see cref="WrappedInput"/> holding a literal expression; this
 /// class turns each back into JSON of the facet's type, or into an input error the form shows on the field.
 /// </summary>
-internal static class AsterFieldValues
+internal static partial class AsterFieldValues
 {
     private const string DateTimeEditorFormat = "yyyy-MM-ddTHH:mm:ss";
 
@@ -141,7 +142,9 @@ internal static class AsterFieldValues
                 return false;
 
             case AsterValueKind.Number:
-                if (decimal.TryParse(text.Trim(), NumberStyles.Number | NumberStyles.AllowExponent, CultureInfo.InvariantCulture, out var number)
+                // The invariant attempt allows no group separator, so a decimal comma ("1,5" in de-DE) falls through to the
+                // user's culture instead of being read as "15".
+                if (decimal.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
                     || decimal.TryParse(text.Trim(), NumberStyles.Number | NumberStyles.AllowExponent, CultureInfo.CurrentCulture, out number))
                     return Ok(JsonValue.Create(number), out value);
                 error = "Enter a number.";
@@ -186,13 +189,23 @@ internal static class AsterFieldValues
     private static bool TryParseInstant(string? text, out DateTime instant)
     {
         const DateTimeStyles Styles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
-        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, Styles, out instant)
-            || DateTime.TryParse(text, CultureInfo.CurrentCulture, Styles, out instant))
+        var trimmed = text?.Trim();
+
+        // ISO text (payloads, and what ToEditorValue writes) is unambiguous. Anything else is the picker's text in the
+        // user's culture, read before the invariant culture so en-GB "04/03/2026" stays 4 March.
+        if (trimmed is not null && IsoDate().IsMatch(trimmed))
+            return DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, Styles, out instant);
+
+        if (DateTime.TryParse(trimmed, CultureInfo.CurrentCulture, Styles, out instant)
+            || DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, Styles, out instant))
             return true;
 
         instant = default;
         return false;
     }
+
+    [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}")]
+    private static partial Regex IsoDate();
 
     private static bool TryParseJson(string? text, out JsonNode? value, out string? error)
     {

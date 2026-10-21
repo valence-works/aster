@@ -345,6 +345,10 @@
         }
     }
 
+    // An unhandled exception in a Blazor Server event handler ends the circuit, losing unsaved edits.
+    private void ShowTransportError(HttpRequestException exception) =>
+        errors = new AsterFormErrors(new Dictionary<string, IReadOnlyList<string>>(), [exception.Message]);
+
     private void ShowProblem(AsterProblem problem, IEnumerable<AsterErrorTarget> targets)
     {
         if (problem.Status == 409)
@@ -362,11 +366,22 @@
 
     private async Task ShowVersionAsync(int version)
     {
-        if (await Client.GetResourceAsync(latest!.ResourceId, version) is { } resource)
+        try
         {
-            errors = AsterFormErrors.None;
-            message = null;
-            await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource);
+            if (await Client.GetResourceAsync(latest!.ResourceId, version) is { } resource)
+            {
+                errors = AsterFormErrors.None;
+                message = null;
+                await ShowAsync(resource.DefinitionId, resource.DefinitionVersion, resource);
+            }
+        }
+        catch (AsterApiException exception)
+        {
+            ShowProblem(exception.Problem, []);
+        }
+        catch (HttpRequestException exception)
+        {
+            ShowTransportError(exception);
         }
     }
 
@@ -393,6 +408,10 @@
         {
             ShowProblem(exception.Problem, [new AsterErrorTarget("channel", "channel")]);
         }
+        catch (HttpRequestException exception)
+        {
+            ShowTransportError(exception);
+        }
     }
 
     private async Task FindReferrersAsync()
@@ -405,6 +424,10 @@
         catch (AsterApiException exception)
         {
             ShowProblem(exception.Problem, []);
+        }
+        catch (HttpRequestException exception)
+        {
+            ShowTransportError(exception);
         }
         finally
         {

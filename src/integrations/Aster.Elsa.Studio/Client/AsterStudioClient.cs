@@ -170,9 +170,15 @@ internal sealed class AsterStudioClient(HttpClient http)
             {
                 node = JsonNode.Parse(text);
             }
-            catch (JsonException) when (!response.IsSuccessStatusCode)
+            catch (JsonException exception)
             {
-                // A non-JSON error body (a proxy's HTML page, say) still becomes an AsterApiException below.
+                // A non-JSON error body (a proxy's HTML page, say) still becomes an AsterApiException below; a non-JSON
+                // success body (a misconfigured base address) becomes one here, so pages show it instead of failing.
+                if (response.IsSuccessStatusCode)
+                {
+                    throw new AsterApiException(new AsterProblem(
+                        (int)response.StatusCode, "The Aster endpoint did not return JSON.", exception.Message, null, []));
+                }
             }
         }
 

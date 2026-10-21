@@ -93,6 +93,36 @@ public sealed class AsterStudioClientTests
     }
 
     [Fact]
+    public async Task Referrers_ReadEveryPage()
+    {
+        await using var server = await StartWithSuppliersAsync();
+        foreach (var id in new[] { "hammer", "saw", "drill" })
+            await server.CreateAsync("Product", id, new JsonObject { ["Details"] = new JsonObject { ["Title"] = id, ["Supplier"] = "acme" } });
+        var client = server.CreateClient();
+
+        var referrers = await AsterQueries.FindReferrersAsync(client, "acme", "Supplier", take: 2);
+
+        Assert.Equal(["drill", "hammer", "saw"], referrers.Select(static referrer => referrer.ResourceId));
+    }
+
+    [Fact]
+    public async Task NonJsonSuccessBody_BecomesAProblem()
+    {
+        using var http = new HttpClient(new StaticHandler("<html>login</html>")) { BaseAddress = AsterTestServer.BaseAddress };
+        var client = new AsterStudioClient(http);
+
+        var exception = await Assert.ThrowsAsync<AsterApiException>(() => client.ListDefinitionsAsync());
+        Assert.Equal(200, exception.Problem.Status);
+    }
+
+    // A proxy or misconfigured base address answering 200 with an HTML page.
+    private sealed class StaticHandler(string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+    }
+
+    [Fact]
     public async Task VersionHistory_ShowsChannelActivation()
     {
         await using var server = await StartWithSuppliersAsync();

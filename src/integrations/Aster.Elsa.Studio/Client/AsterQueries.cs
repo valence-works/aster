@@ -125,13 +125,23 @@ internal static class AsterQueries
 
             foreach (var field in facets)
             {
-                var page = await client.QueryResourcesAsync(
-                    Referrers(definition.DefinitionId, field.AspectKey, field.FacetId, resourceId, take), cancellationToken);
-                foreach (var item in page.Items)
+                // Every page, so the tab never shows fewer referrers than exist.
+                for (var skip = 0; ; skip += take)
                 {
-                    if (!found.TryGetValue(item.ResourceId, out var entry))
-                        found[item.ResourceId] = entry = (item.DefinitionId, []);
-                    entry.Via.Add(field.Key);
+                    var query = Referrers(definition.DefinitionId, field.AspectKey, field.FacetId, resourceId, take);
+                    if (skip > 0)
+                        query["skip"] = skip;
+
+                    var page = await client.QueryResourcesAsync(query, cancellationToken);
+                    foreach (var item in page.Items)
+                    {
+                        if (!found.TryGetValue(item.ResourceId, out var entry))
+                            found[item.ResourceId] = entry = (item.DefinitionId, []);
+                        entry.Via.Add(field.Key);
+                    }
+
+                    if (!page.HasMore || page.Items.Count == 0)
+                        break;
                 }
             }
         }
