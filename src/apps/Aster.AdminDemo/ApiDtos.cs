@@ -40,14 +40,6 @@ internal sealed record FacetMetadataDto
     public string? UiHint { get; init; }
 }
 
-internal sealed record AspectDto(
-    string AspectKey,
-    string DisplayName,
-    bool RequiresName,
-    IReadOnlyList<FacetDto> Facets,
-    string? SharedAspectId,
-    int? SharedVersion);
-
 internal sealed record DiagnosticDto(
     string Code,
     string? AspectKey,
@@ -126,23 +118,6 @@ internal sealed record DefinitionSummaryDto(
     int AspectCount,
     int ResourceCount);
 
-internal sealed record DefinitionDetailDto(
-    string DefinitionId,
-    int Version,
-    bool IsSingleton,
-    string DisplayName,
-    IReadOnlyList<AspectDto> Aspects);
-
-internal sealed record CreateDefinitionRequest(
-    string DefinitionId,
-    bool IsSingleton,
-    IReadOnlyList<CreateAspectRequest> Aspects);
-
-internal sealed record CreateAspectRequest(
-    string AspectId,
-    int? Version,
-    string? Name);
-
 internal sealed record ResourceListResponse(
     IReadOnlyList<ResourceListItemDto> Items,
     int TotalCount);
@@ -156,30 +131,3 @@ internal sealed record ResourceListItemDto(
     IReadOnlyList<string> ActiveChannels,
     IReadOnlyList<string> Tags);
 
-internal sealed record ResourceDetailDto(
-    string ResourceId,
-    string DefinitionId,
-    int Version,
-    DateTime Created,
-    IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> Aspects,
-    IReadOnlyDictionary<string, IReadOnlyList<int>> ActiveChannels);
-
-internal sealed record ResourceVersionDto(
-    int Version,
-    DateTime Created,
-    bool IsLatest,
-    IReadOnlyList<string> ActiveChannels);
-
-internal sealed record CreateResourceRequestDto(
-    string DefinitionId,
-    Dictionary<string, Dictionary<string, object?>> Aspects);
-
-internal sealed record UpdateResourceRequestDto(
-    int BaseVersion,
-    Dictionary<string, Dictionary<string, object?>> Aspects);
-
-internal sealed record ActivationRequestDto(
-    int Version,
-    string Channel);
-
-internal sealed record StatusDto(string Status);

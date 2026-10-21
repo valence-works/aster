@@ -87,7 +87,7 @@ internal static partial class AspectEndpoints
                 cancellationToken: cancellationToken);
 
             return Results.Created(
-                $"/api/aspects/{registered.AspectDefinitionId}",
+                $"/api/studio/aspects/{registered.AspectDefinitionId}",
                 DemoDefinitions.ToSharedAspectDto(registered, [registered.Version], []));
         }
         catch (FacetMetadataValidationException exception)

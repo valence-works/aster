@@ -1,4 +1,5 @@
 using Aster.AdminDemo;
+using Aster.AspNetCore;
 using Aster.Core.Extensions;
 using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.FileProviders;
@@ -28,7 +29,9 @@ if (app.Environment.IsDevelopment())
 
 await DemoSeedData.InitializeAsync(app.Services, app.Logger, app.Lifetime.ApplicationStopping);
 
-app.MapAdminDemoApi();
+// Resource, definition and aspect operations come from the package; Studio adds only its view endpoints (#110).
+app.MapAster("/api/aster");
+app.MapStudioApi();
 
 var clientDist = Path.Combine(app.Environment.ContentRootPath, "ClientApp", "dist");
 if (Directory.Exists(clientDist))
