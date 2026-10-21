@@ -879,17 +879,13 @@ public sealed class SqliteJsonResourceStore :
             .ThenBy(static reference => reference.Version)
             .Chunk(MaxSqliteParametersPerQuery / 2))
         {
-            await using var command = connection.CreateCommand();
-            var predicates = AddDefinitionVersionPredicates(command, batch);
-            command.CommandText = $"""
-                SELECT payload
-                FROM resource_definitions
-                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)})
-                ORDER BY definition_id, version;
-                """;
-            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
-
-            results.AddRange(await ReadPayloadsAsync<ResourceDefinition>(command, cancellationToken));
+            results.AddRange(await ReadPayloadsByCompositeKeysAsync<ResourceDefinition>(
+                connection,
+                "resource_definitions",
+                ("definition_id", "version"),
+                tenant,
+                batch.Select(static reference => (reference.DefinitionId, (object)reference.Version)).ToList(),
+                cancellationToken));
         }
 
         return results
@@ -915,17 +911,13 @@ public sealed class SqliteJsonResourceStore :
             .ThenBy(static reference => reference.Channel, StringComparer.Ordinal)
             .Chunk(MaxSqliteParametersPerQuery / 2))
         {
-            await using var command = connection.CreateCommand();
-            var predicates = AddActivationStatePredicates(command, batch);
-            command.CommandText = $"""
-                SELECT payload
-                FROM activation_states
-                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)})
-                ORDER BY resource_id, channel;
-                """;
-            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
-
-            results.AddRange(await ReadPayloadsAsync<ActivationState>(command, cancellationToken));
+            results.AddRange(await ReadPayloadsByCompositeKeysAsync<ActivationState>(
+                connection,
+                "activation_states",
+                ("resource_id", "channel"),
+                tenant,
+                batch.Select(static reference => (reference.ResourceId, (object)reference.Channel)).ToList(),
+                cancellationToken));
         }
 
         return results
@@ -1024,17 +1016,13 @@ public sealed class SqliteJsonResourceStore :
             .ThenBy(static reference => reference.Version)
             .Chunk(MaxSqliteParametersPerQuery / 2))
         {
-            await using var command = connection.CreateCommand();
-            var predicates = AddResourceVersionPredicates(command, batch);
-            command.CommandText = $"""
-                SELECT payload
-                FROM resource_versions
-                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)})
-                ORDER BY resource_id, version;
-                """;
-            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
-
-            results.AddRange(await ReadPayloadsAsync<Resource>(command, cancellationToken));
+            results.AddRange(await ReadPayloadsByCompositeKeysAsync<Resource>(
+                connection,
+                "resource_versions",
+                ("resource_id", "version"),
+                tenant,
+                batch.Select(static reference => (reference.ResourceId, (object)reference.Version)).ToList(),
+                cancellationToken));
         }
 
         return results
@@ -1153,59 +1141,42 @@ public sealed class SqliteJsonResourceStore :
         return parameterNames;
     }
 
-    private static List<string> AddResourceVersionPredicates(
-        SqliteCommand command,
-        IReadOnlyList<ResourceVersionReference> references)
+    /// <summary>
+    /// Reads the payloads of one batch of composite keys, ordered by the key columns. The keys drive a
+    /// primary-key join from a <c>VALUES</c> list: an <c>OR</c> of key predicates makes SQLite, which has
+    /// no <c>ANALYZE</c> statistics here, walk the whole tenant once it has more than a few terms (#171).
+    /// </summary>
+    private async Task<List<T>> ReadPayloadsByCompositeKeysAsync<T>(
+        SqliteConnection connection,
+        string tableName,
+        (string First, string Second) columns,
+        TenantScope tenant,
+        IReadOnlyList<(string First, object Second)> keys,
+        CancellationToken cancellationToken)
     {
-        var predicates = new List<string>();
+        if (keys.Count == 0)
+            return [];
 
-        for (var index = 0; index < references.Count; index++)
+        await using var command = connection.CreateCommand();
+        for (var index = 0; index < keys.Count; index++)
         {
-            var resourceIdParameter = $"$resourceId{index}";
-            var versionParameter = $"$version{index}";
-            command.Parameters.AddWithValue(resourceIdParameter, references[index].ResourceId);
-            command.Parameters.AddWithValue(versionParameter, references[index].Version);
-            predicates.Add($"(resource_id = {resourceIdParameter} AND version = {versionParameter})");
+            command.Parameters.AddWithValue($"$keyFirst{index}", keys[index].First);
+            command.Parameters.AddWithValue($"$keySecond{index}", keys[index].Second);
         }
 
-        return predicates;
+        command.CommandText = CompositeKeyPayloadsSql(tableName, columns, keys.Count);
+        command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
+        return await ReadPayloadsAsync<T>(command, cancellationToken);
     }
 
-    private static List<string> AddDefinitionVersionPredicates(
-        SqliteCommand command,
-        IReadOnlyList<(string DefinitionId, int Version)> references)
-    {
-        var predicates = new List<string>();
-
-        for (var index = 0; index < references.Count; index++)
-        {
-            var definitionIdParameter = $"$definitionId{index}";
-            var versionParameter = $"$definitionVersion{index}";
-            command.Parameters.AddWithValue(definitionIdParameter, references[index].DefinitionId);
-            command.Parameters.AddWithValue(versionParameter, references[index].Version);
-            predicates.Add($"(definition_id = {definitionIdParameter} AND version = {versionParameter})");
-        }
-
-        return predicates;
-    }
-
-    private static List<string> AddActivationStatePredicates(
-        SqliteCommand command,
-        IReadOnlyList<(string ResourceId, string Channel)> references)
-    {
-        var predicates = new List<string>();
-
-        for (var index = 0; index < references.Count; index++)
-        {
-            var resourceIdParameter = $"$activationResourceId{index}";
-            var channelParameter = $"$activationChannel{index}";
-            command.Parameters.AddWithValue(resourceIdParameter, references[index].ResourceId);
-            command.Parameters.AddWithValue(channelParameter, references[index].Channel);
-            predicates.Add($"(resource_id = {resourceIdParameter} AND channel = {channelParameter})");
-        }
-
-        return predicates;
-    }
+    internal static string CompositeKeyPayloadsSql(string tableName, (string First, string Second) columns, int keyCount) => $"""
+        WITH keys(first_key, second_key) AS (
+            VALUES {string.Join(", ", Enumerable.Range(0, keyCount).Select(static index => $"($keyFirst{index}, $keySecond{index})"))})
+        SELECT t.payload
+        FROM keys CROSS JOIN {tableName} t
+        WHERE t.tenant_id = $tenantId AND t.{columns.First} = keys.first_key AND t.{columns.Second} = keys.second_key
+        ORDER BY t.{columns.First}, t.{columns.Second};
+        """;
 
     private async Task<List<T>> ReadPayloadsByTextIdsAsync<T>(
         string tableName,
@@ -1277,24 +1248,13 @@ public sealed class SqliteJsonResourceStore :
         await using var connection = await OpenConnectionAsync(cancellationToken);
         foreach (var batch in ordered.Chunk(MaxSqliteParametersPerQuery / 2))
         {
-            await using var command = connection.CreateCommand();
-            var predicates = new List<string>(batch.Length);
-            for (var index = 0; index < batch.Length; index++)
-            {
-                predicates.Add($"(resource_id = $resourceId{index} AND version = $version{index})");
-                command.Parameters.AddWithValue($"$resourceId{index}", batch[index].ResourceId);
-                command.Parameters.AddWithValue($"$version{index}", batch[index].Version);
-            }
-
-            command.CommandText = $"""
-                SELECT payload
-                FROM resource_versions
-                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)})
-                ORDER BY resource_id, version;
-                """;
-            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
-
-            results.AddRange(await ReadPayloadsAsync<Resource>(command, cancellationToken));
+            results.AddRange(await ReadPayloadsByCompositeKeysAsync<Resource>(
+                connection,
+                "resource_versions",
+                ("resource_id", "version"),
+                tenant,
+                batch.Select(static key => (key.ResourceId, (object)key.Version)).ToList(),
+                cancellationToken));
         }
 
         return results;
@@ -1402,23 +1362,13 @@ public sealed class SqliteJsonResourceStore :
             .ThenBy(static reference => reference.Version)
             .Chunk(MaxSqliteParametersPerQuery / 2))
         {
-            await using var command = connection.CreateCommand();
-            var predicates = new List<string>(batch.Length);
-            for (var index = 0; index < batch.Length; index++)
-            {
-                command.Parameters.AddWithValue($"$aspectDefinitionId{index}", batch[index].AspectDefinitionId);
-                command.Parameters.AddWithValue($"$aspectVersion{index}", batch[index].Version);
-                predicates.Add($"(aspect_definition_id = $aspectDefinitionId{index} AND version = $aspectVersion{index})");
-            }
-
-            command.CommandText = $"""
-                SELECT payload
-                FROM aspect_definitions
-                WHERE tenant_id = $tenantId AND ({string.Join(" OR ", predicates)});
-                """;
-            command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
-
-            results.AddRange(await ReadPayloadsAsync<AspectDefinition>(command, cancellationToken));
+            results.AddRange(await ReadPayloadsByCompositeKeysAsync<AspectDefinition>(
+                connection,
+                "aspect_definitions",
+                ("aspect_definition_id", "version"),
+                tenant,
+                batch.Select(static reference => (reference.AspectDefinitionId, (object)reference.Version)).ToList(),
+                cancellationToken));
         }
 
         return results
