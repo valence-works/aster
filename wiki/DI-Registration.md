@@ -167,7 +167,7 @@ Inject concrete types only in tests or infrastructure code where you need implem
 
 ## ASP.NET Core
 
-`Aster.AspNetCore` maps the Aster endpoints onto a host. Aster Studio (`src/apps/Aster.Studio`) wires it like this:
+`Aster.AspNetCore` maps the Aster endpoints onto a host. With the package defaults, every endpoint group is mapped:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -183,6 +183,8 @@ app.Run();
 ```
 
 See `src/hosting/Aster.AspNetCore/README.md` for the endpoint list, authorization hooks and tenant resolution.
+
+Aster Studio (`src/apps/Aster.Studio/Program.cs`) narrows this: it maps only the definition and resource groups (`options.Groups`), and adds an endpoint filter (`options.ConfigureGroup`) that keeps content types create-only.
 
 ---
 
