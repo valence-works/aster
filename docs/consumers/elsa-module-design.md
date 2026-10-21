@@ -38,8 +38,12 @@
 
 | Package | Contents | Depends on |
 |---|---|---|
-| `Aster.Elsa` | Feature registration, tenant mapping, activities (#115), lifecycle triggers (#116), store adapters for Elsa entities (#118) | `Aster.Core`; `Elsa.Workflows.Runtime` and `Elsa.Common`; the store adapters' Elsa packages (`Elsa.Agents.Persistence`, `Elsa.Labels`) are referenced by the adapters only, so hosts that don't use them aren't forced to install them |
+| `Aster.Elsa` | Feature registration, tenant mapping, activities (#115), lifecycle triggers (#116) | `Aster.Core`, `Elsa.Workflows.Runtime`, `Elsa.Common` |
+| `Aster.Elsa.Agents` (#118) | `IAgentStore` adapter and the one-time import from Elsa's agent store | `Aster.Elsa`, `Elsa.Agents.Persistence` |
+| `Aster.Elsa.Labels` (later) | `ILabelStore` and `IWorkflowDefinitionLabelStore` adapters | `Aster.Elsa`, `Elsa.Labels` |
 | `Aster.Elsa.Studio` (#117) | Elsa Studio (Blazor) module: definition list, resource editors, version history | `Aster.AspNetCore` endpoints over HTTP; Elsa Studio packages |
+
+NuGet has no optional dependencies, so each store adapter is its own package. A host that doesn't move agents or labels never installs Elsa's agents or labels packages through Aster.
 
 Persistence providers stay in their own packages. The host references the one that matches its Elsa database. `Aster.Elsa` doesn't pull in all three.
 
@@ -110,10 +114,12 @@ Trigger dispatch (#116) goes the other way: the lifecycle hook context carries t
 ## Lifecycle events and triggers (direction for #116)
 
 - **Dispatch.** Triggers are fed by an `IResourceLifecycleHook` whose after-hooks call Elsa's `IStimulusSender`. That covers both starting trigger-bound workflows and resuming bookmarks.
+  - **Stimulus.** Each trigger activity type (Resource Saved, Activated, Deactivated, Archived) receives a stimulus carrying the values its filters index: definition ID, channel and tenant. Elsa then matches only the workflows whose filters fit. #116 settles the exact payload and adds tests against Elsa 3.9 for both paths.
   - **Rejected: Elsa's bookmark queue.** `IBookmarkQueue` only resumes existing bookmarks. It can't start a workflow from a trigger, so it doesn't replace an outbox.
 - **After-hooks must mean "committed".** Today after-hooks also run when the write failed. #219 fixes that, and #116 depends on it.
 - **Delivery is at-most-once.** If the process stops between the Aster commit and the stimulus, the event is lost; a failed workflow start is logged and never rolls back the Aster write, as #116 requires. A durable outbox would mean persisting events in Aster, which ADR 0001 keeps out of scope. It becomes a follow-up only if a consumer needs it.
-- **Missing hook point: archive.** "Resource Archived" (#116) has no hook point today. Archiving goes through the lifecycle marker service, which has no hooks. #116 adds after-archive and after-restore points to `IResourceLifecycleHook`, which are additive default interface members.
+  - **Failure handling.** The `Aster.Elsa` hook catches `SendAsync` failures, logs them with the resource, version, channel and tenant, and doesn't rethrow, so neither the Aster caller nor other hooks see them. Nothing retries automatically: a retry could start a workflow twice. #116 tests a committed write followed by a failing send.
+- **Missing hook point: archive.** "Resource Archived" (#116) has no hook point today. Archiving goes through the lifecycle marker service, which has no hooks. #116 adds after-archive and after-restore points to `IResourceLifecycleHook`, which are additive default interface members. They are dispatched after the marker write commits, under the same committed-only rule as #219.
 
 ## Activities (direction for #115)
 
@@ -143,6 +149,6 @@ Promotion between channels is a composite activity over the two explicit calls (
 
 - #115, #116 and #118 are built in this repository against Elsa 3.9 packages, with tests that run workflows in process. #117 follows the same layout as `Aster.Elsa.Studio`.
 - #116 depends on #219 (committed-only after-hooks) and adds the archive and restore hook points.
-- #118 depends on #222, so `AgentConfig.Agents` can map to `reference[]` facets.
+- #118 builds `Aster.Elsa.Agents` and depends on #222, so `AgentConfig.Agents` can map to `reference[]` facets.
 - SQL Server hosts depend on #152.
-- The module adds no dependency to `Aster.Core` or to the providers.
+- `Aster.Core` and the provider packages gain no dependency on Elsa. Only the `Aster.Elsa*` packages reference Elsa.
