@@ -30,9 +30,15 @@ public sealed record TenantScope
     /// </summary>
     /// <param name="tenantId">Opaque exact-match tenant identifier.</param>
     /// <returns>A tenant scope for <paramref name="tenantId"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="tenantId"/> is <see langword="null"/>, empty or whitespace.</exception>
+    /// <exception cref="Exceptions.InvalidIdentifierException">
+    /// <paramref name="tenantId"/> starts or ends with whitespace. To read data stored under such a tenant before this
+    /// rule existed, construct the scope with an object initializer instead; new records cannot be written under it.
+    /// </exception>
     public static TenantScope FromTenantId(string tenantId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        Services.IdentifierValidator.ThrowIfSurroundingWhitespace(tenantId);
         return new TenantScope { TenantId = tenantId };
     }
 

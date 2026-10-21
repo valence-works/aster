@@ -64,6 +64,62 @@ public sealed class TenantScopeException : Exception
 }
 
 /// <summary>
+/// Thrown when an identifier that a new record carries (a resource ID, definition ID, aspect definition ID, activation
+/// channel or tenant ID) starts or ends with whitespace. Providers disagree on what such identifiers mean (SQL Server
+/// ignores trailing spaces in comparisons, SQLite and PostgreSQL compare exactly), so core rejects them before anything
+/// is written. Like the rejection of a blank identifier, it is an <see cref="ArgumentException"/>.
+/// </summary>
+public sealed class InvalidIdentifierException : ArgumentException
+{
+    /// <summary>
+    /// Stable code for an identifier with leading or trailing whitespace.
+    /// </summary>
+    public const string SurroundingWhitespaceCode = "identifier-whitespace";
+
+    /// <summary>
+    /// Gets the stable identifier failure code.
+    /// </summary>
+    public string Code { get; }
+
+    /// <summary>
+    /// Gets the rejected identifier value, when available.
+    /// </summary>
+    public string? Identifier { get; }
+
+    /// <inheritdoc />
+    public InvalidIdentifierException()
+        : this(SurroundingWhitespaceCode, "The identifier must not start or end with whitespace.", paramName: null, identifier: null) { }
+
+    /// <inheritdoc />
+    public InvalidIdentifierException(string message)
+        : this(SurroundingWhitespaceCode, message, paramName: null, identifier: null) { }
+
+    /// <inheritdoc />
+    public InvalidIdentifierException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+        Code = SurroundingWhitespaceCode;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InvalidIdentifierException"/> class.
+    /// </summary>
+    /// <param name="code">Stable identifier failure code.</param>
+    /// <param name="message">Human-readable explanation.</param>
+    /// <param name="paramName">The parameter or property that carried the identifier, when known.</param>
+    /// <param name="identifier">The rejected identifier value, when known.</param>
+    public InvalidIdentifierException(string code, string message, string? paramName, string? identifier)
+        : base(message, paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        Code = code;
+        Identifier = identifier;
+    }
+}
+
+/// <summary>
 /// Thrown by a pruning store when removing a version would leave fewer versions than the supplied
 /// <see cref="Models.Policies.ResourceVersionPruneFloor"/> allows. Nothing is removed.
 /// </summary>

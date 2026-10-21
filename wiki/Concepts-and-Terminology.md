@@ -40,6 +40,14 @@ A **versioned instance** of a Resource Definition.
 
 > The old separate `ResourceVersion` model has been merged into `Resource`. `ResourceId` = logical identity; `Id` = version snapshot identity.
 
+### Identifiers
+
+`ResourceId`, `DefinitionId`, `AspectDefinitionId`, activation channels and tenant IDs are opaque, case-sensitive, exact-match strings. They must not be blank and must not start or end with whitespace; whitespace inside one (`"product one"`) is fine.
+
+Providers compare padded strings differently (SQL Server ignores trailing spaces, SQLite and PostgreSQL do not), so core rejects a padded identifier wherever a record is written for the first time: `TenantScope.FromTenantId`, `CreateAsync` (definition ID, caller-supplied resource ID, tenant ID), definition and aspect definition registration, `ActivateAsync` (channel), and snapshot import. The failure is an `InvalidIdentifierException` (an `ArgumentException`) with code `identifier-whitespace`, or an `identifier-whitespace` diagnostic for snapshots.
+
+Lookups of existing records (reads, `UpdateAsync`, `DeactivateAsync`, version history, lifecycle markers, policy application, export, query filters) are not checked and never trim, so data stored under a padded ID before the rule existed stays reachable under its exact ID. See [Exception Reference](Exception-Reference#invalididentifierexception).
+
 ### Aspect Definition
 
 A reusable "part" that can be attached to any Resource Definition. Think of it like a mixin or a trait.

@@ -12,6 +12,7 @@ Aster throws typed exceptions for all domain-level error conditions. All excepti
 | `VersionNotFoundException` | `Aster.Core.Exceptions` | Requested resource version does not exist |
 | `SingletonViolationException` | `Aster.Core.Exceptions` | Attempt to create a second instance of a singleton definition |
 | `DuplicateResourceIdException` | `Aster.Core.Exceptions` | Caller-supplied `ResourceId` already exists |
+| `InvalidIdentifierException` | `Aster.Core.Exceptions` | A new record's resource ID, definition ID, aspect definition ID, channel or tenant ID starts or ends with whitespace |
 | `DuplicateAspectAttachmentException` | `Aster.Core.Exceptions` | Same aspect key attached twice to a definition |
 | `ResourceSchemaUpgradeException` | `Aster.Core.Exceptions` | `ThrowIfRejected()` on a rejected schema upgrade result |
 | `UnsupportedQueryFeatureException` | `Aster.Core.Exceptions` | Query execution receives a provider-unsupported scope, predicate, sort, paging value, or value shape |
@@ -108,6 +109,35 @@ catch (DuplicateResourceIdException)
 ```
 
 **Prevention:** Either omit `ResourceId` (let the engine generate one) or check existence before creating.
+
+---
+
+## `InvalidIdentifierException`
+
+**Thrown by:** `TenantScope.FromTenantId`, `CreateAsync` (definition ID, caller-supplied `ResourceId`, tenant ID), `RegisterDefinitionAsync` / `RegisterDefinitionIfLatestAsync` and `ResourceDefinitionBuilder.WithDefinitionId` (definition ID, tenant ID), `IAspectDefinitionStore.RegisterAsync` / `RegisterIfLatestAsync` (aspect definition ID, tenant ID), `ActivateAsync` (channel).
+
+**Why:** The identifier starts or ends with whitespace (`char.IsWhiteSpace`: spaces, tabs, newlines, non-breaking spaces). Providers disagree on what such IDs mean (SQL Server treats `"x"` and `"x "` as one key, SQLite and PostgreSQL as two), so core rejects them before anything is written. It derives from `ArgumentException`, like the rejection of a blank ID, and carries:
+
+- `Code`: always `identifier-whitespace` (`InvalidIdentifierException.SurroundingWhitespaceCode`)
+- `Identifier`: the rejected value
+- `ParamName`: the argument or property that carried it
+
+```csharp
+try
+{
+    await manager.CreateAsync("Product", new CreateResourceRequest { ResourceId = userInput });
+}
+catch (InvalidIdentifierException exception)
+{
+    // exception.Code == "identifier-whitespace"; exception.Identifier == userInput
+}
+```
+
+Snapshot validation and import report the same code as a `PortableDiagnostic` (`PortableDiagnosticCodes.IdentifierWhitespace`) instead of throwing. The ASP.NET Core endpoints return `400` with the code in `diagnostics`.
+
+**Not thrown by** lookups of existing records: reads, `UpdateAsync`, `DeactivateAsync`, history, lifecycle markers, policy application, export and query filters accept any identifier and match it exactly, so data stored under a padded ID before this rule stays reachable. New records, including new versions of a padded definition, cannot be written under such IDs.
+
+**Prevention:** Trim user input before using it as an identifier, or check it with `IdentifierValidator.HasSurroundingWhitespace`.
 
 ---
 

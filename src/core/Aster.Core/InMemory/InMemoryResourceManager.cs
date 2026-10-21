@@ -81,6 +81,7 @@ internal sealed partial class InMemoryResourceManager : IResourceManager, IResou
         ArgumentException.ThrowIfNullOrWhiteSpace(definitionId);
         ArgumentNullException.ThrowIfNull(request);
         var tenant = TenantScopeResolver.Resolve(request.TenantScope);
+        IdentifierValidator.ThrowIfCreateIdentifiersInvalid(definitionId, request.ResourceId, tenant);
 
         // Resolve ResourceId
         var resourceId = string.IsNullOrWhiteSpace(request.ResourceId)
@@ -279,6 +280,7 @@ internal sealed partial class InMemoryResourceManager : IResourceManager, IResou
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(channel);
         var tenant = TenantScopeResolver.Resolve(tenantScope);
+        IdentifierValidator.ThrowIfSurroundingWhitespace(channel);
 
         var versions = store.TryGetVersions(resourceId, tenant);
         if (versions is null)

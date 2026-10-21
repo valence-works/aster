@@ -19,6 +19,9 @@ public interface IAspectDefinitionStore
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The registered version, with its assigned <c>Version</c>.</returns>
     /// <exception cref="Exceptions.FacetMetadataValidationException">A facet's type or metadata is invalid.</exception>
+    /// <exception cref="Exceptions.InvalidIdentifierException">
+    /// The aspect definition ID or the tenant ID starts or ends with whitespace; nothing is registered.
+    /// </exception>
     ValueTask<AspectDefinition> RegisterAsync(
         AspectDefinition aspect,
         TenantScope? tenantScope = null,
@@ -41,6 +44,9 @@ public interface IAspectDefinitionStore
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="expectedLatestVersion"/> is negative.</exception>
     /// <exception cref="Exceptions.FacetMetadataValidationException">A facet's type or metadata is invalid.</exception>
+    /// <exception cref="Exceptions.InvalidIdentifierException">
+    /// The aspect definition ID or the tenant ID starts or ends with whitespace; nothing is registered.
+    /// </exception>
     ValueTask<AspectDefinitionRegistrationResult> RegisterIfLatestAsync(
         AspectDefinition aspect,
         int expectedLatestVersion,

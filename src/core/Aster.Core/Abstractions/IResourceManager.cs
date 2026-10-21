@@ -26,6 +26,10 @@ public interface IResourceManager
     /// <exception cref="SingletonViolationException">
     /// Thrown if the definition is a singleton and an instance already exists.
     /// </exception>
+    /// <exception cref="InvalidIdentifierException">
+    /// Thrown before anything is written if <paramref name="definitionId"/>, a caller-supplied <c>ResourceId</c> or the
+    /// tenant ID starts or ends with whitespace.
+    /// </exception>
     ValueTask<Resource> CreateAsync(string definitionId, CreateResourceRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -100,6 +104,7 @@ public interface IResourceManager
     /// </param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <exception cref="VersionNotFoundException">Thrown if the specified version does not exist.</exception>
+    /// <exception cref="InvalidIdentifierException">Thrown if <paramref name="channel"/> starts or ends with whitespace.</exception>
     ValueTask ActivateAsync(string resourceId, int version, string channel, bool allowMultipleActive = false, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -111,6 +116,7 @@ public interface IResourceManager
     /// <param name="tenantScope">Tenant scope for activation.</param>
     /// <param name="allowMultipleActive">Whether to permit multiple active versions in the channel.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <exception cref="InvalidIdentifierException">Thrown if <paramref name="channel"/> starts or ends with whitespace.</exception>
     ValueTask ActivateAsync(string resourceId, int version, string channel, TenantScope tenantScope, bool allowMultipleActive, CancellationToken cancellationToken);
 
     /// <summary>
