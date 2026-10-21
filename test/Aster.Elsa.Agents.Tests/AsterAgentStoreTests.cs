@@ -211,8 +211,8 @@ public sealed class AsterAgentStoreTests
         writer.AgentConfig.PromptTemplate = "Write it shorter.";
         await host.WithStoreAsync(store => store.UpdateAsync(writer));
 
-        var stored = await host.Services.GetRequiredService<IResourceManager>().GetLatestVersionAsync("writer-id");
-        var config = stored!.GetAspect<AgentConfigAspect>(AsterAgentResource.ConfigAspectKey, host.Services.GetRequiredService<ITypedAspectBinder>());
+        var stored = (await host.Services.GetRequiredService<IResourceManager>().GetLatestVersionAsync("writer-id"))!;
+        var config = stored.GetAspect<AgentConfigAspect>(AsterAgentResource.ConfigAspectKey, host.Services.GetRequiredService<ITypedAspectBinder>());
         Assert.Equal(2, stored.Version);
         Assert.Equal(["researcher-id"], config!.Agents!.AsEnumerable());
     }
