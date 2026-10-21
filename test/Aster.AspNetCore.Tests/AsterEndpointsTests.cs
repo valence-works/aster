@@ -156,6 +156,43 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/aster/definitions/Nope/schema")).StatusCode);
     }
 
+    [Fact]
+    public async Task SchemaUpgradeRejections_ThrownInsideTheAsterGroup_AreProblemDetails()
+    {
+        // A host endpoint mapped into the resources group that prefers exception flow (#188).
+        var (client, _) = await StartAsync(configure: options => options.ConfigureGroup = static (group, builder) =>
+        {
+            if (group == AsterEndpointGroups.Resources)
+                builder.MapPost("/{resourceId}/schema-upgrade", static async (string resourceId, int baseVersion, IResourceSchemaVersionService schemaVersions, CancellationToken ct) =>
+                    Results.Ok((await schemaVersions.UpgradeAsync(resourceId, new ResourceSchemaUpgradeRequest { BaseVersion = baseVersion }, ct)).ThrowIfRejected().Status));
+        });
+        await RegisterAsync(client, Article(), expected: 0);
+        Assert.Equal(HttpStatusCode.Created, (await CreateAsync(client, "a1", "Hello")).StatusCode);
+        var stricter = new ResourceDefinitionBuilder()
+            .WithDefinitionId("Article")
+            .WithAspect("Content")
+                .WithFacet("Title", "string", isRequired: true)
+                .WithFacetMetadata(new FacetMetadata { Label = "Title", MaxLength = 3 })
+                .WithFacet("Views", "int")
+            .Build();
+        Assert.True((await RegisterAsync(client, stricter, expected: 1)).IsSuccessStatusCode);
+
+        var invalid = await client.PostAsync("/api/aster/resources/a1/schema-upgrade?baseVersion=1", content: null);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var diagnostic = (await ReadAsync(invalid)).GetProperty("diagnostics")[0];
+        Assert.Equal(
+            ("facet-value-length-out-of-range", "Content", "Title"),
+            (diagnostic.GetProperty("code").GetString(), diagnostic.GetProperty("aspectKey").GetString(), diagnostic.GetProperty("facetId").GetString()));
+
+        var stale = await client.PostAsync("/api/aster/resources/a1/schema-upgrade?baseVersion=9", content: null);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal("concurrency-conflict", (await ReadAsync(stale)).GetProperty("code").GetString());
+
+        var missing = await client.PostAsync("/api/aster/resources/nope/schema-upgrade?baseVersion=1", content: null);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        Assert.Equal("application/problem+json", missing.Content.Headers.ContentType?.MediaType);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Shared aspects
     // ──────────────────────────────────────────────────────────────────────────

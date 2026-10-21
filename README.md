@@ -245,14 +245,16 @@ Use `IResourceSchemaVersionService` when a host needs to inspect or explicitly a
 var schemaVersions = serviceProvider.GetRequiredService<IResourceSchemaVersionService>();
 var status = await schemaVersions.GetSchemaStatusAsync(resource);
 
-var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, new ResourceSchemaUpgradeRequest
+var request = new ResourceSchemaUpgradeRequest
 {
     BaseVersion = resource.Version,
     TargetDefinitionVersion = status.LatestDefinitionVersion,
-});
+};
+var preview = await schemaVersions.UpgradePreviewAsync(resource.ResourceId, request); // writes nothing
+var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, request);
 ```
 
-Schema status is evaluated for one resource version at a time. Explicit upgrades append a new resource version, default to the latest definition version when no target is supplied, preserve existing aspect data by default, and report `CarriedForwardAspectKeys` for aspect keys not declared by the target definition. A target equal to the source lineage returns `ResourceSchemaUpgradeStatus.NoOp`; invalid targets throw `ResourceSchemaUpgradeException` with a stable `Code`.
+Schema status is evaluated for one resource version at a time. Explicit upgrades append a new resource version, default to the latest definition version when no target is supplied, preserve existing aspect data by default, and report `CarriedForwardAspectKeys` for aspect keys not declared by the target definition. The upgraded payload is validated against the target definition's facets before it is written. A target equal to the source lineage returns `ResourceSchemaUpgradeStatus.NoOp`. A request that cannot be applied (missing resource, stale base version, invalid target, invalid payload) returns `ResourceSchemaUpgradeStatus.Rejected` with stable `Diagnostics` and writes nothing. `UpgradePreviewAsync` reports the same outcome, target, carried-forward keys and diagnostics before anything is written.
 
 ### Exception reference
 
@@ -260,7 +262,7 @@ Schema status is evaluated for one resource version at a time. Explicit upgrades
 |---|---|
 | `ConcurrencyException` | `BaseVersion` mismatch on update or activate |
 | `VersionNotFoundException` | Requested version does not exist |
-| `ResourceSchemaUpgradeException` | Explicit schema upgrade target is invalid or unavailable |
+| `ResourceSchemaUpgradeException` | `ResourceSchemaUpgradeResult.ThrowIfRejected()` on a rejected schema upgrade |
 | `SingletonViolationException` | Creating a second instance of a singleton definition |
 | `DuplicateResourceIdException` | Caller-supplied `ResourceId` already exists |
 | `DuplicateAspectAttachmentException` | Same aspect key attached twice to a definition |

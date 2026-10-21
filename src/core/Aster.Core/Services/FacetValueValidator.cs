@@ -7,8 +7,9 @@ namespace Aster.Core.Services;
 /// Save-time validation of facet values against their declared type, <c>IsRequired</c>, and
 /// declared metadata constraints. Invoked by <c>DefaultResourceManager</c> and
 /// <c>InMemoryResourceManager</c> create/update paths before any before-save lifecycle hook and
-/// before any write, so a violation means nothing was persisted. Portability import and schema
-/// upgrades do not call it, so historical versions stay importable and upgradable.
+/// before any write, so a violation means nothing was persisted. Schema upgrades call it against the
+/// target definition version, and return its diagnostics as a rejection. Portability import does
+/// not call it, so historical versions stay importable.
 /// </summary>
 internal static class FacetValueValidator
 {

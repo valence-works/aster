@@ -1,5 +1,4 @@
 using Aster.Core.Abstractions;
-using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
 using Aster.Core.Models.Tenancy;
@@ -137,7 +136,6 @@ internal static class OperationsEndpoints
         string resourceId,
         HttpContext http,
         IResourceManager resourceManager,
-        IResourceDefinitionStore definitionStore,
         IResourceSchemaVersionService schemaService,
         CancellationToken cancellationToken)
     {
@@ -147,15 +145,12 @@ internal static class OperationsEndpoints
 
         var status = await schemaService.GetSchemaStatusAsync(latest, cancellationToken);
 
-        // The upgrade reports carried-forward aspect keys only after it has written the new version. Showing them
-        // beforehand means repeating its rule: payload keys the target definition does not declare.
-        var definition = await definitionStore.GetDefinitionAsync(latest.DefinitionId, tenant, cancellationToken);
-        var undeclared = definition is null
-            ? []
-            : latest.Aspects.Keys
-                .Where(key => !definition.AspectDefinitions.ContainsKey(key))
-                .Order(StringComparer.Ordinal)
-                .ToList();
+        // The same request the upgrade button sends, so the carried-forward keys and blocking diagnostics shown
+        // before upgrading are the SDK's, not a copy of its rules.
+        var preview = await schemaService.UpgradePreviewAsync(
+            resourceId,
+            new ResourceSchemaUpgradeRequest { TenantScope = tenant, BaseVersion = latest.Version },
+            cancellationToken);
 
         return Results.Ok(new SchemaStatusDto(
             status.ResourceId,
@@ -165,7 +160,11 @@ internal static class OperationsEndpoints
             status.LatestDefinitionVersion,
             status.Status,
             status.Message,
-            undeclared));
+            new SchemaUpgradePreviewDto(
+                preview.Status,
+                preview.TargetDefinitionVersion,
+                preview.CarriedForwardAspectKeys,
+                Diagnostics(preview.Diagnostics))));
     }
 
     private static async Task<IResult> UpgradeSchemaAsync(
@@ -175,32 +174,31 @@ internal static class OperationsEndpoints
         IResourceSchemaVersionService schemaService,
         CancellationToken cancellationToken)
     {
-        // Upgrade failures are exceptions rather than result diagnostics; map each onto problem details.
-        try
+        var result = await schemaService.UpgradeAsync(resourceId, new ResourceSchemaUpgradeRequest { TenantScope = http.GetTenantScope(), BaseVersion = request.BaseVersion }, cancellationToken);
+
+        // A rejection answers with problem details keyed off its first code; every diagnostic is listed.
+        if (!result.Succeeded)
         {
-            var result = await schemaService.UpgradeAsync(resourceId, new ResourceSchemaUpgradeRequest { TenantScope = http.GetTenantScope(), BaseVersion = request.BaseVersion }, cancellationToken);
-            return Results.Ok(new SchemaUpgradeResultDto(
-                result.Status,
-                result.Resource?.Version,
-                result.SourceDefinitionVersion,
-                result.TargetDefinitionVersion,
-                result.CarriedForwardAspectKeys,
-                result.Message));
+            var diagnostics = Diagnostics(result.Diagnostics);
+            return result.Diagnostics[0].Code switch
+            {
+                ResourceSchemaUpgradeDiagnosticCodes.ResourceNotFound => Problem(StatusCodes.Status404NotFound, "Not found", diagnostics, result.Message),
+                ResourceSchemaUpgradeDiagnosticCodes.ConcurrencyConflict => Problem(StatusCodes.Status409Conflict, "The resource changed since it was read.", diagnostics),
+                _ => Problem(StatusCodes.Status400BadRequest, "The schema upgrade was rejected.", diagnostics),
+            };
         }
-        catch (VersionNotFoundException)
-        {
-            // Thrown only when the resource has no versions at all.
-            return ResourceNotFound(resourceId);
-        }
-        catch (ConcurrencyException exception)
-        {
-            return Problem(StatusCodes.Status409Conflict, "The resource changed since it was read.", [new DiagnosticDto("concurrency-conflict", null, null, exception.Message)]);
-        }
-        catch (ResourceSchemaUpgradeException exception)
-        {
-            return Problem(StatusCodes.Status400BadRequest, "The schema upgrade was rejected.", [new DiagnosticDto(exception.Code, null, null, exception.Message)]);
-        }
+
+        return Results.Ok(new SchemaUpgradeResultDto(
+            result.Status,
+            result.Resource?.Version,
+            result.SourceDefinitionVersion,
+            result.TargetDefinitionVersion,
+            result.CarriedForwardAspectKeys,
+            result.Message));
     }
+
+    private static List<DiagnosticDto> Diagnostics(IEnumerable<ResourceSchemaUpgradeDiagnostic> diagnostics) =>
+        diagnostics.Select(static diagnostic => new DiagnosticDto(diagnostic.Code, diagnostic.AspectKey, diagnostic.FacetDefinitionId, diagnostic.Message)).ToList();
 
     private static async Task<IResult> GetPoliciesAsync(
         string definitionId,
