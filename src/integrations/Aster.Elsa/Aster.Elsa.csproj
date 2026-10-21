@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <Description>Elsa Workflows 3 module for Aster: activities that create, update, read, query, activate, deactivate, promote and archive Aster resources, with Elsa tenants mapped to Aster tenant scopes. Supports Elsa 3.9 and later 3.x releases.</Description>
+    <PackageTags>aster;elsa;elsa-workflows;workflow;activities</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CI builds and tests against the lower bound of the supported range (docs/consumers/elsa-module-design.md). -->
+    <PackageReference Include="Elsa.Workflows.Runtime" Version="[3.9.0, 4.0.0)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Aster.Core\Aster.Core.csproj" />
+  </ItemGroup>
+
+</Project>
