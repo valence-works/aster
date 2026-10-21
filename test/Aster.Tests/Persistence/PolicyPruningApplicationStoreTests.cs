@@ -46,6 +46,36 @@ public abstract class PolicyPruningApplicationStoreTests(IAsterTestDatabase data
     }
 
     [SkippableFact]
+    public async Task PreviewThenApply_LifecycleStateCriterion_PrunesOnlyThePersistedArchivedResource()
+    {
+        // #206: the preview reads persisted markers and proposes only what application then prunes.
+        await using var provider = Database.CreateProvider();
+        await PolicyTestFixtures.RegisterProductDefinitionAsync(
+            provider,
+            policies: [PolicyTestFixtures.PruningPolicy("prune-archived", retainedVersions: 1, lifecycleState: ResourceLifecycleMarkerState.Archived)]);
+        foreach (var resourceId in new[] { "archived", "unmarked" })
+        {
+            foreach (var version in new[] { 1, 2, 3 })
+                await PolicyTestFixtures.SaveResourceAsync(provider, resourceId, version);
+        }
+
+        await PolicyTestFixtures.ArchiveAsync(provider, "archived");
+
+        var preview = await provider.GetRequiredService<IResourcePolicyEvaluationService>().PreviewAsync(new ResourcePolicyEvaluationRequest());
+        var applied = await provider.GetRequiredService<IResourcePolicyPruningApplicationService>().ApplyAsync(new ResourcePolicyPruningApplicationRequest
+        {
+            Candidates = PolicyTestFixtures.PruningCandidates(preview),
+        });
+
+        Assert.Equal(
+            [("archived", 1), ("archived", 2)],
+            preview.Candidates.Select(static candidate => (candidate.ResourceId, candidate.ResourceVersion)).Order());
+        Assert.All(applied.Candidates, static result => Assert.Equal(ResourcePolicyPruningApplicationCandidateStatus.Pruned, result.Status));
+        Assert.Equal([3], (await PolicyTestFixtures.ReadVersionsAsync(provider, "archived")).Select(static version => version.Version));
+        Assert.Equal([1, 2, 3], (await PolicyTestFixtures.ReadVersionsAsync(provider, "unmarked")).Select(static version => version.Version));
+    }
+
+    [SkippableFact]
     public async Task PruneVersionAsync_FailsClosedForPersistedLatestVersion()
     {
         await using var provider = Database.CreateProvider();

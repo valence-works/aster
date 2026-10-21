@@ -466,6 +466,11 @@ Restore preview is non-mutating. Restore application re-reads current marker sta
 
 Hosts can also apply selected version-pruning preview outcomes through `IResourcePolicyPruningApplicationService`. Pruning application is explicit, tenant-scoped, and candidate-bounded: the SDK removes only submitted resource versions after revalidating current policy declarations, latest/active protection, lifecycle and age criteria, and retained-version safety.
 
+Version-pruning previews apply the same criteria, so submitting a fresh preview's candidates unchanged (with an `AppliedAt` no earlier than its `EvaluationTimestamp`) does not fail with `policy-pruning-policy-mismatch`:
+- Resources whose lifecycle marker state differs from the policy's `LifecycleState` are skipped.
+- Versions younger than the policy's `MinimumAge` are not proposed. The retained count still keeps the newest versions whatever their age.
+- Versions outside the retained count that are active on any channel are not proposed; each gets a `policy-pruning-version-protected-active` diagnostic instead.
+
 ```csharp
 var pruning = serviceProvider.GetRequiredService<IResourcePolicyPruningApplicationService>();
 

@@ -278,8 +278,7 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
         if (!string.IsNullOrWhiteSpace(criteria.UnsupportedFacetPredicate))
             return "criteria";
 
-        if (criteria.MinimumAge is { } minimumAge
-            && appliedAt - new DateTimeOffset(DateTime.SpecifyKind(latest.Created, DateTimeKind.Utc)) < minimumAge)
+        if (!ResourcePolicyCriteriaMatching.MatchesMinimumAge(criteria, latest, appliedAt))
             return "criteria/minimumAge";
 
         if (criteria.ActivationState is { } activationState)
@@ -291,12 +290,8 @@ internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicat
                 return "criteria/activationState";
         }
 
-        if (criteria.LifecycleState is { } expected)
-        {
-            var actual = markers.TryGetValue(latest.ResourceId, out var marker) ? marker.State : ResourceLifecycleMarkerState.None;
-            if (actual != expected)
-                return "criteria/lifecycleState";
-        }
+        if (!ResourcePolicyCriteriaMatching.MatchesLifecycleState(criteria, latest.ResourceId, markers))
+            return "criteria/lifecycleState";
 
         return null;
     }
