@@ -14,7 +14,7 @@
 |---|---|
 | Where the module lives | This repository, as `Aster.Elsa` (and later `Aster.Elsa.Studio`). It can move to Elsa's extension repositories once Aster reaches 1.0. |
 | How it registers | One Elsa feature in both of Elsa's feature systems: a `FeatureBase` (`elsa.UseAster(...)`) and a CShells `IShellFeature`. |
-| Tenants | Elsa's `ITenantAccessor.TenantId` maps to `TenantScope`: `""` → `TenantScope.Default`, any other ID → `TenantScope.FromTenantId(id)`. The agnostic `*` and an Elsa tenant literally named `default` are refused. |
+| Tenants | Elsa's `ITenantAccessor.TenantId` maps to `TenantScope`: `""` → `TenantScope.Default`, any other valid ID → `TenantScope.FromTenantId(id)`. The agnostic `*`, an Elsa tenant literally named `default`, and IDs that are blank or have leading or trailing whitespace are refused. |
 | Persistence | The Aster provider follows Elsa's EF Core provider: SQL Server → SQL Server JSON, PostgreSQL → Postgres JSONB, SQLite → SQLite JSON. Aster uses the same database and connection string by default, in its own tables, bootstrapped by Aster rather than by Elsa's EF migrations. |
 | First entity | **Agent definitions** (#118), through Elsa's own `IAgentStore` seam, with no change to Elsa. Labels come second. Workflow definitions and secrets don't move. |
 
