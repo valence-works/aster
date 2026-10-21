@@ -25,6 +25,29 @@ public interface IAspectDefinitionStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Appends a new version only when the aspect's latest version in the tenant is still
+    /// <paramref name="expectedLatestVersion"/>, checked and written atomically. Use it for "create only if missing"
+    /// (<c>0</c>) and for read-modify-register edits, so a version registered concurrently is never superseded.
+    /// </summary>
+    /// <param name="aspect">The aspect definition to register; its <c>Version</c> is assigned by the store.</param>
+    /// <param name="expectedLatestVersion">
+    /// The latest version the caller based its edit on, or <c>0</c> to register only when the aspect does not exist yet.
+    /// </param>
+    /// <param name="tenantScope">The tenant to register in; the default tenant when <see langword="null"/>.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>
+    /// <see cref="AspectDefinitionRegistrationStatus.Registered"/> with the stored version, or
+    /// <see cref="AspectDefinitionRegistrationStatus.VersionConflict"/> with the actual latest version and nothing written.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expectedLatestVersion"/> is negative.</exception>
+    /// <exception cref="Exceptions.FacetMetadataValidationException">A facet's type or metadata is invalid.</exception>
+    ValueTask<AspectDefinitionRegistrationResult> RegisterIfLatestAsync(
+        AspectDefinition aspect,
+        int expectedLatestVersion,
+        TenantScope? tenantScope = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns the latest version of an aspect definition, or <see langword="null"/> when none is registered.
     /// </summary>
     /// <param name="aspectDefinitionId">The logical aspect definition ID.</param>

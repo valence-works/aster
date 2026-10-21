@@ -32,7 +32,27 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
     public async ValueTask<AspectDefinition> RegisterAsync(
         AspectDefinition aspect,
         TenantScope? tenantScope = null,
+        CancellationToken cancellationToken = default) =>
+        (await RegisterAsync(aspect, expectedLatestVersion: null, tenantScope, cancellationToken)).Aspect!;
+
+    /// <inheritdoc />
+    public ValueTask<AspectDefinitionRegistrationResult> RegisterIfLatestAsync(
+        AspectDefinition aspect,
+        int expectedLatestVersion,
+        TenantScope? tenantScope = null,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(expectedLatestVersion);
+        return RegisterAsync(aspect, expectedLatestVersion, tenantScope, cancellationToken);
+    }
+
+    // The latest-version read, the check and the insert run under the aspect's serialized write, so two
+    // registrations based on the same version can't both append.
+    private async ValueTask<AspectDefinitionRegistrationResult> RegisterAsync(
+        AspectDefinition aspect,
+        int? expectedLatestVersion,
+        TenantScope? tenantScope,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(aspect);
         ArgumentException.ThrowIfNullOrWhiteSpace(aspect.AspectDefinitionId);
@@ -45,17 +65,23 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
             $"aspect_definitions/{tenant.TenantId}/{aspect.AspectDefinitionId}",
             cancellationToken);
 
-        await using var next = connection.CreateCommand();
-        next.Transaction = transaction;
-        next.CommandText = """
-            SELECT COALESCE(MAX(version), 0) + 1
+        await using var latestCommand = connection.CreateCommand();
+        latestCommand.Transaction = transaction;
+        latestCommand.CommandText = """
+            SELECT COALESCE(MAX(version), 0)
             FROM aspect_definitions
             WHERE tenant_id = @tenantId AND aspect_definition_id = @aspectDefinitionId;
             """;
-        Add(next, "@tenantId", tenant.TenantId);
-        Add(next, "@aspectDefinitionId", aspect.AspectDefinitionId);
-        var version = Convert.ToInt32(await next.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
-        var registered = aspect with { Version = version, IsShared = false };
+        Add(latestCommand, "@tenantId", tenant.TenantId);
+        Add(latestCommand, "@aspectDefinitionId", aspect.AspectDefinitionId);
+        var latest = Convert.ToInt32(await latestCommand.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        if (expectedLatestVersion is { } expected && expected != latest)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return new() { Status = AspectDefinitionRegistrationStatus.VersionConflict, LatestVersion = latest };
+        }
+
+        var registered = aspect with { Version = latest + 1, IsShared = false };
 
         await using var insert = connection.CreateCommand();
         insert.Transaction = transaction;
@@ -71,7 +97,7 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
         await insert.ExecuteNonQueryAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
-        return registered;
+        return new() { Status = AspectDefinitionRegistrationStatus.Registered, Aspect = registered, LatestVersion = registered.Version };
     }
 
     /// <inheritdoc />

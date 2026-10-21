@@ -26,6 +26,7 @@ Embedded snapshots have a property worth keeping: a resource definition version 
 - **Identity:** `(TenantScope, AspectDefinitionId, Version)`, with a GUID `Id` per version. This is the same shape as resource definitions.
 - **New store:** `IAspectDefinitionStore` (#92), with:
   - `RegisterAsync`: appends a version. The store assigns `latest + 1` and runs the facet metadata self-validation (`FacetMetadataValidator`), exactly like `IResourceDefinitionStore.RegisterDefinitionAsync`.
+  - `RegisterIfLatestAsync` (#175): appends only when the latest version is still the expected one (`0`: the aspect must not exist), checked and written atomically, like `RegisterDefinitionIfLatestAsync`.
   - `GetLatestAsync`, `GetVersionAsync`, `ListAsync`, `ListVersionsAsync`.
 - **Versions are immutable and append-only.** Registering identical content appends another version, as resource definitions do today. Hosts that seed aspects at startup compare with the latest version first. #96 adds that helper for Studio.
 - **SQLite:** an additive `aspect_definitions` table, created idempotently under the 036/037 rules. Existing tables are unchanged.

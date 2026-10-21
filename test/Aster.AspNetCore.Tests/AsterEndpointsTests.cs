@@ -168,6 +168,23 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
     };
 
     [Fact]
+    public async Task Aspects_ExpectedLatestVersion_RegistersOnlyOnTheExpectedVersion()
+    {
+        var (client, _) = await StartAsync();
+
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/aster/aspects?expectedLatestVersion=0", Seo(), Web)).StatusCode);
+
+        var exists = await client.PostAsJsonAsync("/api/aster/aspects?expectedLatestVersion=0", Seo(), Web);
+        Assert.Equal(HttpStatusCode.Conflict, exists.StatusCode);
+        Assert.Equal("aspect-version-conflict", (await ReadAsync(exists)).GetProperty("code").GetString());
+
+        Assert.Equal(2, (await ReadAsync(await client.PostAsJsonAsync("/api/aster/aspects?expectedLatestVersion=1", Seo(), Web))).GetProperty("version").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/aster/aspects?expectedLatestVersion=1", Seo(), Web)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/aster/aspects?expectedLatestVersion=-1", Seo(), Web)).StatusCode);
+        Assert.Equal(2, (await ReadAsync(await client.GetAsync("/api/aster/aspects/Seo/versions"))).GetArrayLength());
+    }
+
+    [Fact]
     public async Task Aspects_RegisterVersionsAndPinWithTheStoredCopy()
     {
         var (client, _) = await StartAsync();

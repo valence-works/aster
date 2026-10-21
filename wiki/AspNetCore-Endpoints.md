@@ -34,7 +34,7 @@ app.MapAster("/api/aster", options =>
 | `GET /aspects/{id}[?version=]` | One shared aspect |
 | `GET /aspects/{id}/versions` | Every version of a shared aspect |
 | `GET /aspects/{id}/schema[?version=]` | The aspect payload as JSON Schema 2020-12 |
-| `POST /aspects` | Register a new shared aspect version |
+| `POST /aspects[?expectedLatestVersion=]` | Register a new shared aspect version; with `expectedLatestVersion`, only if the latest version is still that one (`0`: must not exist), otherwise `409` (`aspect-version-conflict`) |
 | `GET /resources?definitionId=&scope=&channel=&lifecycle=&skip=&take=` | List resources |
 | `POST /resources/query` | Query with filters, sorting and paging (see below) |
 | `GET /resources/{id}[?version=]` | One resource: the latest version, or a specific one |
@@ -65,7 +65,7 @@ Errors are [ProblemDetails](https://www.rfc-editor.org/rfc/rfc9457) responses, e
 | `400` | Invalid facet values or metadata, unresolved shared aspects, invalid queries, missing (`request-body-required`) or unreadable (`request-body-invalid`) request bodies | `diagnostics: [{ code, aspectKey, facetId, message, elementIndex }]` |
 | `403` | Denied by `IAsterResourceAuthorizer` | |
 | `404` | Missing definition, aspect, resource or version | |
-| `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition version conflict, lifecycle hook veto | `code` |
+| `409` | Optimistic concurrency (`concurrency-conflict`), duplicate resource ID, singleton violation, definition or aspect version conflict (`definition-version-conflict`, `aspect-version-conflict`), lifecycle hook veto | `code` |
 | `415` | A request body without a JSON `Content-Type`. Routing rejects a non-JSON `Content-Type` before the endpoint runs, with an empty body (add `AddProblemDetails()` and `UseStatusCodePages()` in the host for one); a body with no `Content-Type` reaches the endpoint and gets a problem | |
 
 ## Query format

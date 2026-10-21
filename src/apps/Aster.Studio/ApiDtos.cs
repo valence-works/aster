@@ -70,16 +70,6 @@ internal sealed record SharedAspectDto(
     IReadOnlyList<int> Versions,
     IReadOnlyList<AspectUsageDto> UsedBy);
 
-internal sealed record CreateSharedAspectRequest(
-    string AspectId,
-    bool RequiresName,
-    IReadOnlyList<FacetDto> Facets);
-
-internal sealed record UpdateSharedAspectRequest(
-    int BaseVersion,
-    bool RequiresName,
-    IReadOnlyList<FacetDto> Facets);
-
 internal sealed record AspectFacetChangeDto(
     string FacetId,
     string Kind,

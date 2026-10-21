@@ -1,5 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
 
 namespace Aster.Core.Services;
@@ -35,6 +36,7 @@ internal sealed class ResourcePolicyValidator : IResourcePolicyValidator
             ValidateDeclarationShape(declaration, path, policyIds, diagnostics);
             ValidateDeclarationCompatibility(declaration, path, diagnostics);
             ValidateCriteria(declaration, path, diagnostics);
+            ValidateApplicability(declaration, path, diagnostics);
         }
 
         return diagnostics.Count == 0
@@ -201,6 +203,40 @@ internal sealed class ResourcePolicyValidator : IResourcePolicyValidator
                 ResourcePolicyDiagnosticCodes.PolicyCriteriaUnsupported,
                 "Arbitrary resource facet predicates are not supported by policy declarations in this slice.",
                 $"{path}/criteria/unsupportedFacetPredicate",
+                declaration.PolicyId));
+        }
+    }
+
+    // Rejects criteria that match only targets the outcome can never change, so a preview never proposes candidates
+    // that every application refuses or leaves as they are (#189):
+    // - An archive or soft-delete marker is written only on an unmarked resource. An archived resource can't be
+    //   soft-deleted, or the reverse (lifecycle-marker-conflict), and one already in the outcome's state is left as is.
+    // - Pruning never removes a version active on a channel, so pruning only active versions removes none.
+    private static void ValidateApplicability(
+        ResourcePolicyDeclaration declaration,
+        string path,
+        ICollection<ResourcePolicyDiagnostic> diagnostics)
+    {
+        if (declaration.Criteria is not { } criteria)
+            return;
+
+        if (declaration.Outcome is ResourcePolicyOutcome.Archive or ResourcePolicyOutcome.SoftDelete
+            && criteria.LifecycleState is ResourceLifecycleMarkerState.Archived or ResourceLifecycleMarkerState.SoftDeleted)
+        {
+            diagnostics.Add(Diagnostic(
+                ResourcePolicyDiagnosticCodes.PolicyNeverApplies,
+                $"Policy '{declaration.PolicyId}' can never apply: its {declaration.Outcome} outcome marks only unmarked resources, but its criteria match only {criteria.LifecycleState} resources.",
+                $"{path}/criteria/lifecycleState",
+                declaration.PolicyId));
+        }
+
+        if (declaration.Kind == ResourcePolicyKind.VersionPruning
+            && criteria.ActivationState == ResourcePolicyActivationState.Active)
+        {
+            diagnostics.Add(Diagnostic(
+                ResourcePolicyDiagnosticCodes.PolicyNeverApplies,
+                $"Policy '{declaration.PolicyId}' can never apply: pruning never removes a version active on a channel, but its criteria match only active versions.",
+                $"{path}/criteria/activationState",
                 declaration.PolicyId));
         }
     }
