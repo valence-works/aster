@@ -111,8 +111,9 @@ public sealed record FacetMetadata
     public string? ReferenceResolution { get; init; }
 
     /// <summary>
-    /// Opaque, non-validated string carried verbatim for host interpretation
-    /// (e.g., "text", "multiline", "select"). Never affects validation.
+    /// Opaque, non-validated string carried verbatim for host interpretation. Never affects validation.
+    /// Prefer the standard names on <see cref="UiHints"/> (e.g., <see cref="UiHints.Multiline"/>,
+    /// <see cref="UiHints.Select"/>) so aspects render the same in every host.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UiHint { get; init; }

@@ -14,12 +14,13 @@ import { ConstraintBadges } from "@/components/FacetBadges";
 import { ErrorState, TableSkeleton } from "@/components/StateViews";
 import { ApiError, api, type AspectUpgradeCandidateDto, type DiagnosticDto, type FacetDto, type FacetMetadata, type SharedAspectDto } from "@/lib/api";
 import { useAsync } from "@/hooks/useAsync";
+import { standardUiHints } from "@/lib/uiHints";
 
 type ShellContext = { reloadDefinitions: () => void };
 type FacetRow = FacetDto & { key: string };
 
 const facetTypes = ["string", "number", "boolean", "datetime", "guid", "reference", "string[]", "number[]", "reference[]"];
-const uiHints = ["text", "multiline", "richtext", "slug", "email", "url", "date", "number", "toggle", "select", "tags"];
+const uiHints = standardUiHints;
 const noHint = "none";
 
 let nextRowKey = 0;
