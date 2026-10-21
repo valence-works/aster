@@ -768,21 +768,9 @@ public sealed class SqliteJsonResourceStore :
         {
             await using var command = connection.CreateCommand();
             var parameterNames = AddTextParameters(command, "resourceId", batch);
-            command.CommandText = $"""
-                SELECT rv.payload
-                FROM resource_versions rv
-                INNER JOIN (
-                    SELECT tenant_id, resource_id, MAX(version) AS version
-                    FROM resource_versions
-                    WHERE tenant_id = $tenantId AND resource_id IN ({string.Join(", ", parameterNames)})
-                    GROUP BY tenant_id, resource_id
-                ) latest
-                    ON latest.tenant_id = rv.tenant_id
-                    AND latest.resource_id = rv.resource_id
-                    AND latest.version = rv.version
-                WHERE rv.tenant_id = $tenantId
-                ORDER BY rv.resource_id;
-                """;
+            // Drive from the ID list; a join on a grouped subquery lets SQLite (without ANALYZE
+            // statistics) walk every row of the tenant instead (#169).
+            command.CommandText = LatestVersionsByResourceIdsSql(parameterNames);
             command.Parameters.AddWithValue("$tenantId", tenant.TenantId);
 
             results.AddRange(await ReadPayloadsAsync<Resource>(command, cancellationToken));
@@ -790,6 +778,18 @@ public sealed class SqliteJsonResourceStore :
 
         return results;
     }
+
+    internal static string LatestVersionsByResourceIdsSql(IEnumerable<string> parameterNames) => $"""
+        SELECT rv.payload
+        FROM resource_versions rv
+        WHERE rv.tenant_id = $tenantId
+          AND rv.resource_id IN ({string.Join(", ", parameterNames)})
+          AND rv.version = (
+              SELECT MAX(v.version)
+              FROM resource_versions v
+              WHERE v.tenant_id = rv.tenant_id AND v.resource_id = rv.resource_id)
+        ORDER BY rv.resource_id;
+        """;
 
     private async Task<List<ResourceDefinition>> SelectDefinitionsAsync(
         PortableSnapshotExportRequest request,
