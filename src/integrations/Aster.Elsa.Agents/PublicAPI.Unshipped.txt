@@ -1,0 +1,56 @@
+#nullable enable
+Aster.Elsa.Agents.AsterAgentImportItem
+Aster.Elsa.Agents.AsterAgentImportItem.<Clone>$() -> Aster.Elsa.Agents.AsterAgentImportItem!
+Aster.Elsa.Agents.AsterAgentImportItem.AgentId.get -> string!
+Aster.Elsa.Agents.AsterAgentImportItem.AgentId.init -> void
+Aster.Elsa.Agents.AsterAgentImportItem.AsterAgentImportItem(string! AgentId, string? Name, Aster.Elsa.Agents.AsterAgentImportStatus Status, string? Error = null) -> void
+Aster.Elsa.Agents.AsterAgentImportItem.Deconstruct(out string! AgentId, out string? Name, out Aster.Elsa.Agents.AsterAgentImportStatus Status, out string? Error) -> void
+Aster.Elsa.Agents.AsterAgentImportItem.Equals(Aster.Elsa.Agents.AsterAgentImportItem? other) -> bool
+Aster.Elsa.Agents.AsterAgentImportItem.Error.get -> string?
+Aster.Elsa.Agents.AsterAgentImportItem.Error.init -> void
+Aster.Elsa.Agents.AsterAgentImportItem.Name.get -> string?
+Aster.Elsa.Agents.AsterAgentImportItem.Name.init -> void
+Aster.Elsa.Agents.AsterAgentImportItem.Status.get -> Aster.Elsa.Agents.AsterAgentImportStatus
+Aster.Elsa.Agents.AsterAgentImportItem.Status.init -> void
+Aster.Elsa.Agents.AsterAgentImportResult
+Aster.Elsa.Agents.AsterAgentImportResult.<Clone>$() -> Aster.Elsa.Agents.AsterAgentImportResult!
+Aster.Elsa.Agents.AsterAgentImportResult.AsterAgentImportResult() -> void
+Aster.Elsa.Agents.AsterAgentImportResult.Equals(Aster.Elsa.Agents.AsterAgentImportResult? other) -> bool
+Aster.Elsa.Agents.AsterAgentImportResult.FailedCount.get -> int
+Aster.Elsa.Agents.AsterAgentImportResult.ImportedCount.get -> int
+Aster.Elsa.Agents.AsterAgentImportResult.Items.get -> System.Collections.Generic.IReadOnlyList<Aster.Elsa.Agents.AsterAgentImportItem!>!
+Aster.Elsa.Agents.AsterAgentImportResult.Items.init -> void
+Aster.Elsa.Agents.AsterAgentImportResult.SkippedCount.get -> int
+Aster.Elsa.Agents.AsterAgentImportResult.Succeeded.get -> bool
+Aster.Elsa.Agents.AsterAgentImportStatus
+Aster.Elsa.Agents.AsterAgentImportStatus.Failed = 2 -> Aster.Elsa.Agents.AsterAgentImportStatus
+Aster.Elsa.Agents.AsterAgentImportStatus.Imported = 0 -> Aster.Elsa.Agents.AsterAgentImportStatus
+Aster.Elsa.Agents.AsterAgentImportStatus.Skipped = 1 -> Aster.Elsa.Agents.AsterAgentImportStatus
+Aster.Elsa.Agents.AsterAgentPersistenceFeatureExtensions
+Aster.Elsa.Agents.AsterAgentResource
+Aster.Elsa.Agents.AsterAgentStoreOptions
+Aster.Elsa.Agents.AsterAgentStoreOptions.AsterAgentStoreOptions() -> void
+Aster.Elsa.Agents.AsterAgentStoreOptions.AutoActivate.get -> bool
+Aster.Elsa.Agents.AsterAgentStoreOptions.AutoActivate.set -> void
+Aster.Elsa.Agents.AsterAgentStoreOptions.Channel.get -> string!
+Aster.Elsa.Agents.AsterAgentStoreOptions.Channel.set -> void
+Aster.Elsa.Agents.AsterAgentsServiceCollectionExtensions
+Aster.Elsa.Agents.IAsterAgentImporter
+Aster.Elsa.Agents.IAsterAgentImporter.ImportAsync(Elsa.Agents.Persistence.Contracts.IAgentStore! source, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Aster.Elsa.Agents.AsterAgentImportResult!>!
+const Aster.Elsa.Agents.AsterAgentResource.AgentAspectKey = "Agent" -> string!
+const Aster.Elsa.Agents.AsterAgentResource.ConfigAspectKey = "AgentConfig" -> string!
+const Aster.Elsa.Agents.AsterAgentResource.DefinitionId = "ElsaAgent" -> string!
+const Aster.Elsa.Agents.AsterAgentStoreOptions.DefaultChannel = "production" -> string!
+override Aster.Elsa.Agents.AsterAgentImportItem.Equals(object? obj) -> bool
+override Aster.Elsa.Agents.AsterAgentImportItem.GetHashCode() -> int
+override Aster.Elsa.Agents.AsterAgentImportItem.ToString() -> string!
+override Aster.Elsa.Agents.AsterAgentImportResult.Equals(object? obj) -> bool
+override Aster.Elsa.Agents.AsterAgentImportResult.GetHashCode() -> int
+override Aster.Elsa.Agents.AsterAgentImportResult.ToString() -> string!
+static Aster.Elsa.Agents.AsterAgentImportItem.operator !=(Aster.Elsa.Agents.AsterAgentImportItem? left, Aster.Elsa.Agents.AsterAgentImportItem? right) -> bool
+static Aster.Elsa.Agents.AsterAgentImportItem.operator ==(Aster.Elsa.Agents.AsterAgentImportItem? left, Aster.Elsa.Agents.AsterAgentImportItem? right) -> bool
+static Aster.Elsa.Agents.AsterAgentImportResult.operator !=(Aster.Elsa.Agents.AsterAgentImportResult? left, Aster.Elsa.Agents.AsterAgentImportResult? right) -> bool
+static Aster.Elsa.Agents.AsterAgentImportResult.operator ==(Aster.Elsa.Agents.AsterAgentImportResult? left, Aster.Elsa.Agents.AsterAgentImportResult? right) -> bool
+static Aster.Elsa.Agents.AsterAgentPersistenceFeatureExtensions.UseAsterAgentStore(this Elsa.Agents.Persistence.Features.AgentPersistenceFeature! feature, System.Action<Aster.Elsa.Agents.AsterAgentStoreOptions!>? configure = null) -> Elsa.Agents.Persistence.Features.AgentPersistenceFeature!
+static Aster.Elsa.Agents.AsterAgentResource.CreateDefinition() -> Aster.Core.Models.Definitions.ResourceDefinition!
+static Aster.Elsa.Agents.AsterAgentsServiceCollectionExtensions.AddAsterElsaAgents(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Aster.Elsa.Agents.AsterAgentStoreOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

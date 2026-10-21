@@ -1,6 +1,6 @@
 # Elsa Integration
 
-`Aster.Elsa` is an [Elsa Workflows](https://github.com/elsa-workflows/elsa-core) 3 module: activities that work on Aster resources from a workflow. It supports Elsa 3.9.0 and later 3.x releases (`[3.9.0, 4.0.0)`), on .NET 8, 9 and 10. The decisions behind it are in the [module design](https://github.com/valence-works/aster/blob/main/docs/consumers/elsa-module-design.md).
+`Aster.Elsa` is an [Elsa Workflows](https://github.com/elsa-workflows/elsa-core) 3 module: activities that work on Aster resources from a workflow. [`Aster.Elsa.Agents`](#agent-definitions) stores Elsa's agent definitions on Aster. Both support Elsa 3.9.0 and later 3.x releases (`[3.9.0, 4.0.0)`), on .NET 8, 9 and 10. The decisions behind them are in the [module design](https://github.com/valence-works/aster/blob/main/docs/consumers/elsa-module-design.md).
 
 ## Registration
 
@@ -89,10 +89,42 @@ The module maps Elsa's current tenant to an Aster tenant scope on every call, so
 - **Queries:** a `ResourceQuery` that names a different tenant faults with `tenant-scope-mismatch`.
 - **Host code:** `AsterTenantMapping.FromElsaTenantId` and `FromTenantAccessor` expose the same mapping.
 
+## Agent definitions
+
+`Aster.Elsa.Agents` stores Elsa's agent definitions on Aster. It is an `IAgentStore` for Elsa's agent persistence feature, plugged into Elsa's own `UseAgentStore` seam, so Elsa is unchanged. The [package README](https://github.com/valence-works/aster/blob/main/src/integrations/Aster.Elsa.Agents/README.md) has the details, and the [results write-up](https://github.com/valence-works/aster/blob/main/docs/consumers/elsa-agents-results.md) has the measurements.
+
+```csharp
+builder.Services.AddAsterCore();
+builder.Services.AddAsterPostgresJsonb(options => options.ConnectionString = connectionString);
+
+builder.Services.AddElsa(elsa => elsa
+    .UseAgents()
+    .UseAgentPersistence(agents => agents.UseAsterAgentStore(options => options.Channel = "production")));
+```
+
+- **Opt-in is the flag.** Without `UseAsterAgentStore`, Elsa keeps its own store. Don't also enable Elsa's EF Core agent store on the same feature: it selects itself again while Elsa applies features.
+- **Storage:** each agent is an `ElsaAgent` resource whose ID is the Elsa agent ID, with an `Agent` aspect (name, description) and an `AgentConfig` aspect (Elsa's `AgentConfig`).
+  - Name, description, function name, prompt and skills (`string[]`) are facets, so agents can be queried.
+  - `AgentConfig.Agents` is a `reference[]` facet. The store translates Elsa's agent names to resource IDs on save and back on read, so references follow renames and have a reverse lookup.
+- **Versions and channels:**
+  - Every save is a new version.
+  - Reads return, for each agent, the version active in `Channel` (default `production`).
+  - With `AutoActivate` (default `true`) every save is activated there at once. With `false` saves are drafts until activated through Aster, which is promotion; activating an older version is rollback.
+- **Deletes** soft-delete: history stays, and Aster's restore service brings an agent back.
+- **Tenants** map as for the activities above.
+- **Migration:** `IAsterAgentImporter.ImportAsync(source)` copies agents from any `IAgentStore`, such as Elsa's EF Core store, into Aster.
+  - It keeps their IDs and activates them.
+  - It is idempotent: agents that already exist in Aster are skipped.
+  - Referenced agents are imported first; reference cycles are saved in two versions.
+- **Feature systems:** classic only. Elsa 3.9's agent persistence has no CShells shell feature.
+
 ## Notes
 
 - **Name clashes:**
   - Elsa's `Activity.Version` is the activity type's version, so the activities call the resource version `ResourceVersion`.
   - Elsa has its own `TenantScope` type (`Elsa.Common.Multitenancy`). Alias Aster's when a file imports both namespaces.
 - **Namespace shadowing:** inside a namespace under `Aster`, the name `Elsa` resolves to `Aster.Elsa`. Put Elsa `using` directives at the top of the file, or write `global::Elsa`.
-- **Dependencies:** the package depends on `Elsa.Workflows.Runtime`. Through Elsa's own dependencies, that brings in the ASP.NET Core shared framework. The package doesn't depend on `Aster.AspNetCore`.
+- **Dependencies:**
+  - `Aster.Elsa` depends on `Elsa.Workflows.Runtime`, which, through Elsa's own dependencies, brings in the ASP.NET Core shared framework.
+  - `Aster.Elsa.Agents` adds `Elsa.Agents.Persistence`, which brings Elsa's agents core and its Semantic Kernel dependencies.
+  - Neither package depends on `Aster.AspNetCore`.

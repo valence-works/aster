@@ -65,12 +65,11 @@ builder.Services
 
 builder.Services.AddElsa(elsa => elsa
     .UseAster()                                                 // tenant mapping, activities, triggers
-    .UseAgentPersistence(agents => agents.UseAgentStore(sp =>   // #118: agents on Aster, opt-in
-        sp.GetRequiredService<AsterAgentStore>())));
+    .UseAgentPersistence(agents => agents.UseAsterAgentStore())); // #118: agents on Aster, opt-in (calls UseAgentStore)
 ```
 
 - **Provider registration stays with the host.** `UseAster()` doesn't choose a provider. The host registers Aster's provider with the existing `AddAster*` calls, as any Aster host does. Elsa's persistence features don't expose a connection string the module could reuse safely, and guessing one would hide a configuration choice.
-- **Opting in is the feature flag.** A store adapter is active only when the host passes it to Elsa's own seam (`UseAgentStore`, `LabelsFeature.LabelStore`). That satisfies #118's "behind a flag" without a new switch, and leaving it out keeps Elsa's built-in store.
+- **Opting in is the feature flag.** A store adapter is active only when the host passes it to Elsa's own seam (`UseAgentStore`, `LabelsFeature.LabelStore`). For agents, `UseAsterAgentStore()` makes that call (see [#118 as built](#118-as-built-deviations)). That satisfies #118's "behind a flag" without a new switch, and leaving it out keeps Elsa's built-in store.
 - **Feature dependencies.** The Aster feature depends on Elsa's workflow management feature (activities are registered through `ManagementOptions.ActivityTypes`) and its workflow runtime feature (to run them and, later, for triggers). It works with or without Elsa's multitenancy feature: without it, every call uses the default tenant.
 
 ## Tenants
@@ -151,6 +150,22 @@ Promotion between channels is a composite activity over the two explicit calls (
 3. **Not moving:**
    - **Secrets.** Elsa's secret stores hold values, which ADR 0001 keeps out of Aster. Elsa doesn't separate secret metadata from values, so there is nothing to move without changing Elsa.
    - **Workflow definitions.** Elsa already versions and publishes them, and its designer depends on a large query surface. Revisit only after #118's results.
+
+## #118 as built: deviations
+
+`Aster.Elsa.Agents` follows this design. Where it had to differ or decide something the design left open, it is recorded here. The [results write-up](elsa-agents-results.md) has the measurements.
+
+1. **Registration goes through an extension, not the store type.** The store is internal. The host calls `agents.UseAsterAgentStore(options => …)` on Elsa's `AgentPersistenceFeature`. That call registers the services and passes the store to `UseAgentStore`, so the opt-in is still Elsa's own seam. `AddAsterElsaAgents()` registers the services without selecting the store, for a migration host.
+2. **Classic feature system only.** Elsa 3.9's agent persistence has no CShells shell feature (`AgentsPersistenceShellFeature.cs` is empty in the 3.9.0 source), so there is no seam for a shell feature to plug into. `Aster.Elsa` itself still ships both.
+3. **`AgentConfig.Agents` holds resource IDs, not names.** Elsa names agents by `Name`, but a `reference[]` value must be a target `ResourceId`: Aster's strict reference validation rejects any other value. The store translates names to IDs on save, and IDs back to current names on read. As a result, references follow renames and have a reverse lookup. A name that matches no agent is stored as written, which strict validation rejects.
+4. **`AgentConfig.Skills` is `string[]`, not `reference[]`.** Elsa registers skills in code (`ISkillsProvider`), not as stored entities. A skill reference would have no target, and strict validation would reject every save that names a skill.
+5. **Saves activate by default.** `AsterAgentStoreOptions.AutoActivate` (default `true`) activates every save in the configured channel (`Channel`, default `production`), so Elsa behaves as with its own stores. With `false`, saves are drafts until promoted through Aster.
+6. **Delete is a soft delete.** `DeleteAsync` applies a `SoftDeleted` lifecycle marker. Versions and activations stay, reads skip the agent, and Aster's restore service brings it back.
+7. **The migration saves through the store, not through portability.** #118's scope mentions portability primitives. As this design says, the import reads Elsa's store and saves through the adapter instead. That way imported agents get the same name-to-ID translation, definition registration and activation as any other save, and a re-run skips agents that already exist.
+   - Agents are imported after the agents they reference.
+   - Reference cycles are saved in two versions, the first without the references into the cycle.
+   - Imported agents are activated whatever `AutoActivate` says.
+8. **Elsa's EF Core agent store can't run beside the Aster store in one Elsa module.** `EFCoreAgentPersistenceFeature.Configure()` calls `UseAgentStore` while Elsa applies features, after the host's configuration, so the EF Core store wins. The migration therefore runs in a host that still uses Elsa's store, with `AddAsterElsaAgents()` beside it; afterwards the host switches to `UseAsterAgentStore()`.
 
 ## Consequences
 
