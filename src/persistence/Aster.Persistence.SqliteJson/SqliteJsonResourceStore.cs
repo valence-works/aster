@@ -13,7 +13,7 @@ namespace Aster.Persistence.SqliteJson;
 /// <summary>
 /// SQLite JSON-backed implementation of Aster's low-level definition and resource version contracts.
 /// </summary>
-public sealed class SqliteJsonResourceStore :
+internal sealed class SqliteJsonResourceStore :
     IResourceDefinitionStore,
     IResourceVersionReader,
     IResourceVersionWriter,

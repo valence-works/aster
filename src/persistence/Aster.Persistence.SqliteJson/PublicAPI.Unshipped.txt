@@ -1,0 +1,9 @@
+#nullable enable
+Aster.Persistence.SqliteJson.SqliteJsonAsterOptions
+Aster.Persistence.SqliteJson.SqliteJsonAsterOptions.ConnectionString.get -> string!
+Aster.Persistence.SqliteJson.SqliteJsonAsterOptions.ConnectionString.set -> void
+Aster.Persistence.SqliteJson.SqliteJsonAsterOptions.InitializeSchema.get -> bool
+Aster.Persistence.SqliteJson.SqliteJsonAsterOptions.InitializeSchema.set -> void
+Aster.Persistence.SqliteJson.SqliteJsonAsterOptions.SqliteJsonAsterOptions() -> void
+Aster.Persistence.SqliteJson.SqliteJsonAsterServiceCollectionExtensions
+static Aster.Persistence.SqliteJson.SqliteJsonAsterServiceCollectionExtensions.AddAsterSqliteJson(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Aster.Persistence.SqliteJson.SqliteJsonAsterOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

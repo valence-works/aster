@@ -17,7 +17,7 @@ namespace Aster.Core.InMemory;
 /// Supported comparators include equality, membership, text, range, facet existence, and array
 /// containment predicates.
 /// </remarks>
-public sealed partial class InMemoryQueryService : IResourceQueryService, IResourceQueryProviderIdentity
+internal sealed partial class InMemoryQueryService : IResourceQueryService, IResourceQueryProviderIdentity
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 

@@ -7,7 +7,7 @@ namespace Aster.Core.Services;
 /// <see cref="ITypedAspectBinder"/> implementation using <c>System.Text.Json</c>.
 /// Applies State Replace semantics: the entire aspect value is replaced on each write.
 /// </summary>
-public sealed class SystemTextJsonAspectBinder : ITypedAspectBinder
+internal sealed class SystemTextJsonAspectBinder : ITypedAspectBinder
 {
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 

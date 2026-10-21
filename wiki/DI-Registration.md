@@ -32,7 +32,7 @@ All services are registered as **singletons**.
 | `ITypedAspectBinder` | `SystemTextJsonAspectBinder` | Aspect POCO ↔ raw storage via `System.Text.Json` |
 | `ITypedFacetBinder` | `SystemTextJsonFacetBinder` | Facet value POCO ↔ raw storage via `System.Text.Json` |
 
-The concrete types (`DefaultResourceManager`, `InMemoryResourceManager`, `InMemoryResourceDefinitionStore`, etc.) are also registered as singletons so they can be resolved directly where needed (e.g., in tests).
+The implementation types are `internal`: resolve the interfaces. To replace one, register your own implementation of the interface after `AddAsterCore()`.
 
 ---
 

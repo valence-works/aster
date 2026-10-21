@@ -10,7 +10,7 @@ namespace Aster.Core.Services;
 /// before any write, so a violation means nothing was persisted. Portability import and schema
 /// upgrades do not call it, so historical versions stay importable and upgradable.
 /// </summary>
-public static class FacetValueValidator
+internal static class FacetValueValidator
 {
     /// <summary>
     /// Validates every facet of every aspect attachment that has a payload: missing required

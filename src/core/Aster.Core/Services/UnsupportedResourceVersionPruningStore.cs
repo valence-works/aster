@@ -6,7 +6,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Fallback pruning store used when the active resource version provider does not support destructive pruning.
 /// </summary>
-public sealed class UnsupportedResourceVersionPruningStore : IResourceVersionPruningStore
+internal sealed class UnsupportedResourceVersionPruningStore : IResourceVersionPruningStore
 {
     /// <inheritdoc />
     public ValueTask<bool> PruneVersionAsync(

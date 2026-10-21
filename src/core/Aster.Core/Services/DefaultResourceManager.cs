@@ -15,7 +15,7 @@ namespace Aster.Core.Services;
 /// Provider-backed implementation of <see cref="IResourceManager"/>.
 /// Orchestrates lifecycle behavior using resource version reader/writer primitives.
 /// </summary>
-public sealed partial class DefaultResourceManager : IResourceManager
+internal sealed partial class DefaultResourceManager : IResourceManager
 {
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceVersionReader versionReader;

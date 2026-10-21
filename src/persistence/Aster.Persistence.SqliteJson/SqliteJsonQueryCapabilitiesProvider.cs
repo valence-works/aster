@@ -6,7 +6,7 @@ namespace Aster.Persistence.SqliteJson;
 /// <summary>
 /// Query capability declaration for the SQLite JSON query provider.
 /// </summary>
-public sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
+internal sealed class SqliteJsonQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
 {
     /// <summary>
     /// Stable provider key used by the SQLite JSON query provider and its capability declaration.

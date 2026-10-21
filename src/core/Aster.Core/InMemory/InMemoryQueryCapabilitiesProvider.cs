@@ -6,7 +6,7 @@ namespace Aster.Core.InMemory;
 /// <summary>
 /// Query capability declaration for the in-memory query provider.
 /// </summary>
-public sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
+internal sealed class InMemoryQueryCapabilitiesProvider : IResourceQueryCapabilitiesProvider
 {
     /// <summary>
     /// Stable provider key used by the in-memory query provider and its capability declaration.

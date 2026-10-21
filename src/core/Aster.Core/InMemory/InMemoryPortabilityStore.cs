@@ -10,7 +10,7 @@ namespace Aster.Core.InMemory;
 /// <summary>
 /// In-memory portability snapshot reader over the existing definition and resource stores.
 /// </summary>
-public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
+internal sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 {
     private readonly InMemoryAspectDefinitionStore aspectStore;
     private readonly InMemoryResourceDefinitionStore definitionStore;

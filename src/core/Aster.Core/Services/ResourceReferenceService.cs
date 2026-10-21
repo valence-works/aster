@@ -20,7 +20,7 @@ namespace Aster.Core.Services;
 /// (latest or active versions in the tenant). Providers with index projections (#100, #65) can
 /// serve the same <see cref="FacetValueFilter"/> predicates from an index without changing this service.
 /// </remarks>
-public sealed class ResourceReferenceService(
+internal sealed class ResourceReferenceService(
     IResourceDefinitionStore definitionStore,
     IResourceQueryService queryService,
     IResourceQueryCapabilitiesProvider capabilitiesProvider,

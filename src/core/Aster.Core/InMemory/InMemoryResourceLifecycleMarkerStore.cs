@@ -9,7 +9,7 @@ namespace Aster.Core.InMemory;
 /// <summary>
 /// In-memory lifecycle marker storage.
 /// </summary>
-public sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMarkerClearStore
+internal sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleMarkerClearStore
 {
     private readonly ConcurrentDictionary<(string TenantId, string ResourceId), ResourceLifecycleMarker> markers = [];
 

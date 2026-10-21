@@ -6,7 +6,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default host-facing lifecycle marker service.
 /// </summary>
-public sealed class ResourceLifecycleMarkerService : IResourceLifecycleMarkerService
+internal sealed class ResourceLifecycleMarkerService : IResourceLifecycleMarkerService
 {
     private readonly IResourceLifecycleMarkerTransitionService transitions;
 

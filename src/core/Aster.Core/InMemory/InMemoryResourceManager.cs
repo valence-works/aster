@@ -14,7 +14,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory implementation of <see cref="IResourceManager"/> and <see cref="IResourceVersionWriter"/>.
 /// Provides full create → version → activate lifecycle for resource instances.
 /// </summary>
-public sealed partial class InMemoryResourceManager : IResourceManager, IResourceVersionWriter
+internal sealed partial class InMemoryResourceManager : IResourceManager, IResourceVersionWriter
 {
     private readonly InMemoryResourceStore store;
     private readonly IResourceDefinitionStore definitionStore;

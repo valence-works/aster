@@ -16,7 +16,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default portability orchestration over provider-facing snapshot primitives.
 /// </summary>
-public sealed class ResourcePortabilityService : IResourcePortabilityService
+internal sealed class ResourcePortabilityService : IResourcePortabilityService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 

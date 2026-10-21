@@ -11,7 +11,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory implementation of <see cref="IResourceDefinitionStore"/>.
 /// Stores ordered version snapshots per <c>DefinitionId</c>.
 /// </summary>
-public sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitionStore
+internal sealed partial class InMemoryResourceDefinitionStore : IResourceDefinitionStore
 {
     private readonly ConcurrentDictionary<(string TenantId, string DefinitionId), List<ResourceDefinition>> definitions = [];
     private readonly ILogger<InMemoryResourceDefinitionStore> logger;

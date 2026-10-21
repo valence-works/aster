@@ -10,7 +10,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default non-mutating policy preview service.
 /// </summary>
-public sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluationService
+internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluationService
 {
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceVersionReader versionReader;

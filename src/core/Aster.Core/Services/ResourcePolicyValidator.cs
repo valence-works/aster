@@ -7,7 +7,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default validation for definition-attached policy declarations.
 /// </summary>
-public sealed class ResourcePolicyValidator : IResourcePolicyValidator
+internal sealed class ResourcePolicyValidator : IResourcePolicyValidator
 {
     /// <inheritdoc />
     public ResourcePolicyValidationResult Validate(ResourceDefinition definition)

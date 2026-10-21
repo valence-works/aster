@@ -8,7 +8,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default <see cref="IAspectUpgradeService"/> over the aspect and resource definition stores.
 /// </summary>
-public sealed class AspectUpgradeService(
+internal sealed class AspectUpgradeService(
     IAspectDefinitionStore aspectDefinitionStore,
     IResourceDefinitionStore definitionStore) : IAspectUpgradeService
 {

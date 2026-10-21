@@ -317,7 +317,7 @@ public sealed class MutatingActivationVersionsHook : ResourceLifecycleHook
     }
 }
 
-public sealed class SwitchableResourceVersionWriter(InMemoryResourceStore inner) : IResourceVersionWriter
+internal sealed class SwitchableResourceVersionWriter(InMemoryResourceStore inner) : IResourceVersionWriter
 {
     public bool ThrowSave { get; set; }
 

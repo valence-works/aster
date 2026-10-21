@@ -10,7 +10,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default host-controlled policy application service.
 /// </summary>
-public sealed class ResourcePolicyApplicationService : IResourcePolicyApplicationService
+internal sealed class ResourcePolicyApplicationService : IResourcePolicyApplicationService
 {
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceVersionReader versionReader;

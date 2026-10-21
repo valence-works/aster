@@ -11,7 +11,7 @@ namespace Aster.Core.Services;
 /// <summary>
 /// Default implementation of explicit resource schema-version status and upgrade operations.
 /// </summary>
-public sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
+internal sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
 {
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceManager resourceManager;

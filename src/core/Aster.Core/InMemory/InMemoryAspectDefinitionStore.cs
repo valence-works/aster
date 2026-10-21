@@ -10,7 +10,7 @@ namespace Aster.Core.InMemory;
 /// Thread-safe in-memory implementation of <see cref="IAspectDefinitionStore"/>.
 /// Stores ordered version snapshots per tenant and <c>AspectDefinitionId</c>.
 /// </summary>
-public sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
+internal sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
 {
     private readonly ConcurrentDictionary<(string TenantId, string AspectDefinitionId), List<AspectDefinition>> aspects = [];
 
