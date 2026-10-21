@@ -21,15 +21,6 @@ type Application = { title: string; rows: AppliedRow[] };
 const candidateKey = (candidate: PolicyCandidateDto) => `${candidate.policyId}|${candidate.resourceId}|${candidate.resourceVersion ?? ""}`;
 const isLifecycleOutcome = (candidate: PolicyCandidateDto) => candidate.outcome === "archive" || candidate.outcome === "soft-delete";
 
-/** Why pruning must keep a version, from its history entry; empty when it may be pruned. */
-function protectionReasons(candidate: PolicyCandidateDto): string[] {
-  const version = candidate.targetVersion;
-  if (!version?.isProtectedFromPruning) return [];
-  const reasons = [...(version.isLatest ? ["latest"] : []), ...version.activeChannels.map((channel) => `active on ${channel}`)];
-  // The SDK protects exactly latest and active versions today; a reason it adds later still blocks selection.
-  return reasons.length ? reasons : ["protected"];
-}
-
 /** A .NET TimeSpan ("365.00:00:00") as days or hours. */
 function formatAge(value: string) {
   const match = /^(?:(\d+)\.)?(\d+):(\d+):(\d+)/.exec(value);
@@ -134,19 +125,17 @@ export function DefinitionPoliciesPanel({ definitionId }: { definitionId: string
             <DiagnosticList diagnostics={preview.diagnostics} />
             {preview.candidates.length === 0 ? <p className="text-sm text-muted-foreground">No resources match these policies.</p> : (
               <Table aria-label="Policy candidates">
-                <TableHeader><TableRow><TableHead className="w-10"><span className="sr-only">Select</span></TableHead><TableHead>Policy</TableHead><TableHead>Resource</TableHead><TableHead>Outcome</TableHead><TableHead>Pruning safety</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead className="w-10"><span className="sr-only">Select</span></TableHead><TableHead>Policy</TableHead><TableHead>Resource</TableHead><TableHead>Outcome</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {preview.candidates.map((candidate) => {
                     const key = candidateKey(candidate);
-                    const reasons = protectionReasons(candidate);
-                    const selectable = reasons.length === 0 && (isLifecycleOutcome(candidate) || candidate.outcome === "prune-preview");
+                    const selectable = isLifecycleOutcome(candidate) || candidate.outcome === "prune-preview";
                     return (
                       <TableRow key={key}>
                         <TableCell><Checkbox aria-label={`Select ${candidate.policyId} for ${candidate.resourceId} v${candidate.resourceVersion}`} checked={selected.has(key)} disabled={!selectable} onCheckedChange={(checked) => toggle(candidate, checked === true)} /></TableCell>
                         <TableCell className="font-mono text-xs">{candidate.policyId}</TableCell>
                         <TableCell><Link className="font-medium hover:underline" to={`/content/${definitionId}/${encodeURIComponent(candidate.resourceId)}`}>{candidate.resourceId}</Link><div className="text-xs text-muted-foreground">v{candidate.resourceVersion}</div></TableCell>
                         <TableCell><Badge variant="facet">{candidate.outcome}</Badge></TableCell>
-                        <TableCell>{candidate.outcome !== "prune-preview" ? <span className="text-muted-foreground">—</span> : reasons.length ? <div className="flex flex-wrap gap-1.5"><Badge variant="outline">protected</Badge>{reasons.map((reason) => <span key={reason} className="text-xs text-muted-foreground">{reason}</span>)}</div> : <Badge variant="preview">prunable</Badge>}</TableCell>
                       </TableRow>
                     );
                   })}

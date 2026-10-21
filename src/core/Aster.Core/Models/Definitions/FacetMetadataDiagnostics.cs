@@ -119,6 +119,12 @@ public static class FacetValueDiagnosticCodes
     public const string Required = "facet-value-required";
 
     /// <summary>
+    /// A typed aspect's property holds the facet's value but is stored under a JSON name (for example from
+    /// <c>[JsonPropertyName]</c>) other than the facet ID, so facet queries would never find it.
+    /// </summary>
+    public const string StoredNameMismatch = "facet-value-stored-name-mismatch";
+
+    /// <summary>
     /// An array value has fewer elements than <c>MinItems</c> or more than <c>MaxItems</c>.
     /// </summary>
     public const string ItemsOutOfRange = "facet-value-items-out-of-range";

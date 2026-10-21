@@ -17,6 +17,7 @@ internal sealed class PostgresJsonbQueryService : IResourceQueryService, IResour
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly PostgresJsonbDataSource dataSource;
+    private readonly IReadOnlyList<IndexProjection> indexProjections;
     private readonly ResourceQueryValidator validator;
 
     /// <summary>
@@ -25,17 +26,21 @@ internal sealed class PostgresJsonbQueryService : IResourceQueryService, IResour
     /// </summary>
     /// <param name="dataSource">The provider's data source.</param>
     /// <param name="store">The resource store, resolved so the schema exists before the first query.</param>
+    /// <param name="options">Provider options, for the declared index projections.</param>
     /// <param name="capabilityProviders">Registered provider capability declarations.</param>
     public PostgresJsonbQueryService(
         PostgresJsonbDataSource dataSource,
         PostgresJsonbResourceStore store,
+        PostgresJsonbAsterOptions options,
         IEnumerable<IResourceQueryCapabilitiesProvider>? capabilityProviders = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(options);
         this.dataSource = dataSource;
+        indexProjections = options.IndexProjections.ToList();
         validator = new ResourceQueryValidator(
-            capabilityProviders ?? [new PostgresJsonbQueryCapabilitiesProvider()],
+            capabilityProviders ?? [new PostgresJsonbQueryCapabilitiesProvider(options)],
             this);
     }
 
@@ -53,7 +58,7 @@ internal sealed class PostgresJsonbQueryService : IResourceQueryService, IResour
             throw UnsupportedQueryFeatureException.FromValidationFailure(validation.Failures[0]);
 
         var builder = new PostgresQueryBuilder(query);
-        var translator = new PostgresWhereTranslator(builder.Parameters);
+        var translator = new PostgresWhereTranslator(builder.Parameters, new PostgresIndexConjuncts(builder.Parameters, indexProjections));
         if (query.Filter is not null)
         {
             translator.Validate(query.Filter);

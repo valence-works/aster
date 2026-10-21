@@ -7,3 +7,4 @@ Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.InitializeSchema.set -
 Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.PostgresJsonbAsterOptions() -> void
 Aster.Persistence.PostgresJsonb.PostgresJsonbAsterServiceCollectionExtensions
 static Aster.Persistence.PostgresJsonb.PostgresJsonbAsterServiceCollectionExtensions.AddAsterPostgresJsonb(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Aster.Persistence.PostgresJsonb.PostgresJsonbAsterOptions.IndexProjections.get -> System.Collections.Generic.IList<Aster.Core.Models.Querying.IndexProjection!>!

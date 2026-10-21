@@ -40,10 +40,30 @@ internal sealed class PostgresFacetValue
     public string WhenNumber(string predicate) =>
         $"(CASE WHEN {Json} IS NULL THEN NULL WHEN {Type} = 'number' THEN {predicate} ELSE false END)";
 
-    public static PostgresFacetValue Create(PostgresParameterBag parameters, string aspectKey, string facetDefinitionId)
+    /// <summary>Upper-cased text, the key case-insensitive comparisons and text projection indexes use.</summary>
+    public string UpperText => PostgresText.Upper(Text);
+
+    /// <summary>The number, or NULL for any other value: the key numeric projection indexes use.</summary>
+    public string IndexedNumber => $"(CASE WHEN {Type} = 'number' THEN {Number} END)";
+
+    /// <summary>The UTC date key of a date/time string, or NULL (see <see cref="PostgresDateKey"/>).</summary>
+    public string DateKey => $"aster_date_key({Json} #>> '{{}}')";
+
+    /// <summary>The array's string elements, upper-cased: the key array projection indexes use.</summary>
+    public string UpperStrings => $"aster_upper_strings({Json})";
+
+    public static PostgresFacetValue Create(PostgresParameterBag parameters, string aspectKey, string facetDefinitionId) =>
+        Create(parameters.Add, "rv.payload", aspectKey, facetDefinitionId);
+
+    /// <summary>
+    /// Builds the facet path over <paramref name="payload"/>, rendering each key with <paramref name="key"/>: a
+    /// parameter in queries, a literal in index definitions. Both must produce the same expression for an index to
+    /// match a query.
+    /// </summary>
+    public static PostgresFacetValue Create(Func<string, string> key, string payload, string aspectKey, string facetDefinitionId)
     {
-        var aspect = $"rv.payload -> 'aspects' -> {parameters.Add(aspectKey)}";
-        var keys = FacetCandidates(facetDefinitionId).Select(key => $"{aspect} -> {parameters.Add(key)}").ToList();
+        var aspect = $"{payload} -> 'aspects' -> {key(aspectKey)}";
+        var keys = FacetCandidates(facetDefinitionId).Select(facet => $"{aspect} -> {key(facet)}").ToList();
 
         // Parenthesized either way: :: binds tighter than ->, so a bare path would cast only its last key.
         return new(keys.Count == 1 ? $"({keys[0]})" : $"COALESCE({string.Join(", ", keys)})");

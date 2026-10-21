@@ -225,7 +225,6 @@ internal static class OperationsEndpoints
         HttpContext http,
         IResourceDefinitionStore definitionStore,
         IResourcePolicyEvaluationService evaluationService,
-        IResourceVersionHistoryService historyService,
         CancellationToken cancellationToken)
     {
         var tenant = http.GetTenantScope();
@@ -239,20 +238,6 @@ internal static class OperationsEndpoints
             EvaluationTimestamp = request.EvaluationTimestamp ?? DateTimeOffset.UtcNow,
         }, cancellationToken);
 
-        // Pruning previews list versions by retained count alone, active ones included; the history says which
-        // versions pruning must protect, so the UI can show them as protected instead of offering them.
-        var pruneTargets = preview.Candidates
-            .Where(static candidate => candidate.Outcome == ResourcePolicyOutcome.PrunePreview)
-            .Select(static candidate => candidate.ResourceId)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        Dictionary<(string ResourceId, int Version), ResourceVersionSummary> versions = pruneTargets.Count == 0
-            ? new()
-            : (await historyService.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest { TenantScope = tenant, ResourceIds = pruneTargets }, cancellationToken))
-                .Histories
-                .SelectMany(static history => history.Versions.Select(version => (history.ResourceId, version)))
-                .ToDictionary(static pair => (pair.ResourceId, pair.version.Version), static pair => pair.version);
-
         return Results.Ok(new PolicyPreviewDto(
             preview.ToSummary(),
             preview.Candidates.Select(candidate => new PolicyPreviewCandidateDto(
@@ -261,10 +246,7 @@ internal static class OperationsEndpoints
                 candidate.Outcome,
                 candidate.ResourceId,
                 candidate.ResourceVersion,
-                candidate.Reason,
-                candidate.Outcome == ResourcePolicyOutcome.PrunePreview && candidate.ResourceVersion is { } version
-                    ? versions.GetValueOrDefault((candidate.ResourceId, version))
-                    : null)).ToList(),
+                candidate.Reason)).ToList(),
             preview.Diagnostics));
     }
 

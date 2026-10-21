@@ -27,16 +27,22 @@ internal static class PostgresMetadataField
         _ => $"{Column(field, "Metadata sort field", "unsupported-metadata-sort-field", path)} COLLATE \"C\"",
     };
 
-    private static string Column(string field, string description, string code, string path) => field.ToLowerInvariant() switch
+    /// <summary>The text column behind an identifier field, or null for other fields.</summary>
+    public static string? TextColumn(string field) => field.ToLowerInvariant() switch
     {
-        "resourceid" => "rv.resource_id",
-        "id" => "rv.id",
-        "definitionid" => "rv.definition_id",
-        "owner" => "rv.owner",
-        _ => throw Unsupported(
-            code,
-            "metadata field",
-            $"{description} '{field}' is not supported by the PostgreSQL JSONB query provider.",
-            path)
+        "resourceid" => "resource_id",
+        "id" => "id",
+        "definitionid" => "definition_id",
+        "owner" => "owner",
+        _ => null,
     };
+
+    private static string Column(string field, string description, string code, string path) =>
+        TextColumn(field) is { } column
+            ? $"rv.{column}"
+            : throw Unsupported(
+                code,
+                "metadata field",
+                $"{description} '{field}' is not supported by the PostgreSQL JSONB query provider.",
+                path);
 }

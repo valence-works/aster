@@ -102,7 +102,10 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
                     .ToList();
 
                 if (policy.Kind == ResourcePolicyKind.VersionPruning)
-                    AddPruningCandidates(policy, definitionResources, activationMatches, candidates, diagnostics);
+                {
+                    draftVersionKeys ??= await ReadVersionKeysAsync(tenant, ResourceVersionScope.Draft, activationChannel: null, cancellationToken);
+                    AddPruningCandidates(policy, definitionResources, activationMatches, draftVersionKeys, candidates, diagnostics);
+                }
                 else
                     AddResourceCandidates(policy, definitionResources, request.EvaluationTimestamp, markers, activationMatches, candidates);
             }
@@ -184,10 +187,14 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
         }
     }
 
+    // Versions outside the retained count that are active on any channel are left out, with a diagnostic carrying
+    // the code pruning application would refuse them with, so applying a preview never meets that refusal (#187).
+    // The latest version is always within the retained count.
     private static void AddPruningCandidates(
         ResourcePolicyDeclaration policy,
         IReadOnlyList<Resource> resources,
         IReadOnlySet<ResourceVersionKey>? activationMatches,
+        IReadOnlySet<ResourceVersionKey> draftVersionKeys,
         ICollection<ResourcePolicyCandidateOutcome> candidates,
         ICollection<ResourcePolicyDiagnostic> diagnostics)
     {
@@ -211,6 +218,17 @@ internal sealed class ResourcePolicyEvaluationService : IResourcePolicyEvaluatio
 
             foreach (var resource in pruneCandidates)
             {
+                if (!draftVersionKeys.Contains(new ResourceVersionKey(resource.ResourceId, resource.Version)))
+                {
+                    diagnostics.Add(ResourcePolicyValidator.Diagnostic(
+                        ResourcePolicyDiagnosticCodes.PolicyPruningVersionProtectedActive,
+                        $"Resource '{resource.ResourceId}' version {resource.Version} is outside the retained version count but active, so it is kept.",
+                        policyId: policy.PolicyId,
+                        resourceId: resource.ResourceId,
+                        resourceVersion: resource.Version));
+                    continue;
+                }
+
                 candidates.Add(new ResourcePolicyCandidateOutcome
                 {
                     PolicyId = policy.PolicyId,

@@ -45,7 +45,7 @@ public sealed class SqliteTestDatabase : IAsterTestDatabase
 /// dropped on dispose. Without that variable the test is skipped, unless <c>ASTER_REQUIRE_POSTGRES=1</c> (as in
 /// CI), where it fails instead so a missing server can't pass silently.
 /// </summary>
-public sealed class PostgresTestDatabase : IAsterTestDatabase
+public sealed class PostgresTestDatabase(Action<PostgresJsonbAsterOptions>? configureOptions = null) : IAsterTestDatabase
 {
     public const string ServerVariable = "ASTER_TEST_POSTGRES";
     public const string RequireVariable = "ASTER_REQUIRE_POSTGRES";
@@ -62,7 +62,11 @@ public sealed class PostgresTestDatabase : IAsterTestDatabase
     {
         var services = new ServiceCollection()
             .AddAsterCore()
-            .AddAsterPostgresJsonb(options => options.ConnectionString = ConnectionString);
+            .AddAsterPostgresJsonb(options =>
+            {
+                options.ConnectionString = ConnectionString;
+                configureOptions?.Invoke(options);
+            });
         configure?.Invoke(services);
         return services.BuildServiceProvider();
     }

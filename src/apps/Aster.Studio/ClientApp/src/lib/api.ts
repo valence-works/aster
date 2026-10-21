@@ -278,8 +278,6 @@ export type PolicyCandidateDto = {
   resourceId: string;
   resourceVersion: number | null;
   reason: string;
-  /** For version-pruning candidates: the version's history entry, which says whether pruning must protect it. */
-  targetVersion: VersionSummaryDto | null;
 };
 
 export type PolicyPreviewDto = {
