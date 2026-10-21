@@ -211,6 +211,21 @@ public sealed class AsterStudioPagesTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UnchangedResource_SavesNoNewVersion()
+    {
+        await server.RegisterAsync(AsterTestServer.Product());
+        await server.CreateAsync("Product", "saw", new JsonObject { ["Details"] = new JsonObject { ["Title"] = "Saw" } });
+        context.Render<MudPopoverProvider>();
+
+        var editor = context.Render<ResourceEditor>(parameters => parameters.Add(page => page.ResourceId, "saw"));
+        editor.WaitForElement(Input("Title"), Timeout);
+
+        await RaiseAsync(editor, () => editor.Find("button.aster-save").Click());
+        editor.WaitForAssertion(() => Assert.Contains("No changes to save", editor.Find(".aster-message").TextContent), Timeout);
+        Assert.Equal(1, Assert.Single(await server.CreateClient().GetVersionsAsync("saw")).Version);
+    }
+
+    [Fact]
     public async Task SlowVersionLoad_AfterNavigating_DoesNotReplaceTheNewResource()
     {
         await server.RegisterAsync(AsterTestServer.Product());

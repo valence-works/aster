@@ -10,6 +10,8 @@ namespace Aster.Elsa.Studio.Forms;
 internal sealed class AsterFormState
 {
     private readonly Dictionary<string, JsonNode?> values = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, JsonNode?> loaded = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> storedKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> inputErrors = new(StringComparer.Ordinal);
     private readonly JsonObject original;
 
@@ -36,10 +38,11 @@ internal sealed class AsterFormState
         var state = new AsterFormState(model, aspects?.DeepClone().AsObject() ?? []);
         foreach (var field in model.Fields)
         {
-            var value = aspects is null
-                ? field.DefaultValue?.DeepClone()
-                : (aspects[field.AspectKey] as JsonObject)?[field.FacetId]?.DeepClone();
-            state.values[field.Key] = value;
+            var aspect = aspects?[field.AspectKey] as JsonObject;
+            var key = StoredKey(aspect, field.FacetId);
+            state.storedKeys[field.Key] = key;
+            state.loaded[field.Key] = aspect?[key]?.DeepClone();
+            state.values[field.Key] = aspects is null ? field.DefaultValue?.DeepClone() : aspect?[key]?.DeepClone();
         }
 
         return state;
@@ -70,22 +73,46 @@ internal sealed class AsterFormState
     }
 
     /// <summary>
-    /// Builds the <c>aspects</c> object to save: every aspect of the form with every field (empty fields as
-    /// <see langword="null"/>). Facets the loaded version holds but the form doesn't know are kept, because an update
-    /// replaces each aspect it names whole.
+    /// Builds the <c>aspects</c> object to save: every aspect with a field that differs from the loaded version (for a
+    /// new resource, every aspect with a value), with every field (empty fields as <see langword="null"/>). Untouched
+    /// aspects are left out, so an update keeps them as they are and the server doesn't validate them again, and a
+    /// create doesn't turn an absent aspect into one of nulls. Facets the loaded version holds but the form doesn't
+    /// know are kept, because an update replaces each aspect it names whole.
     /// </summary>
     public JsonObject BuildAspects()
     {
         var aspects = new JsonObject();
         foreach (var section in Model.Sections)
         {
+            if (section.Fields.All(field => JsonNode.DeepEquals(values.GetValueOrDefault(field.Key), loaded.GetValueOrDefault(field.Key))))
+                continue;
+
             var payload = original[section.AspectKey] is JsonObject existing ? existing.DeepClone().AsObject() : [];
             foreach (var field in section.Fields)
-                payload[field.FacetId] = values.GetValueOrDefault(field.Key)?.DeepClone();
+            {
+                // One key per facet: the one the value was read from, without the other spelling.
+                var key = storedKeys[field.Key];
+                var other = key == field.FacetId ? ToCamelCase(field.FacetId) : field.FacetId;
+                if (other != key)
+                    payload.Remove(other);
+                payload[key] = values.GetValueOrDefault(field.Key)?.DeepClone();
+            }
 
             aspects[section.AspectKey] = payload;
         }
 
         return aspects;
     }
+
+    // The server reads a facet from its ID or, when the payload has no such key, from the camel-case form (how typed
+    // aspects are stored: Title as title). The form reads and writes the same key.
+    private static string StoredKey(JsonObject? aspect, string facetId)
+    {
+        var camel = ToCamelCase(facetId);
+        return aspect is not null && !aspect.ContainsKey(facetId) && aspect.ContainsKey(camel) ? camel : facetId;
+    }
+
+    // As the server's AspectFacetValueResolver: the first character lower-cased, the rest unchanged.
+    private static string ToCamelCase(string value) =>
+        value.Length == 0 ? value : char.ToLowerInvariant(value[0]) + value[1..];
 }

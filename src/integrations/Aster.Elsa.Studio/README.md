@@ -78,7 +78,9 @@ Each form comes from `GET /definitions/{id}/schema` (the JSON Schema export, #10
 | other arrays | `multitext`, or `json-editor` for `object[]` |
 
 - **Elsa's editors, unwrapped.** Each facet is described to the editor as an unwrapped input (`InputDescriptor.IsWrapped = false`), so the editor shows no expression syntax picker and writes a plain value. The module converts it to the facet's JSON type. A value that doesn't fit, such as `abc` for a `decimal`, is shown on the field and blocks the save.
+- **Only changed aspects are saved.** An update sends just the aspects with a field that differs from the loaded version, so untouched aspects keep their stored values and aren't validated again (a reference that has since broken doesn't block an unrelated edit). A create sends just the aspects with a value, so an aspect left empty stays absent. Saving an unchanged resource says so and writes no version.
 - **Facets the form doesn't know** are kept on save, because an update replaces each aspect it names whole.
+- **Camel-case payloads.** Like Aster's own facet lookup, a field reads its facet ID or, when the aspect has no such key, the camel-case form (`title` for `Title`), which is how the typed C# API stores aspects. It saves under the key it read.
 
 ## Reference picker
 

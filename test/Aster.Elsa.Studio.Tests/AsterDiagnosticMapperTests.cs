@@ -45,7 +45,12 @@ public sealed class AsterDiagnosticMapperTests
         await server.RegisterAsync(AsterTestServer.Product());
         var model = AsterFormModel.FromSchema(await client.GetDefinitionSchemaAsync("Product"));
 
-        var exception = await Assert.ThrowsAsync<AsterApiException>(() => client.CreateResourceAsync("Product", null, AsterFormState.Create(model).BuildAspects()));
+        // A Details aspect with a price but no title. (An aspect left empty isn't sent, so isn't validated.)
+        var state = AsterFormState.Create(model);
+        var price = model.FindField("Details", "Price")!;
+        state.SetEditorValue(price, AsterEditorMapping.Resolve(price), "5");
+
+        var exception = await Assert.ThrowsAsync<AsterApiException>(() => client.CreateResourceAsync("Product", null, state.BuildAspects()));
         var diagnostic = Assert.Single(exception.Problem.Diagnostics);
         Assert.Equal(("Details", "Title"), (diagnostic.AspectKey, diagnostic.FacetId));
         Assert.Equal("aspects.Details.Title", AsterDiagnosticMapper.PathOf(diagnostic));

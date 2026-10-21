@@ -34,6 +34,9 @@ internal sealed class AsterTestServer : IAsyncDisposable
     /// <summary>Gets the requests the module's client sent, in order.</summary>
     public RecordingHandler Recorder { get; }
 
+    /// <summary>Gets the server's services, for writing through the typed C# API.</summary>
+    public IServiceProvider Services => app.Services;
+
     /// <summary>The base address the module is configured with.</summary>
     public static Uri BaseAddress { get; } = new("http://localhost/api/aster/");
 

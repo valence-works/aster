@@ -333,17 +333,24 @@
             return;
         }
 
+        var aspects = state.BuildAspects();
+        if (!IsNew && aspects.Count == 0)
+        {
+            message = "No changes to save.";
+            return;
+        }
+
         saving = true;
         try
         {
             if (IsNew)
             {
-                var created = await Client.CreateResourceAsync(model!.DefinitionId, newResourceId, state.BuildAspects());
+                var created = await Client.CreateResourceAsync(model!.DefinitionId, newResourceId, aspects);
                 Navigation.NavigateTo(EditHref(created.ResourceId));
                 return;
             }
 
-            var saved = await Client.UpdateResourceAsync(latest!.ResourceId, latest.Version, state.BuildAspects());
+            var saved = await Client.UpdateResourceAsync(latest!.ResourceId, latest.Version, aspects);
             await ReloadAsync();
             message = $"Saved version {saved.Version}.";
         }
