@@ -82,6 +82,18 @@
 - Treat any existing identifier as a collision. Rejected because it makes idempotent import unnecessarily noisy.
 - Always remap existing identifiers in remap mode. Rejected because identical content should not create duplicate logical data.
 
+## Decision: Definitions Are Identified By Key And Compared By Content (#221)
+
+**Decision**: A snapshot definition matches the target definition with the same `(DefinitionId, Version)`, as before. Whether the two are identical is decided by content alone: `IsSingleton`, policy declarations, and each aspect entry's key, `AspectDefinitionId`, version, `RequiresName`, schema, `IsShared` flag and facets (`FacetDefinitionId`, type, requiredness, version, metadata). The version-specific definition `Id` and the aspect and facet `Id`s are ignored. A match is reused in every collision mode: the target keeps its copy and its IDs, nothing is written for it, the identity map reports `ReusedIdentical`, and imported resources keep the `DefinitionId` and `DefinitionVersion` they record, which name the target's copy.
+
+**Rationale**: `ResourceDefinitionBuilder` generates those IDs per registration, so environments that register the same definitions from the same code hold the same definition under different IDs. Comparing the IDs made every such import divergent: `Strict` failed and `RemapDivergent` moved the resources to `X__imported` definitions. Nothing references a definition, aspect or facet by its generated `Id`: resources record `(DefinitionId, DefinitionVersion)`, payloads are keyed by aspect key and `FacetDefinitionId`, and stores key definitions by `(DefinitionId, Version)`. This mirrors #195, which already compares shared aspect versions by content; a definition's pins are compared after embedding the target's copy of each pinned version, so they match the same way.
+
+**Alternatives considered**:
+
+- Match by name across versions (a content-identical definition under another version number reuses that version). Rejected for now: it would rebind imported resources to a different `DefinitionVersion` than they record, and version numbers are part of the definition's identity in the store. Such a definition still imports as a new version.
+- Derive stable IDs in the builder from names. Rejected because existing stores already hold random IDs, so it would not fix imports between them, and a content change would need a manual revision bump to keep IDs distinct.
+- Keep comparing IDs and let hosts pin them (the prompt registry sample's former `WithStableIds`). Rejected because every host would need the same workaround.
+
 ## Decision: Deterministic Remapping
 
 **Decision**: Deterministic replacement identifiers are derived from original identifiers, entity kind, and target-store collision state. They must not use wall-clock time or random IDs.

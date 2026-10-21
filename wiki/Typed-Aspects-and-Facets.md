@@ -198,7 +198,7 @@ var result = await upgrades.ApplyAsync(new AspectUpgradeRequest
   - `aspect-name-required`: the target requires a name and the attachment is unnamed.
   - `definition-version-conflict`: another writer registered a version of the definition after the upgrade read it. Nothing is written; preview again and retry.
 
-**Portability:** `IResourcePortabilityService.ExportAsync` includes the pinned aspect versions in the snapshot. Import registers them in the target tenant with their versions preserved, before the definitions that pin them. Pins that resolve nowhere fail with `unresolved-aspect-pin`.
+**Portability:** `IResourcePortabilityService.ExportAsync` includes the pinned aspect versions in the snapshot. Import registers them in the target tenant with their versions preserved, before the definitions that pin them. Pins that resolve nowhere fail with `unresolved-aspect-pin`. Aspect versions and definitions that the target already holds are matched by content, not by the IDs generated when they were registered (#195, #221): an environment that registered the same aspects and definitions from the same code reuses its own copies instead of remapping or failing.
 
 ### Reading a typed aspect
 
