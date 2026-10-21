@@ -58,9 +58,12 @@ internal sealed class SqlServerJsonDialect(string connectionString, Func<Cancell
         IReadOnlyList<(string Column, string Parameter)> keys,
         string payloadParameter)
     {
-        // HOLDLOCK keeps the match and the insert atomic, so two upserts of one key can't both insert.
+        // HOLDLOCK keeps the match and the insert atomic, so two upserts of one key can't both insert. Lengths are
+        // compared too: = ignores trailing spaces, which would let 'x ' update the row of 'x' (the insert it takes
+        // instead is refused by the schema's trailing-space checks).
         var source = string.Join(", ", keys.Select(static key => $"{key.Parameter} AS {key.Column}"));
-        var match = string.Join(" AND ", keys.Select(static key => $"target.{key.Column} = source.{key.Column}"));
+        var match = string.Join(" AND ", keys.Select(static key =>
+            $"target.{key.Column} = source.{key.Column} AND DATALENGTH(target.{key.Column}) = DATALENGTH(source.{key.Column})"));
         var columns = string.Join(", ", keys.Select(static key => key.Column));
         return $"""
             MERGE {tableName} WITH (HOLDLOCK) AS target

@@ -14,12 +14,16 @@ internal static class SqlServerJsonSchema
     private const string Tenant = $"nvarchar(128) COLLATE {Binary} NOT NULL DEFAULT N'{TenantScope.DefaultTenantId}'";
     private const string Key = $"nvarchar(256) COLLATE {Binary} NOT NULL";
 
+    // SQL Server compares strings as if padded with trailing spaces, even under BIN2, so 'x' and 'x ' would be one key
+    // in every primary key and lookup. Identifier columns therefore refuse trailing spaces (see the provider README).
+    private static string NoTrailingSpaces(string column) => $"CHECK (DATALENGTH({column}) = DATALENGTH(RTRIM({column})))";
+
     // Every statement checks the catalog first, so the step can run over a schema created before the runner.
     private static readonly string Tables = $"""
         IF OBJECT_ID(N'resource_definitions', N'U') IS NULL
         CREATE TABLE resource_definitions (
-            tenant_id {Tenant},
-            definition_id {Key},
+            tenant_id {Tenant} {NoTrailingSpaces("tenant_id")},
+            definition_id {Key} {NoTrailingSpaces("definition_id")},
             version int NOT NULL,
             id {Key},
             payload nvarchar(max) NOT NULL,
@@ -28,11 +32,11 @@ internal static class SqlServerJsonSchema
 
         IF OBJECT_ID(N'resource_versions', N'U') IS NULL
         CREATE TABLE resource_versions (
-            tenant_id {Tenant},
-            resource_id {Key},
+            tenant_id {Tenant} {NoTrailingSpaces("tenant_id")},
+            resource_id {Key} {NoTrailingSpaces("resource_id")},
             version int NOT NULL,
             id {Key},
-            definition_id {Key},
+            definition_id {Key} {NoTrailingSpaces("definition_id")},
             definition_version int NULL,
             created datetime2(7) NOT NULL,
             owner nvarchar(max) COLLATE {Binary} NULL,
@@ -46,25 +50,25 @@ internal static class SqlServerJsonSchema
 
         IF OBJECT_ID(N'activation_states', N'U') IS NULL
         CREATE TABLE activation_states (
-            tenant_id {Tenant},
-            resource_id {Key},
-            channel nvarchar(64) COLLATE {Binary} NOT NULL,
+            tenant_id {Tenant} {NoTrailingSpaces("tenant_id")},
+            resource_id {Key} {NoTrailingSpaces("resource_id")},
+            channel nvarchar(64) COLLATE {Binary} NOT NULL {NoTrailingSpaces("channel")},
             payload nvarchar(max) NOT NULL,
             CONSTRAINT pk_activation_states PRIMARY KEY (tenant_id, resource_id, channel)
         );
 
         IF OBJECT_ID(N'lifecycle_markers', N'U') IS NULL
         CREATE TABLE lifecycle_markers (
-            tenant_id {Tenant},
-            resource_id {Key},
+            tenant_id {Tenant} {NoTrailingSpaces("tenant_id")},
+            resource_id {Key} {NoTrailingSpaces("resource_id")},
             payload nvarchar(max) NOT NULL,
             CONSTRAINT pk_lifecycle_markers PRIMARY KEY (tenant_id, resource_id)
         );
 
         IF OBJECT_ID(N'aspect_definitions', N'U') IS NULL
         CREATE TABLE aspect_definitions (
-            tenant_id {Tenant},
-            aspect_definition_id {Key},
+            tenant_id {Tenant} {NoTrailingSpaces("tenant_id")},
+            aspect_definition_id {Key} {NoTrailingSpaces("aspect_definition_id")},
             version int NOT NULL,
             id {Key},
             payload nvarchar(max) NOT NULL,

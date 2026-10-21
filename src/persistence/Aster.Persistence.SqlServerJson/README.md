@@ -19,13 +19,18 @@ Requires SQL Server 2019 or later, at database compatibility level 130 or higher
     ```csharp
     var runner = app.Services.GetRequiredService<IInfrastructureRunner>();
     await runner.ApplyAsync();                    // returns the steps it applied
-    var check = await runner.VerifyAsync();       // at startup: fail fast if !check.IsCurrent
+
+    // At application startup, before serving requests:
+    var check = await runner.VerifyAsync();
+    if (!check.IsCurrent)
+        throw new InvalidOperationException("The Aster SQL Server schema is not current; apply the pending infrastructure steps.");
     ```
 
     `VerifyAsync` also reports steps applied by a newer version of the provider than the one running.
   - The tables are created in the connecting user's default schema; the date-key function the queries share is `dbo.aster_date_key` (scalar functions must be called by a two-part name). Applying fails fast below compatibility level 130, which `OPENJSON` needs.
 - **Tenancy:** every table is keyed by `tenant_id`.
 - **Keys:** identifier columns are `nvarchar` with the `Latin1_General_100_BIN2` collation, so they compare and sort by code point, as the other providers do. Tenant IDs hold up to 128 characters, resource, definition and aspect IDs up to 256, activation channels up to 64; longer values are rejected by the database.
+- **No trailing spaces in identifiers:** SQL Server compares strings as if padded with trailing spaces, even under a binary collation, so `x` and `x ` would be the same key. The schema refuses tenant, resource, definition, aspect and channel IDs that end in a space, and upserts never match one onto the other. A *lookup* by an ID with a trailing space still finds the ID without it, so trim identifiers before calling the SDK.
 - **Concurrency:** versions are keyed by `(tenant_id, resource_id, version)`. A writer that loses a race on the same base version gets `ConcurrencyException`; it never produces a duplicate version. Registrations, activations and pruning of one key serialize on an application lock.
 - **Queries:** `IResourceQueryService` translates each `ResourceQuery` to one parameterized SQL statement.
   - It supports the same portable surface as SQLite JSON and PostgreSQL JSONB: every scope, metadata and facet filters, ranges, array and reference operators, lifecycle state, sorting and paging. The shared conformance suite checks that every provider returns the same results.

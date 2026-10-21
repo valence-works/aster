@@ -61,6 +61,10 @@ internal sealed class SqlServerQueryBuilder
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
             predicates.Add($"rv.definition_id = {Parameters.Add(query.DefinitionId)}");
 
+        // FETCH NEXT needs at least one row, so an empty page selects nothing instead.
+        if (query.Take == 0)
+            predicates.Add("1 = 0");
+
         sql.AppendLine();
         sql.Append("WHERE ");
         sql.AppendJoin(" AND ", predicates.Select(static predicate => $"({predicate})"));
@@ -76,7 +80,7 @@ internal sealed class SqlServerQueryBuilder
         {
             sql.AppendLine();
             sql.Append($"OFFSET {Parameters.Add(query.Skip ?? 0)} ROWS");
-            if (query.Take.HasValue)
+            if (query.Take is > 0)
                 sql.Append($" FETCH NEXT {Parameters.Add(query.Take.Value)} ROWS ONLY");
         }
 
