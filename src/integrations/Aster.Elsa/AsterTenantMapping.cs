@@ -1,5 +1,6 @@
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Tenancy;
+using Aster.Core.Services;
 using ElsaTenant = Elsa.Common.Multitenancy.Tenant;
 using ITenantAccessor = Elsa.Common.Multitenancy.ITenantAccessor;
 
@@ -12,7 +13,9 @@ namespace Aster.Elsa;
 /// <item>any other ID is <see cref="TenantScope.FromTenantId"/> with the same ID;</item>
 /// <item>the agnostic <c>*</c> and an Elsa tenant literally named <c>default</c> are refused with
 /// <see cref="TenantScopeException"/> (<c>tenant-scope-invalid</c>), because the first has no Aster equivalent and the
-/// second would share Aster's default scope with Elsa's default tenant.</item>
+/// second would share Aster's default scope with Elsa's default tenant;</item>
+/// <item>an ID of only whitespace, or one that starts or ends with whitespace, is refused the same way, because Aster
+/// tenant IDs can't be blank or padded and trimming would alias it onto another tenant.</item>
 /// </list>
 /// </summary>
 public static class AsterTenantMapping
@@ -20,7 +23,7 @@ public static class AsterTenantMapping
     /// <summary>Gets the Aster tenant scope for an Elsa tenant ID.</summary>
     /// <param name="elsaTenantId">The Elsa tenant ID, as <see cref="ITenantAccessor.TenantId"/> reports it; <see langword="null"/> is the default tenant.</param>
     /// <returns>The Aster tenant scope.</returns>
-    /// <exception cref="TenantScopeException">The ID is <c>*</c> or <c>default</c>.</exception>
+    /// <exception cref="TenantScopeException">The ID is <c>*</c> or <c>default</c>, only whitespace, or starts or ends with whitespace.</exception>
     public static TenantScope FromElsaTenantId(string? elsaTenantId)
     {
         if (string.IsNullOrEmpty(elsaTenantId))
@@ -44,6 +47,12 @@ public static class AsterTenantMapping
                 "An Elsa tenant ID of only whitespace has no Aster tenant scope.",
                 elsaTenantId);
 
+        if (IdentifierValidator.HasSurroundingWhitespace(elsaTenantId))
+            throw new TenantScopeException(
+                TenantScopeException.InvalidCode,
+                $"The Elsa tenant '{elsaTenantId}' starts or ends with whitespace, which Aster tenant IDs can't. Rename the Elsa tenant.",
+                elsaTenantId);
+
         return TenantScope.FromTenantId(elsaTenantId);
     }
 
@@ -53,7 +62,7 @@ public static class AsterTenantMapping
     /// </summary>
     /// <param name="tenantAccessor">Elsa's tenant accessor, if registered.</param>
     /// <returns>The Aster tenant scope.</returns>
-    /// <exception cref="TenantScopeException">The current Elsa tenant ID is <c>*</c> or <c>default</c>.</exception>
+    /// <exception cref="TenantScopeException">The current Elsa tenant ID is refused as in <see cref="FromElsaTenantId"/>.</exception>
     public static TenantScope FromTenantAccessor(ITenantAccessor? tenantAccessor) => FromElsaTenantId(tenantAccessor?.TenantId);
 
     /// <summary>

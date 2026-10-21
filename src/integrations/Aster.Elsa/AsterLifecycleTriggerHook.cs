@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
@@ -13,78 +14,139 @@ using ITenantFinder = Elsa.Common.Multitenancy.ITenantFinder;
 namespace Aster.Elsa;
 
 /// <summary>
-/// Feeds the Aster lifecycle triggers: after each committed save, activation, deactivation and archive, sends Elsa the
-/// matching stimuli through <see cref="IStimulusSender"/>, which starts trigger-bound workflows and resumes bookmarks.
+/// Feeds the Aster lifecycle triggers: after each committed save, activation, deactivation and archive, queues the
+/// event for a background worker that sends Elsa the matching stimuli through <see cref="IStimulusSender"/>, which
+/// starts trigger-bound workflows and resumes bookmarks.
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
 /// <item>Only committed changes are sent: an after hook whose <see cref="ResourceLifecycleContext.OperationStatus"/>
-/// is not <see cref="LifecycleOperationStatus.Succeeded"/> sends nothing.</item>
+/// is not <see cref="LifecycleOperationStatus.Succeeded"/> queues nothing.</item>
+/// <item>Events are sent in the background, never in the flow of the Aster call. Elsa holds a lock per stimulus while
+/// it resumes the matching bookmarks, so a resumed workflow whose own write sent the same stimulus inline would wait on
+/// that lock until it timed out. One worker sends the events in the order they were queued, one at a time, outside the
+/// execution context of the Aster call. It starts with the hook and stops when the container disposes it.</item>
 /// <item>Each event is sent in the Elsa tenant of the Aster write (<see cref="AsterTenantMapping.ToElsaTenantId"/>),
 /// pushed with <see cref="ITenantAccessor.PushContext"/>. An Aster tenant with no Elsa tenant sends nothing.</item>
 /// <item>One stimulus per combination of filled and empty filters (<see cref="ResourceLifecycleStimulus"/>), so each
 /// matching trigger fires once.</item>
 /// <item>Delivery is at-most-once. A failed send is logged as a warning with the resource, version, channel and
 /// tenant, and never rethrown: the Aster write is committed and its caller and other hooks don't see the failure.
-/// Nothing retries, because a retry could start a workflow twice. Sending isn't tied to the Aster caller's
-/// cancellation token, since the change it reports is already committed.</item>
+/// Nothing retries, because a retry could start a workflow twice. The queue is in memory, so events still queued when
+/// the process stops are lost. Sending isn't tied to the Aster caller's cancellation token, since the change it
+/// reports is already committed; only stopping the worker cancels it.</item>
 /// </list>
 /// </remarks>
-internal sealed partial class AsterLifecycleTriggerHook(IServiceScopeFactory scopeFactory, ILogger<AsterLifecycleTriggerHook> logger)
-    : ResourceLifecycleHook
+internal sealed partial class AsterLifecycleTriggerHook : ResourceLifecycleHook, IAsyncDisposable
 {
     private static readonly string SavedType = ActivityTypeNameHelper.GenerateTypeName<ResourceSaved>();
     private static readonly string ActivatedType = ActivityTypeNameHelper.GenerateTypeName<ResourceActivated>();
     private static readonly string DeactivatedType = ActivityTypeNameHelper.GenerateTypeName<ResourceDeactivated>();
     private static readonly string ArchivedType = ActivityTypeNameHelper.GenerateTypeName<ResourceArchived>();
 
-    /// <inheritdoc />
-    public override async ValueTask OnAfterSaveAsync(ResourceSaveLifecycleContext context, CancellationToken cancellationToken = default)
-    {
-        if (context.OperationStatus != LifecycleOperationStatus.Succeeded || context.Resource is not { } resource)
-            return;
+    private readonly IServiceScopeFactory scopeFactory;
+    private readonly ILogger<AsterLifecycleTriggerHook> logger;
+    private readonly Channel<QueuedEvent> queue = Channel.CreateUnbounded<QueuedEvent>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly CancellationTokenSource stopping = new();
+    private readonly Task worker;
+    private readonly object gate = new();
+    private int unsent;
+    private int disposed;
+    private TaskCompletionSource allSent = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await SendAsync(SavedType, context, new ResourceLifecycleEvent
+    public AsterLifecycleTriggerHook(IServiceScopeFactory scopeFactory, ILogger<AsterLifecycleTriggerHook> logger)
+    {
+        this.scopeFactory = scopeFactory;
+        this.logger = logger;
+        allSent.SetResult();
+
+        // The worker must not inherit the execution context (Elsa's tenant, a running workflow) of the Aster call
+        // that happened to resolve the hook first.
+        if (ExecutionContext.IsFlowSuppressed())
         {
-            Kind = ResourceLifecycleEventKind.Saved,
-            ResourceId = resource.ResourceId,
-            DefinitionId = resource.DefinitionId,
-            ResourceVersion = resource.Version,
-            SaveKind = context.SaveKind,
-        }, hasChannelFilter: false);
+            worker = Task.Run(SendQueuedAsync);
+        }
+        else
+        {
+            using (ExecutionContext.SuppressFlow())
+                worker = Task.Run(SendQueuedAsync);
+        }
     }
 
     /// <inheritdoc />
-    public override async ValueTask OnAfterActivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
+    public override ValueTask OnAfterSaveAsync(ResourceSaveLifecycleContext context, CancellationToken cancellationToken = default)
     {
-        if (context.OperationStatus != LifecycleOperationStatus.Succeeded)
-            return;
+        if (context.OperationStatus == LifecycleOperationStatus.Succeeded && context.Resource is { } resource)
+        {
+            Queue(SavedType, context, new ResourceLifecycleEvent
+            {
+                Kind = ResourceLifecycleEventKind.Saved,
+                ResourceId = resource.ResourceId,
+                DefinitionId = resource.DefinitionId,
+                ResourceVersion = resource.Version,
+                SaveKind = context.SaveKind,
+            }, hasChannelFilter: false);
+        }
 
-        await SendAsync(ActivatedType, context, ActivationEvent(ResourceLifecycleEventKind.Activated, context), hasChannelFilter: true);
+        return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc />
-    public override async ValueTask OnAfterDeactivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
+    public override ValueTask OnAfterActivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
     {
-        if (context.OperationStatus != LifecycleOperationStatus.Succeeded)
-            return;
+        if (context.OperationStatus == LifecycleOperationStatus.Succeeded)
+            Queue(ActivatedType, context, ActivationEvent(ResourceLifecycleEventKind.Activated, context), hasChannelFilter: true);
 
-        await SendAsync(DeactivatedType, context, ActivationEvent(ResourceLifecycleEventKind.Deactivated, context), hasChannelFilter: true);
+        return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc />
-    public override async ValueTask OnAfterArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default)
+    public override ValueTask OnAfterDeactivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
+    {
+        if (context.OperationStatus == LifecycleOperationStatus.Succeeded)
+            Queue(DeactivatedType, context, ActivationEvent(ResourceLifecycleEventKind.Deactivated, context), hasChannelFilter: true);
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public override ValueTask OnAfterArchiveAsync(ResourceArchiveLifecycleContext context, CancellationToken cancellationToken = default)
     {
         // The archive points also cover soft-deletes, which Resource Archived doesn't report.
-        if (context.OperationStatus != LifecycleOperationStatus.Succeeded || context.Marker.State != ResourceLifecycleMarkerState.Archived)
+        if (context.OperationStatus == LifecycleOperationStatus.Succeeded && context.Marker.State == ResourceLifecycleMarkerState.Archived)
+        {
+            Queue(ArchivedType, context, new ResourceLifecycleEvent
+            {
+                Kind = ResourceLifecycleEventKind.Archived,
+                ResourceId = context.ResourceId,
+                DefinitionId = context.DefinitionId,
+            }, hasChannelFilter: false);
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Completes when every event queued so far has been sent or has failed, including the events that the workflows
+    /// they ran queued in turn. Tests use it to wait for delivery.
+    /// </summary>
+    internal Task WhenAllSentAsync()
+    {
+        lock (gate)
+            return allSent.Task;
+    }
+
+    /// <summary>Stops the worker. Events still queued are not sent.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        // The container disposes the hook once for each registration that resolves it.
+        if (Interlocked.Exchange(ref disposed, 1) == 1)
             return;
 
-        await SendAsync(ArchivedType, context, new ResourceLifecycleEvent
-        {
-            Kind = ResourceLifecycleEventKind.Archived,
-            ResourceId = context.ResourceId,
-            DefinitionId = context.DefinitionId,
-        }, hasChannelFilter: false);
+        queue.Writer.TryComplete();
+        await stopping.CancelAsync();
+        await worker;
+        stopping.Dispose();
     }
 
     /// <summary>
@@ -112,13 +174,53 @@ internal sealed partial class AsterLifecycleTriggerHook(IServiceScopeFactory sco
             Channel = context.Channel,
         };
 
-    private async ValueTask SendAsync(string activityTypeName, ResourceLifecycleContext context, ResourceLifecycleEvent lifecycleEvent, bool hasChannelFilter)
+    private void Queue(string activityTypeName, ResourceLifecycleContext context, ResourceLifecycleEvent lifecycleEvent, bool hasChannelFilter)
     {
-        var tenantId = AsterTenantMapping.ToElsaTenantId(context.TenantScope);
-        lifecycleEvent = lifecycleEvent with { TenantId = tenantId, OperationId = context.OperationId };
+        lifecycleEvent = lifecycleEvent with { TenantId = AsterTenantMapping.ToElsaTenantId(context.TenantScope), OperationId = context.OperationId };
+        lock (gate)
+        {
+            if (unsent++ == 0)
+                allSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
 
-        // The change is committed: deliver the event even when the Aster caller has since gone away.
-        var cancellationToken = CancellationToken.None;
+        // Only a disposed hook refuses the event.
+        if (!queue.Writer.TryWrite(new QueuedEvent(activityTypeName, lifecycleEvent, hasChannelFilter)))
+            MarkSent();
+    }
+
+    private void MarkSent()
+    {
+        lock (gate)
+        {
+            if (--unsent == 0)
+                allSent.TrySetResult();
+        }
+    }
+
+    private async Task SendQueuedAsync()
+    {
+        try
+        {
+            await foreach (var queued in queue.Reader.ReadAllAsync(stopping.Token))
+            {
+                try
+                {
+                    await SendAsync(queued.ActivityTypeName, queued.Event, queued.HasChannelFilter, stopping.Token);
+                }
+                finally
+                {
+                    MarkSent();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task SendAsync(string activityTypeName, ResourceLifecycleEvent lifecycleEvent, bool hasChannelFilter, CancellationToken cancellationToken)
+    {
+        var tenantId = lifecycleEvent.TenantId;
         try
         {
             var tenant = await FindTenantAsync(tenantId, cancellationToken);
@@ -183,4 +285,7 @@ internal sealed partial class AsterLifecycleTriggerHook(IServiceScopeFactory sco
     [LoggerMessage(EventId = 2, Level = LogLevel.Debug,
         Message = "No {Trigger} event sent for resource '{ResourceId}': Elsa has no tenant '{TenantId}' for its Aster tenant.")]
     private partial void LogNoElsaTenant(string trigger, string resourceId, string tenantId);
+
+    /// <summary>An event waiting for the worker, with the trigger it is for.</summary>
+    private readonly record struct QueuedEvent(string ActivityTypeName, ResourceLifecycleEvent Event, bool HasChannelFilter);
 }

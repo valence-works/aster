@@ -9,7 +9,7 @@ namespace Aster.Elsa.Tests;
 
 /// <summary>
 /// Elsa's current tenant maps to an Aster tenant scope on every call: <c>""</c> is the default scope, any other ID the
-/// same ID, and <c>*</c> and <c>default</c> are refused.
+/// same ID, and <c>*</c>, <c>default</c> and blank or whitespace-padded IDs are refused.
 /// </summary>
 public sealed class AsterTenancyTests
 {
@@ -33,7 +33,9 @@ public sealed class AsterTenancyTests
     [InlineData(Tenant.AgnosticTenantId)]
     [InlineData(TenantScope.DefaultTenantId)]
     [InlineData("  ")]
-    public void The_agnostic_and_default_named_Elsa_tenants_are_refused(string elsaTenantId)
+    [InlineData(" tenant-a")]
+    [InlineData("tenant-a\t")]
+    public void The_agnostic_default_named_blank_and_padded_Elsa_tenants_are_refused(string elsaTenantId)
     {
         var exception = Assert.Throws<TenantScopeException>(() => AsterTenantMapping.FromElsaTenantId(elsaTenantId));
 
@@ -82,6 +84,7 @@ public sealed class AsterTenancyTests
     [Theory]
     [InlineData(Tenant.AgnosticTenantId)]
     [InlineData(TenantScope.DefaultTenantId)]
+    [InlineData(" tenant-a")]
     public async Task Activities_in_a_refused_Elsa_tenant_fault_with_tenant_scope_invalid_and_write_nothing(string elsaTenantId)
     {
         await using var host = await ElsaTestHost.StartAsync();

@@ -54,6 +54,7 @@ internal static class AsterFaults
         UnsupportedQueryFeatureException e => new AsterActivityException(
             [new AsterActivityDiagnostic(e.Code, e.Message, Path: e.Path, Feature: e.Feature)], e.Message, e),
         TenantScopeException e => new AsterActivityException(e.Code, e.Message, e),
+        InvalidIdentifierException e => new AsterActivityException(e.Code, e.Message, e),
         DuplicateAspectAttachmentException e => new AsterActivityException(AsterActivityFaultCodes.DuplicateAspectAttachment, e.Message, e),
         ConcurrencyException e => new AsterActivityException(AsterActivityFaultCodes.ConcurrencyConflict, e.Message, e),
         DuplicateResourceIdException e => new AsterActivityException(AsterActivityFaultCodes.DuplicateResourceId, e.Message, e),

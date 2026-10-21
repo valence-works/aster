@@ -76,17 +76,17 @@ Promote Resource is two explicit calls, a read of the active version and an acti
 
 The result is a `ResourceLifecycleEvent`: kind, Elsa tenant, resource ID, definition ID, version, channel, save kind and operation ID.
 
-- **Start or resume.** As a start activity (`CanStartWorkflow`), a trigger starts a new workflow instance per matching event. Later in a workflow, it waits with a bookmark and resumes once.
+- **Start or resume.** As a start activity (`CanStartWorkflow`), a trigger starts a new workflow instance per matching event. Later in a workflow, it waits with a bookmark and resumes once, on the next matching event: never on one the instance had already received.
 - **Filters.** An empty filter matches every value. A trigger only fires for changes in its workflow's Elsa tenant.
-- **How it works.** An Aster lifecycle hook sends Elsa a stimulus through `IStimulusSender` after each committed change, in the Elsa tenant of the change (`ITenantAccessor.PushContext`). The stimulus, `ResourceLifecycleStimulus(TenantId, DefinitionId, Channel)`, hashes like the trigger's indexed payload and its bookmark, so only workflows whose filters fit start or resume. The package README has the [full contract](https://github.com/valence-works/aster/blob/main/src/integrations/Aster.Elsa/README.md#stimulus-contract).
+- **How it works.** An Aster lifecycle hook queues each committed change, and a background worker sends Elsa a stimulus through `IStimulusSender`, in the Elsa tenant of the change (`ITenantAccessor.PushContext`). The stimulus, `ResourceLifecycleStimulus(TenantId, DefinitionId, Channel)`, hashes like the trigger's indexed payload and its bookmark, so only workflows whose filters fit start or resume. The package README has the [full contract](https://github.com/valence-works/aster/blob/main/src/integrations/Aster.Elsa/README.md#stimulus-contract).
 - **Only committed changes fire.** The hook sends only when the after hook's `OperationStatus` is `Succeeded`; a failed write fires nothing.
-- **Inline.** Matching workflows run in the flow of the Aster call, until they finish or suspend.
+- **In the background.** The Aster call returns once the change is committed. Matching workflows run afterwards, one event at a time, in commit order, so a resumed workflow can save a resource that matches its own trigger without waiting on Elsa's resume lock.
 
 ### Delivery is at-most-once
 
 - **Never fails the write.** A failing send is logged as a warning with the resource, version, channel and tenant. The Aster write stays committed, and its caller doesn't see the failure.
 - **No retry.** A retry could start a workflow twice.
-- **No outbox.** If the process stops between the commit and the send, the event is lost. A durable outbox would mean persisting events in Aster, which ADR 0001 keeps out of scope.
+- **No outbox.** The queue is in memory: if the process stops between the commit and the send, the event is lost. A durable outbox would mean persisting events in Aster, which ADR 0001 keeps out of scope.
 
 Hosts that need every change handled should reconcile from Aster's state, for example with a scheduled workflow that queries for what it missed.
 
@@ -113,6 +113,7 @@ The module maps Elsa's current tenant to an Aster tenant scope on every call, so
 | any other ID | `TenantScope.FromTenantId(id)` |
 | `"*"` (`Tenant.AgnosticTenantId`) | refused: `tenant-scope-invalid` |
 | `"default"` | refused: `tenant-scope-invalid`, because it would share Aster's default scope with Elsa's default tenant |
+| only whitespace, or leading or trailing whitespace | refused: `tenant-scope-invalid` |
 
 - **Without multitenancy:** if Elsa's multitenancy services aren't registered, every call uses the default scope.
 - **Queries:** a `ResourceQuery` that names a different tenant faults with `tenant-scope-mismatch`.

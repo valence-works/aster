@@ -7,6 +7,7 @@ using Elsa.Common.Features;
 using Elsa.Common.Models;
 using Elsa.Common.Multitenancy;
 using Elsa.Extensions;
+using Elsa.Features.Services;
 using Elsa.Workflows;
 using Elsa.Workflows.Activities;
 using Elsa.Workflows.Memory;
@@ -41,9 +42,13 @@ internal sealed class TriggerTestHost : IAsyncDisposable
 
     /// <summary>
     /// Starts a host whose Elsa tenants are <paramref name="elsaTenantIds"/> (default: Elsa's default tenant only),
-    /// with the <c>Product</c> definition registered in the matching Aster tenants.
+    /// with the <c>Product</c> definition registered in the matching Aster tenants. <paramref name="configureElsa"/>
+    /// adds a test's own workflows.
     /// </summary>
-    public static async Task<TriggerTestHost> StartAsync(Action<IServiceCollection>? configure = null, params string[] elsaTenantIds)
+    public static async Task<TriggerTestHost> StartAsync(
+        Action<IServiceCollection>? configure = null,
+        Action<IModule>? configureElsa = null,
+        params string[] elsaTenantIds)
     {
         var tenantIds = elsaTenantIds.Length == 0 ? [Tenant.DefaultTenantId] : elsaTenantIds;
         var collection = new ServiceCollection();
@@ -64,6 +69,7 @@ internal sealed class TriggerTestHost : IAsyncDisposable
             elsa.AddWorkflow<OnProductUnpublished>();
             elsa.AddWorkflow<OnProductArchived>();
             elsa.AddWorkflow<WaitForProductSaved>();
+            configureElsa?.Invoke(elsa);
             if (elsaTenantIds.Length > 0)
                 elsa.Configure<MultitenancyFeature>(feature => feature.UseTenantsProvider(_ => new FixedTenantsProvider(tenantIds)));
         });
@@ -101,6 +107,13 @@ internal sealed class TriggerTestHost : IAsyncDisposable
             WorkflowDefinitionHandle = WorkflowDefinitionHandle.ByDefinitionId(definitionId, VersionOptions.Published),
         });
     }
+
+    /// <summary>
+    /// Waits until the trigger hook has sent every event queued so far, and those the workflows they ran queued in
+    /// turn. The hook sends in the background, so tests call it after their writes.
+    /// </summary>
+    public Task DeliveredAsync() =>
+        services.GetRequiredService<AsterLifecycleTriggerHook>().WhenAllSentAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
     /// <summary>Creates a product, version 1, in the given Aster tenant.</summary>
     public async Task<Aster.Core.Models.Instances.Resource> CreateProductAsync(string resourceId, TenantScope? tenant = null) =>
@@ -328,4 +341,72 @@ public sealed class WaitForProductSaved : WorkflowBase
             },
         };
     }
+}
+
+/// <summary>
+/// Started explicitly; waits on a Resource Saved bookmark for products, then, still in the resumed run, creates another
+/// product, whose event is sent with the same stimulus.
+/// </summary>
+public sealed class WaitThenCreateProduct : WorkflowBase
+{
+    public const string Id = "wait-then-create-product";
+
+    protected override void Build(IWorkflowBuilder builder)
+    {
+        builder.WithDefinitionId(Id);
+        var lifecycleEvent = builder.WithVariable<ResourceLifecycleEvent>("Event", default!);
+        builder.Root = new Sequence
+        {
+            Activities =
+            {
+                new ResourceSaved { DefinitionId = new("Product"), Result = new(lifecycleEvent) },
+                new CreateResource { DefinitionId = new("Product"), ResourceId = new("created-by-workflow"), Aspects = new("""{ "Title": { "Title": "Gadget" } }""") },
+                new RecordRun(Id, lifecycleEvent),
+            },
+        };
+    }
+}
+
+/// <summary>
+/// Started by a product save, then waits on a second Resource Saved trigger (unfiltered unless
+/// <see cref="SecondDefinitionId"/> is set), and records the event each trigger received.
+/// </summary>
+public abstract class StartThenWait : WorkflowBase
+{
+    protected abstract string Name { get; }
+
+    protected virtual string? SecondDefinitionId => null;
+
+    protected override void Build(IWorkflowBuilder builder)
+    {
+        builder.WithDefinitionId(Name);
+        var first = builder.WithVariable<ResourceLifecycleEvent>("First", default!);
+        var second = builder.WithVariable<ResourceLifecycleEvent>("Second", default!);
+        builder.Root = new Sequence
+        {
+            Activities =
+            {
+                new ResourceSaved { DefinitionId = new("Product"), CanStartWorkflow = true, Result = new(first) },
+                new RecordRun(Name + ":first", first),
+                new ResourceSaved { DefinitionId = new(SecondDefinitionId), Result = new(second) },
+                new RecordRun(Name + ":second", second),
+            },
+        };
+    }
+}
+
+public sealed class StartThenWaitForAnySave : StartThenWait
+{
+    public const string Id = "start-then-wait-for-any-save";
+
+    protected override string Name => Id;
+}
+
+public sealed class StartThenWaitForProductSave : StartThenWait
+{
+    public const string Id = "start-then-wait-for-product-save";
+
+    protected override string Name => Id;
+
+    protected override string? SecondDefinitionId => "Product";
 }

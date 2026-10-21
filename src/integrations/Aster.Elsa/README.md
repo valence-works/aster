@@ -52,19 +52,19 @@ Triggers start a workflow, or resume one that waits, when Aster commits a change
 | **Resource Deactivated** | A version is deactivated from a channel | `DefinitionId`, `Channel` |
 | **Resource Archived** | A resource is archived: by Archive Resource, `IResourceLifecycleMarkerService` or policy application. Soft-deletes don't fire it | `DefinitionId` |
 
-- **Start or resume.** As a workflow's start activity (`CanStartWorkflow`), a trigger starts a new instance for every matching event. Placed later in a workflow, it waits with a bookmark and resumes once, on the next matching event.
+- **Start or resume.** As a workflow's start activity (`CanStartWorkflow`), a trigger starts a new instance for every matching event. Placed later in a workflow, it waits with a bookmark and resumes once, on the next matching event. An event the instance had already received when the trigger started waiting doesn't resume it, so a workflow started by an event waits for the next one, even though the same event also reaches its bookmark (through another stimulus, or Elsa's bookmark queue).
 - **Filters.** An empty filter matches every value. Filters are read when Elsa indexes the workflow (on publish) or creates the bookmark, so use literals or expressions that don't depend on the event.
 - **Tenants.** A trigger only fires for changes in the Elsa tenant its workflow runs in, mapped as in [Tenants](#tenants): an Aster write in `TenantScope.Default` fires workflows in Elsa's default tenant. Changes in an Aster tenant that has no Elsa tenant fire nothing.
 - **Only committed changes fire.** A save, activation, deactivation or archive that fails fires nothing.
-- **Inline.** Workflows run in the flow of the Aster call that made the change, until they finish or suspend, so the call returns after them. A workflow that saves a resource matching its own trigger fires itself again.
+- **In the background.** The Aster call returns once the change is committed; it doesn't wait for the workflows. The module queues each event in memory, and one background worker sends the events to Elsa one at a time, in the order they were committed, outside the Aster caller's execution context, in the Elsa tenant of the change. So a workflow resumed by an event can save a resource that matches the same trigger: its own event is sent after the resumed run ends. Sending inline would wait on the lock Elsa holds for that stimulus during the run, until it timed out. A workflow that saves a resource matching its own start trigger fires itself again.
 
 ### Delivery is at-most-once
 
-Each committed change is sent to Elsa once, right after the commit. Nothing is persisted or retried:
+Each committed change is queued and sent to Elsa once, shortly after the commit. Nothing is persisted or retried:
 
 - **A failing send never fails the Aster write.** The module logs a warning with the trigger, resource, version, channel and tenant, and the caller and other lifecycle hooks don't see the failure. The change stays committed.
 - **No retry.** Retrying could start a workflow twice, so a failed send is not repeated.
-- **Lost on a crash.** If the process stops between the commit and the send, the event is lost.
+- **Lost on a stop or crash.** The queue is in memory. Events still queued when the process stops or crashes are lost.
 
 A host that needs every change delivered should reconcile from Aster's state, for example with a scheduled workflow that queries for what it missed.
 
@@ -126,6 +126,7 @@ A failing activity faults with `AsterActivityException`. Elsa records it as an a
 | `lifecycle-marker-conflict` | Archive Resource on a soft-deleted resource |
 | `lifecycle-hook-rejected`, `lifecycle-hook-failed` | A host lifecycle hook rejected or failed the operation |
 | `tenant-scope-invalid`, `tenant-scope-mismatch` | The current Elsa tenant has no Aster scope, or a query names another tenant |
+| `identifier-whitespace` | A resource ID, definition ID or channel the activity would write starts or ends with whitespace |
 | `aspects-invalid`, `resource-id-required`, `definition-id-required`, `channel-required`, `resource-selector-invalid`, `promote-source-not-active`, `promote-source-ambiguous` | An input is missing or invalid (see `AsterActivityFaultCodes`) |
 
 ## Tenants
@@ -136,7 +137,7 @@ Every call maps Elsa's current tenant (`ITenantAccessor.TenantId`) to an Aster t
 |---|---|
 | `""` (Elsa's default tenant) | `TenantScope.Default` |
 | any other ID | `TenantScope.FromTenantId(id)`, the same ID |
-| `*` (agnostic), `default`, or only whitespace | refused: the activity faults with `tenant-scope-invalid` |
+| `*` (agnostic), `default`, only whitespace, or starting or ending with whitespace | refused: the activity faults with `tenant-scope-invalid` |
 
 Without Elsa's multitenancy services every call uses the default scope. `AsterTenantMapping` exposes the same mapping to host code.
 
