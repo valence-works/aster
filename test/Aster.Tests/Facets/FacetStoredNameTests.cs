@@ -6,6 +6,7 @@ using Aster.Core.Extensions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.References;
 using Aster.Persistence.PostgresJsonb;
 using Aster.Persistence.SqliteJson;
 using Aster.Tests.Persistence;
@@ -90,6 +91,33 @@ public sealed class FacetStoredNameTests : IDisposable
         await manager.CreateAsync("Page", Link(new TypedLink("home"), nameof(TypedLink)));
 
         Assert.Equal(["home"], await QueryTargetsAsync(provider, "targetRef", "home", nameof(TypedLink)));
+    }
+
+    [SkippableTheory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
+    [InlineData(Postgres)]
+    public async Task ReverseLookup_ReferenceStoredUnderItsFacetId_FindsTheReferrer(string providerKind)
+    {
+        await using var provider = CreateProvider(providerKind);
+        await provider.GetRequiredService<IResourceDefinitionStore>().RegisterDefinitionAsync(
+            new ResourceDefinitionBuilder().WithDefinitionId("Home").WithAspect("Title").WithFacet("Name", "string").Build());
+        var manager = await RegisterAsync(provider, new ResourceDefinitionBuilder()
+            .WithDefinitionId("Page")
+            .WithAspect("Link")
+            .WithFacet("Target", "reference")
+            .Build());
+        var home = await manager.CreateAsync("Home", new CreateResourceRequest
+        {
+            InitialAspects = new Dictionary<string, object> { ["Title"] = new Dictionary<string, object?> { ["Name"] = "Home" } },
+        });
+        var page = await manager.CreateAsync("Page", Link(new ExplicitLink(home.ResourceId)));
+
+        var referrers = await provider.GetRequiredService<IResourceReferenceService>().GetReferrersAsync(home.ResourceId);
+
+        var referrer = Assert.Single(referrers.Items);
+        Assert.Equal(page.ResourceId, referrer.Resource.ResourceId);
+        Assert.Equal([new ResourceReferenceLocation("Link", "Target", null)], referrer.Locations);
     }
 
     private ServiceProvider CreateProvider(string providerKind)
