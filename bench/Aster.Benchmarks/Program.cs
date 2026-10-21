@@ -13,7 +13,7 @@ if (!args.Any(static arg => arg.StartsWith("--job", StringComparison.OrdinalIgno
 
 var config = DefaultConfig.Instance
     .AddDiagnoser(MemoryDiagnoser.Default)
-    .AddExporter(MarkdownExporter.GitHub, JsonExporter.Brief)
+    .AddExporter(JsonExporter.Brief) // the GitHub Markdown exporter is already in DefaultConfig
     .AddColumn(CategoriesColumn.Default)
     .WithOptions(ConfigOptions.JoinSummary)
     .HideColumns(Column.Error, Column.StdDev);
