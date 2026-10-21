@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Policies;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
 using Aster.Core.Services;
@@ -287,6 +288,7 @@ internal sealed class InMemoryResourceStore :
         string resourceId,
         int resourceVersion,
         TenantScope tenantScope,
+        ResourceVersionPruneFloor? floor = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
@@ -308,11 +310,22 @@ internal sealed class InMemoryResourceStore :
             if (IsActiveVersion(resourceId, resourceVersion, tenant))
                 throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is active and cannot be pruned.");
 
+            if (floor is not null)
+            {
+                var remaining = versions.Count(version => version.Version != resourceVersion
+                    && (!floor.InactiveVersionsOnly || !IsActiveVersion(resourceId, version.Version, tenant)));
+                if (remaining < floor.MinimumRemainingVersions)
+                    throw FloorBroken(resourceId, resourceVersion, remaining, floor);
+            }
+
             versions.RemoveAt(targetIndex);
             var removed = true;
             return ValueTask.FromResult(removed);
         }
     }
+
+    private static ResourceVersionPruneFloorException FloorBroken(string resourceId, int resourceVersion, int remaining, ResourceVersionPruneFloor floor) =>
+        new($"Pruning resource '{resourceId}' version {resourceVersion} would leave {remaining} {(floor.InactiveVersionsOnly ? "inactive " : "")}version(s); at least {floor.MinimumRemainingVersions} must remain.");
 
     private bool IsActiveVersion(string resourceId, int resourceVersion, TenantScope tenant)
     {

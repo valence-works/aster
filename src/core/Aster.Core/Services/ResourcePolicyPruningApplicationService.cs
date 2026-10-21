@@ -1,4 +1,5 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Policies;
@@ -183,7 +184,10 @@ internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyP
 
         try
         {
-            var removed = await pruningStore.PruneVersionAsync(candidate.ResourceId!, target.Version, tenant, cancellationToken);
+            // The check above read the versions before this write; the store re-checks the floor atomically with
+            // the delete, so concurrent prunes of one resource can't together go below it.
+            var (_, policy) = await ReadPolicyAsync(target.DefinitionId, candidate.PolicyId!, tenant, definitions, cancellationToken);
+            var removed = await pruningStore.PruneVersionAsync(candidate.ResourceId!, target.Version, tenant, PruneFloor(policy!), cancellationToken);
             if (!removed)
             {
                 RemoveCandidateVersion(candidate.ResourceId!, target.Version, allVersions, draftVersions);
@@ -192,6 +196,15 @@ internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyP
 
             RemoveCandidateVersion(candidate.ResourceId!, target.Version, allVersions, draftVersions);
             return CandidateResult(index, candidate, ResourcePolicyPruningApplicationCandidateStatus.Pruned);
+        }
+        catch (ResourceVersionPruneFloorException ex)
+        {
+            return Failure(
+                index,
+                candidate,
+                ResourcePolicyDiagnosticCodes.PolicyPruningUnsafe,
+                ex.Message,
+                "resourceVersion");
         }
         catch (NotSupportedException)
         {
@@ -275,6 +288,12 @@ internal sealed class ResourcePolicyPruningApplicationService : IResourcePolicyP
 
         return versions.Count;
     }
+
+    // Mirrors CountActivationMatchedVersions: a draft-scoped policy counts only versions not active on any channel.
+    private static ResourceVersionPruneFloor? PruneFloor(ResourcePolicyDeclaration policy) =>
+        policy.Criteria.MaximumRetainedVersions is { } retained
+            ? new ResourceVersionPruneFloor(retained, policy.Criteria.ActivationState == ResourcePolicyActivationState.Draft)
+            : null;
 
     private static void RemoveCandidateVersion(
         string resourceId,

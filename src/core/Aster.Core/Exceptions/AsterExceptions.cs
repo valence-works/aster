@@ -63,6 +63,22 @@ public sealed class TenantScopeException : Exception
 }
 
 /// <summary>
+/// Thrown by a pruning store when removing a version would leave fewer versions than the supplied
+/// <see cref="Models.Policies.ResourceVersionPruneFloor"/> allows. Nothing is removed.
+/// </summary>
+public sealed class ResourceVersionPruneFloorException : InvalidOperationException
+{
+    /// <inheritdoc />
+    public ResourceVersionPruneFloorException() : base("Pruning the version would go below the retained-version floor.") { }
+
+    /// <inheritdoc />
+    public ResourceVersionPruneFloorException(string message) : base(message) { }
+
+    /// <inheritdoc />
+    public ResourceVersionPruneFloorException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+/// <summary>
 /// Thrown when a specific resource version cannot be found.
 /// </summary>
 public sealed class VersionNotFoundException : Exception

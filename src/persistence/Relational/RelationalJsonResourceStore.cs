@@ -3,6 +3,7 @@ using Aster.Core.Abstractions;
 using Aster.Core.Exceptions;
 using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
+using Aster.Core.Models.Policies;
 using Aster.Core.Models.Portability;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
@@ -362,6 +363,7 @@ internal abstract class RelationalJsonResourceStore :
         string resourceId,
         int resourceVersion,
         TenantScope tenantScope,
+        ResourceVersionPruneFloor? floor = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceId);
@@ -369,8 +371,9 @@ internal abstract class RelationalJsonResourceStore :
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
 
-        // The exists, latest and active checks and the delete must not interleave with an activation of this
-        // resource (UpdateActivationAsync takes the same lock). A concurrent save only adds a newer version.
+        // The exists, latest, active and floor checks and the delete must not interleave with an activation or
+        // another prune of this resource (UpdateActivationAsync takes the same lock). A concurrent save only adds a
+        // newer version, which can't break the floor.
         await using var transaction = await dialect.BeginSerializedWriteAsync(
             connection,
             ResourceVersionsLockKey(tenant, resourceId),
@@ -390,6 +393,16 @@ internal abstract class RelationalJsonResourceStore :
         var isActive = await IsActiveVersionAsync(connection, transaction, tenant, resourceId, resourceVersion, cancellationToken);
         if (isActive)
             throw new InvalidOperationException($"Resource '{resourceId}' version {resourceVersion} is active and cannot be pruned.");
+
+        if (floor is not null)
+        {
+            var remaining = await CountRemainingVersionsAsync(connection, transaction, tenant, resourceId, resourceVersion, floor.InactiveVersionsOnly, cancellationToken);
+            if (remaining < floor.MinimumRemainingVersions)
+            {
+                throw new ResourceVersionPruneFloorException(
+                    $"Pruning resource '{resourceId}' version {resourceVersion} would leave {remaining} {(floor.InactiveVersionsOnly ? "inactive " : "")}version(s); at least {floor.MinimumRemainingVersions} must remain.");
+            }
+        }
 
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -429,6 +442,42 @@ internal abstract class RelationalJsonResourceStore :
 
         var payload = await command.ExecuteScalarAsync(cancellationToken) as string;
         return payload is null ? null : Deserialize<ResourceLifecycleMarker>(payload);
+    }
+
+    private async Task<int> CountRemainingVersionsAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        TenantScope tenant,
+        string resourceId,
+        int resourceVersion,
+        bool inactiveVersionsOnly,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        var inactive = inactiveVersionsOnly
+            ? $"""
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM activation_states AS activation
+                    WHERE activation.tenant_id = rv.tenant_id
+                        AND activation.resource_id = rv.resource_id
+                        AND {dialect.ActiveVersionsContain("activation", "rv.version")})
+            """
+            : "";
+        command.CommandText = $"""
+            SELECT COUNT(*)
+            FROM resource_versions AS rv
+            WHERE rv.tenant_id = @tenantId
+                AND rv.resource_id = @resourceId
+                AND rv.version <> @version
+            {inactive};
+            """;
+        Add(command, "@tenantId", tenant.TenantId);
+        Add(command, "@resourceId", resourceId);
+        Add(command, "@version", resourceVersion);
+
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
     }
 
     private static async Task<bool> ResourceVersionExistsAsync(
