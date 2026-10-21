@@ -177,6 +177,48 @@ public sealed class AsterAgentStoreTests
 
     [SkippableTheory]
     [MemberData(nameof(Providers))]
+    public async Task Updating_a_deleted_agent_throws_and_keeps_it_deleted(string provider)
+    {
+        await using var host = AgentTestHost.Start(provider);
+        var agent = TestAgents.Create("writer", "Writer");
+        await host.WithStoreAsync(store => store.AddAsync(agent));
+        await host.WithStoreAsync(store => store.DeleteAsync(agent));
+
+        // Someone still editing the agent saves: the edit must not vanish into a version nobody can read.
+        agent.Description = "Edited after the delete.";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => host.WithStoreAsync(store => store.UpdateAsync(agent)));
+
+        Assert.Single(await host.Services.GetRequiredService<IResourceManager>().GetVersionsAsync("writer"));
+        Assert.Null(await host.WithStoreAsync(store => store.GetAsync("writer")));
+    }
+
+    [SkippableTheory]
+    [MemberData(nameof(Providers))]
+    public async Task An_agent_that_references_a_deleted_agent_saves_as_it_reads(string provider)
+    {
+        await using var host = AgentTestHost.Start(provider);
+        var researcher = TestAgents.Create("researcher-id", "Researcher");
+        await host.WithStoreAsync(async store =>
+        {
+            await store.AddAsync(researcher);
+            await store.AddAsync(TestAgents.Create("writer-id", "Writer", "Researcher"));
+            await store.DeleteAsync(researcher);
+        });
+
+        // The reference still reads as the deleted agent's name, so an unrelated edit sends that name back.
+        var writer = (await host.WithStoreAsync(store => store.GetAsync("writer-id")))!;
+        Assert.Equal(["Researcher"], writer.AgentConfig.Agents);
+        writer.AgentConfig.PromptTemplate = "Write it shorter.";
+        await host.WithStoreAsync(store => store.UpdateAsync(writer));
+
+        var stored = await host.Services.GetRequiredService<IResourceManager>().GetLatestVersionAsync("writer-id");
+        var config = stored!.GetAspect<AgentConfigAspect>(AsterAgentResource.ConfigAspectKey, host.Services.GetRequiredService<ITypedAspectBinder>());
+        Assert.Equal(2, stored.Version);
+        Assert.Equal(["researcher-id"], config!.Agents!.AsEnumerable());
+    }
+
+    [SkippableTheory]
+    [MemberData(nameof(Providers))]
     public async Task Delete_many_deletes_the_matching_agents(string provider)
     {
         await using var host = AgentTestHost.Start(provider);

@@ -130,6 +130,12 @@ internal sealed class AsterAgentStore(
         if (string.IsNullOrEmpty(entity.Id))
             return await SaveNewAsync(entity, activate, cancellationToken);
 
+        // Saving under a marker would add a version nobody can read, so the edit would vanish. Elsa's EF Core store
+        // throws on a deleted row too; bringing the agent back is the restore service's job.
+        if (await markers.GetAsync(entity.Id, tenant, cancellationToken) is { State: not ResourceLifecycleMarkerState.None } marker)
+            throw new InvalidOperationException(
+                $"Agent '{entity.Id}' is {(marker.State == ResourceLifecycleMarkerState.SoftDeleted ? "deleted" : "archived")}. Restore it with IResourceLifecycleRestoreService before saving it.");
+
         await registrar.EnsureRegisteredAsync(tenant, cancellationToken);
         var aspects = AgentAspects.ToAspects(entity, await ToAgentReferencesAsync(entity, tenant, cancellationToken));
         for (var attempt = 1; ; attempt++)
@@ -245,30 +251,8 @@ internal sealed class AsterAgentStore(
             .Where(id => !string.IsNullOrEmpty(id) && !names.ContainsKey(id))
             .ToHashSet(StringComparer.Ordinal);
 
-        if (unknown.Count > 0)
-        {
-            foreach (var scope in new[] { ResourceVersionScope.Active, ResourceVersionScope.Latest })
-            {
-                var found = await versions.ReadVersionsAsync(new ResourceVersionReadRequest
-                {
-                    TenantScope = tenant,
-                    Scope = scope,
-                    ActivationChannel = scope == ResourceVersionScope.Active ? Channel : null,
-                    ResourceIds = unknown,
-                }, cancellationToken);
-
-                foreach (var resource in found
-                             .Where(static resource => resource.DefinitionId == AsterAgentResource.DefinitionId)
-                             .OrderByDescending(static resource => resource.Version))
-                {
-                    if (names.TryAdd(resource.ResourceId, AgentAspects.ReadName(resource, binder)))
-                        unknown.Remove(resource.ResourceId);
-                }
-
-                if (unknown.Count == 0)
-                    break;
-            }
-        }
+        foreach (var (id, name) in await ReadNamesAsync(unknown, tenant, cancellationToken))
+            names.TryAdd(id, name);
 
         var elsaTenantId = tenantAccessor?.TenantId;
         return visible
@@ -278,9 +262,43 @@ internal sealed class AsterAgentStore(
     }
 
     /// <summary>
+    /// The names the read path shows for agent references: the name in the channel when the referenced agent is active
+    /// there, otherwise its latest name, whatever its lifecycle state.
+    /// </summary>
+    private async Task<Dictionary<string, string?>> ReadNamesAsync(IEnumerable<string> ids, TenantScope tenant, CancellationToken cancellationToken)
+    {
+        var names = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var unknown = ids.Where(static id => !string.IsNullOrEmpty(id)).ToHashSet(StringComparer.Ordinal);
+        foreach (var scope in new[] { ResourceVersionScope.Active, ResourceVersionScope.Latest })
+        {
+            if (unknown.Count == 0)
+                break;
+
+            var found = await versions.ReadVersionsAsync(new ResourceVersionReadRequest
+            {
+                TenantScope = tenant,
+                Scope = scope,
+                ActivationChannel = scope == ResourceVersionScope.Active ? Channel : null,
+                ResourceIds = unknown,
+            }, cancellationToken);
+
+            foreach (var resource in found
+                         .Where(static resource => resource.DefinitionId == AsterAgentResource.DefinitionId)
+                         .OrderByDescending(static resource => resource.Version))
+            {
+                if (names.TryAdd(resource.ResourceId, AgentAspects.ReadName(resource, binder)))
+                    unknown.Remove(resource.ResourceId);
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>
     /// The stored form of the entity's agent references: each name becomes the resource ID of the agent with that name
-    /// (the one visible in the channel first, then any agent that is not deleted, lowest ID first); a name that matches
-    /// no agent stays as written.
+    /// (the one visible in the channel first, then any agent that is not deleted, lowest ID first, then an agent this one
+    /// already references, so a reference to a since-deleted agent saves as it reads); a name that matches no agent
+    /// stays as written.
     /// </summary>
     private async Task<string[]?> ToAgentReferencesAsync(AgentDefinition entity, TenantScope tenant, CancellationToken cancellationToken)
     {
@@ -313,6 +331,18 @@ internal sealed class AsterAgentStore(
             foreach (var resource in latest.OrderBy(static resource => resource.ResourceId, StringComparer.Ordinal))
                 if (AgentAspects.ReadName(resource, binder) is { } name && pending.Contains(name))
                     ids.TryAdd(name, resource.ResourceId);
+
+            pending.ExceptWith(ids.Keys);
+        }
+
+        if (pending.Count > 0
+            && !string.IsNullOrEmpty(entity.Id)
+            && await resources.GetLatestVersionAsync(entity.Id, tenant, cancellationToken) is { DefinitionId: AsterAgentResource.DefinitionId } current
+            && AgentAspects.Decode(current, binder).Config.Agents is { } stored)
+        {
+            foreach (var (id, name) in (await ReadNamesAsync(stored, tenant, cancellationToken)).OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+                if (name is not null && pending.Contains(name))
+                    ids.TryAdd(name, id);
         }
 
         return references.Select(name => ids.TryGetValue(name ?? "", out var id) ? id : name!).ToArray();
