@@ -8,7 +8,4 @@ internal static class SqliteDateTimeBehavior
 
     public static string? NormalizeDateKey(string? value) =>
         QueryDateTimeValue.TryNormalizeDateKey(value, out var key) ? key : null;
-
-    public static bool TryNormalizeDateKey(object? value, out string key) =>
-        QueryDateTimeValue.TryNormalizeDateKey(value, out key);
 }

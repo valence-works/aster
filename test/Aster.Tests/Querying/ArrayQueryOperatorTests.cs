@@ -4,7 +4,9 @@ using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Persistence.PostgresJsonb;
 using Aster.Persistence.SqliteJson;
+using Aster.Tests.Persistence;
 using Aster.Tests.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +14,7 @@ namespace Aster.Tests.Querying;
 
 /// <summary>
 /// #83: the portable array operators ArrayContains, ArrayContainsAny and ArrayContainsAll, plus
-/// Exists over arrays, return identical results in-memory and in SQLite. Fixtures are written
+/// Exists over arrays, return identical results in-memory, in SQLite and in PostgreSQL. Fixtures are written
 /// straight through the version writer, so they include shapes validation would reject today
 /// (scalars where arrays are expected, nulls, mixed element types), as legacy or imported data can.
 /// </summary>
@@ -20,19 +22,28 @@ public sealed class ArrayQueryOperatorTests : IDisposable
 {
     private const string InMemory = "in-memory";
     private const string Sqlite = "sqlite";
+    private const string Postgres = "postgres";
 
     private static readonly Guid OwnerA = Guid.Parse("6f9619ff-8b86-d011-b42d-00cf4fc964ff");
     private static readonly Guid OwnerB = Guid.Parse("1b4e28ba-2fa1-11d2-883f-0016d3cca427");
 
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
 
-    public void Dispose() => SqliteJsonTestDatabase.DeleteFiles(databasePath);
+    private readonly PostgresTestDatabase postgres = new();
+
+    public void Dispose()
+    {
+        SqliteJsonTestDatabase.DeleteFiles(databasePath);
+        postgres.Dispose();
+    }
 
     private async Task<ServiceProvider> CreateSeededProviderAsync(string providerKind)
     {
         var services = new ServiceCollection().AddAsterCore();
         if (providerKind == Sqlite)
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
+        else if (providerKind == Postgres)
+            services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
 
         var provider = services.BuildServiceProvider();
         var writer = provider.GetRequiredService<IResourceVersionWriter>();
@@ -90,7 +101,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     public static TheoryData<string, string, object, ComparisonOperator, string[]> Cases()
     {
         var data = new TheoryData<string, string, object, ComparisonOperator, string[]>();
-        foreach (var provider in new[] { InMemory, Sqlite })
+        foreach (var provider in new[] { InMemory, Sqlite, Postgres })
         {
             // Text: case-insensitive, scalars never match, numbers and booleans are not text.
             data.Add(provider, "Tags", "billing", ComparisonOperator.ArrayContains, ["wf-1", "wf-2"]);
@@ -138,7 +149,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         return data;
     }
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(Cases))]
     public async Task ArrayOperators_ReturnTheSameResultsOnEveryProvider(
         string providerKind,
@@ -152,9 +163,10 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         Assert.Equal(expected, await QueryIdsAsync(provider, Labels(facet, value, op)));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task ArrayOperators_ComposeWithLogicalOperators(string providerKind)
     {
         await using var provider = await CreateSeededProviderAsync(providerKind);
@@ -166,9 +178,10 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         Assert.Equal(new[] { "wf-2" }, ids);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task NumericArrayOperators_CompareLargeIntegersExactly(string providerKind)
     {
         // 2^53 + 1 and 2^53 are equal as doubles; 64-bit IDs must still match exactly.
@@ -182,14 +195,17 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         Assert.Equal(new[] { "big-1" }, await QueryIdsAsync(provider, Labels("Ids", new object[] { 9007199254740993UL, 1L }, ComparisonOperator.ArrayContainsAny)));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task ArrayContains_WorksOnTypedAspectPayloads(string providerKind)
     {
         var services = new ServiceCollection().AddAsterCore();
         if (providerKind == Sqlite)
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
+        else if (providerKind == Postgres)
+            services.AddAsterPostgresJsonb(options => options.ConnectionString = postgres.ConnectionString);
         await using var provider = services.BuildServiceProvider();
         await provider.GetRequiredService<IResourceVersionWriter>().SaveVersionAsync(new Resource
         {
@@ -219,7 +235,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     public static TheoryData<string, object?, ComparisonOperator, string, string> InvalidCases()
     {
         var data = new TheoryData<string, object?, ComparisonOperator, string, string>();
-        foreach (var provider in new[] { InMemory, Sqlite })
+        foreach (var provider in new[] { InMemory, Sqlite, Postgres })
         {
             data.Add(provider, new[] { "a" }, ComparisonOperator.ArrayContains, "array-value-required", "Filter.Value");
             data.Add(provider, null, ComparisonOperator.ArrayContains, "array-value-required", "Filter.Value");
@@ -233,7 +249,7 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         return data;
     }
 
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(InvalidCases))]
     public async Task ArrayOperators_InvalidValueShapes_FailValidationWithStableCodeAndPath(
         string providerKind,
@@ -254,9 +270,10 @@ public sealed class ArrayQueryOperatorTests : IDisposable
         Assert.Equal(code, exception.Code);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    [InlineData(Postgres)]
     public async Task ArrayOperators_OnMetadataFilters_AreUnsupported(string providerKind)
     {
         await using var provider = await CreateSeededProviderAsync(providerKind);

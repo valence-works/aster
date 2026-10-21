@@ -13,6 +13,10 @@ services.AddAsterPostgresJsonb(options =>
 - **Schema:** with `InitializeSchema` (the default), the provider creates its tables on first use. Bootstrap is idempotent and serialized by an advisory lock, so several processes can start against a fresh database at once. Set it to `false` when the schema is managed out of band.
 - **Tenancy:** every table is keyed by `tenant_id`.
 - **Concurrency:** versions are keyed by `(tenant_id, resource_id, version)`. A writer that loses a race on the same base version gets `ConcurrencyException`; it never produces a duplicate version.
-- **Queries:** until the Postgres query translator lands (#98), `IResourceQueryService` is the core's in-memory query service, which reads latest versions through this provider and filters them in process. That is correct but scans the tenant.
+- **Queries:** `IResourceQueryService` translates each `ResourceQuery` to one parameterized SQL statement over `jsonb`.
+  - It supports the same portable surface as SQLite JSON: every scope, metadata and facet filters, ranges, array operators, lifecycle state, sorting and paging, and returns the same results (a shared conformance suite checks this).
+  - Aspect keys, facet IDs and values are always parameters. Metadata fields, scopes and sort directions are mapped from fixed lists, never interpolated.
+  - Facet predicates still evaluate per row, so a query reads every version in its scope and tenant. Index projections are #100.
+  - Text comparisons ignore case like .NET's `OrdinalIgnoreCase`, upper-casing under the database's default collation. A database whose `LC_CTYPE` is plain `C` folds ASCII letters only.
 
 Requires PostgreSQL 13 or later.
