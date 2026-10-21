@@ -1,4 +1,5 @@
 using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 
 namespace Aster.Core.Exceptions;
@@ -206,12 +207,13 @@ public sealed class SingletonViolationException : Exception
 }
 
 /// <summary>
-/// Thrown when an explicit resource schema upgrade request is invalid.
+/// Thrown by <see cref="ResourceSchemaUpgradeResult.ThrowIfRejected"/> when an explicit resource schema upgrade was
+/// rejected. <c>IResourceSchemaVersionService.UpgradeAsync</c> itself returns rejections as result diagnostics.
 /// </summary>
 public sealed class ResourceSchemaUpgradeException : Exception
 {
     /// <summary>
-    /// Gets the stable schema-upgrade failure code.
+    /// Gets the stable schema-upgrade failure code: the first diagnostic's code.
     /// </summary>
     public string Code { get; }
 
@@ -224,6 +226,31 @@ public sealed class ResourceSchemaUpgradeException : Exception
     /// Gets the requested target definition version, when available.
     /// </summary>
     public int? TargetDefinitionVersion { get; }
+
+    /// <summary>
+    /// Gets every reason the upgrade was rejected; a single diagnostic carrying <see cref="Code"/> when the
+    /// exception was built from a code and message.
+    /// </summary>
+    public IReadOnlyList<ResourceSchemaUpgradeDiagnostic> Diagnostics { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceSchemaUpgradeException"/> class from a rejected
+    /// upgrade's diagnostics.
+    /// </summary>
+    /// <param name="diagnostics">The rejection diagnostics; at least one.</param>
+    /// <param name="definitionId">Optional resource definition identifier.</param>
+    /// <param name="targetDefinitionVersion">Optional target definition version.</param>
+    public ResourceSchemaUpgradeException(
+        IReadOnlyList<ResourceSchemaUpgradeDiagnostic> diagnostics,
+        string? definitionId = null,
+        int? targetDefinitionVersion = null)
+        : base(DiagnosticsMessage(diagnostics))
+    {
+        Code = diagnostics[0].Code;
+        DefinitionId = definitionId;
+        TargetDefinitionVersion = targetDefinitionVersion;
+        Diagnostics = [.. diagnostics];
+    }
 
     /// <inheritdoc />
     public ResourceSchemaUpgradeException()
@@ -249,6 +276,7 @@ public sealed class ResourceSchemaUpgradeException : Exception
         Code = code;
         DefinitionId = definitionId;
         TargetDefinitionVersion = targetDefinitionVersion;
+        Diagnostics = [new ResourceSchemaUpgradeDiagnostic { Code = code, Message = message }];
     }
 
     /// <inheritdoc />
@@ -257,6 +285,18 @@ public sealed class ResourceSchemaUpgradeException : Exception
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         Code = "invalid-schema-upgrade";
+        Diagnostics = [new ResourceSchemaUpgradeDiagnostic { Code = Code, Message = message }];
+    }
+
+    private static string DiagnosticsMessage(IReadOnlyList<ResourceSchemaUpgradeDiagnostic> diagnostics)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+        if (diagnostics.Count == 0)
+            throw new ArgumentException("At least one diagnostic is required.", nameof(diagnostics));
+
+        return diagnostics.Count == 1
+            ? diagnostics[0].Message
+            : $"The schema upgrade was rejected with {diagnostics.Count} diagnostics. First: {diagnostics[0].Message}";
     }
 }
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Aster.Core.Exceptions;
+using Aster.Core.Models.Instances;
 using Microsoft.AspNetCore.Http;
 
 namespace Aster.AspNetCore;
@@ -57,7 +58,22 @@ internal static class AsterProblems
         SingletonViolationException e => Conflict("singleton-violation", e.Message),
         LifecycleHookException e => Conflict(e.Code, e.Message),
         VersionNotFoundException e => NotFound(e.Message),
+        ResourceSchemaUpgradeException e => SchemaUpgradeRejected(e),
         _ => null,
+    };
+
+    /// <summary>
+    /// Maps a rejected schema upgrade by its first code: a missing resource is <c>404</c>, a stale base version is
+    /// <c>409</c> <c>concurrency-conflict</c>, and anything else (an invalid target or an invalid upgraded payload) is
+    /// <c>400</c> with every diagnostic.
+    /// </summary>
+    private static IResult SchemaUpgradeRejected(ResourceSchemaUpgradeException exception) => exception.Code switch
+    {
+        ResourceSchemaUpgradeDiagnosticCodes.ResourceNotFound => NotFound(exception.Message),
+        ResourceSchemaUpgradeDiagnosticCodes.ConcurrencyConflict => Conflict(exception.Code, exception.Message),
+        _ => Validation(
+            "The schema upgrade was rejected.",
+            exception.Diagnostics.Select(static d => new AsterDiagnostic(d.Code, d.AspectKey, d.FacetDefinitionId, d.Message, d.ElementIndex))),
     };
 }
 

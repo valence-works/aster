@@ -179,7 +179,7 @@ To advance lineage, explicitly request an upgrade against the latest resource ve
 ```csharp
 var latest = await manager.GetLatestVersionAsync(resource.ResourceId);
 
-var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, new ResourceSchemaUpgradeRequest
+var request = new ResourceSchemaUpgradeRequest
 {
     BaseVersion = latest!.Version,
     TargetDefinitionVersion = status.LatestDefinitionVersion,
@@ -187,14 +187,38 @@ var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, new Resourc
     {
         ["SearchAspect"] = new SearchAspect("search text"),
     },
-});
+};
+
+var preview = await schemaVersions.UpgradePreviewAsync(resource.ResourceId, request); // writes nothing
+var upgrade = await schemaVersions.UpgradeAsync(resource.ResourceId, request);
+if (upgrade.Status == ResourceSchemaUpgradeStatus.Rejected)
+{
+    foreach (var diagnostic in upgrade.Diagnostics)
+        Console.WriteLine($"{diagnostic.Code}: {diagnostic.Message}");
+}
 ```
 
 `UpgradeAsync` appends a new immutable resource version with the requested target definition version. If `TargetDefinitionVersion` is omitted, it defaults to the latest definition version. If the target matches the source lineage, the result is `ResourceSchemaUpgradeStatus.NoOp` and no new version is appended.
 
 Existing aspect data is preserved by default. Aspect keys not declared by the target definition are still carried forward and listed in `CarriedForwardAspectKeys`, so hosts can warn, transform, or clean up explicitly.
 
-Upgrade failures use existing lifecycle exceptions where appropriate: stale `BaseVersion` throws `ConcurrencyException`, and a missing latest resource throws `VersionNotFoundException`. Invalid schema targets throw `ResourceSchemaUpgradeException` with stable codes including `missing-definition`, `missing-definition-version`, `target-definition-version-too-new`, and `target-definition-version-before-source`.
+The new version is recorded against the target definition, so its payload (the latest aspects plus `AspectUpdates`) is validated against that definition's facets before it is written. Supply missing or changed values through `AspectUpdates`. Carried-forward aspects the target does not declare are not validated.
+
+`UpgradePreviewAsync` takes the same request and writes nothing. It reports the `Status` the upgrade would return, the target definition version, the carried-forward keys, and the blocking diagnostics, so a host can show them before asking for confirmation.
+
+A request that cannot be applied returns `ResourceSchemaUpgradeStatus.Rejected` with `Diagnostics` and writes nothing:
+
+| Code | When |
+|---|---|
+| `resource-not-found` | The resource has no versions in the tenant |
+| `concurrency-conflict` | `BaseVersion` is not the latest version, or another writer saved the new version first |
+| `missing-definition` | The resource's definition is not registered |
+| `missing-definition-version` | The target definition version does not exist |
+| `target-definition-version-too-new` | The target is newer than the latest registered definition version |
+| `target-definition-version-before-source` | The target is older than the resource's recorded definition version |
+| `facet-value-*` | The upgraded payload violates the target definition; the diagnostic carries the aspect key, facet ID and element index |
+
+A stale base version is reported together with the other checks, so one preview lists every blocking reason. Exceptions remain for programming errors, lifecycle hook failures and store failures. To keep exception flow, call `upgrade.ThrowIfRejected()`, which throws `ResourceSchemaUpgradeException` with the same diagnostics.
 
 ---
 

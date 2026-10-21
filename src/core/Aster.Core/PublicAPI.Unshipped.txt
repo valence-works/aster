@@ -3365,3 +3365,81 @@ override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.GetHas
 override Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.ToString() -> string!
 static Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.operator !=(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? left, Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? right) -> bool
 static Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult.operator ==(Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? left, Aster.Core.Models.Definitions.AspectDefinitionRegistrationResult? right) -> bool
+Aster.Core.Abstractions.IResourceSchemaVersionService.UpgradePreviewAsync(string! resourceId, Aster.Core.Models.Instances.ResourceSchemaUpgradeRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Aster.Core.Models.Instances.ResourceSchemaUpgradePreview!>
+Aster.Core.Exceptions.ResourceSchemaUpgradeException.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic!>!
+Aster.Core.Exceptions.ResourceSchemaUpgradeException.ResourceSchemaUpgradeException(System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic!>! diagnostics, string? definitionId = null, int? targetDefinitionVersion = null) -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.<Clone>$() -> Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.AspectKey.get -> string?
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.AspectKey.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.Code.get -> string!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.Code.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.ElementIndex.get -> int?
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.ElementIndex.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.Equals(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic? other) -> bool
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.FacetDefinitionId.get -> string?
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.FacetDefinitionId.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.Message.get -> string!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.Message.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.ResourceSchemaUpgradeDiagnostic() -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.<Clone>$() -> Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.Code.get -> string!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.Code.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.Count.get -> int
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.Count.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.Equals(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? other) -> bool
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.ResourceSchemaUpgradeDiagnosticCodeCount() -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.<Clone>$() -> Aster.Core.Models.Instances.ResourceSchemaUpgradePreview!
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.CanUpgrade.get -> bool
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.CarriedForwardAspectKeys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.CarriedForwardAspectKeys.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.DefinitionId.get -> string?
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.DefinitionId.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic!>!
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Diagnostics.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Equals(Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? other) -> bool
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Message.get -> string!
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Message.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.ResourceId.get -> string!
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.ResourceId.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.ResourceSchemaUpgradePreview() -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.ResourceVersion.get -> int?
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.ResourceVersion.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.SourceDefinitionVersion.get -> int?
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.SourceDefinitionVersion.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Status.get -> Aster.Core.Models.Instances.ResourceSchemaUpgradeStatus
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Status.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.TargetDefinitionVersion.get -> int?
+Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.TargetDefinitionVersion.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic!>!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeResult.Diagnostics.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeResult.Succeeded.get -> bool
+Aster.Core.Models.Instances.ResourceSchemaUpgradeResult.ThrowIfRejected() -> Aster.Core.Models.Instances.ResourceSchemaUpgradeResult!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeStatus.Rejected = 2 -> Aster.Core.Models.Instances.ResourceSchemaUpgradeStatus
+Aster.Core.Models.Instances.ResourceSchemaUpgradeSummary.DiagnosticCodeCounts.get -> System.Collections.Generic.IReadOnlyList<Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount!>!
+Aster.Core.Models.Instances.ResourceSchemaUpgradeSummary.DiagnosticCodeCounts.init -> void
+Aster.Core.Models.Instances.ResourceSchemaUpgradeSummary.HasRejections.get -> bool
+const Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes.ConcurrencyConflict = "concurrency-conflict" -> string!
+const Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes.MissingDefinition = "missing-definition" -> string!
+const Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes.MissingDefinitionVersion = "missing-definition-version" -> string!
+const Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes.ResourceNotFound = "resource-not-found" -> string!
+const Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes.TargetDefinitionVersionBeforeSource = "target-definition-version-before-source" -> string!
+const Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodes.TargetDefinitionVersionTooNew = "target-definition-version-too-new" -> string!
+override Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.Equals(object? obj) -> bool
+override Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.GetHashCode() -> int
+override Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.ToString() -> string!
+override Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.Equals(object? obj) -> bool
+override Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.GetHashCode() -> int
+override Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.ToString() -> string!
+override Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.Equals(object? obj) -> bool
+override Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.GetHashCode() -> int
+override Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.ToString() -> string!
+static Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.operator !=(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic? left, Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic? right) -> bool
+static Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic.operator ==(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic? left, Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnostic? right) -> bool
+static Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.operator !=(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? left, Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? right) -> bool
+static Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount.operator ==(Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? left, Aster.Core.Models.Instances.ResourceSchemaUpgradeDiagnosticCodeCount? right) -> bool
+static Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.operator !=(Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? left, Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? right) -> bool
+static Aster.Core.Models.Instances.ResourceSchemaUpgradePreview.operator ==(Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? left, Aster.Core.Models.Instances.ResourceSchemaUpgradePreview? right) -> bool

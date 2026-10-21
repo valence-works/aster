@@ -262,17 +262,31 @@ var status = await schemaVersions.GetSchemaStatusAsync(resource);
 
 if (status.Status == ResourceSchemaStatus.OlderThanLatest)
 {
-    var upgraded = await schemaVersions.UpgradeAsync(resource.ResourceId, new ResourceSchemaUpgradeRequest
+    var request = new ResourceSchemaUpgradeRequest
     {
         BaseVersion = resource.Version,
         TargetDefinitionVersion = status.LatestDefinitionVersion,
-    });
+    };
+
+    var preview = await schemaVersions.UpgradePreviewAsync(resource.ResourceId, request);
+    if (preview.CanUpgrade)
+    {
+        var upgraded = await schemaVersions.UpgradeAsync(resource.ResourceId, request);
+    }
 }
 ```
 
-`UpgradeAsync` appends a new resource version with the requested target definition version. When the target is omitted, it defaults to the latest definition version. Existing aspect data is carried forward unless explicitly replaced through `AspectUpdates`; undeclared carried-forward aspect keys are reported in `CarriedForwardAspectKeys`.
+`UpgradeAsync` appends a new resource version with the requested target definition version. When the target is omitted, it defaults to the latest definition version. Existing aspect data is carried forward unless explicitly replaced through `AspectUpdates`; undeclared carried-forward aspect keys are reported in `CarriedForwardAspectKeys`. The upgraded payload (latest aspects plus `AspectUpdates`) is validated against the target definition's facets before it is written, as a normal update is; undeclared carried-forward aspects are not validated.
 
-Invalid upgrade targets throw `ResourceSchemaUpgradeException` with a stable `Code` such as `missing-definition`, `missing-definition-version`, `target-definition-version-too-new`, or `target-definition-version-before-source`. Stale base versions keep using `ConcurrencyException`.
+`UpgradePreviewAsync` takes the same request and writes nothing. It returns the `Status` the upgrade would report, the target definition version, the carried-forward keys, and the diagnostics that would reject it.
+
+A request that cannot be applied returns `ResourceSchemaUpgradeStatus.Rejected` with `Diagnostics` and writes nothing. Codes are in `ResourceSchemaUpgradeDiagnosticCodes`:
+
+- `resource-not-found`, `concurrency-conflict` (stale `BaseVersion`, or another writer saved the version first);
+- `missing-definition`, `missing-definition-version`, `target-definition-version-too-new`, `target-definition-version-before-source`;
+- facet value codes such as `facet-value-required`, with the aspect key, facet ID and element index, when the upgraded payload is invalid.
+
+A stale base version is reported together with the other checks, so a preview lists every blocking reason. Exceptions are left for programming errors (null or blank arguments, an invalid tenant scope), lifecycle hook failures and store failures. Callers that prefer exception flow call `result.ThrowIfRejected()`, which throws `ResourceSchemaUpgradeException` carrying the diagnostics; `Aster.AspNetCore` maps it to `404`, `409` or `400` problem details.
 
 Tenant-aware hosts pass `TenantScope` explicitly on request DTOs or method overloads. Omitted tenant scope resolves to the default single-tenant scope.
 

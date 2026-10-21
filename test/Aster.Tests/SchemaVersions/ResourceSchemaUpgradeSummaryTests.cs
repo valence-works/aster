@@ -120,6 +120,41 @@ public sealed class ResourceSchemaUpgradeSummaryTests
     }
 
     [Fact]
+    public void UpgradeSummary_RejectedResults_CountDiagnosticCodesAndSkipUnresolvedTargets()
+    {
+        var summary = new[]
+        {
+            Upgrade(ResourceSchemaUpgradeStatus.Upgraded, sourceVersion: 1, targetVersion: 2, resource: Resource(version: 2)),
+            Upgrade(ResourceSchemaUpgradeStatus.Rejected, sourceVersion: 1, targetVersion: 2) with
+            {
+                Diagnostics = [Diagnostic("concurrency-conflict"), Diagnostic("facet-value-required"), Diagnostic(" ")],
+            },
+            Upgrade(ResourceSchemaUpgradeStatus.Rejected, sourceVersion: null, targetVersion: 0) with
+            {
+                Diagnostics = [Diagnostic("resource-not-found")],
+            },
+            Upgrade(ResourceSchemaUpgradeStatus.Rejected, sourceVersion: 1, targetVersion: 2) with
+            {
+                Diagnostics = [Diagnostic("facet-value-required")],
+            },
+        }.ToSummary();
+
+        Assert.True(summary.HasRejections);
+        Assert.True(summary.HasUpgrades);
+        Assert.Equal(1, summary.UpgradedResourceCount);
+        Assert.Equal(
+            [(ResourceSchemaUpgradeStatus.Upgraded, 1), (ResourceSchemaUpgradeStatus.Rejected, 3)],
+            summary.StatusCounts.Select(static count => (count.Status, count.Count)).ToList());
+        Assert.Equal(
+            [(false, 2, 3)],
+            summary.TargetDefinitionVersionCounts.Select(static count => (count.IsUnknown, count.Version, count.Count)).ToList());
+        Assert.Equal(
+            [("concurrency-conflict", 1), ("facet-value-required", 2), ("resource-not-found", 1)],
+            summary.DiagnosticCodeCounts.Select(static count => (count.Code, count.Count)).ToList());
+        Assert.False(Array.Empty<ResourceSchemaUpgradeResult>().ToSummary().HasRejections);
+    }
+
+    [Fact]
     public void UpgradeSummary_NoOpOnly_IsReportedWhenAllProcessedResultsAreNoOp()
     {
         var summary = new[]
@@ -159,6 +194,8 @@ public sealed class ResourceSchemaUpgradeSummaryTests
             CarriedForwardAspectKeys = carriedForward ?? [],
             Message = status.ToString(),
         };
+
+    private static ResourceSchemaUpgradeDiagnostic Diagnostic(string code) => new() { Code = code, Message = code };
 
     private static Resource Resource(int version) =>
         new()
