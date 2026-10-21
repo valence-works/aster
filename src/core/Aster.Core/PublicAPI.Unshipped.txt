@@ -2422,6 +2422,7 @@ const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.AllowedValuesEm
 const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.AllowedValueTypeMismatch = "facet-metadata-allowed-value-type-mismatch" -> string!
 const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.ConstraintInapplicable = "facet-metadata-constraint-inapplicable" -> string!
 const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.DefaultValueInvalid = "facet-metadata-default-value-invalid" -> string!
+const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.IdCaseCollision = "facet-metadata-id-case-collision" -> string!
 const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.PatternInvalid = "facet-metadata-pattern-invalid" -> string!
 const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.RangeInvalid = "facet-metadata-range-invalid" -> string!
 const Aster.Core.Models.Definitions.FacetMetadataDiagnosticCodes.ReferenceResolutionInvalid = "facet-metadata-reference-resolution-invalid" -> string!

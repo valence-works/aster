@@ -160,6 +160,8 @@ new ResourceDefinitionBuilder()
 
 `WithTypedFacet<T>()` is obsolete: it names the facet after its CLR type. Use `WithFacet` or a typed aspect instead.
 
+Facet IDs within one aspect must not differ only in the case of their first letter. Facet values are read by ID or by its camel-case form (`title` for `Title`), so registration refuses `Name` next to `name` with `facet-metadata-id-case-collision`, whether the facets are declared with `WithFacet`, derived from a typed aspect's properties, or declared on a shared aspect definition.
+
 ### Shared aspects
 
 Register an aspect once in `IAspectDefinitionStore`, then attach it to any number of resource definitions. This follows ADR 0003.

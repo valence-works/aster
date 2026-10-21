@@ -576,6 +576,8 @@ Arguments that look up an existing record are not checked: reads (`GetVersionAsy
 
 > **Breaking input rule (#230).** Creating, registering, activating or importing with a padded identifier used to succeed and now fails. Records stored before the rule existed stay readable, updatable, deactivatable, archivable and exportable under their exact padded IDs; a tenant whose ID is padded is reached with `new TenantScope { TenantId = " legacy" }` instead of `FromTenantId`. New records cannot be written under padded IDs, including new versions of a padded definition or aspect definition, so move such data to a trimmed ID: read it, create or register it under the trimmed ID, then archive or prune the padded original.
 
+**Facet IDs** are case-sensitive too, but a facet value is read by its ID or, when the aspect payload has no such key, by the camel-case form of the ID (first letter lower-cased: `title` for `Title`), which is how typed aspects are stored. Two facets of one aspect whose IDs differ only in the case of their first letter (`Name` and `name`) would read each other's value, so `FacetMetadataValidator`, which both registration methods of every definition store and aspect definition store run, refuses them with a `FacetMetadataValidationException` carrying one `facet-metadata-id-case-collision` diagnostic per facet involved (#240). Facets in different aspects, or IDs whose camel-case forms differ (`Name` and `NAME`), are fine. Definitions and aspect definitions stored before the rule, or imported from a snapshot, keep loading and their resources stay readable and updatable; registering a new version requires renaming one of the facets.
+
 ---
 
 ## Architecture overview

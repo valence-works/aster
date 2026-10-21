@@ -130,7 +130,12 @@ internal static class AspectFacetValueResolver
         _ => null,
     };
 
-    private static string ToCamelCase(string value) =>
+    /// <summary>
+    /// The camel-case form a facet ID is also looked up under: the first character lower-cased (invariant), the rest
+    /// unchanged. Registration refuses two facets of one aspect with the same form (<c>Name</c> and <c>name</c>).
+    /// </summary>
+    /// <param name="value">The facet ID.</param>
+    internal static string ToCamelCase(string value) =>
         string.IsNullOrEmpty(value)
             ? value
             : string.Create(value.Length, value, static (chars, source) =>

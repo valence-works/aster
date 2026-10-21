@@ -79,6 +79,8 @@ A **typed field** declared inside an Aspect Definition. Examples:
 
 At the code level, facets are the properties of your C# POCO aspect types.
 
+A facet value is read by its facet ID or, when the aspect payload has no such key, by the camel-case form of the ID (first letter lower-cased: `title` for `Title`), which is how typed aspects are stored. Two facets of one aspect whose IDs differ only in the case of their first letter (`Name` and `name`) would therefore read each other's value, so definition and aspect definition registration refuse them with a `FacetMetadataValidationException` diagnostic `facet-metadata-id-case-collision` (#240). `Name` and `NAME`, or `Name` and `name` in different aspects, are fine. Definitions stored before the rule existed keep loading; registering a new version of one requires renaming a facet.
+
 ### Facet Value
 
 The actual stored value of a facet on a specific aspect instance attached to a specific resource version.

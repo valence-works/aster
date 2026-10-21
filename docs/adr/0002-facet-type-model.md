@@ -120,7 +120,7 @@ Out-of-matrix declarations keep failing with `facet-metadata-constraint-inapplic
 | `T[]`, `IEnumerable<T>`, `List<T>`, `IReadOnlyList<T>`, `ISet<T>` of a scalar above | `T[]` |
 | any other class, record, or struct | `object` |
 
-- **Facet ID:** the property name. Reads already tolerate camelCase storage.
+- **Facet ID:** the property name. Reads already tolerate camelCase storage. Because a facet is also read under the camel-case form of its ID, registration refuses two facets of one aspect whose IDs differ only in the case of their first letter (`Name` and `name`) with `facet-metadata-id-case-collision` (amended in #240); definitions stored before keep loading.
 - **`IsRequired`:** set only from the C# `required` modifier (`RequiredMemberAttribute`). Nullability annotations are not used: too implicit, and value types always have a default.
 - **References:** never inferred. Hosts declare them explicitly, by hand or with `[ReferenceFacet]` on a typed aspect property (see the #222 addendum).
 - **Enums (amended during #124):** enum properties produce no facet for now. The stores serialize typed aspects with the same options as lifecycle markers and policy kinds, which SQLite compares as integers, so writing enums as names would change the stored format. A `string` facet over integer-stored enums would make later updates fail with a type mismatch. [#131](https://github.com/valence-works/aster/issues/131) decided to keep skipping them for 1.0; see the addendum below.
