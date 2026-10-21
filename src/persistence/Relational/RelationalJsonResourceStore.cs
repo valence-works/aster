@@ -481,7 +481,7 @@ internal abstract class RelationalJsonResourceStore :
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
     }
 
-    private static async Task<bool> ResourceVersionExistsAsync(
+    private async Task<bool> ResourceVersionExistsAsync(
         DbConnection connection,
         DbTransaction transaction,
         TenantScope tenant,
@@ -505,7 +505,7 @@ internal abstract class RelationalJsonResourceStore :
         return await command.ExecuteScalarAsync(cancellationToken) is not null;
     }
 
-    private static async Task<int?> ReadLatestResourceVersionAsync(
+    private async Task<int?> ReadLatestResourceVersionAsync(
         DbConnection connection,
         DbTransaction transaction,
         TenantScope tenant,
@@ -1207,7 +1207,7 @@ internal abstract class RelationalJsonResourceStore :
             _ => [],
         };
 
-    private static List<string> AddTextParameters(
+    private List<string> AddTextParameters(
         DbCommand command,
         string parameterPrefix,
         IEnumerable<string> values)
@@ -1218,6 +1218,7 @@ internal abstract class RelationalJsonResourceStore :
         foreach (var value in values.Order(StringComparer.Ordinal))
         {
             var parameterName = $"@{parameterPrefix}{index++}";
+            dialect.ValidateIdentifier(value, parameterName);
             Add(command, parameterName, value);
             parameterNames.Add(parameterName);
         }
@@ -1605,15 +1606,16 @@ internal abstract class RelationalJsonResourceStore :
     private ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) =>
         dialect.OpenConnectionAsync(cancellationToken);
 
-    private static void Add(DbCommand command, string name, object? value)
+    private void Add(DbCommand command, string name, object? value)
     {
+        dialect.ValidateParameter(name, value);
         var parameter = command.CreateParameter();
         parameter.ParameterName = name;
         parameter.Value = value ?? DBNull.Value;
         command.Parameters.Add(parameter);
     }
 
-    private static async Task<int> GetLatestDefinitionVersionAsync(
+    private async Task<int> GetLatestDefinitionVersionAsync(
         DbConnection connection,
         DbTransaction transaction,
         string definitionId,

@@ -42,7 +42,12 @@ internal sealed class SqlServerQueryBuilder
 
     public string Build()
     {
-        var tenantId = Parameters.Add(TenantScopeResolver.Resolve(query.TenantScope).TenantId);
+        var tenant = TenantScopeResolver.Resolve(query.TenantScope).TenantId;
+        SqlServerJsonDialect.ThrowIfTrailingSpace(tenant, "tenantId");
+        var tenantId = Parameters.Add(tenant);
+        if (query.Scope == ResourceVersionScope.Active)
+            SqlServerJsonDialect.ThrowIfTrailingSpace(query.ActivationChannel!, "activationChannel");
+
         var (baseSql, scopePredicates) = BuildScopeSql(tenantId);
         var sql = new StringBuilder();
         sql.AppendLine("SELECT rv.payload");
@@ -59,7 +64,10 @@ internal sealed class SqlServerQueryBuilder
         AddLifecycleStatePredicate();
 
         if (!string.IsNullOrWhiteSpace(query.DefinitionId))
+        {
+            SqlServerJsonDialect.ThrowIfTrailingSpace(query.DefinitionId, "definitionId");
             predicates.Add($"rv.definition_id = {Parameters.Add(query.DefinitionId)}");
+        }
 
         // FETCH NEXT needs at least one row, so an empty page selects nothing instead.
         if (query.Take == 0)

@@ -216,8 +216,9 @@ internal abstract class RelationalJsonAspectDefinitionStore : IAspectDefinitionS
     private ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) =>
         dialect.OpenConnectionAsync(cancellationToken);
 
-    private static void Add(DbCommand command, string name, object? value)
+    private void Add(DbCommand command, string name, object? value)
     {
+        dialect.ValidateParameter(name, value);
         var parameter = command.CreateParameter();
         parameter.ParameterName = name;
         parameter.Value = value ?? DBNull.Value;

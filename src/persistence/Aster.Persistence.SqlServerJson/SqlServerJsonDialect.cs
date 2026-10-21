@@ -23,6 +23,24 @@ internal sealed class SqlServerJsonDialect(string connectionString, Func<Cancell
     // A statement binds at most 2,100 parameters; batches of composite keys bind twice this plus the tenant.
     public override int MaxParametersPerQuery => 1000;
 
+    public override void ValidateIdentifier(string identifier, string parameterName) =>
+        ThrowIfTrailingSpace(identifier, parameterName);
+
+    /// <summary>
+    /// SQL Server's <c>=</c> pads trailing spaces even under a binary collation, so <c>"x "</c> would find, update or
+    /// delete the rows of <c>"x"</c>, including another tenant's. No stored identifier ends in a space (a check
+    /// constraint refuses them), so a value that does is refused before any statement runs.
+    /// </summary>
+    internal static void ThrowIfTrailingSpace(string identifier, string parameterName)
+    {
+        if (identifier.EndsWith(' '))
+        {
+            throw new ArgumentException(
+                $"Identifier '{identifier}' ends with a space. The SQL Server provider refuses it, because SQL Server would match it to '{identifier.TrimEnd(' ')}'.",
+                parameterName.TrimStart('@'));
+        }
+    }
+
     public override async ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         if (ensureSchema is not null)

@@ -13,6 +13,13 @@ namespace Aster.Persistence.Relational;
 /// </remarks>
 internal abstract class RelationalJsonDialect
 {
+    private static readonly char[] Digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    private static readonly HashSet<string> IdentifierParameters = new(StringComparer.Ordinal)
+    {
+        "@tenantId", "@resourceId", "@definitionId", "@aspectDefinitionId", "@channel", "@keyFirst", "@keySecond",
+    };
+
     /// <summary>
     /// The most parameters one statement may bind; bounded-ID reads split larger sets into batches.
     /// </summary>
@@ -79,6 +86,29 @@ internal abstract class RelationalJsonDialect
     /// An integer expression for the <c>state</c> member of a lifecycle marker's <c>payload</c> column.
     /// </summary>
     public abstract string MarkerState { get; }
+
+    /// <summary>
+    /// Passes a value bound to an identifier parameter (<c>@tenantId</c>, <c>@resourceId</c>, <c>@definitionId</c>,
+    /// <c>@aspectDefinitionId</c>, <c>@channel</c>, or a numbered composite-key parameter) to
+    /// <see cref="ValidateIdentifier"/>. Other parameters are not checked.
+    /// </summary>
+    /// <param name="parameterName">The statement parameter.</param>
+    /// <param name="value">The value bound to it.</param>
+    public void ValidateParameter(string parameterName, object? value)
+    {
+        if (value is string identifier && IdentifierParameters.Contains(parameterName.TrimEnd(Digits)))
+            ValidateIdentifier(identifier, parameterName);
+    }
+
+    /// <summary>
+    /// Throws when <paramref name="identifier"/>, a tenant, definition, resource, aspect definition or channel ID
+    /// bound to a statement, would match a different stored ID. The default accepts every value.
+    /// </summary>
+    /// <param name="identifier">The identifier value.</param>
+    /// <param name="parameterName">The statement parameter it is bound to.</param>
+    public virtual void ValidateIdentifier(string identifier, string parameterName)
+    {
+    }
 
     /// <summary>
     /// Whether <paramref name="exception"/> is a primary-key or unique-constraint violation.
