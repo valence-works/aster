@@ -4,6 +4,7 @@ Baselines from the [benchmark harness](../../bench/README.md) (#103), part of ep
 - the commit it was measured on
 - the hardware and runtime
 - the job settings, so later runs can be compared like for like
+- the raw BenchmarkDotNet report, under [`raw/`](raw/), from the post-#156 baseline on
 
 | Baseline | Data size | Providers | Notes |
 |---|---|---|---|

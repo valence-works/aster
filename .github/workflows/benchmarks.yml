@@ -54,4 +54,4 @@ jobs:
         with:
           name: benchmark-results
           path: BenchmarkDotNet.Artifacts/
-          if-no-files-found: warn
+          if-no-files-found: error

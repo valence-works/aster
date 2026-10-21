@@ -4,7 +4,8 @@ Re-run of the [first baseline](baseline-2026-10-21.md) after #156 bounded single
 
 ## Setup
 
-- **Commit:** the #103 harness on `main` at #156 (`795021a`) plus #147.
+- **Commit:** `24c873a51eac1ddfbf8a978145de5a8c3ae190a2`: the #103 harness on `main` after #156 and #147.
+- **Raw report:** [BenchmarkDotNet JSON](raw/2026-10-21-post-156-report-brief.json) and [Markdown](raw/2026-10-21-post-156-report-github.md).
 - **Command, job, hardware, runtime and data:** the same as the [first baseline](baseline-2026-10-21.md#setup).
 
 ## Results
