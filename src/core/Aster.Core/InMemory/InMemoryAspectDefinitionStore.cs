@@ -28,7 +28,14 @@ public sealed class InMemoryAspectDefinitionStore : IAspectDefinitionStore
         var versions = aspects.GetOrAdd((tenant.TenantId, aspect.AspectDefinitionId), static _ => []);
         lock (versions)
         {
-            var registered = aspect with { Version = versions.Count > 0 ? versions[^1].Version + 1 : 1 };
+            // Snapshot the facet list so a caller mutating the collection it registered can't change a stored
+            // version (and every definition pinned to it), matching the detached copies SQLite returns.
+            var registered = aspect with
+            {
+                Version = versions.Count > 0 ? versions[^1].Version + 1 : 1,
+                IsShared = false,
+                FacetDefinitions = Array.AsReadOnly(aspect.FacetDefinitions.ToArray()),
+            };
             versions.Add(registered);
             return ValueTask.FromResult(registered);
         }

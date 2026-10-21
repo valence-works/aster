@@ -84,6 +84,47 @@ new ResourceDefinitionBuilder()
 
 `WithTypedFacet<T>()` is obsolete: it names the facet after its CLR type. Use `WithFacet` or a typed aspect instead.
 
+### Shared aspects
+
+Register an aspect once in `IAspectDefinitionStore`, then attach it to any number of resource definitions. This follows ADR 0003.
+
+```csharp
+var aspects = services.GetRequiredService<IAspectDefinitionStore>();
+var tenant = TenantScope.FromTenantId("acme"); // register and resolve in the same tenant
+
+// Register by hand...
+await aspects.RegisterAsync(new AspectDefinition
+{
+    AspectDefinitionId = "Seo",
+    Id = Guid.NewGuid().ToString(),
+    Version = 0, // assigned by the store
+    FacetDefinitions = [/* ... */],
+}, tenant);
+// ...or derive it from a POCO; the aspect ID is the type name ("AuditAspect")
+await aspects.RegisterAsync(AspectDefinitionBuilder.FromType<AuditAspect>(requiresName: true), tenant);
+
+var article = await new ResourceDefinitionBuilder()
+    .WithDefinitionId("Article")
+    .WithSharedAspect("Seo")                                     // latest version at build time
+    .WithSharedAspect<AuditAspect>(version: 1, name: "Created")  // pinned; named because RequiresName
+    .WithSharedAspect<AuditAspect>(version: 1, name: "Updated")
+    .BuildAsync(aspects, tenant);
+await definitionStore.RegisterDefinitionAsync(article, tenant, ct);
+```
+
+**What `BuildAsync` does**
+- It copies each pinned (or latest) stored version unchanged into the definition, with `IsShared = true`. The pin is `(AspectDefinitionId, Version)`.
+- Validation, rendering and queries keep using that embedded copy. Registering aspect v2 later changes nothing until you move a definition onto it explicitly.
+
+**When it fails**
+- It throws `SharedAspectResolutionException`, listing every failure:
+  - `aspect-definition-not-found`: the aspect or the pinned version is missing in the tenant.
+  - `aspect-name-required`: the stored aspect has `RequiresName` and the attachment is unnamed.
+- Synchronous `Build()` throws when shared aspects are attached.
+- You can't add facets to a shared attachment, or decorate them; register a new aspect version instead.
+
+`WithAspect<T>()` stays definition-local and never touches the store.
+
 ### Reading a typed aspect
 
 Use the `GetAspect<T>` extension on `Resource`:

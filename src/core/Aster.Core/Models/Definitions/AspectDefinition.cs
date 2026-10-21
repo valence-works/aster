@@ -36,4 +36,12 @@ public sealed record AspectDefinition
     /// Typed sub-fields within this aspect.
     /// </summary>
     public IReadOnlyList<FacetDefinition> FacetDefinitions { get; init; } = [];
+
+    /// <summary>
+    /// <see langword="true"/> when this embedded snapshot is a pinned copy of a shared aspect definition
+    /// version from <see cref="Abstractions.IAspectDefinitionStore"/>: <c>(AspectDefinitionId, Version)</c> names
+    /// the stored version (ADR 0003 §2). <see langword="false"/> for definition-local aspects, whose
+    /// <c>Version</c> has no meaning outside the resource definition.
+    /// </summary>
+    public bool IsShared { get; init; }
 }

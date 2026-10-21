@@ -1,3 +1,4 @@
+using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Querying;
 
 namespace Aster.Core.Exceptions;
@@ -113,6 +114,47 @@ public sealed class DuplicateAspectAttachmentException : Exception
 
     /// <inheritdoc />
     public DuplicateAspectAttachmentException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+/// <summary>
+/// Thrown by <see cref="Definitions.ResourceDefinitionBuilder.BuildAsync"/> when shared aspect attachments
+/// cannot be resolved from the aspect definition store (ADR 0003 §3).
+/// </summary>
+public sealed class SharedAspectResolutionException : Exception
+{
+    /// <summary>
+    /// The unresolved attachments, in attachment order.
+    /// </summary>
+    public IReadOnlyList<SharedAspectDiagnostic> Diagnostics { get; }
+
+    /// <inheritdoc />
+    public SharedAspectResolutionException() : base("Shared aspect attachments could not be resolved.")
+    {
+        Diagnostics = [];
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SharedAspectResolutionException"/> class.
+    /// </summary>
+    /// <param name="diagnostics">The unresolved attachments.</param>
+    public SharedAspectResolutionException(IReadOnlyList<SharedAspectDiagnostic> diagnostics)
+        : base("Shared aspect attachments could not be resolved: "
+            + string.Join("; ", diagnostics.Select(static diagnostic => $"[{diagnostic.Code}] {diagnostic.AttachmentKey}: {diagnostic.Message}")))
+    {
+        Diagnostics = diagnostics;
+    }
+
+    /// <inheritdoc />
+    public SharedAspectResolutionException(string message) : base(message)
+    {
+        Diagnostics = [];
+    }
+
+    /// <inheritdoc />
+    public SharedAspectResolutionException(string message, Exception innerException) : base(message, innerException)
+    {
+        Diagnostics = [];
+    }
 }
 
 /// <summary>

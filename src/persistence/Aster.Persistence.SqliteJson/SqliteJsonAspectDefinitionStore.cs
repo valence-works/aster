@@ -57,7 +57,7 @@ public sealed class SqliteJsonAspectDefinitionStore : IAspectDefinitionStore
         next.Parameters.AddWithValue("$tenantId", tenant.TenantId);
         next.Parameters.AddWithValue("$aspectDefinitionId", aspect.AspectDefinitionId);
         var version = Convert.ToInt32(await next.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
-        var registered = aspect with { Version = version };
+        var registered = aspect with { Version = version, IsShared = false };
 
         await using var insert = connection.CreateCommand();
         insert.Transaction = transaction;
