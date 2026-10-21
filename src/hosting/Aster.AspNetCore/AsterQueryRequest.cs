@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Core.Models.Tenancy;
@@ -45,7 +46,9 @@ public sealed record AsterQueryRequest
 /// <item><c>and</c>, <c>or</c> or <c>not</c> to combine filters;</item>
 /// <item><c>exists</c> with an aspect key for aspect presence;</item>
 /// <item><c>field</c>, <c>op</c> and <c>value</c> for a metadata field such as <c>ResourceId</c>;</item>
-/// <item><c>aspect</c>, <c>facet</c>, <c>op</c> and <c>value</c> for a facet value.</item>
+/// <item><c>aspect</c>, <c>facet</c>, <c>op</c> and <c>value</c> for a facet value;</item>
+/// <item><c>aspect</c>, <c>facet</c> and <c>references</c> for a reference facet that names a resource: a
+/// <c>reference</c> facet equal to it or a <c>reference[]</c> facet containing it.</item>
 /// </list>
 /// <c>op</c> names a <see cref="ComparisonOperator"/>, case-insensitively (<c>equals</c>, <c>in</c>, <c>range</c>,
 /// <c>arrayContainsAny</c>, ...). A <c>range</c> value is an object with <c>min</c>, <c>max</c>, <c>includeMin</c> and
@@ -79,6 +82,9 @@ public sealed record AsterFilter
 
     /// <summary>Gets the comparison value of a metadata or facet filter.</summary>
     public JsonElement? Value { get; init; }
+
+    /// <summary>Gets the <c>ResourceId</c> a reference filter's facet must name.</summary>
+    public string? References { get; init; }
 }
 
 /// <summary>One sort key of an <see cref="AsterQueryRequest"/>.</summary>
@@ -96,9 +102,11 @@ internal static class AsterQueryTranslator
         int defaultTake,
         int maxTake,
         out ResourceQuery query,
+        out AsterQueryPaths paths,
         out AsterDiagnostic? error)
     {
         query = null!;
+        paths = new AsterQueryPaths();
         error = null;
 
         if (!TryParseScope(request.Scope, out var scope))
@@ -116,7 +124,7 @@ internal static class AsterQueryTranslator
         }
 
         FilterExpression? filter = null;
-        if (request.Filter is { } wireFilter && !TryTranslate(wireFilter, "filter", depth: 0, out filter, out error))
+        if (request.Filter is { } wireFilter && !TryTranslate(wireFilter, "Filter", "filter", depth: 0, paths, out filter, out error))
             return false;
 
         query = new ResourceQuery
@@ -167,7 +175,15 @@ internal static class AsterQueryTranslator
 
     private const int MaxDepth = 32;
 
-    private static bool TryTranslate(AsterFilter filter, string path, int depth, out FilterExpression? expression, out AsterDiagnostic? error)
+    // corePath names the node as the query validator does (Filter.Operands[0]); path names it in the wire format.
+    private static bool TryTranslate(
+        AsterFilter filter,
+        string corePath,
+        string path,
+        int depth,
+        AsterQueryPaths paths,
+        out FilterExpression? expression,
+        out AsterDiagnostic? error)
     {
         expression = null;
         if (depth > MaxDepth)
@@ -180,35 +196,56 @@ internal static class AsterQueryTranslator
 
         if (filter.And is not null || filter.Or is not null)
         {
-            var isAnd = filter.And is not null;
+            var key = filter.And is not null ? "and" : "or";
+            paths.Add(corePath, path, key);
             var operands = new List<FilterExpression>();
-            var items = (isAnd ? filter.And : filter.Or)!;
+            var items = (filter.And ?? filter.Or)!;
             for (var index = 0; index < items.Count; index++)
             {
-                var itemPath = $"{path}.{(isAnd ? "and" : "or")}[{index}]";
+                var itemPath = $"{path}.{key}[{index}]";
                 if (items[index] is null)
                     return Fail(out error, "query-filter-invalid", itemPath, "Filter operands must not be null.");
-                if (!TryTranslate(items[index], itemPath, depth + 1, out var operand, out error))
+                if (!TryTranslate(items[index], $"{corePath}.Operands[{index}]", itemPath, depth + 1, paths, out var operand, out error))
                     return false;
                 operands.Add(operand!);
             }
 
-            expression = new LogicalExpression(isAnd ? LogicalOperator.And : LogicalOperator.Or, operands);
+            expression = new LogicalExpression(key == "and" ? LogicalOperator.And : LogicalOperator.Or, operands);
             error = null;
             return true;
         }
 
         if (filter.Not is { } negated)
         {
-            if (!TryTranslate(negated, $"{path}.not", depth + 1, out var operand, out error))
+            paths.Add(corePath, path, "not");
+            if (!TryTranslate(negated, $"{corePath}.Operands[0]", $"{path}.not", depth + 1, paths, out var operand, out error))
                 return false;
             expression = new LogicalExpression(LogicalOperator.Not, [operand!]);
             return true;
         }
 
+        paths.Add(corePath, path, operandsKey: null);
         if (filter.Exists is { } aspectKey)
         {
             expression = new AspectPresenceFilter(aspectKey);
+            error = null;
+            return true;
+        }
+
+        if (filter.References is { } target)
+        {
+            if (filter.Aspect is null || filter.Facet is null || filter.Op is not null || filter.Value is not null)
+                return Fail(out error, "query-filter-invalid", path, "A reference filter needs aspect, facet and references, and no op or value.");
+            if (string.IsNullOrWhiteSpace(filter.Aspect))
+                return Fail(out error, "query-value-required", $"{path}.aspect", "A reference filter needs a non-empty aspect.");
+            if (string.IsNullOrWhiteSpace(filter.Facet))
+                return Fail(out error, "query-value-required", $"{path}.facet", "A reference filter needs a non-empty facet.");
+            if (string.IsNullOrWhiteSpace(target))
+                return Fail(out error, "query-value-required", $"{path}.references", "A reference filter needs a non-empty references.");
+
+            // Translated to an Or of two facet filters; the validator's paths into it all name this node.
+            paths.MarkOpaque(corePath, valueKey: "references");
+            expression = ReferenceQuery.Targets(filter.Aspect, filter.Facet, target);
             error = null;
             return true;
         }
@@ -261,7 +298,106 @@ internal static class AsterQueryTranslator
 
     private static bool Fail(out AsterDiagnostic? error, string code, string path, string message)
     {
-        error = new AsterDiagnostic(code, null, null, $"{path}: {message}");
+        error = new AsterDiagnostic(code, null, null, message) { Path = path };
         return false;
     }
+}
+
+/// <summary>
+/// Maps the paths <see cref="Core.Abstractions.IResourceQueryValidator"/> reports, which name the translated
+/// <see cref="ResourceQuery"/> (<c>Filter.Operands[1].Operator</c>, <c>Sorts[0].Field</c>), onto the request body's
+/// (<c>filter.and[1].op</c>, <c>sort[0].field</c>), so a client can place a failure on what it sent.
+/// </summary>
+internal sealed class AsterQueryPaths
+{
+    private static readonly Dictionary<string, string> Members = new(StringComparer.Ordinal)
+    {
+        ["DefinitionId"] = "definitionId",
+        ["Scope"] = "scope",
+        ["ActivationChannel"] = "channel",
+        ["LifecycleState"] = "lifecycle",
+        ["Skip"] = "skip",
+        ["Take"] = "take",
+        ["Sorts"] = "sort",
+    };
+
+    // Segments inside a filter or sort node; any other segment is dropped, leaving the node's own path.
+    private static readonly Dictionary<string, string> NodeMembers = new(StringComparer.Ordinal)
+    {
+        ["Field"] = "field",
+        ["Operator"] = "op",
+        ["Value"] = "value",
+        ["Direction"] = "descending",
+        ["AspectKey"] = "aspect",
+        ["FacetDefinitionId"] = "facet",
+    };
+
+    private readonly Dictionary<string, Node> nodes = new(StringComparer.Ordinal);
+
+    public void Add(string corePath, string path, string? operandsKey) => nodes[corePath] = new Node(path, operandsKey, ValueKey: null);
+
+    public void MarkOpaque(string corePath, string valueKey) => nodes[corePath] = nodes[corePath] with { ValueKey = valueKey, Opaque = true };
+
+    /// <summary>The request-body path for a validator path; <see langword="null"/> for one the body has no member for, such as <c>TenantScope</c>.</summary>
+    public string? ToRequestPath(string? corePath)
+    {
+        if (corePath is null)
+            return null;
+
+        if (corePath == "Filter" || corePath.StartsWith("Filter.", StringComparison.Ordinal) || corePath.StartsWith("Filter[", StringComparison.Ordinal))
+            return FilterPath(corePath);
+
+        var end = corePath.IndexOfAny(['.', '[']);
+        var head = end < 0 ? corePath : corePath[..end];
+        if (!Members.TryGetValue(head, out var member))
+            return null;
+
+        // Sorts[0].Field → sort[0].field
+        var rest = end < 0 ? string.Empty : corePath[end..];
+        var index = rest.StartsWith('[') ? rest[..(rest.IndexOf(']') + 1)] : string.Empty;
+        return member + index + NodeMember(rest[index.Length..]);
+    }
+
+    private string FilterPath(string corePath)
+    {
+        // The longest translated node that contains the path: Filter.Operands[1].Operator is in Filter.Operands[1].
+        var prefix = corePath;
+        Node? node;
+        while (!nodes.TryGetValue(prefix, out node))
+        {
+            var cut = Math.Max(prefix.LastIndexOf('.'), prefix.LastIndexOf('['));
+            if (cut <= 0)
+                return "filter";
+            prefix = prefix[..cut];
+        }
+
+        var rest = corePath[prefix.Length..];
+        if (node.Opaque)
+            return rest.Contains("Value", StringComparison.Ordinal) ? $"{node.Path}.{node.ValueKey}" : node.Path;
+        if (node.OperandsKey is { } key)
+            return rest.StartsWith(".Operands", StringComparison.Ordinal) ? $"{node.Path}.{key}" : node.Path;
+
+        return node.Path + NodeMember(rest);
+    }
+
+    // ".Value.Min" → ".value.min", ".Value[2]" → ".value[2]", ".Operator" → ".op".
+    private static string NodeMember(string rest)
+    {
+        if (rest.Length == 0 || rest[0] != '.')
+            return string.Empty;
+
+        var end = rest.IndexOfAny(['.', '['], 1);
+        var segment = end < 0 ? rest[1..] : rest[1..end];
+        if (!NodeMembers.TryGetValue(segment, out var member))
+            return string.Empty;
+
+        var tail = end < 0 ? string.Empty : rest[end..];
+        return $".{member}{(segment == "Value" ? CamelCase(tail) : string.Empty)}";
+    }
+
+    private static string CamelCase(string tail) =>
+        string.Concat(tail.Split('.').Select(static (part, index) =>
+            index == 0 || part.Length == 0 ? part : "." + char.ToLowerInvariant(part[0]) + part[1..]));
+
+    private sealed record Node(string Path, string? OperandsKey, string? ValueKey, bool Opaque = false);
 }

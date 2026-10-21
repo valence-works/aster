@@ -145,9 +145,18 @@ public sealed class UpdateValidationLineageTests : IDisposable
             }));
         Assert.Equal(FacetValueDiagnosticCodes.Required, Assert.Single(createException.Diagnostics).Code);
 
-        // After an explicit upgrade, the existing resource follows version 2 too.
-        var upgraded = await provider.GetRequiredService<IResourceSchemaVersionService>()
-            .UpgradeAsync(existing.ResourceId, new ResourceSchemaUpgradeRequest { BaseVersion = existing.Version });
+        // The explicit upgrade is validated against version 2 itself, so it must supply the newly required Name.
+        var schemaVersions = provider.GetRequiredService<IResourceSchemaVersionService>();
+        var rejected = await schemaVersions.UpgradeAsync(existing.ResourceId, new ResourceSchemaUpgradeRequest { BaseVersion = existing.Version });
+        Assert.Equal(ResourceSchemaUpgradeStatus.Rejected, rejected.Status);
+        Assert.Equal(FacetValueDiagnosticCodes.Required, Assert.Single(rejected.Diagnostics).Code);
+
+        // After the upgrade, the existing resource follows version 2 too.
+        var upgraded = await schemaVersions.UpgradeAsync(existing.ResourceId, new ResourceSchemaUpgradeRequest
+        {
+            BaseVersion = existing.Version,
+            AspectUpdates = Details(new Dictionary<string, object> { ["Name"] = "Black", ["Color"] = "#000000" }),
+        });
         Assert.Equal(2, upgraded.Resource!.DefinitionVersion);
 
         var updateException = await Assert.ThrowsAsync<FacetValueValidationException>(async () =>
