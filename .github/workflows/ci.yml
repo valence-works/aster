@@ -23,6 +23,20 @@ jobs:
     name: Build and test (.NET 8 / 9 / 10)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The Postgres provider tests (#97) run against this server; ASTER_REQUIRE_POSTGRES makes them fail rather
+    # than skip if it is missing.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,6 +63,9 @@ jobs:
         run: dotnet build Aster.sln --configuration Release --no-restore
 
       - name: Test
+        env:
+          ASTER_TEST_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=postgres
+          ASTER_REQUIRE_POSTGRES: "1"
         run: >
           dotnet test Aster.sln
           --configuration Release
@@ -68,6 +85,8 @@ jobs:
         run: |
           dotnet pack src/core/Aster.Core/Aster.Core.csproj --configuration Release --no-build --output artifacts
           dotnet pack src/persistence/Aster.Persistence.SqliteJson/Aster.Persistence.SqliteJson.csproj --configuration Release --no-build --output artifacts
+          dotnet pack src/persistence/Aster.Persistence.PostgresJsonb/Aster.Persistence.PostgresJsonb.csproj --configuration Release --no-build --output artifacts
+          dotnet pack src/hosting/Aster.AspNetCore/Aster.AspNetCore.csproj --configuration Release --no-build --output artifacts
 
       - name: Upload packages
         uses: actions/upload-artifact@v4

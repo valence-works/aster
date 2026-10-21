@@ -6,48 +6,33 @@ using Aster.Core.Extensions;
 using Aster.Core.Services;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.Definitions;
+using Aster.Core.Models.Tenancy;
 using Aster.Tests.Lifecycle;
-using Aster.Persistence.SqliteJson;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonResourceStoreTests : IDisposable
+/// <summary>
+/// Store-level persistence tests, run against each persistent provider.
+/// </summary>
+public abstract class ResourceStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath =
-        Path.Combine(Path.GetTempPath(), $"aster-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    private SqliteJsonResourceStore CreateStore() =>
-        new(new SqliteJsonAsterOptions
-        {
-            ConnectionString = $"Data Source={databasePath}",
-        });
+    /// <summary>
+    /// The provider's store over <see cref="Database"/>, from a new provider as a fresh process would open it.
+    /// </summary>
+    private protected Store CreateStore() => new(Database.CreateProvider());
 
-    private ServiceProvider CreateServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddAsterCore();
-        services.AddAsterSqliteJson(options =>
-        {
-            options.ConnectionString = $"Data Source={databasePath}";
-        });
+    public void Dispose() => Database.Dispose();
 
-        return services.BuildServiceProvider();
-    }
-
-    public void Dispose()
-    {
-        TryDelete(databasePath);
-        TryDelete($"{databasePath}-shm");
-        TryDelete($"{databasePath}-wal");
-    }
-
-    [Fact]
-    public async Task AddAsterCore_WithSqliteJsonProvider_PersistsThroughPublicServices()
+    [SkippableFact]
+    public async Task AddAsterCore_WithPersistentProvider_PersistsThroughPublicServices()
     {
         // Arrange
-        await using (var firstProvider = CreateServiceProvider())
+        await using (var firstProvider = Database.CreateProvider())
         {
             var definitionStore = firstProvider.GetRequiredService<IResourceDefinitionStore>();
             var manager = firstProvider.GetRequiredService<IResourceManager>();
@@ -66,7 +51,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
             await manager.ActivateAsync(resource.ResourceId, resource.Version, "Published");
         }
 
-        await using var secondProvider = CreateServiceProvider();
+        await using var secondProvider = Database.CreateProvider();
         var query = secondProvider.GetRequiredService<IResourceQueryService>();
 
         // Act
@@ -82,7 +67,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal("Public Services", GetTitle(results[0]));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DefaultResourceManager_PersistsLifecycleAcrossStoreInstances()
     {
         // Arrange
@@ -127,7 +112,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal("Draft", GetTitle(active[0]));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Definitions_PersistAcrossStoreInstances()
     {
         // Arrange
@@ -153,7 +138,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Single(allDefinitions);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ResourceVersions_PersistAcrossStoreInstances()
     {
         // Arrange
@@ -180,7 +165,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal([1, 2], allVersions.Select(r => r.Version).ToList());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ReadVersionsAsync_ResourceIdsBoundsLatestAndAllVersionReads()
     {
         var first = CreateStore();
@@ -207,7 +192,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.All(allVersions, static resource => Assert.Equal("product-1", resource.ResourceId));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ReadVersionsAsync_ResourceIdsNormalizationPreservesBoundedIntent()
     {
         var first = CreateStore();
@@ -239,7 +224,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Empty(nonOrdinalComparer);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ActivationState_PersistsAndScopesReads()
     {
         // Arrange
@@ -277,7 +262,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal("product-2", draftResults[0].ResourceId);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveVersionAsync_VersionAlreadyStored_ThrowsConcurrencyAndKeepsOneRow()
     {
         // A writer that lost the race between the manager's base-version check and the insert.
@@ -297,6 +282,37 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         Assert.Equal("winner", GetTitle(versions[1]));
     }
 
+    [SkippableFact]
+    public async Task LatestByIds_ReturnsEachResourcesLatestVersion_AndSkipsMissingIds()
+    {
+        var store = CreateStore();
+        await SaveAsync(store, "a", 1);
+        await SaveAsync(store, "a", 2);
+        await SaveAsync(store, "b", 1);
+        await SaveAsync(store, "c", 1);
+        await SaveAsync(store, "a", 1, TenantScope.FromTenantId("other"));
+        await SaveAsync(store, "a", 5, TenantScope.FromTenantId("other"));
+
+        var latest = await store.ReadVersionsAsync(new ResourceVersionReadRequest
+        {
+            Scope = ResourceVersionScope.Latest,
+            ResourceIds = ["b", "missing", "a"],
+        });
+
+        Assert.Equal(new[] { ("a", 2), ("b", 1) }, latest.Select(static r => (r.ResourceId, r.Version)));
+    }
+
+    private static Task<Resource> SaveAsync(Store store, string resourceId, int version, TenantScope? tenant = null) =>
+        store.SaveVersionAsync(new Resource
+        {
+            ResourceId = resourceId,
+            Id = $"{resourceId}-{version}-{tenant?.TenantId}",
+            DefinitionId = "Article",
+            Version = version,
+            Created = DateTime.UtcNow,
+            TenantScope = tenant ?? TenantScope.Default,
+        }).AsTask();
+
     private static Resource CreateResource(string resourceId, int version, string title) =>
         new()
         {
@@ -312,7 +328,7 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
             },
         };
 
-    private static DefaultResourceManager CreateManager(SqliteJsonResourceStore store) =>
+    private static DefaultResourceManager CreateManager(Store store) =>
         new(
             store,
             store,
@@ -327,13 +343,63 @@ public sealed class SqliteJsonResourceStoreTests : IDisposable
         return title.GetProperty("title").GetString()!;
     }
 
-    private static void TryDelete(string path)
+    /// <summary>
+    /// The definition, version and activation services of one provider instance as one object, so the tests
+    /// read like tests of a single store.
+    /// </summary>
+    private protected sealed class Store(ServiceProvider provider) :
+        IResourceDefinitionStore,
+        IResourceVersionReader,
+        IResourceVersionWriter,
+        IResourceActivationStateReader
     {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        private IResourceDefinitionStore Definitions => provider.GetRequiredService<IResourceDefinitionStore>();
+        private IResourceVersionReader Reader => provider.GetRequiredService<IResourceVersionReader>();
+        private IResourceVersionWriter Writer => provider.GetRequiredService<IResourceVersionWriter>();
+        private IResourceActivationStateReader Activations => provider.GetRequiredService<IResourceActivationStateReader>();
+
+        public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, CancellationToken cancellationToken = default) =>
+            Definitions.GetDefinitionAsync(definitionId, cancellationToken);
+
+        public ValueTask<ResourceDefinition?> GetDefinitionAsync(string definitionId, TenantScope tenantScope, CancellationToken cancellationToken) =>
+            Definitions.GetDefinitionAsync(definitionId, tenantScope, cancellationToken);
+
+        public ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, CancellationToken cancellationToken = default) =>
+            Definitions.GetDefinitionVersionAsync(definitionId, version, cancellationToken);
+
+        public ValueTask<ResourceDefinition?> GetDefinitionVersionAsync(string definitionId, int version, TenantScope tenantScope, CancellationToken cancellationToken) =>
+            Definitions.GetDefinitionVersionAsync(definitionId, version, tenantScope, cancellationToken);
+
+        public ValueTask RegisterDefinitionAsync(ResourceDefinition definition, CancellationToken cancellationToken = default) =>
+            Definitions.RegisterDefinitionAsync(definition, cancellationToken);
+
+        public ValueTask RegisterDefinitionAsync(ResourceDefinition definition, TenantScope tenantScope, CancellationToken cancellationToken) =>
+            Definitions.RegisterDefinitionAsync(definition, tenantScope, cancellationToken);
+
+        public ValueTask<ResourceDefinitionRegistrationResult> RegisterDefinitionIfLatestAsync(
+            ResourceDefinition definition, int expectedLatestVersion, TenantScope tenantScope, CancellationToken cancellationToken) =>
+            Definitions.RegisterDefinitionIfLatestAsync(definition, expectedLatestVersion, tenantScope, cancellationToken);
+
+        public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken = default) =>
+            Definitions.ListDefinitionsAsync(cancellationToken);
+
+        public ValueTask<IEnumerable<ResourceDefinition>> ListDefinitionsAsync(TenantScope tenantScope, CancellationToken cancellationToken) =>
+            Definitions.ListDefinitionsAsync(tenantScope, cancellationToken);
+
+        public ValueTask<IEnumerable<Resource>> ReadVersionsAsync(ResourceVersionReadRequest request, CancellationToken cancellationToken = default) =>
+            Reader.ReadVersionsAsync(request, cancellationToken);
+
+        public ValueTask<Resource> SaveVersionAsync(Resource resource, CancellationToken cancellationToken = default) =>
+            Writer.SaveVersionAsync(resource, cancellationToken);
+
+        public ValueTask<ActivationState> UpdateActivationAsync(string resourceId, string channel, ActivationState state, CancellationToken cancellationToken = default) =>
+            Writer.UpdateActivationAsync(resourceId, channel, state, cancellationToken);
+
+        public ValueTask<IReadOnlyList<ActivationState>> ReadActivationStatesAsync(IEnumerable<string> resourceIds, TenantScope tenantScope, CancellationToken cancellationToken = default) =>
+            Activations.ReadActivationStatesAsync(resourceIds, tenantScope, cancellationToken);
     }
 }
+
+public sealed class SqliteJsonResourceStoreTests() : ResourceStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbResourceStoreTests() : ResourceStoreTests(new PostgresTestDatabase());

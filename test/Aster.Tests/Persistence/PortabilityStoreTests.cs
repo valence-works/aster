@@ -3,27 +3,21 @@ using Aster.Core.Definitions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Portability;
-using Aster.Persistence.SqliteJson;
+using Aster.Tests.Policies;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonPortabilityStoreTests : IDisposable
+public abstract class PortabilityStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath =
-        Path.Combine(Path.GetTempPath(), $"aster-portability-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose()
-    {
-        TryDelete(databasePath);
-        TryDelete($"{databasePath}-shm");
-        TryDelete($"{databasePath}-wal");
-    }
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
-    public async Task ExportAsync_UsesSqlitePortabilityStoreRegisteredAfterAsterCore()
+    [SkippableFact]
+    public async Task ExportAsync_UsesProviderPortabilityStoreRegisteredAfterAsterCore()
     {
-        await using var provider = CreateServiceProvider();
+        await using var provider = Database.CreateProvider();
         var definitionStore = provider.GetRequiredService<IResourceDefinitionStore>();
         var manager = provider.GetRequiredService<IResourceManager>();
         var portability = provider.GetRequiredService<IResourcePortabilityService>();
@@ -53,10 +47,10 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.Equal([1, 2], activationState.ActiveVersions);
     }
 
-    [Fact]
-    public async Task ExportAsync_SpecificVersionsWithSqlite_ExportsOnlyRequestedVersion()
+    [SkippableFact]
+    public async Task ExportAsync_SpecificVersions_ExportsOnlyRequestedVersion()
     {
-        await using var provider = CreateServiceProvider();
+        await using var provider = Database.CreateProvider();
         var definitionStore = provider.GetRequiredService<IResourceDefinitionStore>();
         var manager = provider.GetRequiredService<IResourceManager>();
         var portability = provider.GetRequiredService<IResourcePortabilityService>();
@@ -90,12 +84,12 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.Equal(v1.Version, resource.Version);
     }
 
-    [Fact]
-    public async Task ExportAsync_SpecificVersionsWithSqlite_DuplicateReferencesExportOneResource()
+    [SkippableFact]
+    public async Task ExportAsync_SpecificVersions_DuplicateReferencesExportOneResource()
     {
         // The request's set may use any comparer, so equal references can both reach the store. The
         // composite-key VALUES join returns a row per key, so the store must collapse them (#171).
-        await using var provider = CreateServiceProvider();
+        await using var provider = Database.CreateProvider();
         var definitionStore = provider.GetRequiredService<IResourceDefinitionStore>();
         var manager = provider.GetRequiredService<IResourceManager>();
         var portability = provider.GetRequiredService<IResourcePortabilityService>();
@@ -122,19 +116,19 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.Equal(v1.Version, resource.Version);
     }
 
-    [Fact]
-    public async Task ImportAsync_WithSqlite_PersistsSnapshotForLaterExport()
+    [SkippableFact]
+    public async Task ImportAsync_PersistsSnapshotForLaterExport()
     {
         var snapshot = CreateSnapshot();
         PortableImportResult import;
 
-        await using (var importProvider = CreateServiceProvider())
+        await using (var importProvider = Database.CreateProvider())
         {
             var portability = importProvider.GetRequiredService<IResourcePortabilityService>();
             import = await portability.ImportAsync(snapshot);
         }
 
-        await using var exportProvider = CreateServiceProvider();
+        await using var exportProvider = Database.CreateProvider();
         var exportPortability = exportProvider.GetRequiredService<IResourcePortabilityService>();
 
         var export = await exportPortability.ExportAsync(new PortableSnapshotExportRequest
@@ -149,18 +143,6 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
         Assert.Equal(snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)), export.Snapshot.Definitions.Select(static definition => (definition.DefinitionId, definition.Id, definition.Version)));
         Assert.Equal(snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)), export.Snapshot.Resources.Select(static resource => (resource.ResourceId, resource.Id, resource.DefinitionId, resource.DefinitionVersion, resource.Version)));
         Assert.Equal(snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))), export.Snapshot.ActivationStates.Select(static state => (state.ResourceId, state.Channel, state.LastUpdated, Versions: string.Join(",", state.ActiveVersions))));
-    }
-
-    private ServiceProvider CreateServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddAsterCore();
-        services.AddAsterSqliteJson(options =>
-        {
-            options.ConnectionString = $"Data Source={databasePath}";
-        });
-
-        return services.BuildServiceProvider();
     }
 
     private static async Task UpdateActivationAsync(
@@ -218,14 +200,8 @@ public sealed class SqliteJsonPortabilityStoreTests : IDisposable
             ],
         };
     }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-    }
 }
+
+public sealed class SqliteJsonPortabilityStoreTests() : PortabilityStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbPortabilityStoreTests() : PortabilityStoreTests(new PostgresTestDatabase());

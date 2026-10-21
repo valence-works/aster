@@ -4,18 +4,18 @@ using Aster.Tests.Policies;
 using Aster.Tests.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aster.Tests.SqliteJson;
+namespace Aster.Tests.Persistence;
 
-public sealed class SqliteJsonResourceVersionHistoryTests : IDisposable
+public abstract class ResourceVersionHistoryStoreTests(IAsterTestDatabase database) : IDisposable
 {
-    private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"aster-history-{Guid.NewGuid():N}.db");
+    protected IAsterTestDatabase Database { get; } = database;
 
-    public void Dispose() => PolicyTestFixtures.DeleteSqliteFiles(databasePath);
+    public void Dispose() => Database.Dispose();
 
-    [Fact]
+    [SkippableFact]
     public async Task GetHistoryAsync_ReturnsPersistedVersionSummarySemantics()
     {
-        await using (var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath))
+        await using (var provider = Database.CreateProvider())
         {
             await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "persisted", versionCount: 5);
             await ResourceVersionHistoryTestFixtures.ActivateAsync(provider, "persisted", "Published", [2]);
@@ -23,7 +23,7 @@ public sealed class SqliteJsonResourceVersionHistoryTests : IDisposable
             await ResourceVersionHistoryTestFixtures.MarkAsync(provider, "persisted", ResourceLifecycleMarkerState.SoftDeleted);
         }
 
-        await using var secondProvider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var secondProvider = Database.CreateProvider();
 
         var result = await secondProvider.GetRequiredService<IResourceVersionHistoryService>().GetHistoryAsync(
             new ResourceVersionHistoryRequest { ResourceId = "persisted" });
@@ -37,10 +37,10 @@ public sealed class SqliteJsonResourceVersionHistoryTests : IDisposable
         Assert.All(result.Versions, version => Assert.Equal(ResourceLifecycleMarkerState.SoftDeleted, version.LifecycleState));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetHistoriesAsync_ReturnsPersistedBatchHistorySemantics()
     {
-        await using (var provider = PolicyTestFixtures.CreateSqliteProvider(databasePath))
+        await using (var provider = Database.CreateProvider())
         {
             await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "persisted-a", versionCount: 3);
             await ResourceVersionHistoryTestFixtures.SaveVersionsAsync(provider, "persisted-b", versionCount: 2);
@@ -49,7 +49,7 @@ public sealed class SqliteJsonResourceVersionHistoryTests : IDisposable
             await ResourceVersionHistoryTestFixtures.MarkAsync(provider, "persisted-a", ResourceLifecycleMarkerState.Archived);
         }
 
-        await using var secondProvider = PolicyTestFixtures.CreateSqliteProvider(databasePath);
+        await using var secondProvider = Database.CreateProvider();
 
         var result = await secondProvider.GetRequiredService<IResourceVersionHistoryService>().GetHistoriesAsync(
             new ResourceVersionHistoryBatchRequest
@@ -65,5 +65,8 @@ public sealed class SqliteJsonResourceVersionHistoryTests : IDisposable
         Assert.Equal(["Published"], result.Histories[1].Versions[1].ActiveChannels);
         Assert.All(result.Histories[1].Versions, version => Assert.Equal(ResourceLifecycleMarkerState.Archived, version.LifecycleState));
     }
-
 }
+
+public sealed class SqliteJsonResourceVersionHistoryTests() : ResourceVersionHistoryStoreTests(new SqliteTestDatabase());
+
+public sealed class PostgresJsonbResourceVersionHistoryTests() : ResourceVersionHistoryStoreTests(new PostgresTestDatabase());
