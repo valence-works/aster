@@ -143,7 +143,9 @@ var result = await upgrades.ApplyAsync(new AspectUpgradeRequest
 **What apply returns.** One outcome per selected definition:
 - `Upgraded`, with the new definition version.
 - `NotApplicable`: the definition has no older pin (`aspect-upgrade-not-applicable`).
-- `Failed`: for example `aspect-name-required`, when the target requires a name and the attachment is unnamed.
+- `Failed`, for example:
+  - `aspect-name-required`: the target requires a name and the attachment is unnamed.
+  - `definition-version-conflict`: another writer registered a version of the definition after the upgrade read it. Nothing is written; preview again and retry.
 
 **Portability:** `IResourcePortabilityService.ExportAsync` includes the pinned aspect versions in the snapshot. Import registers them in the target tenant with their versions preserved, before the definitions that pin them. Pins that resolve nowhere fail with `unresolved-aspect-pin`.
 

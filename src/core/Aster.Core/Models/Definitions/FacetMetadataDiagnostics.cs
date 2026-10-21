@@ -142,4 +142,10 @@ public static class SharedAspectDiagnosticCodes
 
     /// <summary>The selected resource definition does not pin an older version of the aspect.</summary>
     public const string AspectUpgradeNotApplicable = "aspect-upgrade-not-applicable";
+
+    /// <summary>
+    /// Another writer registered a version of the resource definition after the upgrade read it, so the upgrade
+    /// wrote nothing. Preview again and retry.
+    /// </summary>
+    public const string DefinitionVersionConflict = "definition-version-conflict";
 }
