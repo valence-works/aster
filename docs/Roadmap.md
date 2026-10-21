@@ -852,7 +852,7 @@ Define the minimal contracts needed for portable export/import of definitions/re
 
 4. **Document shape and growth strategy**
     - Resource versions are immutable.
-    - Start with snapshots; add deltas + compaction later if needed.
+    - Start with snapshots; add deltas + compaction later if needed. Decided in [ADR 0005](adr/0005-version-storage.md): keep snapshots, control growth with pruning.
 
 5. **Typed aspect mapping**
     - Define how typed aspects map to document payload and index fields.
