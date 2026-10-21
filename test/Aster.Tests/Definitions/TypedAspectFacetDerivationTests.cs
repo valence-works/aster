@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
@@ -68,6 +70,8 @@ public sealed class TypedAspectFacetDerivationTests
 
         public Point Position { get; init; }
 
+        public JsonObject? Bag { get; init; }
+
         // Not derived: object[] is outside the grammar, enums are decided in #131, nullable elements
         // would be rejected by an array facet, byte[] and TimeSpan serialize as strings, and an
         // object-typed property has no known JSON shape.
@@ -88,12 +92,35 @@ public sealed class TypedAspectFacetDerivationTests
 
         public Status State { get; init; }
 
+        // Not derived either: the JSON kind of these is not knowable from the CLR type, or System.Text.Json
+        // writes them as numbers, or the property's own converter decides the shape.
+
+        public JsonElement Raw { get; init; }
+
+        public JsonNode? Node { get; init; }
+
+        public Int128 Huge { get; init; }
+
+        public Half Tiny { get; init; }
+
+        [JsonConverter(typeof(NestedAsTextConverter))]
+        public Nested? Converted { get; init; }
+
         [JsonIgnore]
         public string Ignored { get; init; } = string.Empty;
 
         public static string StaticValue => "static";
 
         public string this[int index] => index.ToString();
+    }
+
+    private sealed class NestedAsTextConverter : JsonConverter<Nested>
+    {
+        public override Nested Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            new(reader.GetString()!);
+
+        public override void Write(Utf8JsonWriter writer, Nested value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.Value);
     }
 
     private sealed class Article
@@ -135,6 +162,7 @@ public sealed class TypedAspectFacetDerivationTests
                 ("Details", "object", false),
                 ("Map", "object", false),
                 ("Position", "object", false),
+                ("Bag", "object", false),
             ],
             Facets(definition, "EveryShape").Select(static facet => (facet.FacetDefinitionId, facet.Type, facet.IsRequired)));
     }

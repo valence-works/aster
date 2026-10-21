@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
 using Aster.Core.Exceptions;
@@ -129,7 +131,18 @@ public sealed class ObjectFacetTypeTests : IDisposable
         { InMemory, new { provider = "local" } },
         { Sqlite, JsonSerializer.Deserialize<JsonElement>("""{"provider":"openai","stop":["\n"],"extra":null}""") },
         { InMemory, new Dictionary<string, object>() },
+        { Sqlite, new JsonObject { ["provider"] = "openai" } },
+        { InMemory, Expando(("provider", "openai")) },
     };
+
+    private static System.Dynamic.ExpandoObject Expando(params (string Key, object Value)[] members)
+    {
+        var expando = new System.Dynamic.ExpandoObject();
+        foreach (var (key, value) in members)
+            ((IDictionary<string, object?>)expando)[key] = value;
+
+        return expando;
+    }
 
     [Theory]
     [MemberData(nameof(ObjectValues))]
@@ -161,7 +174,24 @@ public sealed class ObjectFacetTypeTests : IDisposable
         { Sqlite, TimeSpan.FromMinutes(1) },
         { InMemory, JsonSerializer.Deserialize<JsonElement>("""["a"]""") },
         { Sqlite, JsonSerializer.Deserialize<JsonElement>("\"text\"") },
+
+        // Judged by the JSON they serialize to, not by being non-primitive CLR objects.
+        { InMemory, JsonValue.Create("text") },
+        { Sqlite, (Int128)5 },
+        { InMemory, new Slug("hello") },
     };
+
+    [JsonConverter(typeof(SlugConverter))]
+    public sealed record Slug(string Value);
+
+    private sealed class SlugConverter : JsonConverter<Slug>
+    {
+        public override Slug Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            new(reader.GetString()!);
+
+        public override void Write(Utf8JsonWriter writer, Slug value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.Value);
+    }
 
     [Theory]
     [MemberData(nameof(NonObjectValues))]

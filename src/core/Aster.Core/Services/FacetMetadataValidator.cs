@@ -532,26 +532,23 @@ public static class FacetMetadataValidator
         }
     }
 
+    private static readonly JsonSerializerOptions ShapeOptions = new(JsonSerializerDefaults.Web);
+
     /// <summary>
-    /// Whether a CLR value serializes as a JSON object: a dictionary, or any class or struct that
-    /// is not a collection and not a value System.Text.Json writes as a JSON scalar.
+    /// Whether a CLR value serializes as a JSON object. It is decided by serializing the value as the stores
+    /// do, so converters, JSON nodes, numeric types such as <see cref="Int128"/> and dictionary
+    /// implementations are judged by the JSON they actually produce rather than by their CLR type.
     /// </summary>
     private static bool IsObjectShaped(object value)
     {
-        if (value is IDictionary)
-            return true;
-
-        var type = value.GetType();
-        if (type.GetInterfaces().Any(static contract => contract.IsGenericType
-            && contract.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)))
+        try
         {
-            return true;
+            return JsonSerializer.SerializeToElement(value, value.GetType(), ShapeOptions).ValueKind == JsonValueKind.Object;
         }
-
-        return value is not (string or IEnumerable or Uri or Version)
-            && !type.IsPrimitive
-            && !type.IsEnum
-            && value is not (decimal or DateTime or DateTimeOffset or TimeSpan or Guid or DateOnly or TimeOnly);
+        catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static bool TryNormalizeInteger(object? value, out long result)

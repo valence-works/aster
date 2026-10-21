@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Aster.Core.Models.Definitions;
 
@@ -12,8 +14,9 @@ namespace Aster.Core.Definitions;
 /// <remarks>
 /// Nested classes, records, structs and dictionaries derive <c>object</c>, unless
 /// System.Text.Json writes them as a JSON scalar (<see cref="TimeSpan"/>, <see cref="Uri"/>, types
-/// with a <see cref="JsonConverterAttribute"/>, and similar) or the property is typed as
-/// <see cref="object"/>, whose JSON shape is unknown; those are skipped. Collections derive <c>T[]</c> when
+/// with a <see cref="JsonConverterAttribute"/>, <see cref="Int128"/>, and similar) or the property's JSON shape is
+/// unknown from its type (<see cref="object"/>, <see cref="JsonElement"/>, <see cref="JsonNode"/> other than
+/// <see cref="JsonObject"/>, or a property carrying its own <see cref="JsonConverterAttribute"/>); those are skipped. Collections derive <c>T[]</c> when
 /// their element type is a supported non-nullable scalar; collections of anything else (records,
 /// enums, <c>Nullable&lt;T&gt;</c>, whose null elements an array facet would reject) are skipped,
 /// as is <c>byte[]</c>, which System.Text.Json writes as a base64 string rather than an array.
@@ -35,6 +38,10 @@ internal static class TypedAspectFacets
 
     private static FacetDefinition? ToFacet(PropertyInfo property)
     {
+        // A converter on the property decides its JSON shape, which the CLR type cannot tell.
+        if (property.IsDefined(typeof(JsonConverterAttribute), inherit: true))
+            return null;
+
         var type = Map(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
         if (type is null)
             return null;
@@ -67,7 +74,14 @@ internal static class TypedAspectFacets
         if (IsDictionary(clrType))
             return "object";
 
+        // JsonObject always writes an object; other JSON DOM types can hold any JSON kind.
+        if (clrType == typeof(JsonObject))
+            return "object";
+
         var writtenAsScalar = clrType == typeof(object)
+            || clrType == typeof(JsonElement) || clrType == typeof(JsonDocument)
+            || typeof(JsonNode).IsAssignableFrom(clrType)
+            || clrType == typeof(Int128) || clrType == typeof(UInt128) || clrType == typeof(Half)
             || clrType.IsEnum
             || clrType.IsPrimitive
             || typeof(System.Collections.IEnumerable).IsAssignableFrom(clrType)
