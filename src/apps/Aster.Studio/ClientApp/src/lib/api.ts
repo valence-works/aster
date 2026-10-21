@@ -128,6 +128,9 @@ export type CreateDefinitionRequest = {
   aspects: Array<{ aspectId: string; version: number; name?: string }>;
 };
 
+export type LifecycleState = "none" | "archived" | "soft-deleted";
+export type LifecycleFilter = "all" | "active" | "archived" | "soft-deleted";
+
 export type ResourceSummaryDto = {
   resourceId: string;
   definitionId: string;
@@ -136,6 +139,7 @@ export type ResourceSummaryDto = {
   title: string;
   activeChannels: string[];
   tags: string[];
+  lifecycleState: LifecycleState;
 };
 
 export type ResourceListDto = {
@@ -159,6 +163,11 @@ export type VersionSummaryDto = {
   created: string;
   isLatest: boolean;
   activeChannels: string[];
+  /** The definition version this resource version was saved against. */
+  definitionVersion: number | null;
+  lifecycleState: LifecycleState;
+  isProtectedFromPruning: boolean;
+  maintenanceDisposition: "protected" | "possible-candidate";
 };
 
 export type CreateResourceRequest = {
@@ -172,6 +181,121 @@ export type UpdateResourceRequest = {
 };
 
 export type Channel = "preview" | "live";
+
+// ── Operations (#111): the SDK's lifecycle, schema and policy results, enums as kebab-case names ──────────
+
+/** A diagnostic with its stable code, as the SDK's lifecycle and policy services report it. */
+export type CodedDiagnostic = {
+  code: string;
+  message: string;
+  path?: string | null;
+  policyId?: string | null;
+  resourceId?: string | null;
+  resourceVersion?: number | null;
+};
+
+export type DiagnosticCodeCount = { code: string; count: number };
+
+export type LifecycleMarkerDto = {
+  resourceId: string;
+  state: LifecycleState;
+  markedAt: string | null;
+  reason: string | null;
+};
+
+export type LifecycleMarkerResultDto = {
+  succeeded: boolean;
+  marker: LifecycleMarkerDto | null;
+  diagnostics: CodedDiagnostic[];
+};
+
+export type RestoreCandidateDto = {
+  index: number;
+  resourceId: string | null;
+  expectedState: LifecycleState | null;
+  status: "restorable" | "restored" | "already-restored" | "skipped" | "failed";
+  marker: LifecycleMarkerDto | null;
+  diagnostics: CodedDiagnostic[];
+};
+
+export type RestoreResultDto = {
+  summary: { totalCount: number; failedCount: number; diagnosticCodeCounts: DiagnosticCodeCount[] };
+  candidates: RestoreCandidateDto[];
+};
+
+export type SchemaStatusDto = {
+  resourceId: string;
+  resourceVersion: number;
+  definitionId: string;
+  recordedDefinitionVersion: number | null;
+  latestDefinitionVersion: number | null;
+  status: "current" | "older-than-latest" | "missing-definition" | "missing-definition-version" | "unknown-resource-lineage";
+  message: string;
+  /** Aspect keys on the latest version that the latest definition doesn't declare; an upgrade carries them forward. */
+  undeclaredAspectKeys: string[];
+};
+
+export type SchemaUpgradeResultDto = {
+  status: "upgraded" | "no-op";
+  resourceVersion: number | null;
+  sourceDefinitionVersion: number | null;
+  targetDefinitionVersion: number;
+  carriedForwardAspectKeys: string[];
+  message: string;
+};
+
+export type PolicyKind = "retention" | "archival" | "soft-delete" | "version-pruning";
+export type PolicyOutcome = "retain" | "archive" | "soft-delete" | "prune-preview";
+
+export type PolicyDeclarationDto = {
+  policyId: string;
+  name: string | null;
+  kind: PolicyKind;
+  target: "resource" | "resource-version";
+  outcome: PolicyOutcome;
+  criteria: {
+    /** A .NET TimeSpan, such as "365.00:00:00". */
+    minimumAge: string | null;
+    maximumRetainedVersions: number | null;
+    activationState: "active" | "draft" | null;
+    activationChannel: string | null;
+    lifecycleState: LifecycleState | null;
+  };
+};
+
+export type DefinitionPoliciesDto = {
+  definitionId: string;
+  definitionVersion: number;
+  policies: PolicyDeclarationDto[];
+  diagnostics: CodedDiagnostic[];
+};
+
+export type PolicyCandidateDto = {
+  policyId: string;
+  policyKind: PolicyKind;
+  outcome: PolicyOutcome;
+  resourceId: string;
+  resourceVersion: number | null;
+  reason: string;
+  /** For version-pruning candidates: the version's history entry, which says whether pruning must protect it. */
+  targetVersion: VersionSummaryDto | null;
+};
+
+export type PolicyPreviewDto = {
+  summary: { evaluationTimestamp: string | null; totalCandidateCount: number; diagnosticCodeCounts: DiagnosticCodeCount[] };
+  candidates: PolicyCandidateDto[];
+  diagnostics: CodedDiagnostic[];
+};
+
+export type PolicyApplicationResultDto = {
+  summary: { totalCount: number; appliedCount: number; alreadySatisfiedCount: number; failedCount: number; diagnosticCodeCounts: DiagnosticCodeCount[] };
+  candidates: Array<{ index: number; status: "applied" | "already-satisfied" | "skipped" | "failed"; policyId: string | null; resourceId: string | null; resourceVersion: number | null; diagnostics: CodedDiagnostic[] }>;
+};
+
+export type PruningResultDto = {
+  summary: { totalCount: number; prunedCount: number; alreadyPrunedCount: number; failedCount: number; diagnosticCodeCounts: DiagnosticCodeCount[] };
+  candidates: Array<{ index: number; status: "pruned" | "already-pruned" | "skipped" | "failed"; policyId: string | null; resourceId: string | null; resourceVersion: number | null; diagnostics: CodedDiagnostic[] }>;
+};
 
 export class ApiError extends Error {
   status: number;
@@ -207,9 +331,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       payload = undefined;
     }
 
-    // Studio's endpoints answer with { error } or { diagnostics }; the Aster endpoints with problem details,
-    // which carry the same diagnostics on a 400.
-    if (response.status === 400 && isDiagnosticsEnvelope(payload)) {
+    // Studio's endpoints answer with { error }, { diagnostics } or problem details; the Aster endpoints with problem
+    // details. Problem details carry stable diagnostic codes under `diagnostics`.
+    if (isDiagnosticsEnvelope(payload)) {
       throw new ApiError(response.status, problemText(payload) ?? "Validation failed", payload.diagnostics);
     }
 
@@ -295,7 +419,7 @@ type AsterResource = {
 
 type AsterVersionHistory = {
   resourceId: string;
-  versions: Array<{ version: number; created: string; isLatest: boolean; activeChannels: string[] }>;
+  versions: VersionSummaryDto[];
 };
 
 // ── Mapping the contract to Studio's view types ───────────────────────────────
@@ -443,19 +567,36 @@ export const api = {
   getDefinitions: () => request<DefinitionSummaryDto[]>(`${studio}/definitions`),
   getDefinition: async (definitionId: string) => toDefinitionDetail(await request<AsterDefinition>(`${aster}/definitions/${segment(definitionId)}`)),
   createDefinition,
-  getResources: (definitionId: string, skip = 0, take = 20, tags: string[] = []) =>
-    request<ResourceListDto>(`${studio}/resources?definitionId=${segment(definitionId)}&skip=${skip}&take=${take}${tags.map((tag) => `&tag=${segment(tag)}`).join("")}`),
+  getResources: (definitionId: string, skip = 0, take = 20, tags: string[] = [], lifecycle: LifecycleFilter = "all") =>
+    request<ResourceListDto>(`${studio}/resources?definitionId=${segment(definitionId)}&skip=${skip}&take=${take}&lifecycle=${lifecycle}${tags.map((tag) => `&tag=${segment(tag)}`).join("")}`),
   getResource: (resourceId: string) => withHistory(request<AsterResource>(resourcePath(resourceId))),
   getResourceVersions: async (resourceId: string): Promise<VersionSummaryDto[]> =>
-    (await getHistory(resourceId)).versions.map((version) => ({
-      version: version.version,
-      created: version.created,
-      isLatest: version.isLatest,
-      activeChannels: orderChannels(version.activeChannels),
-    })),
+    (await getHistory(resourceId)).versions.map((version) => ({ ...version, activeChannels: orderChannels(version.activeChannels) })),
   getResourceVersion: (resourceId: string, version: number) => withHistory(request<AsterResource>(`${resourcePath(resourceId)}?version=${version}`)),
   createResource: (body: CreateResourceRequest) => withHistory(request<AsterResource>(`${aster}/resources`, json("POST", body))),
   updateResource: (resourceId: string, body: UpdateResourceRequest) => withHistory(request<AsterResource>(resourcePath(resourceId), json("PUT", body))),
   activateResource: (resourceId: string, version: number, channel: Channel) => request<void>(`${resourcePath(resourceId)}/activate`, json("POST", { version, channel })),
   deactivateResource: (resourceId: string, version: number, channel: string) => request<void>(`${resourcePath(resourceId)}/deactivate`, json("POST", { version, channel })),
+  getLifecycle: (resourceId: string) => request<LifecycleMarkerDto>(`${studio}/resources/${segment(resourceId)}/lifecycle`),
+  markResource: (resourceId: string, state: Exclude<LifecycleState, "none">, reason: string) =>
+    request<LifecycleMarkerResultDto>(`${studio}/resources/${segment(resourceId)}/lifecycle`, json("POST", { state, reason })),
+  previewRestore: (resourceId: string, expectedState: LifecycleState) =>
+    request<RestoreResultDto>(`${studio}/resources/${segment(resourceId)}/restore-preview`, json("POST", { expectedState })),
+  restoreResource: (resourceId: string, expectedState: LifecycleState) =>
+    request<RestoreResultDto>(`${studio}/resources/${segment(resourceId)}/restore`, json("POST", { expectedState })),
+  getSchemaStatus: (resourceId: string) => request<SchemaStatusDto>(`${studio}/resources/${segment(resourceId)}/schema`),
+  upgradeSchema: (resourceId: string, baseVersion: number) =>
+    request<SchemaUpgradeResultDto>(`${studio}/resources/${segment(resourceId)}/schema-upgrade`, json("POST", { baseVersion })),
+  getPolicies: (definitionId: string) => request<DefinitionPoliciesDto>(`${studio}/definitions/${segment(definitionId)}/policies`),
+  previewPolicies: (definitionId: string, evaluationTimestamp: string | null) =>
+    request<PolicyPreviewDto>(`${studio}/definitions/${segment(definitionId)}/policies/preview`, json("POST", { evaluationTimestamp })),
+  applyPolicyOutcomes: (candidates: PolicyCandidateDto[]) =>
+    request<PolicyApplicationResultDto>(`${studio}/policies/apply`, json("POST", { candidates: candidates.map(toApplicationCandidate) })),
+  pruneVersions: (candidates: PolicyCandidateDto[]) =>
+    request<PruningResultDto>(`${studio}/policies/prune`, json("POST", { candidates: candidates.map(toApplicationCandidate) })),
 };
+
+// Application re-checks a preview candidate by its identity: the policy, the outcome and the previewed version.
+function toApplicationCandidate({ policyId, policyKind, outcome, resourceId, resourceVersion }: PolicyCandidateDto) {
+  return { policyId, policyKind, outcome, resourceId, resourceVersion };
+}

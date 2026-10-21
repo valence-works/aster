@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConstraintBadges } from "@/components/FacetBadges";
+import { DefinitionPoliciesPanel } from "@/components/DefinitionPoliciesPanel";
 import { ErrorState, TableSkeleton } from "@/components/StateViews";
 import { api } from "@/lib/api";
 import { useAsync } from "@/hooks/useAsync";
@@ -26,6 +27,7 @@ export function DefinitionDetail() {
           </div>
         </CardHeader>
       </Card>
+      <DefinitionPoliciesPanel definitionId={definitionId} />
       {definition.data.aspects.map((aspect) => (
         <Card key={aspect.aspectKey}>
           <CardHeader className="border-b border-border/60">

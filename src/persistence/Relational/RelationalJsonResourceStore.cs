@@ -305,11 +305,17 @@ internal abstract class RelationalJsonResourceStore :
         await using var connection = await OpenConnectionAsync(cancellationToken);
 
         // Same lock as PruneVersionAsync, so a version can't become active between prune's "not active" check
-        // and its delete.
+        // and its delete, nor be pruned between the existence check below and this write.
         await using var transaction = await dialect.BeginSerializedWriteAsync(
             connection,
             ResourceVersionsLockKey(tenant, resourceId),
             cancellationToken);
+        foreach (var version in scopedState.ActiveVersions.Distinct())
+        {
+            if (!await ResourceVersionExistsAsync(connection, transaction, tenant, resourceId, version, cancellationToken))
+                throw new VersionNotFoundException(resourceId, version);
+        }
+
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = $"""

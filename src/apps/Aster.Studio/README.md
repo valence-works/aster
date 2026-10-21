@@ -36,7 +36,11 @@ Open http://localhost:5210. A SQLite database is created at
 `App_Data/aster-demo.db` (gitignored) and seeded on first run with five shared
 aspects (`content`, `seo`, `publishable`, `taggable`, `navigation`) in the
 aspect definition store, `article` and `page` content types that pin them, and
-sample content. Startup seeds an aspect only when the store doesn't have it, so
+sample content. The seed registers `article` v2 after the articles exist: it
+drops `navigation` and declares three policies (`archive-drafts`,
+`soft-delete-stale-drafts`, `keep-latest-version`). The seeded articles stay on
+v1, so they offer a schema upgrade, and `article-horizontal-aspects` carries
+`navigation` forward when upgraded. Startup seeds an aspect only when the store doesn't have it, so
 edits made in the Aspect Library survive restarts.
 
 The demo database is disposable. After pulling changes to the seed data, delete
@@ -62,6 +66,13 @@ Playwright drives the core flows end to end:
 - version history
 - the tag filter
 
+`e2e/operations.spec.ts` covers the operations screens (#111):
+- archive, the lifecycle filter, and restore, including a restore preview that went stale (`lifecycle-restore-marker-mismatch`)
+- policy preview and archive application, including a stale candidate (`policy-application-stale-candidate`)
+- version pruning, with active versions shown as protected
+- a schema upgrade that carries an undeclared aspect forward
+- historical activation and maintenance hints
+
 ```bash
 cd src/apps/Aster.Studio/ClientApp
 npm run build                       # the host serves the built SPA
@@ -80,9 +91,11 @@ database in a temporary directory, so runs never touch `App_Data`. CI runs the s
 | Dashboard | Counts and recent content across all definitions |
 | Aspect Library | Shared aspects from `IAspectDefinitionStore`: create one, edit its facets and save a new version, then preview and apply the upgrade to the content types that pin an older version |
 | Content Types | Definitions list; create a new type by pinning shared aspects at their latest version |
-| Content list | Paged resources with version + channel badges |
+| Content list | Paged resources with version, channel and lifecycle badges; filter by tag and by lifecycle state (active, archived, soft-deleted) |
 | Resource editor | **Centerpiece** — form generated 100% from facet metadata (uiHints, ordering, constraints); server diagnostics map to fields |
-| Version history | Immutable versions; activate/deactivate any version on preview/live |
+| Operations (resource editor) | Archive or soft-delete through `IResourceLifecycleMarkerService`; restore after a preview through `IResourceLifecycleRestoreService`; schema status from `IResourceSchemaVersionService` and an explicit upgrade that reports the carried-forward aspect keys |
+| Version history | Immutable versions with maintenance hints from `IResourceVersionHistoryService` (protected or possible prune candidate) and the definition version each was saved against; activate/deactivate any version on preview/live, including historical activation that leaves latest alone |
+| Policies (content type detail) | The definition's policy declarations and their validation; a preview as of any date; apply selected archive or soft-delete outcomes, or prune selected versions, with latest and active versions shown as protected. Results show each candidate's status and diagnostic codes |
 
 ## API
 
@@ -94,5 +107,11 @@ Studio is the integration test bed for the [`Aster.AspNetCore`](../../hosting/As
 - **`/api/studio`:** only what the package doesn't provide:
   - **View aggregates:** definitions with resource counts, and a definition's resources with title, tags, active channels and a total count.
   - **The shared-aspect library:** versions and usage, create-only-if-missing, save based on a base version, and upgrade preview and apply.
+  - **Operations (#111)** over the SDK's lifecycle, schema and policy services:
+    - `resources/{id}/lifecycle` (read, archive or soft-delete), `restore-preview` and `restore`, each restore naming the state it expects to clear.
+    - `resources/{id}/schema` and `schema-upgrade` (based on `baseVersion`).
+    - `definitions/{id}/policies`, `policies/preview`, then `policies/apply` (archive and soft-delete) and `policies/prune`.
+    - Results keep the SDK's per-candidate statuses and diagnostics, plus the summary from its summary helpers. A request that fails as a whole answers with problem details carrying `diagnostics: [{ code, message }]`.
+    - Studio serializes enums as kebab-case names (`soft-deleted`, `prune-preview`), the package's version history included.
 
 `ClientApp/src/lib/api.ts` maps the package's models onto the SPA's view types. OpenAPI for the Studio endpoints is at `/openapi/v1.json` in Development.
