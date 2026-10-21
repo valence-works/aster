@@ -5,7 +5,14 @@ export function DiagnosticList({ diagnostics }: { diagnostics: CodedDiagnostic[]
   if (!diagnostics.length) return null;
   return (
     <ul aria-label="Diagnostics" className="space-y-1.5 rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm">
-      {diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${index}`} className="flex flex-wrap items-baseline gap-2"><code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-xs text-amber-200">{diagnostic.code}</code><span className="text-muted-foreground">{diagnostic.message}</span></li>)}
+      {diagnostics.map((diagnostic, index) => (
+        <li key={`${diagnostic.code}-${index}`} className="flex flex-wrap items-baseline gap-2">
+          <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-xs text-amber-200">{diagnostic.code}</code>
+          {diagnostic.severity ? <span className={`text-xs uppercase tracking-wide ${diagnostic.severity === "error" ? "text-destructive" : "text-muted-foreground"}`}>{diagnostic.severity}</span> : null}
+          {diagnostic.path ? <code className="font-mono text-xs text-muted-foreground">{diagnostic.path}</code> : null}
+          <span className="text-muted-foreground">{diagnostic.message}</span>
+        </li>
+      ))}
     </ul>
   );
 }
