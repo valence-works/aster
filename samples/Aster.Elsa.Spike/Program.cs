@@ -316,7 +316,9 @@ sealed class ActivationNotificationHook(ActivationLog log) : ResourceLifecycleHo
 {
     public override ValueTask OnAfterActivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
     {
-        log.Events.Add($"{context.TenantScope.TenantId}:{context.ResourceId}@v{context.Version}->{context.Channel}");
+        // After hooks also run when the activation write fails; only a completed activation is a notification.
+        if (context.OperationStatus == LifecycleOperationStatus.Succeeded)
+            log.Events.Add($"{context.TenantScope.TenantId}:{context.ResourceId}@v{context.Version}->{context.Channel}");
         return ValueTask.CompletedTask;
     }
 }

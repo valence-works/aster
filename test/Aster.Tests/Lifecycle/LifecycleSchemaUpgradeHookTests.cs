@@ -44,6 +44,8 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
         Assert.Equal(created.Version, before.BaseVersion);
         Assert.Equal(2, after.Resource!.Version);
         Assert.Equal(before.OperationId, after.OperationId);
+        LifecycleOperationAssert.Pending(before);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -86,7 +88,7 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
     }
 
     [Fact]
-    public static async Task UpgradeAsync_SaveVersionFailureRunsAfterSaveHook()
+    public static async Task UpgradeAsync_SaveVersionFailureRunsAfterSaveHookWithFailedOutcome()
     {
         await using var scopedProvider = BuildThrowingWriterProvider();
         var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
@@ -101,7 +103,7 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
         scopedRecorder.Events.Clear();
         writer.ThrowSave = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             scopedSchemaVersions.UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest
             {
                 BaseVersion = created.Version,
@@ -110,6 +112,40 @@ public sealed class LifecycleSchemaUpgradeHookTests : IAsyncDisposable
         Assert.Equal(
             [LifecyclePoint.BeforeSave, LifecyclePoint.AfterSave],
             scopedRecorder.Events.Select(static e => e.LifecyclePoint));
+        var failure = LifecycleOperationAssert.Failed(
+            scopedRecorder.Events[1].Context,
+            LifecycleOperationFailure.OperationFailedCode);
+        Assert.Same(exception, failure.Exception);
+    }
+
+    [Fact]
+    public static async Task UpgradeAsync_WriterConcurrencyConflictRunsAfterSaveHookWithFailedOutcome()
+    {
+        await using var scopedProvider = BuildThrowingWriterProvider();
+        var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
+        var scopedSchemaVersions = scopedProvider.GetRequiredService<IResourceSchemaVersionService>();
+        var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
+        var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider);
+        var created = await scopedManager.CreateAsync(
+            LifecycleHookTestFixtures.DefinitionId,
+            LifecycleHookTestFixtures.CreateRequest());
+        await LifecycleHookTestFixtures.SaveDefinitionAsync(scopedProvider, version: 2);
+        scopedRecorder.Events.Clear();
+        var conflict = new ConcurrencyException(created.ResourceId, created.Version, created.Version + 1);
+        writer.ThrowSave = true;
+        writer.Failure = conflict;
+
+        var result = await scopedSchemaVersions.UpgradeAsync(created.ResourceId, new ResourceSchemaUpgradeRequest
+        {
+            BaseVersion = created.Version,
+        });
+
+        Assert.Equal(ResourceSchemaUpgradeStatus.Rejected, result.Status);
+        var after = Assert.IsType<ResourceSaveLifecycleContext>(scopedRecorder.Events[1].Context);
+        Assert.Equal(ResourceSaveKind.SchemaUpgrade, after.SaveKind);
+        var failure = LifecycleOperationAssert.Failed(after, LifecycleOperationFailure.OperationFailedCode);
+        Assert.Same(conflict, failure.Exception);
     }
 
     private async ValueTask<Resource> CreateUpgradeableResourceAsync()

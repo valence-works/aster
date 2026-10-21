@@ -67,6 +67,8 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
             after.Snapshot.Resources.Select(static resource => resource.ResourceId));
         Assert.Equal(result.Diagnostics, after.ExportResult!.Diagnostics);
         Assert.Equal(before.OperationId, after.OperationId);
+        LifecycleOperationAssert.Pending(before);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -115,6 +117,8 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Null(after.Snapshot);
         Assert.NotSame(result, after.ExportResult);
         Assert.Equal(result.Diagnostics, after.ExportResult!.Diagnostics);
+        var failure = LifecycleOperationAssert.Failed(after, PortableDiagnosticCodes.ExportReadFailed);
+        Assert.Equal("simulated export race", Assert.IsType<InvalidOperationException>(failure.Exception).Message);
     }
 
 
@@ -140,6 +144,25 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Equal(preview.CanImport, after.Preview!.CanImport);
         Assert.Equal(preview.Diagnostics, after.Preview.Diagnostics);
         Assert.Null(await manager.GetLatestVersionAsync("product-1"));
+        LifecycleOperationAssert.Pending(recorder.Events[0].Context);
+        LifecycleOperationAssert.Succeeded(after);
+    }
+
+    [Fact]
+    public async Task PreviewImportAsync_BlockedPlanIsSucceededPreviewThatCannotImport()
+    {
+        await portability.ImportAsync(CreateSnapshotWithOwner("target-owner"));
+        recorder.Events.Clear();
+
+        var preview = await portability.PreviewImportAsync(
+            CreateSnapshotWithOwner("incoming-owner"),
+            new PortableImportOptions { CollisionMode = PortableImportCollisionMode.Strict });
+
+        Assert.False(preview.CanImport);
+        var after = Assert.IsType<ResourceImportLifecycleContext>(recorder.Events[2].Context);
+        Assert.Equal(LifecyclePoint.AfterPreviewImport, after.LifecyclePoint);
+        LifecycleOperationAssert.Succeeded(after);
+        Assert.False(after.Preview!.CanImport);
     }
 
     [Fact]
@@ -159,6 +182,10 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
                 ("first", LifecyclePoint.AfterPreviewImport),
             ],
             scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+        var failure = LifecycleOperationAssert.Failed(
+            scopedRecorder.Events[1].Context,
+            PortableDiagnosticCodes.ImportPlanningFailed);
+        Assert.IsType<InvalidOperationException>(failure.Exception);
     }
 
     [Fact]
@@ -183,6 +210,8 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Equal(result.Status, after.ImportResult!.Status);
         Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
         Assert.NotNull(await manager.GetLatestVersionAsync("product-1"));
+        LifecycleOperationAssert.Pending(recorder.Events[0].Context);
+        LifecycleOperationAssert.Succeeded(after);
     }
 
     [Fact]
@@ -237,6 +266,8 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.NotSame(result, after.ImportResult);
         Assert.Equal(result.Status, after.ImportResult!.Status);
         Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
+        var failure = LifecycleOperationAssert.Failed(after, PortableDiagnosticCodes.DivergentIdentityCollision);
+        Assert.Null(failure.Exception);
     }
 
     [Fact]
@@ -261,6 +292,8 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
         Assert.Equal(result.Status, after.ImportResult!.Status);
         Assert.Equal(result.Diagnostics, after.ImportResult.Diagnostics);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == PortableDiagnosticCodes.ImportApplyFailed);
+        var failure = LifecycleOperationAssert.Failed(after, PortableDiagnosticCodes.ImportApplyFailed);
+        Assert.Equal("simulated apply race", Assert.IsType<InvalidOperationException>(failure.Exception).Message);
     }
 
     [Fact]
@@ -280,6 +313,10 @@ public sealed class PortabilityLifecycleHookTests : IAsyncDisposable
                 ("first", LifecyclePoint.AfterImport),
             ],
             scopedRecorder.Events.Select(static e => (e.HookName, e.LifecyclePoint)).ToList());
+        var failure = LifecycleOperationAssert.Failed(
+            scopedRecorder.Events[1].Context,
+            PortableDiagnosticCodes.ImportPlanningFailed);
+        Assert.Equal("simulated target state race", Assert.IsType<InvalidOperationException>(failure.Exception).Message);
     }
 
 

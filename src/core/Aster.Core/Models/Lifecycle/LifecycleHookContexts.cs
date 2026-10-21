@@ -30,6 +30,18 @@ public abstract record ResourceLifecycleContext
     /// Cancellation token for the underlying operation.
     /// </summary>
     public required CancellationToken CancellationToken { get; init; }
+
+    /// <summary>
+    /// Status of the underlying operation: <see cref="LifecycleOperationStatus.Pending"/> for before hooks, and
+    /// <see cref="LifecycleOperationStatus.Succeeded"/> or <see cref="LifecycleOperationStatus.Failed"/> for after hooks.
+    /// </summary>
+    public LifecycleOperationStatus OperationStatus { get; init; }
+
+    /// <summary>
+    /// Why the underlying operation failed when <see cref="OperationStatus"/> is
+    /// <see cref="LifecycleOperationStatus.Failed"/>; otherwise <see langword="null"/>.
+    /// </summary>
+    public LifecycleOperationFailure? OperationFailure { get; init; }
 }
 
 /// <summary>
@@ -58,7 +70,8 @@ public sealed record ResourceSaveLifecycleContext : ResourceLifecycleContext
     public int? BaseVersion { get; init; }
 
     /// <summary>
-    /// Proposed or saved resource version.
+    /// Proposed or saved resource version. When <see cref="ResourceLifecycleContext.OperationStatus"/> is
+    /// <see cref="LifecycleOperationStatus.Failed"/>, this is the proposed version that was not stored.
     /// </summary>
     public Resource? Resource { get; init; }
 
@@ -102,7 +115,9 @@ public sealed record ResourceActivationLifecycleContext : ResourceLifecycleConte
     public bool AllowMultipleActive { get; init; }
 
     /// <summary>
-    /// Resulting active versions for the channel.
+    /// Resulting active versions for the channel. When <see cref="ResourceLifecycleContext.OperationStatus"/> is
+    /// <see cref="LifecycleOperationStatus.Failed"/>, these are the versions the failed write tried to store, not the
+    /// channel's current state.
     /// </summary>
     public IReadOnlyList<int> ActiveVersions { get; init; } = [];
 }

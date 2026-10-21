@@ -14,18 +14,20 @@ public sealed class ConfigurationReloadHook(ActivationChangeNotifier notifier) :
     /// <inheritdoc />
     public override async ValueTask OnAfterActivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
     {
-        if (IsConfiguration(context))
+        if (ChangedConfiguration(context))
             await notifier.NotifyAsync(context, cancellationToken);
     }
 
     /// <inheritdoc />
     public override async ValueTask OnAfterDeactivateAsync(ResourceActivationLifecycleContext context, CancellationToken cancellationToken = default)
     {
-        if (IsConfiguration(context))
+        if (ChangedConfiguration(context))
             await notifier.NotifyAsync(context, cancellationToken);
     }
 
+    // After hooks also run when the activation write fails; the channel did not change then, so there is nothing to reload.
     // DefinitionId is null only when deactivating a resource without stored versions; reloading then is harmless.
-    private static bool IsConfiguration(ResourceActivationLifecycleContext context) =>
-        context.DefinitionId is null || ConfigurationDefinitions.All.Contains(context.DefinitionId);
+    private static bool ChangedConfiguration(ResourceActivationLifecycleContext context) =>
+        context.OperationStatus == LifecycleOperationStatus.Succeeded
+        && (context.DefinitionId is null || ConfigurationDefinitions.All.Contains(context.DefinitionId));
 }

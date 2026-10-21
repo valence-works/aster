@@ -128,6 +128,30 @@ public sealed class LifecycleHookRecorder
         Events.Add(new RecordedLifecycleEvent(hookName, context.LifecyclePoint, context.OperationId, context));
 }
 
+public static class LifecycleOperationAssert
+{
+    public static void Pending(ResourceLifecycleContext context)
+    {
+        Assert.Equal(LifecycleOperationStatus.Pending, context.OperationStatus);
+        Assert.Null(context.OperationFailure);
+    }
+
+    public static void Succeeded(ResourceLifecycleContext context)
+    {
+        Assert.Equal(LifecycleOperationStatus.Succeeded, context.OperationStatus);
+        Assert.Null(context.OperationFailure);
+    }
+
+    public static LifecycleOperationFailure Failed(ResourceLifecycleContext context, string code)
+    {
+        Assert.Equal(LifecycleOperationStatus.Failed, context.OperationStatus);
+        var failure = Assert.IsType<LifecycleOperationFailure>(context.OperationFailure);
+        Assert.Equal(code, failure.Code);
+        Assert.False(string.IsNullOrWhiteSpace(failure.Message));
+        return failure;
+    }
+}
+
 public sealed record RecordedLifecycleEvent(
     string HookName,
     LifecyclePoint LifecyclePoint,
@@ -323,12 +347,15 @@ internal sealed class SwitchableResourceVersionWriter(InMemoryResourceStore inne
 
     public bool ThrowActivationUpdate { get; set; }
 
+    /// <summary>Exception to throw instead of the default <see cref="InvalidOperationException"/>.</summary>
+    public Exception? Failure { get; set; }
+
     public ValueTask<Resource> SaveVersionAsync(
         Resource resource,
         CancellationToken cancellationToken = default)
     {
         if (ThrowSave)
-            throw new InvalidOperationException("simulated save failure");
+            throw Failure ?? new InvalidOperationException("simulated save failure");
 
         return inner.SaveVersionAsync(resource, cancellationToken);
     }
@@ -340,7 +367,7 @@ internal sealed class SwitchableResourceVersionWriter(InMemoryResourceStore inne
         CancellationToken cancellationToken = default)
     {
         if (ThrowActivationUpdate)
-            throw new InvalidOperationException("simulated activation failure");
+            throw Failure ?? new InvalidOperationException("simulated activation failure");
 
         return inner.UpdateActivationAsync(resourceId, channel, state, cancellationToken);
     }
