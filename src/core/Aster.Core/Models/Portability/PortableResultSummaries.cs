@@ -52,6 +52,9 @@ public sealed record PortableExportSummary
     /// <summary>Whether export diagnostics include at least one error.</summary>
     public bool HasErrors => DiagnosticSeverityCounts.Any(static count => count.Severity == PortableDiagnosticSeverity.Error && count.Count > 0);
 
+    /// <summary>Number of shared aspect definition versions exported.</summary>
+    public int AspectDefinitionCount { get; init; }
+
     /// <summary>Number of definition snapshots exported.</summary>
     public required int DefinitionCount { get; init; }
 
@@ -190,6 +193,7 @@ public static class PortableResultSummaryExtensions
         {
             SourceTenantScope = result.SourceTenantScope,
             HasSnapshot = snapshot is not null,
+            AspectDefinitionCount = snapshot?.AspectDefinitions?.Count ?? 0,
             DefinitionCount = snapshot?.Definitions?.Count ?? 0,
             ResourceVersionCount = snapshot?.Resources?.Count ?? 0,
             ActivationEntryCount = snapshot?.ActivationStates?.Count ?? 0,
@@ -268,14 +272,16 @@ public static class PortableResultSummaryExtensions
     }
 
     private static int TotalPlannedItems(PortablePlannedImportCounts counts) =>
-        counts.Definitions
+        counts.AspectDefinitions
+        + counts.Definitions
         + counts.Resources
         + counts.ResourceVersions
         + counts.ActivationEntries
         + counts.LifecycleMarkers;
 
     private static int TotalActualItems(PortableActualImportCounts counts) =>
-        counts.Definitions
+        counts.AspectDefinitions
+        + counts.Definitions
         + counts.Resources
         + counts.ResourceVersions
         + counts.ActivationEntries

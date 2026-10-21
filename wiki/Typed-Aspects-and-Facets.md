@@ -145,6 +145,8 @@ var result = await upgrades.ApplyAsync(new AspectUpgradeRequest
 - `NotApplicable`: the definition has no older pin (`aspect-upgrade-not-applicable`).
 - `Failed`: for example `aspect-name-required`, when the target requires a name and the attachment is unnamed.
 
+**Portability:** `IResourcePortabilityService.ExportAsync` includes the pinned aspect versions in the snapshot. Import registers them in the target tenant with their versions preserved, before the definitions that pin them. Pins that resolve nowhere fail with `unresolved-aspect-pin`.
+
 ### Reading a typed aspect
 
 Use the `GetAspect<T>` extension on `Resource`:

@@ -20,6 +20,11 @@ public sealed record PortableStoreReadRequest
 public sealed record PortableStoreSnapshot
 {
     /// <summary>
+    /// Shared aspect definition versions pinned by <see cref="Definitions"/> that exist in storage.
+    /// </summary>
+    public IReadOnlyList<AspectDefinition> AspectDefinitions { get; init; } = [];
+
+    /// <summary>
     /// Definition versions read from storage.
     /// </summary>
     public IReadOnlyList<ResourceDefinition> Definitions { get; init; } = [];
@@ -50,6 +55,11 @@ public sealed record PortableStoreSnapshot
 /// </summary>
 public sealed record PortableTargetState
 {
+    /// <summary>
+    /// Existing shared aspect definition versions, for the versions the snapshot carries or pins.
+    /// </summary>
+    public IReadOnlyList<AspectDefinition> AspectDefinitions { get; init; } = [];
+
     /// <summary>
     /// Existing definition versions.
     /// </summary>

@@ -12,6 +12,7 @@ namespace Aster.Core.InMemory;
 /// </summary>
 public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 {
+    private readonly InMemoryAspectDefinitionStore aspectStore;
     private readonly InMemoryResourceDefinitionStore definitionStore;
     private readonly InMemoryResourceStore resourceStore;
     private readonly InMemoryResourceLifecycleMarkerStore markerStore;
@@ -20,14 +21,17 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
     /// Initializes a new instance of <see cref="InMemoryPortabilityStore"/>.
     /// </summary>
     public InMemoryPortabilityStore(
+        InMemoryAspectDefinitionStore aspectStore,
         InMemoryResourceDefinitionStore definitionStore,
         InMemoryResourceStore resourceStore,
         InMemoryResourceLifecycleMarkerStore markerStore)
     {
+        ArgumentNullException.ThrowIfNull(aspectStore);
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(resourceStore);
         ArgumentNullException.ThrowIfNull(markerStore);
 
+        this.aspectStore = aspectStore;
         this.definitionStore = definitionStore;
         this.resourceStore = resourceStore;
         this.markerStore = markerStore;
@@ -51,6 +55,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 
         return new PortableStoreSnapshot
         {
+            AspectDefinitions = ReadAspectVersions(PinnedAspectVersions(definitions), tenant, cancellationToken),
             Definitions = definitions,
             Resources = resources,
             ActivationStates = activationStates,
@@ -111,8 +116,13 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
             tenant,
             cancellationToken)).Values.ToList();
 
+        var aspectVersions = snapshot.AspectDefinitions
+            .Select(static aspect => (aspect.AspectDefinitionId, aspect.Version))
+            .Concat(PinnedAspectVersions(snapshot.Definitions));
+
         return new PortableTargetState
         {
+            AspectDefinitions = ReadAspectVersions(aspectVersions, tenant, cancellationToken),
             Definitions = definitions,
             Resources = resources,
             ActivationStates = activationStates,
@@ -129,6 +139,7 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         cancellationToken.ThrowIfCancellationRequested();
         var tenant = TenantScopeResolver.Resolve(plannedSnapshot.SourceTenantScope);
 
+        var appliedAspects = new List<AspectDefinition>();
         var appliedDefinitions = new List<ResourceDefinition>();
         var appliedResources = new List<Resource>();
         var appliedActivationStates = new List<(ActivationState State, ActivationState? PreviousState)>();
@@ -136,6 +147,15 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 
         try
         {
+            foreach (var aspect in plannedSnapshot.AspectDefinitions
+                .OrderBy(static aspect => aspect.AspectDefinitionId, StringComparer.Ordinal)
+                .ThenBy(static aspect => aspect.Version))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                aspectStore.ImportVersion(aspect, tenant);
+                appliedAspects.Add(aspect);
+            }
+
             foreach (var definition in plannedSnapshot.Definitions
                 .OrderBy(static definition => definition.DefinitionId, StringComparer.Ordinal)
                 .ThenBy(static definition => definition.Version))
@@ -179,12 +199,14 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
         }
         catch
         {
-            RollBackAppliedChanges(appliedDefinitions, appliedResources, appliedActivationStates, appliedLifecycleMarkers);
+            RollBackAppliedChanges(tenant, appliedAspects, appliedDefinitions, appliedResources, appliedActivationStates, appliedLifecycleMarkers);
             throw;
         }
     }
 
     private void RollBackAppliedChanges(
+        TenantScope tenant,
+        IReadOnlyList<AspectDefinition> appliedAspects,
         IReadOnlyList<ResourceDefinition> appliedDefinitions,
         IReadOnlyList<Resource> appliedResources,
         IReadOnlyList<(ActivationState State, ActivationState? PreviousState)> appliedActivationStates,
@@ -206,6 +228,36 @@ public sealed class InMemoryPortabilityStore : IResourcePortabilityStore
 
         foreach (var definition in appliedDefinitions.Reverse())
             definitionStore.RemoveImportedDefinitionVersion(definition);
+
+        foreach (var aspect in appliedAspects.Reverse())
+            aspectStore.RemoveImportedVersion(aspect, tenant);
+    }
+
+    private static IEnumerable<(string AspectDefinitionId, int Version)> PinnedAspectVersions(
+        IEnumerable<ResourceDefinition> definitions) =>
+        definitions
+            .SelectMany(static definition => definition.AspectDefinitions.Values)
+            .Where(static aspect => aspect is { IsShared: true })
+            .Select(static aspect => (aspect.AspectDefinitionId, aspect.Version));
+
+    private List<AspectDefinition> ReadAspectVersions(
+        IEnumerable<(string AspectDefinitionId, int Version)> versions,
+        TenantScope tenant,
+        CancellationToken cancellationToken)
+    {
+        var aspects = new List<AspectDefinition>();
+        foreach (var (aspectDefinitionId, version) in versions
+            .Distinct()
+            .OrderBy(static key => key.AspectDefinitionId, StringComparer.Ordinal)
+            .ThenBy(static key => key.Version))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (aspectStore.GetVersion(aspectDefinitionId, version, tenant) is { } aspect)
+                aspects.Add(aspect);
+        }
+
+        return aspects;
     }
 
     private List<ResourceDefinition> SelectDefinitions(
