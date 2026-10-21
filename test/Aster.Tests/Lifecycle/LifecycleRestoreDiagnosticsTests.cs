@@ -176,6 +176,11 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
             ResourceLifecycleMarker marker,
             CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(marker);
+
+        public ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(
+            ResourceLifecycleMarker marker,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new ResourceLifecycleMarkerCreateResult { Created = true, Marker = marker });
     }
 
     private sealed class SingleResourceVersionReader : IResourceVersionReader
@@ -225,6 +230,11 @@ public sealed class LifecycleRestoreDiagnosticsTests : IDisposable
             current = marker;
             return ValueTask.FromResult(marker);
         }
+
+        public ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(
+            ResourceLifecycleMarker marker,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new ResourceLifecycleMarkerCreateResult { Created = false, Marker = current });
 
         public ValueTask<bool> ClearMarkerAsync(
             string resourceId,

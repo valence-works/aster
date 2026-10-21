@@ -414,7 +414,7 @@ var preview = await policyEvaluation.PreviewAsync(new ResourcePolicyEvaluationRe
 });
 ```
 
-Archive and soft-delete outcomes are represented by explicit lifecycle markers that hosts apply through `IResourceLifecycleMarkerService`. Marker writes are idempotent for the same state, reject conflicting archive/soft-delete state, and do not prune versions, deactivate versions, or physically delete resources.
+Archive and soft-delete outcomes are represented by explicit lifecycle markers that hosts apply through `IResourceLifecycleMarkerService`. Marker writes are idempotent for the same state, reject conflicting archive/soft-delete state, and do not prune versions, deactivate versions, or physically delete resources. This holds under concurrency: the store writes a marker only when the resource has none (`IResourceLifecycleMarkerStore.CreateMarkerAsync`), so when two writes for one resource race, one applies and the other gets the same-state or `lifecycle-marker-conflict` result it would have got had it run second.
 
 ```csharp
 var lifecycleMarkers = serviceProvider.GetRequiredService<IResourceLifecycleMarkerService>();
@@ -536,7 +536,7 @@ Hooks run in registration order. Before hooks can reject an operation before mut
 
 After hooks also run when the operation itself fails, so before and after calls stay paired. `context.OperationStatus` is `Succeeded` or `Failed`; hooks that should only see completed changes, such as audit or notification hooks, return early unless it is `Succeeded`.
 
-The archive and restore points (`OnBeforeArchiveAsync`/`OnAfterArchiveAsync`, `OnBeforeRestoreAsync`/`OnAfterRestoreAsync`) run around each lifecycle marker the marker service or policy application writes, and each marker the restore service clears. They receive a `ResourceArchiveLifecycleContext` with the resource ID, its definition ID and the marker; the archive points cover soft-deletes too (`context.Marker.State`). They run only when the call writes, and their rejections and failures surface as diagnostics on the marker, restore, or policy application result. They are default interface members, so existing hooks keep compiling.
+The archive and restore points (`OnBeforeArchiveAsync`/`OnAfterArchiveAsync`, `OnBeforeRestoreAsync`/`OnAfterRestoreAsync`) run around each lifecycle marker the marker service or policy application writes, and each marker the restore service clears. They receive a `ResourceArchiveLifecycleContext` with the resource ID, its definition ID and the marker; the archive points cover soft-deletes too (`context.Marker.State`). They run only when the call writes, and their rejections and failures surface as diagnostics on the marker, restore, or policy application result. A write that loses a race with another marker write or clear for the same resource runs the after point with a `Failed` status, so only the winner's after hooks see `Succeeded`. They are default interface members, so existing hooks keep compiling.
 
 ```csharp
 public sealed class AuditLifecycleHook : ResourceLifecycleHook

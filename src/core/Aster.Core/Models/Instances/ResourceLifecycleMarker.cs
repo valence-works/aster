@@ -25,6 +25,18 @@ public sealed record ResourceLifecycleMarker
 }
 
 /// <summary>
+/// Result of <see cref="Aster.Core.Abstractions.IResourceLifecycleMarkerStore.CreateMarkerAsync"/>.
+/// </summary>
+public sealed record ResourceLifecycleMarkerCreateResult
+{
+    /// <summary>Whether this call wrote the marker; <see langword="false"/> when the resource already had one.</summary>
+    public required bool Created { get; init; }
+
+    /// <summary>The stored marker: the one written when <see cref="Created"/>, otherwise the one already there.</summary>
+    public required ResourceLifecycleMarker Marker { get; init; }
+}
+
+/// <summary>
 /// Lifecycle marker states supported by this slice.
 /// </summary>
 public enum ResourceLifecycleMarkerState

@@ -62,6 +62,24 @@ internal sealed class InMemoryResourceLifecycleMarkerStore : IResourceLifecycleM
     }
 
     /// <inheritdoc />
+    public ValueTask<ResourceLifecycleMarkerCreateResult> CreateMarkerAsync(
+        ResourceLifecycleMarker marker,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(marker);
+        ArgumentException.ThrowIfNullOrWhiteSpace(marker.ResourceId);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tenant = TenantScopeResolver.Resolve(marker.TenantScope);
+        var scopedMarker = marker with { TenantScope = tenant };
+        var stored = markers.GetOrAdd((tenant.TenantId, scopedMarker.ResourceId), scopedMarker);
+        return ValueTask.FromResult(new ResourceLifecycleMarkerCreateResult
+        {
+            Created = ReferenceEquals(stored, scopedMarker),
+            Marker = stored,
+        });
+    }
+
+    /// <inheritdoc />
     public ValueTask<bool> ClearMarkerAsync(
         string resourceId,
         TenantScope tenantScope,

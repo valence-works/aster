@@ -93,6 +93,27 @@ internal sealed class SqlServerJsonDialect(string connectionString, Func<Cancell
             """;
     }
 
+    public override string InsertPayloadIfAbsent(
+        string tableName,
+        IReadOnlyList<(string Column, string Parameter)> keys,
+        string payloadParameter)
+    {
+        // UPDLOCK and HOLDLOCK hold a range lock on the probed key until the insert commits, so a second insert of
+        // the key waits and then finds the first's row rather than also finding none. Lengths are compared as in
+        // UpsertPayload, so 'x ' never counts as the row of 'x'.
+        var match = string.Join(" AND ", keys.Select(static key =>
+            $"existing.{key.Column} = {key.Parameter} AND DATALENGTH(existing.{key.Column}) = DATALENGTH({key.Parameter})"));
+        var columns = string.Join(", ", keys.Select(static key => key.Column));
+        return $"""
+            INSERT INTO {tableName} ({columns}, payload)
+            SELECT {string.Join(", ", keys.Select(static key => key.Parameter))}, {payloadParameter}
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM {tableName} AS existing WITH (UPDLOCK, HOLDLOCK)
+                WHERE {match});
+            """;
+    }
+
     // A table value constructor is a row source only in FROM.
     public override string KeyRows(IEnumerable<string> rows) =>
         $"SELECT first_key, second_key FROM (VALUES {string.Join(", ", rows)}) AS key_rows(first_key, second_key)";
