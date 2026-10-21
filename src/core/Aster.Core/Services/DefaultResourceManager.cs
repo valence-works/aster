@@ -605,8 +605,8 @@ internal sealed partial class DefaultResourceManager : IResourceManager
     }
 
     // A failed write still runs the after hooks so before/after calls stay paired, with a Failed outcome so no hook
-    // mistakes it for a completed change (#219). A hook failure here is dropped: the write's exception is the one the
-    // caller receives.
+    // mistakes it for a completed change (#219). A hook failure here is logged rather than thrown: the write's exception
+    // is the one the caller receives (FR-014).
     private async ValueTask TryInvokeAfterSaveAsync(
         ResourceSaveLifecycleContext context,
         Exception writeFailure,
@@ -622,6 +622,7 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            LogAfterHookFailedOnFailedWrite(exception, context.LifecyclePoint, context.ResourceId);
         }
     }
 
@@ -640,6 +641,7 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            LogAfterHookFailedOnFailedWrite(exception, context.LifecyclePoint, context.ResourceId);
         }
     }
 
@@ -658,6 +660,7 @@ internal sealed partial class DefaultResourceManager : IResourceManager
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            LogAfterHookFailedOnFailedWrite(exception, context.LifecyclePoint, context.ResourceId);
         }
     }
 
@@ -710,6 +713,10 @@ internal sealed partial class DefaultResourceManager : IResourceManager
     [LoggerMessage(EventId = 1001, Level = LogLevel.Information,
         Message = "Activated resource '{ResourceId}' version {Version} in channel '{Channel}'.")]
     private partial void LogResourceActivated(string resourceId, int version, string channel);
+
+    [LoggerMessage(EventId = 1004, Level = LogLevel.Warning,
+        Message = "{LifecyclePoint} hook failed for resource '{ResourceId}' after the write itself failed; the write's exception is rethrown.")]
+    private partial void LogAfterHookFailedOnFailedWrite(Exception exception, LifecyclePoint lifecyclePoint, string? resourceId);
 
     [LoggerMessage(EventId = 1002, Level = LogLevel.Information,
         Message = "Deactivated resource '{ResourceId}' version {Version} in channel '{Channel}'.")]

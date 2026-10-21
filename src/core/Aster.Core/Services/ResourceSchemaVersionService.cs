@@ -5,19 +5,22 @@ using Aster.Core.Models.Definitions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Core.Models.Tenancy;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aster.Core.Services;
 
 /// <summary>
 /// Default implementation of explicit resource schema-version status and upgrade operations.
 /// </summary>
-internal sealed class ResourceSchemaVersionService : IResourceSchemaVersionService
+internal sealed partial class ResourceSchemaVersionService : IResourceSchemaVersionService
 {
     private readonly IResourceDefinitionStore definitionStore;
     private readonly IResourceManager resourceManager;
     private readonly IIdentityGenerator identityGenerator;
     private readonly IResourceVersionWriter versionWriter;
     private readonly IResourceLifecycleHookDispatcher lifecycleHooks;
+    private readonly ILogger<ResourceSchemaVersionService> logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ResourceSchemaVersionService"/> class.
@@ -54,18 +57,46 @@ internal sealed class ResourceSchemaVersionService : IResourceSchemaVersionServi
         IIdentityGenerator identityGenerator,
         IResourceVersionWriter versionWriter,
         IResourceLifecycleHookDispatcher lifecycleHooks)
+        : this(
+            definitionStore,
+            resourceManager,
+            identityGenerator,
+            versionWriter,
+            lifecycleHooks,
+            NullLogger<ResourceSchemaVersionService>.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ResourceSchemaVersionService"/> class.
+    /// </summary>
+    /// <param name="definitionStore">The resource definition version store.</param>
+    /// <param name="resourceManager">The resource lifecycle manager.</param>
+    /// <param name="identityGenerator">The identity generator used for new version IDs.</param>
+    /// <param name="versionWriter">The resource version writer used to append upgraded versions.</param>
+    /// <param name="lifecycleHooks">The lifecycle hook dispatcher.</param>
+    /// <param name="logger">The logger for after-hook failures that a failed write's exception takes precedence over.</param>
+    public ResourceSchemaVersionService(
+        IResourceDefinitionStore definitionStore,
+        IResourceManager resourceManager,
+        IIdentityGenerator identityGenerator,
+        IResourceVersionWriter versionWriter,
+        IResourceLifecycleHookDispatcher lifecycleHooks,
+        ILogger<ResourceSchemaVersionService> logger)
     {
         ArgumentNullException.ThrowIfNull(definitionStore);
         ArgumentNullException.ThrowIfNull(resourceManager);
         ArgumentNullException.ThrowIfNull(identityGenerator);
         ArgumentNullException.ThrowIfNull(versionWriter);
         ArgumentNullException.ThrowIfNull(lifecycleHooks);
+        ArgumentNullException.ThrowIfNull(logger);
 
         this.definitionStore = definitionStore;
         this.resourceManager = resourceManager;
         this.identityGenerator = identityGenerator;
         this.versionWriter = versionWriter;
         this.lifecycleHooks = lifecycleHooks;
+        this.logger = logger;
     }
 
     /// <inheritdoc />
@@ -409,8 +440,14 @@ internal sealed class ResourceSchemaVersionService : IResourceSchemaVersionServi
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            LogAfterHookFailedOnFailedWrite(exception, context.LifecyclePoint, context.ResourceId);
         }
     }
+
+    // FR-014: the write's exception reaches the caller, so the hook's failure is made visible here instead.
+    [LoggerMessage(EventId = 1100, Level = LogLevel.Warning,
+        Message = "{LifecyclePoint} hook failed for resource '{ResourceId}' after the write itself failed; the write's exception is rethrown.")]
+    private partial void LogAfterHookFailedOnFailedWrite(Exception exception, LifecyclePoint lifecyclePoint, string? resourceId);
 
     private static List<string> GetCarriedForwardAspectKeys(
         Resource resource,

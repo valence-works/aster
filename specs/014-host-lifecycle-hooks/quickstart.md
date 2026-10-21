@@ -20,15 +20,19 @@ public sealed class AuditLifecycleHook : ResourceLifecycleHook
         ResourceSaveLifecycleContext context,
         CancellationToken cancellationToken = default)
     {
-        Console.WriteLine(
-            $"Saved {context.Resource!.ResourceId} v{context.Resource.Version} via {context.SaveKind}");
+        // After hooks also run when the save failed; only a Succeeded save stored the version.
+        if (context.OperationStatus == LifecycleOperationStatus.Succeeded)
+        {
+            Console.WriteLine(
+                $"Saved {context.Resource!.ResourceId} v{context.Resource.Version} via {context.SaveKind}");
+        }
 
         return ValueTask.CompletedTask;
     }
 }
 ```
 
-After-save hooks run only after the resource version is successfully persisted. They observe the completed operation; they do not participate in rollback.
+After-save hooks run once the save is attempted, whether it succeeded or failed, so they stay paired with the before hooks. `OperationStatus` says which; on `Failed`, `OperationFailure` says why. After hooks observe the outcome; they do not participate in rollback.
 
 ## Reject A Save Before Mutation
 

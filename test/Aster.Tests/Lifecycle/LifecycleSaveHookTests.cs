@@ -3,7 +3,9 @@ using Aster.Core.Exceptions;
 using Aster.Core.Extensions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
+using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Aster.Tests.Lifecycle;
 
@@ -201,7 +203,8 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
     [Fact]
     public static async Task SaveVersionFailure_AfterHookFailureDoesNotMaskWriteException()
     {
-        await using var scopedProvider = BuildThrowingWriterProvider();
+        var logger = new CapturingLogger<DefaultResourceManager>();
+        await using var scopedProvider = BuildThrowingWriterProvider(services => services.AddSingleton<ILogger<DefaultResourceManager>>(logger));
         var scopedManager = scopedProvider.GetRequiredService<IResourceManager>();
         var scopedRecorder = scopedProvider.GetRequiredService<LifecycleHookRecorder>();
         var writer = scopedProvider.GetRequiredService<SwitchableResourceVersionWriter>();
@@ -216,14 +219,35 @@ public sealed class LifecycleSaveHookTests : IAsyncDisposable
 
         Assert.Equal("simulated save failure", exception.Message);
         LifecycleOperationAssert.Failed(scopedRecorder.Events[1].Context, LifecycleOperationFailure.OperationFailedCode);
+
+        // FR-014: the hook's own failure is not thrown, so it is logged.
+        var warning = Assert.Single(logger.Entries, static entry => entry.Level == LogLevel.Warning);
+        Assert.IsType<LifecycleHookException>(warning.Exception);
+        Assert.Contains("AfterSave", warning.Message, StringComparison.Ordinal);
     }
 
-    private static ServiceProvider BuildThrowingWriterProvider() =>
-        new ServiceCollection()
+    private static ServiceProvider BuildThrowingWriterProvider(Action<IServiceCollection>? configure = null)
+    {
+        var services = new ServiceCollection();
+        configure?.Invoke(services);
+        return services
             .AddSingleton<LifecycleHookRecorder>()
             .AddAsterCore()
             .AddSingleton<SwitchableResourceVersionWriter>()
             .AddSingleton<IResourceVersionWriter>(sp => sp.GetRequiredService<SwitchableResourceVersionWriter>())
             .AddResourceLifecycleHook<FirstRecordingHook>()
             .BuildServiceProvider();
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, Exception? Exception, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, exception, formatter(state, exception)));
+    }
 }

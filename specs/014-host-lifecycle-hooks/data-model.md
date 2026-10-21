@@ -139,18 +139,18 @@ Activation/deactivation request
 Export request
   -> before-export hooks
   -> reject/fail/cancel OR build export result
-  -> after-export hooks when export succeeds
+  -> after-export hooks with the success or failure outcome
   -> return export result with diagnostics as needed
 
 Import preview request
   -> before-preview hooks
   -> reject/fail/cancel OR build preview
-  -> after-preview hooks when preview completes
+  -> after-preview hooks with the success or failure outcome
   -> return preview with diagnostics as needed
 
 Write import request
   -> before-import hooks
   -> reject/fail/cancel OR plan/apply import
-  -> after-import hooks when import succeeds
+  -> after-import hooks with the success or failure outcome
   -> return import result with diagnostics as needed
 ```
