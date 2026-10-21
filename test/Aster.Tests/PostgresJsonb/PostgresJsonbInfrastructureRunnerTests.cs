@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Aster.Core.Abstractions;
 using Aster.Core.Extensions;
 using Aster.Persistence.PostgresJsonb;
@@ -113,6 +114,33 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
     }
 
     [SkippableFact]
+    public async Task FirstRequests_InABurst_DoNotWaitOnThePool()
+    {
+        // #202: a cold provider hit by many first requests at once. Startup that blocked them would need a free pool
+        // thread to finish (even synchronous socket I/O completes on the pool on Linux), so it would wait for the
+        // pool to grow past every blocked request, about two threads a second.
+        // More requests than connections: waiting for one is asynchronous, so that is no reason to be slow.
+        const int Requests = 128;
+        await using var provider = new ServiceCollection()
+            .AddAsterCore()
+            .AddAsterPostgresJsonb(options => options.ConnectionString = $"{database.ConnectionString};Maximum Pool Size=20")
+            .BuildServiceProvider();
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var running = Enumerable.Range(0, Requests).Select(request => Task.Run(async () =>
+        {
+            await start.Task;
+            await provider.GetRequiredService<IResourceManager>().GetLatestVersionAsync($"missing-{request}");
+        })).ToList();
+
+        var elapsed = Stopwatch.StartNew();
+        start.SetResult();
+        await Task.WhenAll(running);
+
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), $"Startup took {elapsed.Elapsed}.");
+        Assert.True((await provider.GetRequiredService<IInfrastructureRunner>().VerifyAsync()).IsCurrent);
+    }
+
+    [SkippableFact]
     public async Task InitializeSchemaFalse_StaysPassive()
     {
         await using var provider = CreatePassiveProvider();
@@ -133,7 +161,7 @@ public sealed class PostgresJsonbInfrastructureRunnerTests : IDisposable
     public async Task VerifyAsync_ReportsStepsAppliedByANewerProvider()
     {
         await using var provider = database.CreateProvider();
-        _ = provider.GetRequiredService<IResourceDefinitionStore>();
+        await provider.GetRequiredService<IResourceDefinitionStore>().ListDefinitionsAsync();
         Execute("INSERT INTO aster_infrastructure_steps (step_id, description) VALUES ('9999-from-the-future', 'Newer');");
 
         var verification = await provider.GetRequiredService<IInfrastructureRunner>().VerifyAsync();

@@ -7,13 +7,20 @@ namespace Aster.Persistence.PostgresJsonb;
 /// <summary>
 /// The PostgreSQL <c>jsonb</c> dialect for the shared relational stores.
 /// </summary>
-internal sealed class PostgresJsonbDialect(NpgsqlDataSource dataSource) : RelationalJsonDialect
+/// <param name="dataSource">The provider's data source.</param>
+/// <param name="ensureSchema">Awaited before every connection opens, so the schema exists first; <see langword="null" /> when the host applies it.</param>
+internal sealed class PostgresJsonbDialect(NpgsqlDataSource dataSource, Func<CancellationToken, ValueTask>? ensureSchema) : RelationalJsonDialect
 {
     // A statement binds at most 65,535 parameters; batches stay far below that.
     public override int MaxParametersPerQuery => 1000;
 
-    public override async ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) =>
-        await dataSource.OpenConnectionAsync(cancellationToken);
+    public override async ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+    {
+        if (ensureSchema is not null)
+            await ensureSchema(cancellationToken);
+
+        return await dataSource.OpenConnectionAsync(cancellationToken);
+    }
 
     // Read committed lets two registrations read the same latest version; a transaction-scoped advisory lock
     // on the key makes the second wait until the first commits.

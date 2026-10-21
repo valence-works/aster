@@ -53,21 +53,28 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     }
 
     /// <summary>
-    /// Applies pending steps once per runner, for <see cref="PostgresJsonbAsterOptions.InitializeSchema"/>. Store
-    /// constructors call it, so it blocks. A failed run isn't cached: the next caller tries again.
+    /// Applies pending steps once per runner, for <see cref="PostgresJsonbAsterOptions.InitializeSchema"/>. The stores
+    /// await it before their first statement rather than blocking in their constructors: a blocked thread can't help
+    /// finish the run, and a burst of first requests would otherwise wait for the pool to grow past all of them. A
+    /// failed run isn't kept: the next caller tries again. Cancelling a caller stops its wait, not the shared run.
     /// </summary>
-    public void EnsureApplied()
+    public ValueTask EnsureAppliedAsync(CancellationToken cancellationToken = default)
     {
         Task task;
         lock (startupGate)
-            // On the thread pool, so a caller blocking on a single-threaded synchronization context can't deadlock.
-            task = startup ??= Task.Run(async () => await ApplyAsync().ConfigureAwait(false));
+            // Off the first caller's synchronization context: the run is shared, so it shouldn't post to a UI thread.
+            task = startup ??= Task.Run(async () => await ApplyAsync(CancellationToken.None).ConfigureAwait(false));
 
+        return task.IsCompletedSuccessfully ? ValueTask.CompletedTask : WaitAsync(task, cancellationToken);
+    }
+
+    private async ValueTask WaitAsync(Task task, CancellationToken cancellationToken)
+    {
         try
         {
-            task.GetAwaiter().GetResult();
+            await task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch
+        catch when (task.IsFaulted || task.IsCanceled)
         {
             lock (startupGate)
             {
