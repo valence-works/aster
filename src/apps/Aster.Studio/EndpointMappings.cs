@@ -1,6 +1,7 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
+using Aster.Core.Models.Tenancy;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Aster.Studio;
@@ -12,15 +13,19 @@ internal static class EndpointMappings
     private const string TagsFacetId = "tags";
 
     /// <summary>
-    /// Maps Studio's view endpoints under <c>/api/studio</c>: aggregates the SPA's screens need and the
-    /// shared-aspect library. Plain resource and definition operations come from <c>MapAster</c> (#110).
+    /// Maps Studio's endpoints under <c>/api/studio</c>: aggregates the SPA's screens need, the shared-aspect
+    /// library, operations, portability and the query builder, each in the request's tenant. Plain resource and
+    /// definition operations come from <c>MapAster</c> (#110).
     /// </summary>
     public static RouteGroupBuilder MapStudioApi(this WebApplication app)
     {
         var api = app.MapGroup("/api/studio");
 
+        api.MapTenantApi();
         api.MapAspectApi();
         api.MapOperationsApi();
+        api.MapPortabilityApi();
+        api.MapQueryApi();
 
         api.MapGet("/definitions", GetDefinitionsAsync)
             .WithName("GetDefinitionSummaries");
@@ -32,15 +37,17 @@ internal static class EndpointMappings
     }
 
     private static async Task<IResult> GetDefinitionsAsync(
+        HttpContext http,
         IResourceDefinitionStore definitionStore,
         IResourceQueryService queryService,
         CancellationToken cancellationToken)
     {
-        var definitions = (await definitionStore.ListDefinitionsAsync(cancellationToken)).ToList();
+        var tenant = http.GetTenantScope();
+        var definitions = (await definitionStore.ListDefinitionsAsync(tenant, cancellationToken)).ToList();
         var summaries = new List<DefinitionSummaryDto>(definitions.Count);
         foreach (var definition in definitions)
         {
-            var resources = await queryService.QueryAsync(new ResourceQuery { DefinitionId = definition.DefinitionId }, cancellationToken);
+            var resources = await queryService.QueryAsync(new ResourceQuery { TenantScope = tenant, DefinitionId = definition.DefinitionId }, cancellationToken);
             summaries.Add(new DefinitionSummaryDto(
                 definition.DefinitionId,
                 definition.Version,
@@ -59,6 +66,7 @@ internal static class EndpointMappings
         int? take,
         [FromQuery] string[]? tag,
         string? lifecycle,
+        HttpContext http,
         IResourceDefinitionStore definitionStore,
         IResourceQueryService queryService,
         IResourceVersionHistoryService historyService,
@@ -67,7 +75,8 @@ internal static class EndpointMappings
         if (string.IsNullOrWhiteSpace(definitionId))
             return Results.BadRequest(new ErrorEnvelope("definitionId is required."));
 
-        if (await definitionStore.GetDefinitionAsync(definitionId, cancellationToken) is not { } definition)
+        var tenant = http.GetTenantScope();
+        if (await definitionStore.GetDefinitionAsync(definitionId, tenant, cancellationToken) is not { } definition)
             return Results.NotFound(new ErrorEnvelope($"Definition '{definitionId}' was not found."));
 
         if (!TryParseLifecycle(lifecycle, out var lifecycleState))
@@ -83,9 +92,10 @@ internal static class EndpointMappings
 
         var normalizedSkip = Math.Max(0, skip ?? 0);
         var normalizedTake = Math.Clamp(take ?? 20, 1, 100);
-        var all = (await queryService.QueryAsync(new ResourceQuery { DefinitionId = definitionId, Filter = filter, LifecycleState = lifecycleState }, cancellationToken)).ToList();
+        var all = (await queryService.QueryAsync(new ResourceQuery { TenantScope = tenant, DefinitionId = definitionId, Filter = filter, LifecycleState = lifecycleState }, cancellationToken)).ToList();
         var paged = (await queryService.QueryAsync(new ResourceQuery
         {
+            TenantScope = tenant,
             DefinitionId = definitionId,
             Filter = filter,
             LifecycleState = lifecycleState,
@@ -93,7 +103,7 @@ internal static class EndpointMappings
             Take = normalizedTake,
         }, cancellationToken)).ToList();
 
-        var histories = await GetHistoriesAsync(historyService, paged.Select(static resource => resource.ResourceId).ToList(), cancellationToken);
+        var histories = await GetHistoriesAsync(historyService, tenant, paged.Select(static resource => resource.ResourceId).ToList(), cancellationToken);
         var items = paged.Select(resource => new ResourceListItemDto(
             resource.ResourceId,
             resource.DefinitionId,
@@ -110,18 +120,19 @@ internal static class EndpointMappings
 
     private static async Task<Dictionary<string, ResourceVersionHistoryResult>> GetHistoriesAsync(
         IResourceVersionHistoryService historyService,
+        TenantScope tenant,
         IReadOnlyList<string> resourceIds,
         CancellationToken cancellationToken)
     {
         if (resourceIds.Count == 0)
             return new Dictionary<string, ResourceVersionHistoryResult>(StringComparer.Ordinal);
 
-        var result = await historyService.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest { ResourceIds = resourceIds }, cancellationToken);
+        var result = await historyService.GetHistoriesAsync(new ResourceVersionHistoryBatchRequest { TenantScope = tenant, ResourceIds = resourceIds }, cancellationToken);
         return result.Histories.ToDictionary(static history => history.ResourceId, StringComparer.Ordinal);
     }
 
     // "active" means no archive or soft-delete marker, as in the Aster endpoints' lifecycle filter.
-    private static bool TryParseLifecycle(string? value, out ResourceLifecycleMarkerState? state)
+    public static bool TryParseLifecycle(string? value, out ResourceLifecycleMarkerState? state)
     {
         state = null;
         switch (value?.ToLowerInvariant())
@@ -142,7 +153,7 @@ internal static class EndpointMappings
         }
     }
 
-    private static string GetTitle(Resource resource)
+    public static string GetTitle(Resource resource)
     {
         if (resource.Aspects.TryGetValue("content", out var content)
             && DemoJsonValues.ToFacetDictionary(content).TryGetValue("title", out var title)

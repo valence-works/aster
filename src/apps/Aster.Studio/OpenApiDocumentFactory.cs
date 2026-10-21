@@ -26,6 +26,13 @@ internal static class OpenApiDocumentFactory
             ["/api/studio/definitions/{definitionId}/policies/preview"] = Path(Post: Operation("Preview a definition's policies, with pruning protection per version")),
             ["/api/studio/policies/apply"] = Path(Post: Operation("Apply selected archive and soft-delete preview candidates")),
             ["/api/studio/policies/prune"] = Path(Post: Operation("Prune selected version-pruning preview candidates")),
+            ["/api/studio/tenants"] = Path(Get: Operation("List the tenants the X-Aster-Tenant header may name")),
+            ["/api/studio/portability/export"] = Path(Post: Operation("Export a snapshot from the request's tenant")),
+            ["/api/studio/portability/preview"] = Path(Post: Operation("Preview importing a snapshot into the request's tenant")),
+            ["/api/studio/portability/import"] = Path(Post: Operation("Import a snapshot into the request's tenant")),
+            ["/api/studio/query/capabilities"] = Path(Get: Operation("Get the active query provider's capabilities")),
+            ["/api/studio/query/validate"] = Path(Post: Operation("Validate a query builder query against the provider's capabilities")),
+            ["/api/studio/query"] = Path(Post: Operation("Run a query builder query that passes validation")),
         },
     };
 
