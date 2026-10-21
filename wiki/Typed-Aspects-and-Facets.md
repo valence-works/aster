@@ -40,6 +40,7 @@ The aspect key defaults to `typeof(T).Name` — i.e. `"TitleAspect"`, `"PriceAsp
 | `Guid` | `guid` |
 | `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `ISet<T>` (and similar) of a type above | `T[]`, e.g. `string[]` |
 | nested classes, records, structs, and dictionaries | `object` |
+| `string`, or a collection of strings, marked `[ReferenceFacet]` | `reference` or `reference[]` (see [Reference facets](#reference-facets)) |
 
 The facet ID is the property's `[JsonPropertyName]` when it has one, otherwise the property name, so it matches the key in stored JSON. Properties declared with the C# `required` modifier become required facets; for a collection, required means at least one element. Enum properties are not derived yet (#131). Also skipped: collections of nullable elements (`List<int?>`) or of nested types (`object[]` is not a facet type), properties typed as `object`, and types System.Text.Json writes as strings, such as `byte[]`, `TimeSpan`, `Uri` and types with a `[JsonConverter]`. Decorate a derived facet with metadata by ID:
 
@@ -96,7 +97,31 @@ var resolution = await referenceResolver.ResolveAsync(definition, "Links", "Secr
 // resolution.Status: Resolved, TargetNotFound, TargetTypeMismatch, or NotActiveInChannel
 ```
 
-`IResourceReferenceResolver` looks targets up in the given tenant only (cross-tenant references are not supported). With channel resolution, if several versions are active (activated with `allowMultipleActive: true`), the newest one wins. References are stored as plain strings, so they can be queried with `Equals`, `In` and the array operators. Per-value version pins are not supported (ADR 0002 §6): store an exact version in a sibling `int` facet when you need one. References are never derived from typed aspect properties; declare them explicitly.
+`IResourceReferenceResolver` looks targets up in the given tenant only (cross-tenant references are not supported). With channel resolution, if several versions are active (activated with `allowMultipleActive: true`), the newest one wins. References are stored as plain strings, so they can be queried with `Equals`, `In` and the array operators. Per-value version pins are not supported (ADR 0002 §6): store an exact version in a sibling `int` facet when you need one. References are never inferred from typed aspect properties; declare them explicitly, by hand as above or with `[ReferenceFacet]`.
+
+#### References in typed aspects
+
+Mark a `string` property, or a collection that would derive `string[]` (`string[]`, `List<string>`, `IReadOnlyList<string>` and the like), with `[ReferenceFacet]` to derive a `reference` or `reference[]` facet instead. The attribute takes the target definition IDs and an optional `ReferenceResolution`:
+
+```csharp
+public sealed record Agent
+{
+    public required string Name { get; init; }
+
+    [ReferenceFacet("Prompt")]
+    public required string Prompt { get; init; }
+
+    [ReferenceFacet("Tool", "Workflow", ReferenceResolution = "production")]
+    public string[] Tools { get; init; } = [];
+}
+
+new ResourceDefinitionBuilder()
+    .WithDefinitionId("Agent")
+    .WithAspect<Agent>()
+    .WithFacetMetadata(nameof(Agent.Tools), new FacetMetadata { UniqueItems = true });
+```
+
+The derived facets are the ones `WithFacet("Prompt", "reference", isRequired: true)` and `WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = ["Prompt"] })` would declare, so registration, [JSON Schema export](Json-Schema-Export) and save-time validation treat them the same. `[ReferenceFacet]` with no target IDs allows any definition. `WithFacetMetadata` on the facet keeps the attribute's `TargetDefinitionIds` and `ReferenceResolution` unless the new metadata declares its own. On any other property type, or one with its own `[JsonConverter]`, `WithAspect<T>()` (and `AspectDefinitionBuilder.FromType<T>()`) throws `InvalidOperationException` naming the property.
 
 #### Save-time reference validation
 

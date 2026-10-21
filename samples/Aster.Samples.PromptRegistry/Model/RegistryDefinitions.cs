@@ -34,17 +34,13 @@ public static class RegistryDefinitions
         .Build();
 
     /// <summary>
-    /// An agent. Facets are declared one by one, because Aster never infers references: a string
-    /// property derives a <c>string</c> facet, and a derived facet's type cannot be changed.
+    /// An agent; facets are derived from <see cref="Agent"/>, whose <c>[ReferenceFacet]</c> properties
+    /// become <c>reference</c> and <c>reference[]</c> facets with their target definitions.
     /// </summary>
     public static ResourceDefinition AgentDefinition() => new ResourceDefinitionBuilder()
         .WithDefinitionId(AgentId)
-        .WithAspect(AgentId)
-        .WithFacet(nameof(Agent.Name), "string", isRequired: true)
-        .WithFacet(nameof(Agent.Prompt), "reference", isRequired: true)
-        .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = [PromptId] })
-        .WithFacet(nameof(Agent.Tools), "reference[]")
-        .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = [ToolId], UniqueItems = true })
+        .WithAspect<Agent>()
+        .WithFacetMetadata(nameof(Agent.Tools), new FacetMetadata { UniqueItems = true })
         .Build();
 
     /// <summary>Registers the three definitions.</summary>
