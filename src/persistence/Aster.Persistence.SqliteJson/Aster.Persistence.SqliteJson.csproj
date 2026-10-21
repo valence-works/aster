@@ -23,6 +23,11 @@
     <ProjectReference Include="..\..\core\Aster.Core\Aster.Core.csproj" />
   </ItemGroup>
 
+  <!-- The relational store core (ADR 0004), compiled into each relational provider as internal source. -->
+  <ItemGroup>
+    <Compile Include="..\Relational\**\*.cs" LinkBase="Relational" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.21" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
