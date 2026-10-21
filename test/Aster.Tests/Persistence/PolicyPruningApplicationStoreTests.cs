@@ -115,9 +115,6 @@ public abstract class PolicyPruningApplicationStoreTests(IAsterTestDatabase data
         // Separate providers, as separate processes would have.
         await using var first = Database.CreateProvider();
         await using var second = Database.CreateProvider();
-        // Resolved up front, so the race is between the prunes rather than the providers' schema startup.
-        _ = first.GetRequiredService<IResourcePolicyPruningApplicationService>();
-        _ = second.GetRequiredService<IResourcePolicyPruningApplicationService>();
         var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var races = Enumerable.Range(0, Resources).Select(index => Task.WhenAll(
             PruneAsync(first, $"raced-{index}", 1),
