@@ -180,8 +180,7 @@ internal sealed record DefinitionPoliciesDto(
 internal sealed record PolicyPreviewRequestDto(DateTimeOffset? EvaluationTimestamp);
 
 /// <summary>
-/// A policy preview candidate. Version-pruning candidates carry their version's history entry, which says
-/// whether pruning must protect it.
+/// A policy preview candidate. Pruning previews leave out versions pruning protects and report them as diagnostics.
 /// </summary>
 internal sealed record PolicyPreviewCandidateDto(
     string PolicyId,
@@ -189,8 +188,7 @@ internal sealed record PolicyPreviewCandidateDto(
     ResourcePolicyOutcome Outcome,
     string ResourceId,
     int? ResourceVersion,
-    string Reason,
-    ResourceVersionSummary? TargetVersion);
+    string Reason);
 
 internal sealed record PolicyPreviewDto(
     ResourcePolicyPreviewSummary Summary,

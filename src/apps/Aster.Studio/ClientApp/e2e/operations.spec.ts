@@ -96,7 +96,7 @@ test("previews policies and applies archive outcomes, rejecting a stale candidat
   await expect(lifecycle(page).getByText("archived", { exact: true })).toBeVisible();
 });
 
-test("prunes an unprotected version and shows active ones as protected", async ({ page }) => {
+test("prunes an unprotected version and reports active ones as protected", async ({ page }) => {
   const title = unique("Pruned article");
   const resourceId = await createArticle(page, title);
   await saveNewVersion(page, `${title} v2`, 2);
@@ -104,10 +104,9 @@ test("prunes an unprotected version and shows active ones as protected", async (
   await setChannel(page, 2, "Activate", "live");
 
   await runPolicyPreview(page);
-  const active = candidates(page).getByRole("row").filter({ has: page.getByRole("checkbox", { name: `Select keep-latest-version for ${resourceId} v2` }) });
-  await expect(active.getByText("protected", { exact: true })).toBeVisible();
-  await expect(active.getByText("active on live")).toBeVisible();
-  await expect(active.getByRole("checkbox")).toBeDisabled();
+  // The preview leaves the active version out and reports it, so pruning never meets the refusal (#187).
+  await expect(candidates(page).getByRole("checkbox", { name: `Select keep-latest-version for ${resourceId} v2` })).toHaveCount(0);
+  await expect(diagnostics(page).getByText("policy-pruning-version-protected-active").first()).toBeVisible();
 
   await candidates(page).getByRole("checkbox", { name: `Select keep-latest-version for ${resourceId} v1` }).check();
   await page.getByRole("button", { name: "Prune 1 versions" }).click();

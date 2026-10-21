@@ -69,7 +69,7 @@ Playwright drives the core flows end to end:
 `e2e/operations.spec.ts` covers the operations screens (#111):
 - archive, the lifecycle filter, and restore, including a restore preview that went stale (`lifecycle-restore-marker-mismatch`)
 - policy preview and archive application, including a stale candidate (`policy-application-stale-candidate`)
-- version pruning, with active versions shown as protected
+- version pruning; active versions are left out of the preview and reported as `policy-pruning-version-protected-active`
 - a schema upgrade that carries an undeclared aspect forward
 - historical activation and maintenance hints
 
@@ -95,7 +95,7 @@ database in a temporary directory, so runs never touch `App_Data`. CI runs the s
 | Resource editor | **Centerpiece** — form generated 100% from facet metadata (uiHints, ordering, constraints); server diagnostics map to fields |
 | Operations (resource editor) | Archive or soft-delete through `IResourceLifecycleMarkerService`; restore after a preview through `IResourceLifecycleRestoreService`; schema status from `IResourceSchemaVersionService` and an explicit upgrade that reports the carried-forward aspect keys |
 | Version history | Immutable versions with maintenance hints from `IResourceVersionHistoryService` (protected or possible prune candidate) and the definition version each was saved against; activate/deactivate any version on preview/live, including historical activation that leaves latest alone |
-| Policies (content type detail) | The definition's policy declarations and their validation; a preview as of any date; apply selected archive or soft-delete outcomes, or prune selected versions, with latest and active versions shown as protected. Results show each candidate's status and diagnostic codes |
+| Policies (content type detail) | The definition's policy declarations and their validation; a preview as of any date; apply selected archive or soft-delete outcomes, or prune selected versions. The preview leaves out the versions pruning protects and lists them as diagnostics. Results show each candidate's status and diagnostic codes |
 
 ## API
 
