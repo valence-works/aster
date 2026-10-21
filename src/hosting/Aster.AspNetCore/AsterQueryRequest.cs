@@ -108,6 +108,13 @@ internal static class AsterQueryTranslator
         if (request.Skip is < 0 || request.Take is < 0 || request.Take > maxTake)
             return Fail(out error, "query-paging-invalid", "take", $"Skip must not be negative and take must be between 0 and {maxTake}.");
 
+        var sorts = request.Sort ?? [];
+        for (var index = 0; index < sorts.Count; index++)
+        {
+            if (sorts[index] is null || string.IsNullOrWhiteSpace(sorts[index].Field))
+                return Fail(out error, "query-sort-invalid", $"sort[{index}].field", "Each sort entry needs a field.");
+        }
+
         FilterExpression? filter = null;
         if (request.Filter is { } wireFilter && !TryTranslate(wireFilter, "filter", depth: 0, out filter, out error))
             return false;
@@ -120,9 +127,9 @@ internal static class AsterQueryTranslator
             ActivationChannel = request.Channel,
             LifecycleState = lifecycle,
             Filter = filter,
-            Sorts = request.Sort?
+            Sorts = sorts
                 .Select(static sort => new SortExpression(sort.Field, sort.Descending ? SortDirection.Descending : SortDirection.Ascending, sort.Aspect))
-                .ToList() ?? [],
+                .ToList(),
             Skip = request.Skip,
             Take = request.Take ?? defaultTake,
         };
@@ -178,7 +185,10 @@ internal static class AsterQueryTranslator
             var items = (isAnd ? filter.And : filter.Or)!;
             for (var index = 0; index < items.Count; index++)
             {
-                if (!TryTranslate(items[index], $"{path}.{(isAnd ? "and" : "or")}[{index}]", depth + 1, out var operand, out error))
+                var itemPath = $"{path}.{(isAnd ? "and" : "or")}[{index}]";
+                if (items[index] is null)
+                    return Fail(out error, "query-filter-invalid", itemPath, "Filter operands must not be null.");
+                if (!TryTranslate(items[index], itemPath, depth + 1, out var operand, out error))
                     return false;
                 operands.Add(operand!);
             }

@@ -10,6 +10,10 @@ builder.Services.AddAsterSqliteJson(options => options.ConnectionString = "Data 
 builder.Services.AddSingleton<ITenantScopeAccessor, MyTenantAccessor>();      // default: TenantScope.Default
 builder.Services.AddSingleton<IAsterResourceAuthorizer, MyResourceAuthorizer>(); // default: allow all
 
+// The host owns authorization; register every policy named below.
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("aster-admin", policy => policy.RequireRole("aster-admin")));
+
 var app = builder.Build();
 app.MapAster("/api/aster", options =>
 {

@@ -306,6 +306,14 @@ public sealed class AsterEndpointsTests : IAsyncLifetime
         var twoShapes = await client.PostAsJsonAsync("/api/aster/resources/query", new { filter = new { exists = "Content", field = "ResourceId" } }, Web);
         Assert.Equal("query-filter-invalid", (await ReadAsync(twoShapes)).GetProperty("diagnostics")[0].GetProperty("code").GetString());
 
+        var nullSort = await client.PostAsJsonAsync("/api/aster/resources/query", new { sort = new object?[] { null } }, Web);
+        Assert.Equal(HttpStatusCode.BadRequest, nullSort.StatusCode);
+        Assert.Equal("query-sort-invalid", (await ReadAsync(nullSort)).GetProperty("diagnostics")[0].GetProperty("code").GetString());
+
+        var nullOperand = await client.PostAsJsonAsync("/api/aster/resources/query", new { filter = new { and = new object?[] { null } } }, Web);
+        Assert.Equal(HttpStatusCode.BadRequest, nullOperand.StatusCode);
+        Assert.Equal("query-filter-invalid", (await ReadAsync(nullOperand)).GetProperty("diagnostics")[0].GetProperty("code").GetString());
+
         var tooLarge = await client.PostAsJsonAsync("/api/aster/resources/query", new { take = 501 }, Web);
         Assert.Equal(HttpStatusCode.BadRequest, tooLarge.StatusCode);
     }

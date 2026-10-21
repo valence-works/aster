@@ -6,6 +6,10 @@
 builder.Services.AddAsterCore();
 builder.Services.AddAsterSqliteJson(options => options.ConnectionString = "Data Source=aster.db");
 
+// The host owns authorization; register every policy named below.
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("aster-admin", policy => policy.RequireRole("aster-admin")));
+
 var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
