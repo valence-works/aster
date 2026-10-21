@@ -19,8 +19,11 @@ type MarkState = Exclude<LifecycleState, "none">;
 const errorDiagnostics = (error: unknown): CodedDiagnostic[] =>
   error instanceof ApiError && error.diagnostics ? error.diagnostics : [{ code: "request-failed", message: error instanceof Error ? error.message : String(error) }];
 
-/** Lifecycle markers and schema status for one resource, through Studio's operations endpoints (#111). */
-export function ResourceOperationsPanel({ resourceId, latestVersion, onChanged }: { resourceId: string; latestVersion: number; onChanged: () => void }) {
+/**
+ * Lifecycle markers and schema status for one resource, through Studio's operations endpoints (#111).
+ * `editedAgainst` is the definition version the editor's form is rendered from (#191).
+ */
+export function ResourceOperationsPanel({ resourceId, latestVersion, editedAgainst, onChanged }: { resourceId: string; latestVersion: number; editedAgainst: number; onChanged: () => void }) {
   const state = useAsync(async () => ({ lifecycle: await api.getLifecycle(resourceId), schema: await api.getSchemaStatus(resourceId) }), [resourceId, latestVersion]);
   // Kept here: an upgrade appends a version, which reloads the sections below.
   const [lastUpgrade, setLastUpgrade] = useState<SchemaUpgradeResultDto | null>(null);
@@ -34,7 +37,7 @@ export function ResourceOperationsPanel({ resourceId, latestVersion, onChanged }
       <CardHeader><CardTitle className="flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" />Operations</CardTitle><CardDescription>Lifecycle markers sit beside the immutable versions; a schema upgrade appends one.</CardDescription></CardHeader>
       <CardContent className="space-y-5">
         <LifecycleSection resourceId={resourceId} state={lifecycle.state} markedAt={lifecycle.markedAt} reason={lifecycle.reason} onChanged={state.reload} />
-        <SchemaSection schema={schema} lastUpgrade={lastUpgrade} onUpgraded={(result) => { setLastUpgrade(result); onChanged(); }} />
+        <SchemaSection schema={schema} editedAgainst={editedAgainst} lastUpgrade={lastUpgrade} onUpgraded={(result) => { setLastUpgrade(result); onChanged(); }} />
       </CardContent>
     </Card>
   );
@@ -144,7 +147,7 @@ const schemaLabels: Record<SchemaStatusDto["status"], string> = {
   "unknown-resource-lineage": "unknown lineage",
 };
 
-function SchemaSection({ schema, lastUpgrade, onUpgraded }: { schema: SchemaStatusDto; lastUpgrade: SchemaUpgradeResultDto | null; onUpgraded: (result: SchemaUpgradeResultDto) => void }) {
+function SchemaSection({ schema, editedAgainst, lastUpgrade, onUpgraded }: { schema: SchemaStatusDto; editedAgainst: number; lastUpgrade: SchemaUpgradeResultDto | null; onUpgraded: (result: SchemaUpgradeResultDto) => void }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [diagnostics, setDiagnostics] = useState<CodedDiagnostic[]>([]);
@@ -171,6 +174,7 @@ function SchemaSection({ schema, lastUpgrade, onUpgraded }: { schema: SchemaStat
       <p className="text-xs text-muted-foreground">v{schema.resourceVersion} was saved against definition v{schema.recordedDefinitionVersion ?? "?"}; the latest is v{schema.latestDefinitionVersion ?? "?"}.</p>
       {keys.length ? <p className="text-xs text-muted-foreground">{schema.status === "older-than-latest" ? "Carried forward on upgrade" : "Carried forward, not declared"}: {keys.map((key) => <Badge key={key} variant="facet" className="mr-1">{key}</Badge>)}</p> : null}
       {lastUpgrade ? <p className="text-xs text-muted-foreground">Last upgrade: {lastUpgrade.status}, definition v{lastUpgrade.sourceDefinitionVersion ?? "?"} → v{lastUpgrade.targetDefinitionVersion}, carried forward {lastUpgrade.carriedForwardAspectKeys.length ? lastUpgrade.carriedForwardAspectKeys.join(", ") : "nothing"}.</p> : null}
+      {schema.latestDefinitionVersion !== null && editedAgainst < schema.latestDefinitionVersion ? <p role="status" className="text-xs font-medium">Edited against v{editedAgainst}; v{schema.latestDefinitionVersion} available. The form and the save both use v{editedAgainst} until you upgrade.</p> : null}
       {schema.status === "older-than-latest" ? <Button size="sm" variant="outline" onClick={() => setConfirming(true)}><ArrowUpCircle className="h-4 w-4" />Upgrade to definition v{schema.latestDefinitionVersion}</Button> : null}
       <Dialog open={confirming} onOpenChange={(open) => { if (!open) { setConfirming(false); setDiagnostics([]); } }}>
         <DialogContent>
