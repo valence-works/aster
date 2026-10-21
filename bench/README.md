@@ -10,7 +10,7 @@ From the repository root (BenchmarkDotNet locates the project from the working d
 dotnet run -c Release --project bench/Aster.Benchmarks -- --filter '*'
 ```
 
-- **Data size:** `ASTER_BENCH_VERSIONS` is a comma-separated list of total seeded resource versions. The default is `10000`. Example: `ASTER_BENCH_VERSIONS=10000,100000`.
+- **Data size:** `ASTER_BENCH_VERSIONS` is a comma-separated list of total seeded resource versions: 100 authors plus a whole number of 4-version articles, so 100 plus a multiple of 4. Other totals are rejected. The default is `10000`. Example: `ASTER_BENCH_VERSIONS=10000,100000`.
 - **Job:** the default is `short` (3 warmups, 3 iterations). Pass `--job default` for publication-grade statistics, or `--job dry` to smoke-test every scenario.
 - **Scope:** narrow a run with `--filter '*Query*'`, `--filter '*Resource*'` or `--filter '*Portability*'`.
 - **Output:** results land in `BenchmarkDotNet.Artifacts/` as GitHub Markdown and JSON.

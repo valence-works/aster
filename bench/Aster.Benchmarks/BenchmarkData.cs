@@ -44,6 +44,15 @@ internal sealed class BenchmarkData : IAsyncDisposable
 
     public static async Task<BenchmarkData> CreateAsync(ProviderKind provider, int totalVersions)
     {
+        // The data set is the authors plus whole articles; refuse totals it can't hit exactly.
+        if (totalVersions < Authors + VersionsPerArticle || (totalVersions - Authors) % VersionsPerArticle != 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(totalVersions),
+                totalVersions,
+                $"Total versions must be {Authors} plus a positive multiple of {VersionsPerArticle} (for example 10000, 100000 or 1000000).");
+        }
+
         var services = new ServiceCollection().AddAsterCore();
         string? databasePath = null;
         if (provider == ProviderKind.Sqlite)
@@ -52,7 +61,7 @@ internal sealed class BenchmarkData : IAsyncDisposable
             services.AddAsterSqliteJson(options => options.ConnectionString = $"Data Source={databasePath}");
         }
 
-        var data = new BenchmarkData(services.BuildServiceProvider(), databasePath, Math.Max(1, (totalVersions - Authors) / VersionsPerArticle));
+        var data = new BenchmarkData(services.BuildServiceProvider(), databasePath, (totalVersions - Authors) / VersionsPerArticle);
         await data.SeedAsync();
         if (databasePath is not null)
             CheckpointWal(databasePath);
