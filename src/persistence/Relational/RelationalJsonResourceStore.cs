@@ -303,7 +303,15 @@ internal abstract class RelationalJsonResourceStore :
         };
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        // Same lock as PruneVersionAsync, so a version can't become active between prune's "not active" check
+        // and its delete.
+        await using var transaction = await dialect.BeginSerializedWriteAsync(
+            connection,
+            ResourceVersionsLockKey(tenant, resourceId),
+            cancellationToken);
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"""
             INSERT INTO activation_states (tenant_id, resource_id, channel, payload)
             VALUES (@tenantId, @resourceId, @channel, {payloadSql})
@@ -316,6 +324,7 @@ internal abstract class RelationalJsonResourceStore :
         Add(command, "@payload", Serialize(scopedState));
 
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return scopedState;
     }
 
@@ -353,7 +362,13 @@ internal abstract class RelationalJsonResourceStore :
         var tenant = TenantScopeResolver.Resolve(tenantScope);
 
         await using var connection = await OpenConnectionAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        // The exists, latest and active checks and the delete must not interleave with an activation of this
+        // resource (UpdateActivationAsync takes the same lock). A concurrent save only adds a newer version.
+        await using var transaction = await dialect.BeginSerializedWriteAsync(
+            connection,
+            ResourceVersionsLockKey(tenant, resourceId),
+            cancellationToken);
 
         var targetExists = await ResourceVersionExistsAsync(connection, transaction, tenant, resourceId, resourceVersion, cancellationToken);
         if (!targetExists)
@@ -1526,6 +1541,9 @@ internal abstract class RelationalJsonResourceStore :
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    private static string ResourceVersionsLockKey(TenantScope tenant, string resourceId) =>
+        $"resource_versions/{tenant.TenantId}/{resourceId}";
 
     private ValueTask<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) =>
         dialect.OpenConnectionAsync(cancellationToken);
