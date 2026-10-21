@@ -142,7 +142,10 @@ public static class ResourcePolicyDiagnosticCodes
     /// <summary>Policy pruning application target is the latest version.</summary>
     public const string PolicyPruningVersionProtectedLatest = "policy-pruning-version-protected-latest";
 
-    /// <summary>Policy pruning application target is active in at least one channel.</summary>
+    /// <summary>
+    /// Policy pruning application target is active in at least one channel. Previews report it, without proposing
+    /// the version, for versions outside the retained count that are active.
+    /// </summary>
     public const string PolicyPruningVersionProtectedActive = "policy-pruning-version-protected-active";
 
     /// <summary>Policy pruning application candidate references a missing current policy declaration.</summary>
