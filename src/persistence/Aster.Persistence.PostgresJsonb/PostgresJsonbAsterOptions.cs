@@ -1,3 +1,5 @@
+using Aster.Core.Models.Querying;
+
 namespace Aster.Persistence.PostgresJsonb;
 
 /// <summary>
@@ -16,4 +18,11 @@ public sealed class PostgresJsonbAsterOptions
     /// deployment step through <c>IInfrastructureRunner</c>; the provider then never changes the schema itself.
     /// </summary>
     public bool InitializeSchema { get; set; } = true;
+
+    /// <summary>
+    /// Gets the index projections to back with physical indexes. The infrastructure runner creates an index for each
+    /// declared projection and drops the indexes of projections no longer declared; queries over a projected
+    /// facet or metadata field can then use it. Declaring a projection never changes query results.
+    /// </summary>
+    public IList<IndexProjection> IndexProjections { get; } = new List<IndexProjection>();
 }

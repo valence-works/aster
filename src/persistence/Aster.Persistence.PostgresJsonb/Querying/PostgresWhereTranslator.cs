@@ -8,16 +8,24 @@ namespace Aster.Persistence.PostgresJsonb.Querying;
 /// <summary>
 /// Translates a filter to a parameterized predicate over <c>rv.payload</c>. It mirrors the SQLite translation
 /// predicate for predicate, including where SQL's NULL logic makes a missing facet NULL rather than false, so the
-/// two providers return the same rows under NOT as well.
+/// two providers return the same rows under NOT as well. Where a declared index projection covers a predicate that
+/// isn't negated, an index-matching conjunct is added beside it (<see cref="PostgresIndexConjuncts"/>).
 /// </summary>
-internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
+internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters, PostgresIndexConjuncts conjuncts)
 {
-    public string Translate(FilterExpression expression) => expression switch
+    public PostgresWhereTranslator(PostgresParameterBag parameters)
+        : this(parameters, new PostgresIndexConjuncts(parameters, []))
     {
-        MetadataFilter metadata => TranslateMetadata(metadata),
+    }
+
+    public string Translate(FilterExpression expression) => Translate(expression, positive: true);
+
+    private string Translate(FilterExpression expression, bool positive) => expression switch
+    {
+        MetadataFilter metadata => WithIndex(TranslateMetadata(metadata), metadata, positive),
         AspectPresenceFilter aspect => TranslateAspectPresence(aspect),
-        FacetValueFilter facet => TranslateFacetValue(facet),
-        LogicalExpression logical => TranslateLogical(logical),
+        FacetValueFilter facet => WithIndex(TranslateFacetValue(facet), facet, positive),
+        LogicalExpression logical => TranslateLogical(logical, positive),
         _ => throw Unsupported(
             "unsupported-filter-type",
             "predicate",
@@ -86,11 +94,16 @@ internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
         };
     }
 
-    private string TranslateLogical(LogicalExpression expression) => expression.Operator switch
+    // The conjunct is implied by the predicate, so adding it changes no result; under NOT it could turn a NULL into
+    // false, so it is only added where the predicate isn't negated.
+    private string WithIndex(string predicate, FilterExpression filter, bool positive) =>
+        positive && conjuncts.For(filter) is { } conjunct ? $"({predicate}) AND ({conjunct})" : predicate;
+
+    private string TranslateLogical(LogicalExpression expression, bool positive) => expression.Operator switch
     {
-        LogicalOperator.And => JoinLogical("AND", expression.Operands),
-        LogicalOperator.Or => JoinLogical("OR", expression.Operands),
-        LogicalOperator.Not when expression.Operands is [var operand] => $"NOT ({Translate(operand)})",
+        LogicalOperator.And => JoinLogical("AND", expression.Operands, positive),
+        LogicalOperator.Or => JoinLogical("OR", expression.Operands, positive),
+        LogicalOperator.Not when expression.Operands is [var operand] => $"NOT ({Translate(operand, !positive)})",
         LogicalOperator.Not => throw Unsupported(
             "invalid-not-operands",
             "logical expression",
@@ -103,7 +116,7 @@ internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
             "Filter.Operator")
     };
 
-    private string JoinLogical(string sqlOperator, IReadOnlyList<FilterExpression> operands)
+    private string JoinLogical(string sqlOperator, IReadOnlyList<FilterExpression> operands, bool positive)
     {
         if (operands.Count == 0)
             throw Unsupported(
@@ -112,7 +125,7 @@ internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
                 $"{sqlOperator} logical expressions require at least one operand.",
                 "Filter.Operands");
 
-        return string.Join($" {sqlOperator} ", operands.Select(operand => $"({Translate(operand)})"));
+        return string.Join($" {sqlOperator} ", operands.Select(operand => $"({Translate(operand, positive)})"));
     }
 
     private string FacetEquals(PostgresFacetValue value, object? expected) =>
@@ -137,7 +150,7 @@ internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
 
     private string DateTimeRange(PostgresFacetValue value, RangeValue range)
     {
-        var key = PostgresDateKey.Sql($"{value.Json} #>> '{{}}'");
+        var key = value.DateKey;
         var bounds = new List<string> { $"{key} IS NOT NULL" };
         if (range.Min is not null)
             bounds.Add($"{key} COLLATE \"C\" {(range.IncludeMin ? ">=" : ">")} {parameters.Add(ConvertToDateKey(range.Min, "minimum range bound", "Filter.Value.Min"))}");
@@ -174,7 +187,7 @@ internal sealed class PostgresWhereTranslator(PostgresParameterBag parameters)
         QueryArrayElementKind.Boolean =>
             candidate is true ? "element.value = 'true'::jsonb" : "element.value = 'false'::jsonb",
         _ =>
-            $"jsonb_typeof(element.value) = 'string' AND {PostgresDateKey.Sql("element.value #>> '{}'")} = {parameters.Add(ConvertToDateKey(candidate!, "array candidate", "Filter.Value"))}",
+            $"jsonb_typeof(element.value) = 'string' AND aster_date_key(element.value #>> '{{}}') = {parameters.Add(ConvertToDateKey(candidate!, "array candidate", "Filter.Value"))}",
     };
 
     // A NULL expected value equals only a NULL actual value, as string.Equals(null, null) does.

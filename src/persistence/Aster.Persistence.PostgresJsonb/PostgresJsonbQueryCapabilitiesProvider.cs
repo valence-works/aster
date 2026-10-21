@@ -13,8 +13,26 @@ internal sealed class PostgresJsonbQueryCapabilitiesProvider : IResourceQueryCap
     /// </summary>
     public const string ProviderKey = "postgres-jsonb";
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="PostgresJsonbQueryCapabilitiesProvider"/> without index projections.
+    /// </summary>
+    public PostgresJsonbQueryCapabilitiesProvider()
+        : this(new PostgresJsonbAsterOptions())
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="PostgresJsonbQueryCapabilitiesProvider"/> that reports the provider's
+    /// declared index projections, each backed by a physical index.
+    /// </summary>
+    /// <param name="options">Provider options.</param>
+    public PostgresJsonbQueryCapabilitiesProvider(PostgresJsonbAsterOptions options) =>
+        Capabilities = Base with { IndexProjections = options.IndexProjections.ToList() };
+
     /// <inheritdoc />
-    public QueryCapabilityDescription Capabilities { get; } = new(
+    public QueryCapabilityDescription Capabilities { get; }
+
+    private static readonly QueryCapabilityDescription Base = new(
         ProviderKey: ProviderKey,
         ProviderName: "PostgreSQL JSONB",
         SupportedScopes: new HashSet<ResourceVersionScope>

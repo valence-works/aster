@@ -1,4 +1,6 @@
 using Aster.Core.Abstractions;
+using Aster.Core.Models.Querying;
+using Aster.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aster.Persistence.PostgresJsonb;
@@ -26,6 +28,7 @@ public static class PostgresJsonbAsterServiceCollectionExtensions
         var options = new PostgresJsonbAsterOptions();
         configure(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.ConnectionString, nameof(PostgresJsonbAsterOptions.ConnectionString));
+        ValidateIndexProjections(options);
 
         services.AddSingleton(options);
         services.AddSingleton<PostgresJsonbDataSource>();
@@ -50,5 +53,19 @@ public static class PostgresJsonbAsterServiceCollectionExtensions
         services.AddSingleton<IResourceQueryCapabilitiesProvider>(sp => sp.GetRequiredService<PostgresJsonbQueryCapabilitiesProvider>());
 
         return services;
+    }
+
+    // Fail at registration rather than at the first schema run: an index the provider can't build is a host error.
+    private static void ValidateIndexProjections(PostgresJsonbAsterOptions options)
+    {
+        var validation = new IndexProjectionValidator().Validate(options.IndexProjections);
+        if (!validation.IsValid)
+        {
+            throw new ArgumentException(
+                "Invalid index projections: " + string.Join("; ", validation.Failures.Select(static failure => $"{failure.FieldName}: {failure.Code} ({failure.Message})")),
+                nameof(options));
+        }
+
+        _ = PostgresProjectionIndexes.Plan(options.IndexProjections);
     }
 }

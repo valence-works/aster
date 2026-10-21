@@ -31,20 +31,25 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
 
     private readonly NpgsqlDataSource dataSource;
     private readonly IReadOnlyList<PostgresJsonbInfrastructureStep> steps;
+    private readonly IReadOnlyList<PostgresProjectionIndex> indexes;
     private readonly object startupGate = new();
     private Task? startup;
 
-    public PostgresJsonbInfrastructureRunner(PostgresJsonbDataSource dataSource)
-        : this(dataSource.Value, PostgresJsonbSchema.Steps)
+    public PostgresJsonbInfrastructureRunner(PostgresJsonbDataSource dataSource, PostgresJsonbAsterOptions options)
+        : this(dataSource.Value, PostgresJsonbSchema.Steps, PostgresProjectionIndexes.Plan(options.IndexProjections))
     {
     }
 
-    internal PostgresJsonbInfrastructureRunner(NpgsqlDataSource dataSource, IReadOnlyList<PostgresJsonbInfrastructureStep> steps)
+    internal PostgresJsonbInfrastructureRunner(
+        NpgsqlDataSource dataSource,
+        IReadOnlyList<PostgresJsonbInfrastructureStep> steps,
+        IReadOnlyList<PostgresProjectionIndex>? indexes = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(steps);
         this.dataSource = dataSource;
         this.steps = steps;
+        this.indexes = indexes ?? [];
     }
 
     /// <summary>
@@ -113,6 +118,25 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
             appliedNow.Add(new(step.Id, step.Description));
         }
 
+        // Projection indexes aren't recorded: the catalog is their record, so creating the declared ones and dropping
+        // the rest converges on the declaration whatever happened before.
+        var existing = await ReadProjectionIndexNamesAsync(connection, transaction, cancellationToken);
+        foreach (var index in indexes.Where(index => !existing.Contains(index.Name)))
+        {
+            await using (var command = new NpgsqlCommand(index.Sql, connection, transaction))
+                await command.ExecuteNonQueryAsync(cancellationToken);
+
+            appliedNow.Add(index.CreateStep);
+        }
+
+        foreach (var name in Undeclared(existing))
+        {
+            await using (var command = new NpgsqlCommand($"DROP INDEX IF EXISTS \"{name.Replace("\"", "\"\"", StringComparison.Ordinal)}\";", connection, transaction))
+                await command.ExecuteNonQueryAsync(cancellationToken);
+
+            appliedNow.Add(PostgresProjectionIndex.DropStep(name));
+        }
+
         await transaction.CommitAsync(cancellationToken);
         return appliedNow;
     }
@@ -120,8 +144,9 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     /// <inheritdoc />
     public async ValueTask<IReadOnlyList<InfrastructureStep>> GetPendingAsync(CancellationToken cancellationToken = default)
     {
-        var applied = (await GetAppliedAsync(cancellationToken)).Select(static step => step.Id).ToHashSet(StringComparer.Ordinal);
-        return steps.Where(step => !applied.Contains(step.Id)).Select(static step => new InfrastructureStep(step.Id, step.Description)).ToList();
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        var applied = (await ReadAppliedAsync(connection, transaction: null, cancellationToken)).Select(static step => step.Id).ToHashSet(StringComparer.Ordinal);
+        return [.. PendingSteps(applied), .. await PendingIndexStepsAsync(connection, cancellationToken)];
     }
 
     /// <inheritdoc />
@@ -134,12 +159,52 @@ internal sealed class PostgresJsonbInfrastructureRunner : IInfrastructureRunner
     /// <inheritdoc />
     public async ValueTask<InfrastructureVerification> VerifyAsync(CancellationToken cancellationToken = default)
     {
-        var applied = await GetAppliedAsync(cancellationToken);
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        var applied = await ReadAppliedAsync(connection, transaction: null, cancellationToken);
         var known = steps.Select(static step => step.Id).ToHashSet(StringComparer.Ordinal);
         var appliedIds = applied.Select(static step => step.Id).ToHashSet(StringComparer.Ordinal);
         return new(
-            steps.Where(step => !appliedIds.Contains(step.Id)).Select(static step => new InfrastructureStep(step.Id, step.Description)).ToList(),
+            [.. PendingSteps(appliedIds), .. await PendingIndexStepsAsync(connection, cancellationToken)],
             applied.Select(static step => step.Id).Where(id => !known.Contains(id)).ToList());
+    }
+
+    private IEnumerable<InfrastructureStep> PendingSteps(IReadOnlySet<string> applied) =>
+        steps.Where(step => !applied.Contains(step.Id)).Select(static step => new InfrastructureStep(step.Id, step.Description));
+
+    private async Task<IEnumerable<InfrastructureStep>> PendingIndexStepsAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
+    {
+        var existing = await ReadProjectionIndexNamesAsync(connection, transaction: null, cancellationToken);
+        return indexes
+            .Where(index => !existing.Contains(index.Name))
+            .Select(static index => index.CreateStep)
+            .Concat(Undeclared(existing).Select(PostgresProjectionIndex.DropStep));
+    }
+
+    private IEnumerable<string> Undeclared(IReadOnlySet<string> existing)
+    {
+        var declared = indexes.Select(static index => index.Name).ToHashSet(StringComparer.Ordinal);
+        return existing.Where(name => !declared.Contains(name)).Order(StringComparer.Ordinal);
+    }
+
+    private static async Task<HashSet<string>> ReadProjectionIndexNamesAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT indexname FROM pg_indexes
+            WHERE schemaname = current_schema() AND tablename = 'resource_versions' AND starts_with(indexname, @prefix);
+            """,
+            connection,
+            transaction);
+        command.Parameters.AddWithValue("prefix", PostgresProjectionIndexes.NamePrefix);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        while (await reader.ReadAsync(cancellationToken))
+            names.Add(reader.GetString(0));
+
+        return names;
     }
 
     // Read-only: a database that was never initialized has no steps table and so no applied steps.
