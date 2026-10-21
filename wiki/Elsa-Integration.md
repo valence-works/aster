@@ -1,6 +1,6 @@
 # Elsa Integration
 
-`Aster.Elsa` is an [Elsa Workflows](https://github.com/elsa-workflows/elsa-core) 3 module: activities that work on Aster resources from a workflow. It supports Elsa 3.9.0 and later 3.x releases (`[3.9.0, 4.0.0)`), on .NET 8, 9 and 10. The decisions behind it are in the [module design](https://github.com/valence-works/aster/blob/main/docs/consumers/elsa-module-design.md).
+`Aster.Elsa` is an [Elsa Workflows](https://github.com/elsa-workflows/elsa-core) 3 module: activities that work on Aster resources from a workflow. `Aster.Elsa.Studio` is its [Elsa Studio](#elsa-studio) counterpart: resource lists and editors in the Studio. Both support Elsa 3.9.0 and later 3.x releases (`[3.9.0, 4.0.0)`), on .NET 8, 9 and 10. The decisions behind them are in the [module design](https://github.com/valence-works/aster/blob/main/docs/consumers/elsa-module-design.md).
 
 ## Registration
 
@@ -48,7 +48,7 @@ Create Resource and Update Resource take `Aspects`, a JSON object keyed by aspec
 
   Member names are kept as written, because aspect keys and facet IDs are case-sensitive.
 - **Updates:** Update Resource replaces each aspect it names whole and keeps the others.
-- **Out of scope:** forms generated from the definition's facets in the designer belong to the Elsa Studio module (#117). Until then, the input is free JSON, validated by Aster on save.
+- **Free JSON:** in the workflow designer the input is free JSON, validated by Aster on save. Forms generated from a definition's facets are in the [Elsa Studio module](#elsa-studio)'s resource editor, not in activity inputs.
 
 ### Archived resources
 
@@ -89,6 +89,42 @@ The module maps Elsa's current tenant to an Aster tenant scope on every call, so
 - **Queries:** a `ResourceQuery` that names a different tenant faults with `tenant-scope-mismatch`.
 - **Host code:** `AsterTenantMapping.FromElsaTenantId` and `FromTenantAccessor` expose the same mapping.
 
+## Elsa Studio
+
+`Aster.Elsa.Studio` is an Elsa Studio 3 (Blazor) module for working with resources in the Studio (#117). It supports Elsa Studio 3.9.0 and later 3.x releases on .NET 8, 9 and 10, in Blazor Server and WebAssembly hosts. It talks to the [ASP.NET Core Endpoints](AspNetCore-Endpoints) over HTTP, so the Elsa server maps them with `MapAster`.
+
+```csharp
+// Elsa Studio host, next to its other modules (AddWorkflowsModule registers Elsa Studio's UI-hint editors).
+builder.Services
+    .AddAsterStudioModule(new Uri("https://elsa-server.example/api/aster"))
+    .AddHttpMessageHandler<AuthenticatingApiHttpMessageHandler>();
+```
+
+- **Pages:**
+  - **Resources** in the menu (`aster/definitions`) lists every definition.
+  - Each definition lists its resources, with search, a lifecycle filter and paging.
+  - The resource editor has three tabs:
+    - **Edit:** saves a new version on top of the loaded one; a stale edit shows `concurrency-conflict` with a reload.
+    - **Versions:** views any version read-only, activates a version in a channel (a rollback when it is older) and deactivates one.
+    - **Referenced by:** lists the resources whose reference facets name this one.
+- **No code per type.** A definition registered at runtime appears on the next visit to the list and is editable at once: the form comes from `GET /definitions/{id}/schema` ([JSON Schema Export](Json-Schema-Export)).
+- **Editors.** Each facet's `x-aster-uiHint` picks one of Elsa Studio's own UI-hint editors through `IUIHintService`, and facets without a usable hint fall back by type:
+  - `text`, `slug`, `email`, `url`, `secret` and `number` → `singleline`;
+  - `multiline`, `markdown`, `html` → `multiline`;
+  - `select` → `dropdown` (scalar) or `checklist` (array);
+  - `radio` → `radiolist`;
+  - `checkbox` and `switch` → `checkbox`, or `checklist` on an array;
+  - `date`, `datetime` → `datetime-picker`;
+  - `tags` → `multitext`;
+  - `json`, `object` and legacy facets → `json-editor`;
+  - `code` → `code-editor`.
+
+  The [package README](https://github.com/valence-works/aster/blob/main/src/integrations/Aster.Elsa.Studio/README.md#forms) has the full table.
+- **Reference picker.** `reference` and `reference[]` facets use the module's `aster-reference-picker` editor. It searches the facet's target definitions with `POST /resources/query`, filtering resource IDs with `contains` or `startsWith`, whichever `GET /resources/query/capabilities` declares. The **Referenced by** tab runs the reverse lookup the same way, with a `references` filter on each reference facet that may point to the resource.
+- **Diagnostics on fields.** Save diagnostics (`aspectKey`, `facetId`, `elementIndex`) show under the field at `aspects.{aspectKey}.{facetId}`. The resource list validates its query with `POST /resources/query/validate` first and shows each diagnostic under the input its `path` names. Everything else shows as an alert.
+- **Tenants and authorization stay on the server.** The module sends the host's credentials; the Aster endpoints resolve the tenant (`ITenantScopeAccessor`) and authorize.
+- **Not included:** a sample Studio host, definition editing, and archive, restore or schema-upgrade actions, which `Aster.AspNetCore` doesn't expose yet.
+
 ## Notes
 
 - **Name clashes:**
@@ -96,3 +132,4 @@ The module maps Elsa's current tenant to an Aster tenant scope on every call, so
   - Elsa has its own `TenantScope` type (`Elsa.Common.Multitenancy`). Alias Aster's when a file imports both namespaces.
 - **Namespace shadowing:** inside a namespace under `Aster`, the name `Elsa` resolves to `Aster.Elsa`. Put Elsa `using` directives at the top of the file, or write `global::Elsa`.
 - **Dependencies:** the package depends on `Elsa.Workflows.Runtime`. Through Elsa's own dependencies, that brings in the ASP.NET Core shared framework. The package doesn't depend on `Aster.AspNetCore`.
+- **Studio dependencies:** `Aster.Elsa.Studio` depends on `Elsa.Studio.UIHints` (which brings Elsa Studio's core and shared packages, and MudBlazor 9) and on nothing from Aster: it reaches Aster only over HTTP.

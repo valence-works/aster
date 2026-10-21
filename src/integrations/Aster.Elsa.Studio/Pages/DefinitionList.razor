@@ -1,0 +1,83 @@
+@* No _Imports.razor: Razor would compile it into a public _Imports class. *@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Aster.Elsa.Studio.Client
+@using Aster.Elsa.Studio.Forms
+@page "/aster/definitions"
+@attribute [Authorize]
+@inject AsterStudioClient Client
+
+<PageTitle>Resources</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="aster-studio py-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Resource definitions</MudText>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="aster-error">@error</MudAlert>
+    }
+    else if (definitions is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (definitions.Count == 0)
+    {
+        <MudText Class="aster-empty">No resource definitions yet. Definitions registered on the server appear here without a restart.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true" Class="aster-definitions">
+            <thead>
+                <tr>
+                    <th>Definition</th>
+                    <th>Version</th>
+                    <th>Aspects</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var definition in definitions)
+                {
+                    <tr data-aster-definition="@definition.DefinitionId">
+                        <td>
+                            <MudLink Href="@ResourceListHref(definition.DefinitionId)">@definition.DefinitionId</MudLink>
+                            @if (definition.IsSingleton)
+                            {
+                                <MudChip T="string" Size="Size.Small" Class="ml-2">singleton</MudChip>
+                            }
+                        </td>
+                        <td>@definition.Version</td>
+                        <td>@string.Join(", ", definition.AspectKeys)</td>
+                        <td class="text-right">
+                            <MudButton Href="@NewResourceHref(definition.DefinitionId)" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Class="aster-new">New resource</MudButton>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudContainer>
+
+@code {
+    private IReadOnlyList<AsterDefinitionSummary>? definitions;
+    private string? error;
+
+    /// <inheritdoc />
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Read on every visit, so a definition registered at runtime shows up without code changes.
+            definitions = await Client.ListDefinitionsAsync();
+        }
+        catch (Exception exception) when (exception is AsterApiException or HttpRequestException)
+        {
+            error = $"Could not load the definitions: {exception.Message}";
+        }
+    }
+
+    internal static string ResourceListHref(string definitionId) => $"aster/definitions/{Uri.EscapeDataString(definitionId)}";
+
+    internal static string NewResourceHref(string definitionId) => $"aster/definitions/{Uri.EscapeDataString(definitionId)}/new";
+}

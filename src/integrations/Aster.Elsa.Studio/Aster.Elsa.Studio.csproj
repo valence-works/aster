@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <!-- Elsa Studio 3.9 ships net8.0, net9.0 and net10.0 assemblies, the same targets as Aster. -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <Description>Elsa Studio 3 module for Aster: lists resource definitions and resources, edits resources with forms generated from Aster's JSON Schema export and UI hints, and shows version history with channel activation. Talks to the Aster.AspNetCore endpoints over HTTP. Supports Elsa Studio 3.9 and later 3.x releases.</Description>
+    <PackageTags>aster;elsa;elsa-studio;blazor;forms;json-schema</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--
+      The Razor compiler emits BuildRenderTree without nullable annotations, so each component's override is
+      nullable-oblivious (RS0041). Its entry in PublicAPI.Unshipped.txt carries the "~" prefix; RS0016 / RS0017 stay on.
+    -->
+    <NoWarn>$(NoWarn);RS0041</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      CI builds and tests against the lower bound of the supported range (docs/consumers/elsa-module-design.md).
+      Elsa.Studio.UIHints brings Elsa.Studio.Shared and Elsa.Studio.Core, and through them MudBlazor 9.
+    -->
+    <PackageReference Include="Elsa.Studio.UIHints" Version="[3.9.0, 4.0.0)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aster.Elsa.Studio.Tests" />
+  </ItemGroup>
+
+</Project>
