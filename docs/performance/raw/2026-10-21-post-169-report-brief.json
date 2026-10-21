@@ -1,0 +1,3145 @@
+{
+   "Title":"BenchmarkRun-joined-2026-10-21-03-59-58",
+   "HostEnvironmentInfo":{
+      "BenchmarkDotNetCaption":"BenchmarkDotNet",
+      "BenchmarkDotNetVersion":"0.14.0",
+      "OsVersion":"Ubuntu 24.04.5 LTS (Noble Numbat)",
+      "ProcessorName":"Intel Xeon Processor 2.80GHz",
+      "PhysicalProcessorCount":1,
+      "PhysicalCoreCount":4,
+      "LogicalCoreCount":4,
+      "RuntimeVersion":".NET 10.0.13 (10.0.1326.50504)",
+      "Architecture":"X64",
+      "HasAttachedDebugger":false,
+      "HasRyuJit":true,
+      "Configuration":"RELEASE",
+      "DotNetCliVersion":"10.0.402",
+      "ChronometerFrequency":{
+         "Hertz":1000000000
+      },
+      "HardwareTimerKind":"Unknown"
+   },
+   "Benchmarks":[
+      {
+         "DisplayInfo":"PortabilityBenchmarks.'Export (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"ExportAsync",
+         "MethodTitle":"'Export (100 resources)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.ExportAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               865827.24609375,880951.41015625,913382.90625
+            ],
+            "N":3,
+            "Min":865827.24609375,
+            "LowerFence":837722.5830078125,
+            "Q1":873389.328125,
+            "Median":880951.41015625,
+            "Mean":886720.5208333334,
+            "Q3":897167.158203125,
+            "UpperFence":932833.9033203125,
+            "Max":913382.90625,
+            "InterquartileRange":23777.830078125,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":14027.914809734597,
+            "Variance":590347181.7275137,
+            "StandardDeviation":24297.061174708222,
+            "Skewness":0.2240542294562181,
+            "Kurtosis":0.6666666666666652,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":886720.5208333334,
+               "StandardError":14027.914809734597,
+               "Level":12,
+               "Margin":443268.843872729,
+               "Lower":443451.6769606044,
+               "Upper":1329989.3647060622
+            },
+            "Percentiles":{
+               "P0":865827.24609375,
+               "P25":873389.328125,
+               "P50":880951.41015625,
+               "P67":891978.118828125,
+               "P80":900410.3078124999,
+               "P85":903653.4574218751,
+               "P90":906896.60703125,
+               "P95":910139.7566406251,
+               "P100":913382.90625
+            }
+         },
+         "Memory":{
+            "Gen0Collections":9,
+            "Gen1Collections":1,
+            "Gen2Collections":0,
+            "TotalOperations":512,
+            "BytesAllocatedPerOperation":331067
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Import preview (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"PreviewImportAsync",
+         "MethodTitle":"'Import preview (100 resources)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.PreviewImportAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               6762805.3984375,6532479.1328125,6448690.0078125
+            ],
+            "N":3,
+            "Min":6448690.0078125,
+            "LowerFence":6254998.02734375,
+            "Q1":6490584.5703125,
+            "Median":6532479.1328125,
+            "Mean":6581324.846354167,
+            "Q3":6647642.265625,
+            "UpperFence":6883228.80859375,
+            "Max":6762805.3984375,
+            "InterquartileRange":157057.6953125,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":93908.72777227189,
+            "Variance":26456547455.420002,
+            "StandardDeviation":162654.68777572937,
+            "Skewness":0.2732212097676709,
+            "Kurtosis":0.6666666666666647,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":6581324.846354167,
+               "StandardError":93908.72777227189,
+               "Level":12,
+               "Margin":2967427.0020721178,
+               "Lower":3613897.844282049,
+               "Upper":9548751.848426284
+            },
+            "Percentiles":{
+               "P0":6448690.0078125,
+               "P25":6490584.5703125,
+               "P50":6532479.1328125,
+               "P67":6610790.063124999,
+               "P80":6670674.8921875,
+               "P85":6693707.51875,
+               "P90":6716740.1453125,
+               "P95":6739772.771875001,
+               "P100":6762805.3984375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":39,
+            "Gen1Collections":11,
+            "Gen2Collections":0,
+            "TotalOperations":128,
+            "BytesAllocatedPerOperation":5285466
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Export (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"ExportAsync",
+         "MethodTitle":"'Export (100 resources)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.ExportAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               5918499.265625,6124320.6171875,5909757.6328125
+            ],
+            "N":3,
+            "Min":5909757.6328125,
+            "LowerFence":5753206.2109375,
+            "Q1":5914128.44921875,
+            "Median":5918499.265625,
+            "Mean":5984192.505208333,
+            "Q3":6021409.94140625,
+            "UpperFence":6182332.1796875,
+            "Max":6124320.6171875,
+            "InterquartileRange":107281.4921875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":70109.4854761502,
+            "Variance":14746019861.19155,
+            "StandardDeviation":121433.19093720443,
+            "Skewness":0.38265745266261225,
+            "Kurtosis":0.6666666666666705,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":5984192.505208333,
+               "StandardError":70109.4854761502,
+               "Level":12,
+               "Margin":2215393.448922218,
+               "Lower":3768799.056286115,
+               "Upper":8199585.954130551
+            },
+            "Percentiles":{
+               "P0":5909757.6328125,
+               "P25":5914128.44921875,
+               "P50":5918499.265625,
+               "P67":5988478.52515625,
+               "P80":6041992.0765625,
+               "P85":6062574.21171875,
+               "P90":6083156.346875,
+               "P95":6103738.482031249,
+               "P100":6124320.6171875
+            }
+         },
+         "Memory":{
+            "Gen0Collections":38,
+            "Gen1Collections":32,
+            "Gen2Collections":0,
+            "TotalOperations":128,
+            "BytesAllocatedPerOperation":5229138
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Import preview (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"PreviewImportAsync",
+         "MethodTitle":"'Import preview (100 resources)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.PreviewImportAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               152511946.25,134674562.75,155541870.5
+            ],
+            "N":3,
+            "Min":134674562.75,
+            "LowerFence":127942773.6875,
+            "Q1":143593254.5,
+            "Median":152511946.25,
+            "Mean":147576126.5,
+            "Q3":154026908.375,
+            "UpperFence":169677389.1875,
+            "Max":155541870.5,
+            "InterquartileRange":10433653.875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":6509809.793347014,
+            "Variance":127132870636670.06,
+            "StandardDeviation":11275321.309686482,
+            "Skewness":-0.3538679328787937,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":147576126.5,
+               "StandardError":6509809.793347014,
+               "Level":12,
+               "Margin":205703834.10981765,
+               "Lower":-58127707.609817654,
+               "Upper":353279960.6098176
+            },
+            "Percentiles":{
+               "P0":134674562.75,
+               "P25":143593254.5,
+               "P50":152511946.25,
+               "P67":153542120.495,
+               "P80":154329900.8,
+               "P85":154632893.225,
+               "P90":154935885.65,
+               "P95":155238878.075,
+               "P100":155541870.5
+            }
+         },
+         "Memory":{
+            "Gen0Collections":2,
+            "Gen1Collections":1,
+            "Gen2Collections":0,
+            "TotalOperations":4,
+            "BytesAllocatedPerOperation":10362112
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Export (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"ExportAsync",
+         "MethodTitle":"'Export (100 resources)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.ExportAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               11666225.34375,13306990.78125,13909270.9375
+            ],
+            "N":3,
+            "Min":11666225.34375,
+            "LowerFence":10804323.8671875,
+            "Q1":12486608.0625,
+            "Median":13306990.78125,
+            "Mean":12960829.020833334,
+            "Q3":13608130.859375,
+            "UpperFence":15290415.0546875,
+            "Max":13909270.9375,
+            "InterquartileRange":1121522.796875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":670244.8202439159,
+            "Variance":1347684357191.397,
+            "StandardDeviation":1160898.0821723314,
+            "Skewness":-0.2716716905869825,
+            "Kurtosis":0.666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":12960829.020833334,
+               "StandardError":670244.8202439159,
+               "Level":12,
+               "Margin":21179102.568760656,
+               "Lower":-8218273.547927322,
+               "Upper":34139931.58959399
+            },
+            "Percentiles":{
+               "P0":11666225.34375,
+               "P25":12486608.0625,
+               "P50":13306990.78125,
+               "P67":13511766.034375,
+               "P80":13668358.875,
+               "P85":13728586.890625,
+               "P90":13788814.90625,
+               "P95":13849042.921875,
+               "P100":13909270.9375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":64,
+            "BytesAllocatedPerOperation":736083
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Import preview (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"PreviewImportAsync",
+         "MethodTitle":"'Import preview (100 resources)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.PreviewImportAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               6552192.0703125,5883501.65625,5959027.46875
+            ],
+            "N":3,
+            "Min":5883501.65625,
+            "LowerFence":5419746.751953125,
+            "Q1":5921264.5625,
+            "Median":5959027.46875,
+            "Mean":6131573.731770833,
+            "Q3":6255609.76953125,
+            "UpperFence":6757127.580078125,
+            "Max":6552192.0703125,
+            "InterquartileRange":334345.20703125,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":211436.26078687824,
+            "Variance":134115877126.61037,
+            "StandardDeviation":366218.3462452562,
+            "Skewness":0.3665652992484569,
+            "Kurtosis":0.666666666666668,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":6131573.731770833,
+               "StandardError":211436.26078687824,
+               "Level":12,
+               "Margin":6681185.917006973,
+               "Lower":-549612.1852361402,
+               "Upper":12812759.648777805
+            },
+            "Percentiles":{
+               "P0":5883501.65625,
+               "P25":5921264.5625,
+               "P50":5959027.46875,
+               "P67":6160703.43328125,
+               "P80":6314926.2296875,
+               "P85":6374242.68984375,
+               "P90":6433559.15,
+               "P95":6492875.610156249,
+               "P100":6552192.0703125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":39,
+            "Gen1Collections":12,
+            "Gen2Collections":0,
+            "TotalOperations":128,
+            "BytesAllocatedPerOperation":5285570
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Export (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"ExportAsync",
+         "MethodTitle":"'Export (100 resources)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.ExportAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               6245258.1484375,5899448.65625,5862242.390625
+            ],
+            "N":3,
+            "Min":5862242.390625,
+            "LowerFence":5593583.705078125,
+            "Q1":5880845.5234375,
+            "Median":5899448.65625,
+            "Mean":6002316.3984375,
+            "Q3":6072353.40234375,
+            "UpperFence":6359615.220703125,
+            "Max":6245258.1484375,
+            "InterquartileRange":191507.87890625,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":121944.7921127103,
+            "Variance":44611596970.23639,
+            "StandardDeviation":211214.57565763872,
+            "Skewness":0.3715072240398452,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":6002316.3984375,
+               "StandardError":121944.7921127103,
+               "Level":12,
+               "Margin":3853340.125689291,
+               "Lower":2148976.272748209,
+               "Upper":9855656.52412679
+            },
+            "Percentiles":{
+               "P0":5862242.390625,
+               "P25":5880845.5234375,
+               "P50":5899448.65625,
+               "P67":6017023.883593749,
+               "P80":6106934.3515625,
+               "P85":6141515.30078125,
+               "P90":6176096.25,
+               "P95":6210677.19921875,
+               "P100":6245258.1484375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":38,
+            "Gen1Collections":32,
+            "Gen2Collections":0,
+            "TotalOperations":128,
+            "BytesAllocatedPerOperation":5229130
+         }
+      },{
+         "DisplayInfo":"PortabilityBenchmarks.'Import preview (100 resources)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"PortabilityBenchmarks",
+         "Method":"PreviewImportAsync",
+         "MethodTitle":"'Import preview (100 resources)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.PortabilityBenchmarks.PreviewImportAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               1211389393,1149940571,1227290660
+            ],
+            "N":3,
+            "Min":1149940571,
+            "LowerFence":1122652415.25,
+            "Q1":1180664982,
+            "Median":1211389393,
+            "Mean":1196206874.6666667,
+            "Q3":1219340026.5,
+            "UpperFence":1277352593.25,
+            "Max":1227290660,
+            "InterquartileRange":38675044.5,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":23584180.533311468,
+            "Variance":1668640714283482.2,
+            "StandardDeviation":40848998.93857232,
+            "Skewness":-0.3203304805223522,
+            "Kurtosis":0.6666666666666692,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":1196206874.6666667,
+               "StandardError":23584180.533311468,
+               "Level":12,
+               "Margin":745237804.797054,
+               "Lower":450969069.8696127,
+               "Upper":1941444679.4637208
+            },
+            "Percentiles":{
+               "P0":1149940571,
+               "P25":1180664982,
+               "P50":1211389393,
+               "P67":1216795823.78,
+               "P80":1220930153.2,
+               "P85":1222520279.9,
+               "P90":1224110406.6,
+               "P95":1225700533.3000002,
+               "P100":1227290660
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":1,
+            "BytesAllocatedPerOperation":10363376
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: metadata (ResourceId)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"MetadataAsync",
+         "MethodTitle":"'Query: metadata (ResourceId)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.MetadataAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               685683.759765625,896508.275390625,681410.419921875
+            ],
+            "N":3,
+            "Min":681410.419921875,
+            "LowerFence":522223.6982421875,
+            "Q1":683547.08984375,
+            "Median":685683.759765625,
+            "Mean":754534.1516927084,
+            "Q3":791096.017578125,
+            "UpperFence":952419.4091796875,
+            "Max":896508.275390625,
+            "InterquartileRange":107548.927734375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":70997.77979673861,
+            "Variance":15122054208.198553,
+            "StandardDeviation":122971.76183253842,
+            "Skewness":0.38437733793601153,
+            "Kurtosis":0.6666666666666662,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":754534.1516927084,
+               "StandardError":70997.77979673861,
+               "Level":12,
+               "Margin":2243462.709524848,
+               "Lower":-1488928.5578321395,
+               "Upper":2997996.8612175565
+            },
+            "Percentiles":{
+               "P0":681410.419921875,
+               "P25":683547.08984375,
+               "P50":685683.759765625,
+               "P67":757364.0950781249,
+               "P80":812178.4691406251,
+               "P85":833260.9207031251,
+               "P90":854343.3722656249,
+               "P95":875425.8238281249,
+               "P100":896508.275390625
+            }
+         },
+         "Memory":{
+            "Gen0Collections":11,
+            "Gen1Collections":1,
+            "Gen2Collections":0,
+            "TotalOperations":1024,
+            "BytesAllocatedPerOperation":185919
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Equals)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ScalarFacetAsync",
+         "MethodTitle":"'Query: scalar facet (Equals)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ScalarFacetAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               344201.2937011719,304873.0837402344,337425.0803222656
+            ],
+            "N":3,
+            "Min":304873.0837402344,
+            "LowerFence":291652.9245605469,
+            "Q1":321149.08203125,
+            "Median":337425.0803222656,
+            "Mean":328833.1525878906,
+            "Q3":340813.18701171875,
+            "UpperFence":370309.3444824219,
+            "Max":344201.2937011719,
+            "InterquartileRange":19664.10498046875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":12138.683911740427,
+            "Variance":442042941.32743764,
+            "StandardDeviation":21024.817272153345,
+            "Skewness":-0.34041079734413937,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":328833.1525878906,
+               "StandardError":12138.683911740427,
+               "Level":12,
+               "Margin":383570.9338610872,
+               "Lower":-54737.78127319657,
+               "Upper":712404.0864489778
+            },
+            "Percentiles":{
+               "P0":304873.0837402344,
+               "P25":321149.08203125,
+               "P50":337425.0803222656,
+               "P67":339728.99287109374,
+               "P80":341490.8083496094,
+               "P85":342168.4296875,
+               "P90":342846.0510253906,
+               "P95":343523.67236328125,
+               "P100":344201.2937011719
+            }
+         },
+         "Memory":{
+            "Gen0Collections":8,
+            "Gen1Collections":1,
+            "Gen2Collections":0,
+            "TotalOperations":2048,
+            "BytesAllocatedPerOperation":67851
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Range)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"RangeAsync",
+         "MethodTitle":"'Query: scalar facet (Range)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.RangeAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               381885.36181640625,437597.48779296875,358565.052734375
+            ],
+            "N":3,
+            "Min":358565.052734375,
+            "LowerFence":310950.8809814453,
+            "Q1":370225.2072753906,
+            "Median":381885.36181640625,
+            "Mean":392682.6341145833,
+            "Q3":409741.4248046875,
+            "UpperFence":469015.7510986328,
+            "Max":437597.48779296875,
+            "InterquartileRange":39516.217529296875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":23444.73831967027,
+            "Variance":1648967264.6334462,
+            "StandardDeviation":40607.47793982589,
+            "Skewness":0.2470951540488214,
+            "Kurtosis":0.6666666666666673,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":392682.6341145833,
+               "StandardError":23444.73831967027,
+               "Level":12,
+               "Margin":740831.5626957765,
+               "Lower":-348148.92858119315,
+               "Upper":1133514.1968103598
+            },
+            "Percentiles":{
+               "P0":358565.052734375,
+               "P25":370225.2072753906,
+               "P50":381885.36181640625,
+               "P67":400827.4846484375,
+               "P80":415312.6374023438,
+               "P85":420883.85,
+               "P90":426455.0625976563,
+               "P95":432026.27519531245,
+               "P100":437597.48779296875
+            }
+         },
+         "Memory":{
+            "Gen0Collections":8,
+            "Gen1Collections":1,
+            "Gen2Collections":0,
+            "TotalOperations":2048,
+            "BytesAllocatedPerOperation":68099
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: array facet (ArrayContains)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ArrayFacetAsync",
+         "MethodTitle":"'Query: array facet (ArrayContains)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ArrayFacetAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               1626220.037109375,1593391.802734375,1681157.05078125
+            ],
+            "N":3,
+            "Min":1593391.802734375,
+            "LowerFence":1543981.9838867188,
+            "Q1":1609805.919921875,
+            "Median":1626220.037109375,
+            "Mean":1633589.6302083333,
+            "Q3":1653688.5439453125,
+            "UpperFence":1719512.4799804688,
+            "Max":1681157.05078125,
+            "InterquartileRange":43882.6240234375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":25602.19956706542,
+            "Variance":1966417868.0155346,
+            "StandardDeviation":44344.31043567522,
+            "Skewness":0.16160023033680807,
+            "Kurtosis":0.6666666666666679,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":1633589.6302083333,
+               "StandardError":25602.19956706542,
+               "Level":12,
+               "Margin":809005.2981228994,
+               "Lower":824584.3320854339,
+               "Upper":2442594.9283312326
+            },
+            "Percentiles":{
+               "P0":1593391.802734375,
+               "P25":1609805.919921875,
+               "P50":1626220.037109375,
+               "P67":1644898.6217578126,
+               "P80":1659182.2453124998,
+               "P85":1664675.9466796874,
+               "P90":1670169.6480468751,
+               "P95":1675663.3494140625,
+               "P100":1681157.05078125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":19,
+            "Gen1Collections":2,
+            "Gen2Collections":0,
+            "TotalOperations":512,
+            "BytesAllocatedPerOperation":671558
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Reverse reference lookup': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ReverseLookupAsync",
+         "MethodTitle":"'Reverse reference lookup'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ReverseLookupAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               1814565.015625,1559718.50390625,2290153.640625
+            ],
+            "N":3,
+            "Min":1559718.50390625,
+            "LowerFence":1139315.4072265625,
+            "Q1":1687141.759765625,
+            "Median":1814565.015625,
+            "Mean":1888145.7200520833,
+            "Q3":2052359.328125,
+            "UpperFence":2600185.6806640625,
+            "Max":2290153.640625,
+            "InterquartileRange":365217.568359375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":214043.9692262037,
+            "Variance":137444462286.3241,
+            "StandardDeviation":370735.029753494,
+            "Skewness":0.1906543946533278,
+            "Kurtosis":0.6666666666666669,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":1888145.7200520833,
+               "StandardError":214043.9692262037,
+               "Level":12,
+               "Margin":6763587.037967219,
+               "Lower":-4875441.317915136,
+               "Upper":8651732.758019302
+            },
+            "Percentiles":{
+               "P0":1559718.50390625,
+               "P25":1687141.759765625,
+               "P50":1814565.015625,
+               "P67":1976265.1481249998,
+               "P80":2099918.190625,
+               "P85":2147477.053125,
+               "P90":2195035.915625,
+               "P95":2242594.778125,
+               "P100":2290153.640625
+            }
+         },
+         "Memory":{
+            "Gen0Collections":5,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":256,
+            "BytesAllocatedPerOperation":357327
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: metadata (ResourceId)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"MetadataAsync",
+         "MethodTitle":"'Query: metadata (ResourceId)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.MetadataAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               11024441.828125,10815448.078125,10137802.21875
+            ],
+            "N":3,
+            "Min":10137802.21875,
+            "LowerFence":9811645.44140625,
+            "Q1":10476625.1484375,
+            "Median":10815448.078125,
+            "Mean":10659230.708333334,
+            "Q3":10919944.953125,
+            "UpperFence":11584924.66015625,
+            "Max":11024441.828125,
+            "InterquartileRange":443319.8046875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":267603.779991136,
+            "Variance":214835349196.6329,
+            "StandardDeviation":463503.34324213123,
+            "Skewness":-0.298751061304419,
+            "Kurtosis":0.6666666666666682,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":10659230.708333334,
+               "StandardError":267603.779991136,
+               "Level":12,
+               "Margin":8456026.414583512,
+               "Lower":2203204.2937498223,
+               "Upper":19115257.122916847
+            },
+            "Percentiles":{
+               "P0":10137802.21875,
+               "P25":10476625.1484375,
+               "P50":10815448.078125,
+               "P67":10886505.953125,
+               "P80":10940844.328125,
+               "P85":10961743.703125,
+               "P90":10982643.078125,
+               "P95":11003542.453125,
+               "P100":11024441.828125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":12,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":64,
+            "BytesAllocatedPerOperation":3382571
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Equals)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ScalarFacetAsync",
+         "MethodTitle":"'Query: scalar facet (Equals)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ScalarFacetAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               15534406.21875,16524708.1875,15483566.84375
+            ],
+            "N":3,
+            "Min":15483566.84375,
+            "LowerFence":14728130.5234375,
+            "Q1":15508986.53125,
+            "Median":15534406.21875,
+            "Mean":15847560.416666666,
+            "Q3":16029557.203125,
+            "UpperFence":16810413.2109375,
+            "Max":16524708.1875,
+            "InterquartileRange":520570.671875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":338891.8156634514,
+            "Variance":344542988171.012,
+            "StandardDeviation":586977.842998364,
+            "Skewness":0.38165440770217385,
+            "Kurtosis":0.6666666666666684,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":15847560.416666666,
+               "StandardError":338891.8156634514,
+               "Level":12,
+               "Margin":10708660.935324727,
+               "Lower":5138899.481341939,
+               "Upper":26556221.351991393
+            },
+            "Percentiles":{
+               "P0":15483566.84375,
+               "P25":15508986.53125,
+               "P50":15534406.21875,
+               "P67":15871108.888125,
+               "P80":16128587.4,
+               "P85":16227617.596875,
+               "P90":16326647.79375,
+               "P95":16425677.990625,
+               "P100":16524708.1875
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":32,
+            "BytesAllocatedPerOperation":787506
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Range)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"RangeAsync",
+         "MethodTitle":"'Query: scalar facet (Range)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.RangeAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               29604713.8125,30685758.3125,24676143.4375
+            ],
+            "N":3,
+            "Min":24676143.4375,
+            "LowerFence":22633217.46875,
+            "Q1":27140428.625,
+            "Median":29604713.8125,
+            "Mean":28322205.1875,
+            "Q3":30145236.0625,
+            "UpperFence":34652447.21875,
+            "Max":30685758.3125,
+            "InterquartileRange":3004807.4375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":1849548.5049379717,
+            "Variance":10262489016354.86,
+            "StandardDeviation":3203511.9816156235,
+            "Skewness":-0.33617903359809503,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":28322205.1875,
+               "StandardError":1849548.5049379717,
+               "Level":12,
+               "Margin":58443983.91280937,
+               "Lower":-30121778.725309372,
+               "Upper":86766189.10030937
+            },
+            "Percentiles":{
+               "P0":24676143.4375,
+               "P25":27140428.625,
+               "P50":29604713.8125,
+               "P67":29972268.942500003,
+               "P80":30253340.512500003,
+               "P85":30361444.9625,
+               "P90":30469549.4125,
+               "P95":30577653.862499997,
+               "P100":30685758.3125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":32,
+            "BytesAllocatedPerOperation":619154
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: array facet (ArrayContains)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ArrayFacetAsync",
+         "MethodTitle":"'Query: array facet (ArrayContains)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ArrayFacetAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               132139838.75,131531811.25,133479044.75
+            ],
+            "N":3,
+            "Min":131531811.25,
+            "LowerFence":130375399.875,
+            "Q1":131835825,
+            "Median":132139838.75,
+            "Mean":132383564.91666667,
+            "Q3":132809441.75,
+            "UpperFence":134269866.875,
+            "Max":133479044.75,
+            "InterquartileRange":973616.75,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":575175.7439018337,
+            "Variance":992481409119.0833,
+            "StandardDeviation":996233.6117192007,
+            "Skewness":0.23000484591983172,
+            "Kurtosis":0.6666666666666623,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":132383564.91666667,
+               "StandardError":575175.7439018337,
+               "Level":12,
+               "Margin":18175009.649051778,
+               "Lower":114208555.2676149,
+               "Upper":150558574.56571844
+            },
+            "Percentiles":{
+               "P0":131531811.25,
+               "P25":131835825,
+               "P50":132139838.75,
+               "P67":132595168.78999999,
+               "P80":132943362.35,
+               "P85":133077282.94999999,
+               "P90":133211203.55000001,
+               "P95":133345124.15,
+               "P100":133479044.75
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":4,
+            "BytesAllocatedPerOperation":4987288
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Reverse reference lookup': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ReverseLookupAsync",
+         "MethodTitle":"'Reverse reference lookup'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ReverseLookupAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               142030642.75,132674068.25,145065079.75
+            ],
+            "N":3,
+            "Min":132674068.25,
+            "LowerFence":128059096.875,
+            "Q1":137352355.5,
+            "Median":142030642.75,
+            "Mean":139923263.58333334,
+            "Q3":143547861.25,
+            "UpperFence":152841119.875,
+            "Max":145065079.75,
+            "InterquartileRange":6195505.75,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":3728944.297088145,
+            "Variance":41715076712358.586,
+            "StandardDeviation":6458720.98115088,
+            "Skewness":-0.2915475929009381,
+            "Kurtosis":0.6666666666666684,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":139923263.58333334,
+               "StandardError":3728944.297088145,
+               "Level":12,
+               "Margin":117831113.87937926,
+               "Lower":22092149.703954086,
+               "Upper":257754377.4627126
+            },
+            "Percentiles":{
+               "P0":132674068.25,
+               "P25":137352355.5,
+               "P50":142030642.75,
+               "P67":143062351.32999998,
+               "P80":143851304.95,
+               "P85":144154748.65,
+               "P90":144458192.35,
+               "P95":144761636.05,
+               "P100":145065079.75
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":4,
+            "BytesAllocatedPerOperation":6560566
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: metadata (ResourceId)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"MetadataAsync",
+         "MethodTitle":"'Query: metadata (ResourceId)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.MetadataAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               33151801.42857143,33937748,36769797.28571428
+            ],
+            "N":3,
+            "Min":33151801.42857143,
+            "LowerFence":30831277.82142858,
+            "Q1":33544774.714285716,
+            "Median":33937748,
+            "Mean":34619782.23809524,
+            "Q3":35353772.64285714,
+            "UpperFence":38067269.53571428,
+            "Max":36769797.28571428,
+            "InterquartileRange":1808997.9285714254,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":1098688.8446426084,
+            "Variance":3621351532026.328,
+            "StandardDeviation":1902984.9006301465,
+            "Skewness":0.3123647565093024,
+            "Kurtosis":0.6666666666666659,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":34619782.23809524,
+               "StandardError":1098688.8446426084,
+               "Level":12,
+               "Margin":34717528.62390013,
+               "Lower":-97746.38580489159,
+               "Upper":69337310.86199537
+            },
+            "Percentiles":{
+               "P0":33151801.42857143,
+               "P25":33544774.714285716,
+               "P50":33937748,
+               "P67":34900644.75714286,
+               "P80":35636977.57142857,
+               "P85":35920182.5,
+               "P90":36203387.428571425,
+               "P95":36486592.35714286,
+               "P100":36769797.28571428
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":14,
+            "BytesAllocatedPerOperation":1724863
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Equals)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ScalarFacetAsync",
+         "MethodTitle":"'Query: scalar facet (Equals)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ScalarFacetAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               19684459.5,20390627.375,19753073.9375
+            ],
+            "N":3,
+            "Min":19684459.5,
+            "LowerFence":19189140.8125,
+            "Q1":19718766.71875,
+            "Median":19753073.9375,
+            "Mean":19942720.270833332,
+            "Q3":20071850.65625,
+            "UpperFence":20601476.5625,
+            "Max":20390627.375,
+            "InterquartileRange":353083.9375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":224827.76054169948,
+            "Variance":151642565730.58725,
+            "StandardDeviation":389413.1042101527,
+            "Skewness":0.3715002909352289,
+            "Kurtosis":0.6666666666666713,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":19942720.270833332,
+               "StandardError":224827.76054169948,
+               "Level":12,
+               "Margin":7104344.646907604,
+               "Lower":12838375.623925727,
+               "Upper":27047064.917740937
+            },
+            "Percentiles":{
+               "P0":19684459.5,
+               "P25":19718766.71875,
+               "P50":19753073.9375,
+               "P67":19969842.10625,
+               "P80":20135606,
+               "P85":20199361.34375,
+               "P90":20263116.6875,
+               "P95":20326872.03125,
+               "P100":20390627.375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":32,
+            "BytesAllocatedPerOperation":526722
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Range)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"RangeAsync",
+         "MethodTitle":"'Query: scalar facet (Range)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.RangeAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               21806804.09375,19811380.71875,20961893.09375
+            ],
+            "N":3,
+            "Min":19811380.71875,
+            "LowerFence":18890069.375,
+            "Q1":20386636.90625,
+            "Median":20961893.09375,
+            "Mean":20860025.96875,
+            "Q3":21384348.59375,
+            "UpperFence":22880916.125,
+            "Max":21806804.09375,
+            "InterquartileRange":997711.6875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":578276.5470894014,
+            "Variance":1003211294740.9219,
+            "StandardDeviation":1001604.3603843395,
+            "Skewness":-0.1006519605608689,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":20860025.96875,
+               "StandardError":578276.5470894014,
+               "Level":12,
+               "Margin":18272992.097810037,
+               "Lower":2587033.8709399626,
+               "Upper":39133018.06656004
+            },
+            "Percentiles":{
+               "P0":19811380.71875,
+               "P25":20386636.90625,
+               "P50":20961893.09375,
+               "P67":21249162.833750002,
+               "P80":21468839.69375,
+               "P85":21553330.79375,
+               "P90":21637821.893749997,
+               "P95":21722312.993750002,
+               "P100":21806804.09375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":32,
+            "BytesAllocatedPerOperation":526970
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: array facet (ArrayContains)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ArrayFacetAsync",
+         "MethodTitle":"'Query: array facet (ArrayContains)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ArrayFacetAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               24850283.625,22683209.0625,21843966.1875
+            ],
+            "N":3,
+            "Min":21843966.1875,
+            "LowerFence":20008849.546875,
+            "Q1":22263587.625,
+            "Median":22683209.0625,
+            "Mean":23125819.625,
+            "Q3":23766746.34375,
+            "UpperFence":26021484.421875,
+            "Max":24850283.625,
+            "InterquartileRange":1503158.71875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":895621.6121185641,
+            "Variance":2406414216281.5664,
+            "StandardDeviation":1551262.1365460986,
+            "Skewness":0.26209497930975445,
+            "Kurtosis":0.6666666666666665,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":23125819.625,
+               "StandardError":895621.6121185641,
+               "Level":12,
+               "Margin":28300796.086652078,
+               "Lower":-5174976.461652078,
+               "Upper":51426615.71165208
+            },
+            "Percentiles":{
+               "P0":21843966.1875,
+               "P25":22263587.625,
+               "P50":22683209.0625,
+               "P67":23420014.41375,
+               "P80":23983453.8,
+               "P85":24200161.25625,
+               "P90":24416868.7125,
+               "P95":24633576.168750003,
+               "P100":24850283.625
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":32,
+            "BytesAllocatedPerOperation":1146616
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Reverse reference lookup': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ReverseLookupAsync",
+         "MethodTitle":"'Reverse reference lookup'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ReverseLookupAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               55422167.54545455,49867408.72727273,46921571.81818182
+            ],
+            "N":3,
+            "Min":46921571.81818182,
+            "LowerFence":42019043.47727272,
+            "Q1":48394490.27272727,
+            "Median":49867408.72727273,
+            "Mean":50737049.36363637,
+            "Q3":52644788.13636364,
+            "UpperFence":59020234.93181819,
+            "Max":55422167.54545455,
+            "InterquartileRange":4250297.863636367,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":2492136.837932664,
+            "Variance":18632238056943.047,
+            "StandardDeviation":4316507.622713419,
+            "Skewness":0.19329104812134687,
+            "Kurtosis":0.6666666666666664,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":50737049.36363637,
+               "StandardError":2492136.837932664,
+               "Level":12,
+               "Margin":78749167.63512558,
+               "Lower":-28012118.27148921,
+               "Upper":129486216.99876195
+            },
+            "Percentiles":{
+               "P0":46921571.81818182,
+               "P25":48394490.27272727,
+               "P50":49867408.72727273,
+               "P67":51756026.72545454,
+               "P80":53200264.018181816,
+               "P85":53755739.900000006,
+               "P90":54311215.78181818,
+               "P95":54866691.663636364,
+               "P100":55422167.54545455
+            }
+         },
+         "Memory":{
+            "Gen0Collections":1,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":11,
+            "BytesAllocatedPerOperation":3198534
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: metadata (ResourceId)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"MetadataAsync",
+         "MethodTitle":"'Query: metadata (ResourceId)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.MetadataAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               97898409,94817230.4,102448596.6
+            ],
+            "N":3,
+            "Min":94817230.4,
+            "LowerFence":90634295.05000001,
+            "Q1":96357819.7,
+            "Median":97898409,
+            "Mean":98388078.66666667,
+            "Q3":100173502.8,
+            "UpperFence":105897027.44999999,
+            "Max":102448596.6,
+            "InterquartileRange":3815683.099999994,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":2216549.1051381086,
+            "Variance":14739269806465.648,
+            "StandardDeviation":3839175.667570533,
+            "Skewness":0.1254706298007048,
+            "Kurtosis":0.666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":98388078.66666667,
+               "StandardError":2216549.1051381086,
+               "Level":12,
+               "Margin":70040855.86119199,
+               "Lower":28347222.805474684,
+               "Upper":168428934.52785867
+            },
+            "Percentiles":{
+               "P0":94817230.4,
+               "P25":96357819.7,
+               "P50":97898409,
+               "P67":99445472.784,
+               "P80":100628521.56,
+               "P85":101083540.32000001,
+               "P90":101538559.07999998,
+               "P95":101993577.83999999,
+               "P100":102448596.6
+            }
+         },
+         "Memory":{
+            "Gen0Collections":9,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":5,
+            "BytesAllocatedPerOperation":33623173
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Equals)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ScalarFacetAsync",
+         "MethodTitle":"'Query: scalar facet (Equals)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ScalarFacetAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               53097521.3,53009245,53472490.1
+            ],
+            "N":3,
+            "Min":53009245,
+            "LowerFence":52705949.32499999,
+            "Q1":53053383.15,
+            "Median":53097521.3,
+            "Mean":53193085.46666667,
+            "Q3":53285005.7,
+            "UpperFence":53632439.525000006,
+            "Max":53472490.1,
+            "InterquartileRange":231622.55000000447,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":142007.497609016,
+            "Variance":60498388131.52403,
+            "StandardDeviation":245964.20091453154,
+            "Skewness":0.3298785589911515,
+            "Kurtosis":0.6666666666666533,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":53193085.46666667,
+               "StandardError":142007.497609016,
+               "Level":12,
+               "Margin":4487302.649052713,
+               "Lower":48705782.81761396,
+               "Upper":57680388.11571938
+            },
+            "Percentiles":{
+               "P0":53009245,
+               "P25":53053383.15,
+               "P50":53097521.3,
+               "P67":53225010.692,
+               "P80":53322502.58,
+               "P85":53359999.45999999,
+               "P90":53397496.34,
+               "P95":53434993.22,
+               "P100":53472490.1
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":10,
+            "BytesAllocatedPerOperation":787599
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: scalar facet (Range)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"RangeAsync",
+         "MethodTitle":"'Query: scalar facet (Range)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.RangeAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               64584197.428571425,63012449.14285714,68585698.85714285
+            ],
+            "N":3,
+            "Min":63012449.14285714,
+            "LowerFence":59618386.00000001,
+            "Q1":63798323.28571428,
+            "Median":64584197.428571425,
+            "Mean":65394115.142857134,
+            "Q3":66584948.142857134,
+            "UpperFence":70764885.4285714,
+            "Max":68585698.85714285,
+            "InterquartileRange":2786624.8571428508,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":1659041.2012546868,
+            "Variance":8257253122381.78,
+            "StandardDeviation":2873543.65242322,
+            "Skewness":0.25946249989222436,
+            "Kurtosis":0.6666666666666685,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":65394115.142857134,
+               "StandardError":1659041.2012546868,
+               "Level":12,
+               "Margin":52424133.25087067,
+               "Lower":12969981.891986467,
+               "Upper":117818248.39372781
+            },
+            "Percentiles":{
+               "P0":63012449.14285714,
+               "P25":63798323.28571428,
+               "P50":64584197.428571425,
+               "P67":65944707.91428571,
+               "P80":66985098.28571428,
+               "P85":67385248.42857143,
+               "P90":67785398.57142857,
+               "P95":68185548.7142857,
+               "P100":68585698.85714285
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":7,
+            "BytesAllocatedPerOperation":619099
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Query: array facet (ArrayContains)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ArrayFacetAsync",
+         "MethodTitle":"'Query: array facet (ArrayContains)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ArrayFacetAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               181790964,176971590.33333334,174423674.33333334
+            ],
+            "N":3,
+            "Min":174423674.33333334,
+            "LowerFence":170172165.0833333,
+            "Q1":175697632.33333334,
+            "Median":176971590.33333334,
+            "Mean":177728742.88888893,
+            "Q3":179381277.1666667,
+            "UpperFence":184906744.4166667,
+            "Max":181790964,
+            "InterquartileRange":3683644.8333333433,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":2160185.1195697365,
+            "Variance":13999199252431.553,
+            "StandardDeviation":3741550.380849034,
+            "Skewness":0.19407635688897376,
+            "Kurtosis":0.6666666666666603,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":177728742.88888893,
+               "StandardError":2160185.1195697365,
+               "Level":12,
+               "Margin":68259807.2122785,
+               "Lower":109468935.67661043,
+               "Upper":245988550.10116744
+            },
+            "Percentiles":{
+               "P0":174423674.33333334,
+               "P25":175697632.33333334,
+               "P50":176971590.33333334,
+               "P67":178610177.38,
+               "P80":179863214.53333336,
+               "P85":180345151.9,
+               "P90":180827089.26666665,
+               "P95":181309026.63333336,
+               "P100":181790964
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":3,
+            "BytesAllocatedPerOperation":4949451
+         }
+      },{
+         "DisplayInfo":"QueryBenchmarks.'Reverse reference lookup': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"QueryBenchmarks",
+         "Method":"ReverseLookupAsync",
+         "MethodTitle":"'Reverse reference lookup'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.QueryBenchmarks.ReverseLookupAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               331687432,295798861,355479938
+            ],
+            "N":3,
+            "Min":295798861,
+            "LowerFence":268982338.75,
+            "Q1":313743146.5,
+            "Median":331687432,
+            "Mean":327655410.3333333,
+            "Q3":343583685,
+            "UpperFence":388344492.75,
+            "Max":355479938,
+            "InterquartileRange":29840538.5,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":17345995.09022505,
+            "Variance":902650637010334.2,
+            "StandardDeviation":30044144.804110073,
+            "Skewness":-0.1317861741169609,
+            "Kurtosis":0.6666666666666664,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":327655410.3333333,
+               "StandardError":17345995.09022505,
+               "Level":12,
+               "Margin":548117043.3206788,
+               "Lower":-220461632.98734552,
+               "Upper":875772453.6540122
+            },
+            "Percentiles":{
+               "P0":295798861,
+               "P25":313743146.5,
+               "P50":331687432,
+               "P67":339776884.03999996,
+               "P80":345962935.6,
+               "P85":348342186.2,
+               "P90":350721436.79999995,
+               "P95":353100687.40000004,
+               "P100":355479938
+            }
+         },
+         "Memory":{
+            "Gen0Collections":0,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":1,
+            "BytesAllocatedPerOperation":13184272
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Create: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"CreateAsync",
+         "MethodTitle":"Create",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.CreateAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               24493.99688720703,22431.84844970703,23671.75067138672
+            ],
+            "N":3,
+            "Min":22431.84844970703,
+            "LowerFence":21505.188232421875,
+            "Q1":23051.799560546875,
+            "Median":23671.75067138672,
+            "Mean":23532.532002766926,
+            "Q3":24082.873779296875,
+            "UpperFence":25629.485107421875,
+            "Max":24493.99688720703,
+            "InterquartileRange":1031.07421875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":599.3469843199133,
+            "Variance":1077650.4228401233,
+            "StandardDeviation":1038.099428205277,
+            "Skewness":-0.13169719495153287,
+            "Kurtosis":0.6666666666666663,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":23532.532002766926,
+               "StandardError":599.3469843199133,
+               "Level":12,
+               "Margin":18938.797991112195,
+               "Lower":4593.734011654731,
+               "Upper":42471.32999387912
+            },
+            "Percentiles":{
+               "P0":22431.84844970703,
+               "P25":23051.799560546875,
+               "P50":23671.75067138672,
+               "P67":23951.314384765625,
+               "P80":24165.098400878906,
+               "P85":24247.323022460936,
+               "P90":24329.54764404297,
+               "P95":24411.772265624997,
+               "P100":24493.99688720703
+            }
+         },
+         "Memory":{
+            "Gen0Collections":22,
+            "Gen1Collections":8,
+            "Gen2Collections":0,
+            "TotalOperations":32768,
+            "BytesAllocatedPerOperation":12104
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Update (append a version)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"UpdateAsync",
+         "MethodTitle":"'Update (append a version)'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.UpdateAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               23579.48846435547,24781.7080078125,24434.57421875
+            ],
+            "N":3,
+            "Min":23579.48846435547,
+            "LowerFence":23105.36668395996,
+            "Q1":24007.031341552734,
+            "Median":24434.57421875,
+            "Mean":24265.256896972656,
+            "Q3":24608.14111328125,
+            "UpperFence":25509.805770874023,
+            "Max":24781.7080078125,
+            "InterquartileRange":601.1097717285156,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":357.2273898876819,
+            "Variance":382834.2242578976,
+            "StandardDeviation":618.7359891406816,
+            "Skewness":-0.25315817876406344,
+            "Kurtosis":0.6666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":24265.256896972656,
+               "StandardError":357.2273898876819,
+               "Level":12,
+               "Margin":11288.047743582016,
+               "Lower":12977.20915339064,
+               "Upper":35553.30464055467
+            },
+            "Percentiles":{
+               "P0":23579.48846435547,
+               "P25":24007.031341552734,
+               "P50":24434.57421875,
+               "P67":24552.59970703125,
+               "P80":24642.8544921875,
+               "P85":24677.56787109375,
+               "P90":24712.28125,
+               "P95":24746.99462890625,
+               "P100":24781.7080078125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":12,
+            "Gen1Collections":3,
+            "Gen2Collections":0,
+            "TotalOperations":16384,
+            "BytesAllocatedPerOperation":12952
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Activate: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"ActivateAsync",
+         "MethodTitle":"Activate",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.ActivateAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               6386.205936431885,6020.1657371521,5668.383083343506
+            ],
+            "N":3,
+            "Min":5668.383083343506,
+            "LowerFence":5305.907270431519,
+            "Q1":5844.274410247803,
+            "Median":6020.1657371521,
+            "Mean":6024.918252309163,
+            "Q3":6203.185836791992,
+            "UpperFence":6741.552976608276,
+            "Max":6386.205936431885,
+            "InterquartileRange":358.91142654418945,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":207.23123309017532,
+            "Variance":128834.3519042237,
+            "StandardDeviation":358.9350246273324,
+            "Skewness":0.013238278939099613,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":6024.918252309163,
+               "StandardError":207.23123309017532,
+               "Level":12,
+               "Margin":6548.311017861106,
+               "Lower":-523.3927655519428,
+               "Upper":12573.229270170268
+            },
+            "Percentiles":{
+               "P0":5668.383083343506,
+               "P25":5844.274410247803,
+               "P50":6020.1657371521,
+               "P67":6144.619404907226,
+               "P80":6239.78985671997,
+               "P85":6276.393876647949,
+               "P90":6312.997896575928,
+               "P95":6349.601916503906,
+               "P100":6386.205936431885
+            }
+         },
+         "Memory":{
+            "Gen0Collections":17,
+            "Gen1Collections":8,
+            "Gen2Collections":0,
+            "TotalOperations":131072,
+            "BytesAllocatedPerOperation":2320
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get latest': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetLatestAsync",
+         "MethodTitle":"'Get latest'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetLatestAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               1031.9934825897217,1612.130075454712,1271.7723484039307
+            ],
+            "N":3,
+            "Min":1031.9934825897217,
+            "LowerFence":716.7804708480835,
+            "Q1":1151.8829154968262,
+            "Median":1271.7723484039307,
+            "Mean":1305.298635482788,
+            "Q3":1441.9512119293213,
+            "UpperFence":1877.053656578064,
+            "Max":1612.130075454712,
+            "InterquartileRange":290.0682964324951,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":168.30787814718232,
+            "Variance":84982.62553922032,
+            "StandardDeviation":291.51779626503134,
+            "Skewness":0.11348485861264769,
+            "Kurtosis":0.666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":1305.298635482788,
+               "StandardError":168.30787814718232,
+               "Level":12,
+               "Margin":5318.369805696387,
+               "Lower":-4013.0711702135986,
+               "Upper":6623.668441179175
+            },
+            "Percentiles":{
+               "P0":1031.9934825897217,
+               "P25":1151.8829154968262,
+               "P50":1271.7723484039307,
+               "P67":1387.4939756011963,
+               "P80":1475.9869846343995,
+               "P85":1510.0227573394777,
+               "P90":1544.0585300445557,
+               "P95":1578.0943027496337,
+               "P100":1612.130075454712
+            }
+         },
+         "Memory":{
+            "Gen0Collections":33,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":524288,
+            "BytesAllocatedPerOperation":1096
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get active': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetActiveAsync",
+         "MethodTitle":"'Get active'",
+         "Parameters":"Versions=10000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetActiveAsync(Versions: 10000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               2332.1336708068848,2518.35538482666,2517.9088172912598
+            ],
+            "N":3,
+            "Min":2332.1336708068848,
+            "LowerFence":2285.3549585342407,
+            "Q1":2425.0212440490723,
+            "Median":2517.9088172912598,
+            "Mean":2456.132624308268,
+            "Q3":2518.13210105896,
+            "UpperFence":2657.7983865737915,
+            "Max":2518.35538482666,
+            "InterquartileRange":93.1108570098877,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":61.99961077221806,
+            "Variance":11531.855207719613,
+            "StandardDeviation":107.38647590697636,
+            "Skewness":-0.3848926913022912,
+            "Kurtosis":0.6666666666666644,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":2456.132624308268,
+               "StandardError":61.99961077221806,
+               "Level":12,
+               "Margin":1959.1290765815718,
+               "Lower":497.0035477266963,
+               "Upper":4415.26170088984
+            },
+            "Percentiles":{
+               "P0":2332.1336708068848,
+               "P25":2425.0212440490723,
+               "P50":2517.9088172912598,
+               "P67":2518.0606502532955,
+               "P80":2518.1767578125,
+               "P85":2518.22141456604,
+               "P90":2518.26607131958,
+               "P95":2518.31072807312,
+               "P100":2518.35538482666
+            }
+         },
+         "Memory":{
+            "Gen0Collections":25,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":262144,
+            "BytesAllocatedPerOperation":1688
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Create: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"CreateAsync",
+         "MethodTitle":"Create",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.CreateAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               705448.9809570312,819459.8823242188,764317.6840820312
+            ],
+            "N":3,
+            "Min":705448.9809570312,
+            "LowerFence":649375.1564941406,
+            "Q1":734883.3325195312,
+            "Median":764317.6840820312,
+            "Mean":763075.5157877604,
+            "Q3":791888.783203125,
+            "UpperFence":877396.9592285156,
+            "Max":819459.8823242188,
+            "InterquartileRange":57005.45068359375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":32917.972012226135,
+            "Variance":3250778644.193108,
+            "StandardDeviation":57015.60000730597,
+            "Skewness":-0.021776122656526214,
+            "Kurtosis":0.6666666666666665,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":763075.5157877604,
+               "StandardError":32917.972012226135,
+               "Level":12,
+               "Margin":1040176.7899508933,
+               "Lower":-277101.2741631329,
+               "Upper":1803252.3057386535
+            },
+            "Percentiles":{
+               "P0":705448.9809570312,
+               "P25":734883.3325195312,
+               "P50":764317.6840820312,
+               "P67":783066.031484375,
+               "P80":797403.0030273437,
+               "P85":802917.2228515624,
+               "P90":808431.4426757813,
+               "P95":813945.6625,
+               "P100":819459.8823242188
+            }
+         },
+         "Memory":{
+            "Gen0Collections":2,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":1024,
+            "BytesAllocatedPerOperation":43128
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Update (append a version)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"UpdateAsync",
+         "MethodTitle":"'Update (append a version)'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.UpdateAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               841015.1474609375,777199.478515625,887011.5146484375
+            ],
+            "N":3,
+            "Min":777199.478515625,
+            "LowerFence":726748.2858886719,
+            "Q1":809107.3129882812,
+            "Median":841015.1474609375,
+            "Mean":835075.3802083334,
+            "Q3":864013.3310546875,
+            "UpperFence":946372.3581542969,
+            "Max":887011.5146484375,
+            "InterquartileRange":54906.01806640625,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":31838.820362202816,
+            "Variance":3041131446.1698613,
+            "StandardDeviation":55146.454520393796,
+            "Skewness":-0.10645940445131064,
+            "Kurtosis":0.666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":835075.3802083334,
+               "StandardError":31838.820362202816,
+               "Level":12,
+               "Margin":1006076.6182035404,
+               "Lower":-171001.23799520708,
+               "Upper":1841151.9984118738
+            },
+            "Percentiles":{
+               "P0":777199.478515625,
+               "P25":809107.3129882812,
+               "P50":841015.1474609375,
+               "P67":856653.9123046875,
+               "P80":868612.9677734375,
+               "P85":873212.6044921875,
+               "P90":877812.2412109375,
+               "P95":882411.8779296875,
+               "P100":887011.5146484375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":4,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":1024,
+            "BytesAllocatedPerOperation":71841
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Activate: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"ActivateAsync",
+         "MethodTitle":"Activate",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.ActivateAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               314153.41552734375,329888.0751953125,334558.7626953125
+            ],
+            "N":3,
+            "Min":314153.41552734375,
+            "LowerFence":306716.73498535156,
+            "Q1":322020.7453613281,
+            "Median":329888.0751953125,
+            "Mean":326200.08447265625,
+            "Q3":332223.4189453125,
+            "UpperFence":347527.42932128906,
+            "Max":334558.7626953125,
+            "InterquartileRange":10202.673583984375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":6172.398370680327,
+            "Variance":114295504.9391315,
+            "StandardDeviation":10690.907582573684,
+            "Skewness":-0.3039139789212821,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":326200.08447265625,
+               "StandardError":6172.398370680327,
+               "Level":12,
+               "Margin":195041.95219340298,
+               "Lower":131158.13227925327,
+               "Upper":521242.0366660592
+            },
+            "Percentiles":{
+               "P0":314153.41552734375,
+               "P25":322020.7453613281,
+               "P50":329888.0751953125,
+               "P67":331476.1089453125,
+               "P80":332690.4876953125,
+               "P85":333157.5564453125,
+               "P90":333624.6251953125,
+               "P95":334091.6939453125,
+               "P100":334558.7626953125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":2,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":2048,
+            "BytesAllocatedPerOperation":19634
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get latest': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetLatestAsync",
+         "MethodTitle":"'Get latest'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetLatestAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               48077.914794921875,55087.85119628906,50648.36340332031
+            ],
+            "N":3,
+            "Min":48077.914794921875,
+            "LowerFence":44105.6867980957,
+            "Q1":49363.139099121094,
+            "Median":50648.36340332031,
+            "Mean":51271.37646484375,
+            "Q3":52868.10729980469,
+            "UpperFence":58125.55960083008,
+            "Max":55087.85119628906,
+            "InterquartileRange":3504.9682006835938,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":2047.4301814652758,
+            "Variance":12575911.043924794,
+            "StandardDeviation":3546.2530992478237,
+            "Skewness":0.170259779197842,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":51271.37646484375,
+               "StandardError":2047.4301814652758,
+               "Level":12,
+               "Margin":64696.857783770305,
+               "Lower":-13425.481318926555,
+               "Upper":115968.23424861406
+            },
+            "Percentiles":{
+               "P0":48077.914794921875,
+               "P25":49363.139099121094,
+               "P50":50648.36340332031,
+               "P67":52157.78925292969,
+               "P80":53312.05607910156,
+               "P85":53756.00485839844,
+               "P90":54199.95363769531,
+               "P95":54643.90241699218,
+               "P100":55087.85119628906
+            }
+         },
+         "Memory":{
+            "Gen0Collections":15,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":16384,
+            "BytesAllocatedPerOperation":16217
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get active': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=10000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetActiveAsync",
+         "MethodTitle":"'Get active'",
+         "Parameters":"Versions=10000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetActiveAsync(Versions: 10000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               61725.13037109375,61341.712158203125,59551.75048828125
+            ],
+            "N":3,
+            "Min":59551.75048828125,
+            "LowerFence":58816.69641113281,
+            "Q1":60446.73132324219,
+            "Median":61341.712158203125,
+            "Mean":60872.86433919271,
+            "Q3":61533.42126464844,
+            "UpperFence":63163.45617675781,
+            "Max":61725.13037109375,
+            "InterquartileRange":1086.68994140625,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":669.765813996862,
+            "Variance":1345758.7367966373,
+            "StandardDeviation":1160.0684190152913,
+            "Skewness":-0.33813997282846403,
+            "Kurtosis":0.6666666666666695,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":60872.86433919271,
+               "StandardError":669.765813996862,
+               "Level":12,
+               "Margin":21163.966424278795,
+               "Lower":39708.89791491392,
+               "Upper":82036.8307634715
+            },
+            "Percentiles":{
+               "P0":59551.75048828125,
+               "P25":60446.73132324219,
+               "P50":61341.712158203125,
+               "P67":61472.07435058594,
+               "P80":61571.763085937506,
+               "P85":61610.10490722656,
+               "P90":61648.44672851563,
+               "P95":61686.78854980468,
+               "P100":61725.13037109375
+            }
+         },
+         "Memory":{
+            "Gen0Collections":10,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":8192,
+            "BytesAllocatedPerOperation":21767
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Create: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"CreateAsync",
+         "MethodTitle":"Create",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.CreateAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               25000.53729248047,25580.8564453125,34685.642517089844
+            ],
+            "N":3,
+            "Min":25000.53729248047,
+            "LowerFence":18026.867950439453,
+            "Q1":25290.696868896484,
+            "Median":25580.8564453125,
+            "Mean":28422.34541829427,
+            "Q3":30133.249481201172,
+            "UpperFence":37397.0783996582,
+            "Max":34685.642517089844,
+            "InterquartileRange":4842.5526123046875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":3136.1260864651526,
+            "Variance":29505860.4906217,
+            "StandardDeviation":5431.92972069979,
+            "Skewness":0.37996379286086723,
+            "Kurtosis":0.666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":28422.34541829427,
+               "StandardError":3136.1260864651526,
+               "Level":12,
+               "Margin":99098.61896379846,
+               "Lower":-70676.2735455042,
+               "Upper":127520.96438209273
+            },
+            "Percentiles":{
+               "P0":25000.53729248047,
+               "P25":25290.696868896484,
+               "P50":25580.8564453125,
+               "P67":28676.483709716795,
+               "P80":31043.728088378906,
+               "P85":31954.20669555664,
+               "P90":32864.685302734375,
+               "P95":33775.16390991211,
+               "P100":34685.642517089844
+            }
+         },
+         "Memory":{
+            "Gen0Collections":21,
+            "Gen1Collections":7,
+            "Gen2Collections":0,
+            "TotalOperations":32768,
+            "BytesAllocatedPerOperation":11485
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Update (append a version)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"UpdateAsync",
+         "MethodTitle":"'Update (append a version)'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.UpdateAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               28608.286743164062,33011.91064453125,33718.25866699219
+            ],
+            "N":3,
+            "Min":28608.286743164062,
+            "LowerFence":26977.619750976562,
+            "Q1":30810.098693847656,
+            "Median":33011.91064453125,
+            "Mean":31779.4853515625,
+            "Q3":33365.08465576172,
+            "UpperFence":37197.56359863281,
+            "Max":33718.25866699219,
+            "InterquartileRange":2554.9859619140625,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":1598.6564507568805,
+            "Variance":7667107.342639759,
+            "StandardDeviation":2768.95419655865,
+            "Skewness":-0.35691414762147633,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":31779.4853515625,
+               "StandardError":1598.6564507568805,
+               "Level":12,
+               "Margin":50516.032232027064,
+               "Lower":-18736.546880464564,
+               "Upper":82295.51758358956
+            },
+            "Percentiles":{
+               "P0":28608.286743164062,
+               "P25":30810.098693847656,
+               "P50":33011.91064453125,
+               "P67":33252.06897216797,
+               "P80":33435.719458007814,
+               "P85":33506.35426025391,
+               "P90":33576.9890625,
+               "P95":33647.62386474609,
+               "P100":33718.25866699219
+            }
+         },
+         "Memory":{
+            "Gen0Collections":12,
+            "Gen1Collections":3,
+            "Gen2Collections":0,
+            "TotalOperations":16384,
+            "BytesAllocatedPerOperation":12952
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Activate: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"ActivateAsync",
+         "MethodTitle":"Activate",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.ActivateAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               8965.172386169434,9299.057395935059,9333.430534362793
+            ],
+            "N":3,
+            "Min":8965.172386169434,
+            "LowerFence":8855.921279907227,
+            "Q1":9132.114891052246,
+            "Median":9299.057395935059,
+            "Mean":9199.220105489096,
+            "Q3":9316.243965148926,
+            "UpperFence":9592.437576293945,
+            "Max":9333.430534362793,
+            "InterquartileRange":184.1290740966797,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":117.44378705064867,
+            "Variance":41379.12935039432,
+            "StandardDeviation":203.41860620502325,
+            "Skewness":-0.37257305314146827,
+            "Kurtosis":0.6666666666666711,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":9199.220105489096,
+               "StandardError":117.44378705064867,
+               "Level":12,
+               "Margin":3711.112621659908,
+               "Lower":5488.107483829188,
+               "Upper":12910.332727149003
+            },
+            "Percentiles":{
+               "P0":8965.172386169434,
+               "P25":9132.114891052246,
+               "P50":9299.057395935059,
+               "P67":9310.744263000488,
+               "P80":9319.6812789917,
+               "P85":9323.118592834473,
+               "P90":9326.555906677246,
+               "P95":9329.99322052002,
+               "P100":9333.430534362793
+            }
+         },
+         "Memory":{
+            "Gen0Collections":8,
+            "Gen1Collections":3,
+            "Gen2Collections":0,
+            "TotalOperations":65536,
+            "BytesAllocatedPerOperation":2320
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get latest': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetLatestAsync",
+         "MethodTitle":"'Get latest'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetLatestAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               1942.4372253417969,1949.5637855529785,2114.103214263916
+            ],
+            "N":3,
+            "Min":1942.4372253417969,
+            "LowerFence":1817.2510137557983,
+            "Q1":1946.0005054473877,
+            "Median":1949.5637855529785,
+            "Mean":2002.0347417195637,
+            "Q3":2031.8334999084473,
+            "UpperFence":2160.5829916000366,
+            "Max":2114.103214263916,
+            "InterquartileRange":85.83299446105957,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":56.0719890525536,
+            "Variance":9432.20386892907,
+            "StandardDeviation":97.1195339204687,
+            "Skewness":0.3825699234357663,
+            "Kurtosis":0.6666666666666679,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":2002.0347417195637,
+               "StandardError":56.0719890525536,
+               "Level":12,
+               "Margin":1771.821835111358,
+               "Lower":230.21290660820569,
+               "Upper":3773.8565768309218
+            },
+            "Percentiles":{
+               "P0":1942.4372253417969,
+               "P25":1946.0005054473877,
+               "P50":1949.5637855529785,
+               "P67":2005.5071913146974,
+               "P80":2048.2874427795414,
+               "P85":2064.7413856506346,
+               "P90":2081.1953285217287,
+               "P95":2097.6492713928224,
+               "P100":2114.103214263916
+            }
+         },
+         "Memory":{
+            "Gen0Collections":16,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":262144,
+            "BytesAllocatedPerOperation":1096
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get active': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=InMemory]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetActiveAsync",
+         "MethodTitle":"'Get active'",
+         "Parameters":"Versions=100000&Provider=InMemory",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetActiveAsync(Versions: 100000, Provider: InMemory)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               2936.4447116851807,2985.301782608032,2949.8640689849854
+            ],
+            "N":3,
+            "Min":2936.4447116851807,
+            "LowerFence":2906.5115871429443,
+            "Q1":2943.154390335083,
+            "Median":2949.8640689849854,
+            "Mean":2957.203521092733,
+            "Q3":2967.582925796509,
+            "UpperFence":3004.2257289886475,
+            "Max":2985.301782608032,
+            "InterquartileRange":24.42853546142578,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":14.573423444997122,
+            "Variance":637.1540127215752,
+            "StandardDeviation":25.241909846950474,
+            "Skewness":0.2661821317340453,
+            "Kurtosis":0.6666666666666602,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":2957.203521092733,
+               "StandardError":14.573423444997122,
+               "Level":12,
+               "Margin":460.5064009405556,
+               "Lower":2496.6971201521774,
+               "Upper":3417.7099220332884
+            },
+            "Percentiles":{
+               "P0":2936.4447116851807,
+               "P25":2943.154390335083,
+               "P50":2949.8640689849854,
+               "P67":2961.912891616821,
+               "P80":2971.1266971588134,
+               "P85":2974.670468521118,
+               "P90":2978.214239883423,
+               "P95":2981.7580112457276,
+               "P100":2985.301782608032
+            }
+         },
+         "Memory":{
+            "Gen0Collections":25,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":262144,
+            "BytesAllocatedPerOperation":1688
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Create: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"CreateAsync",
+         "MethodTitle":"Create",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.CreateAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               778251.150390625,813389.3564453125,746019.53515625
+            ],
+            "N":3,
+            "Min":746019.53515625,
+            "LowerFence":711607.9768066406,
+            "Q1":762135.3427734375,
+            "Median":778251.150390625,
+            "Mean":779220.0139973959,
+            "Q3":795820.2534179688,
+            "UpperFence":846347.6193847656,
+            "Max":813389.3564453125,
+            "InterquartileRange":33684.91064453125,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":19454.024670544382,
+            "Variance":1135377227.6464484,
+            "StandardDeviation":33695.35914108126,
+            "Skewness":0.028729848956978218,
+            "Kurtosis":0.6666666666666666,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":779220.0139973959,
+               "StandardError":19454.024670544382,
+               "Level":12,
+               "Margin":614728.7848083893,
+               "Lower":164491.2291890066,
+               "Upper":1393948.7988057851
+            },
+            "Percentiles":{
+               "P0":746019.53515625,
+               "P25":762135.3427734375,
+               "P50":778251.150390625,
+               "P67":790198.1404492187,
+               "P80":799334.0740234375,
+               "P85":802847.8946289063,
+               "P90":806361.715234375,
+               "P95":809875.5358398438,
+               "P100":813389.3564453125
+            }
+         },
+         "Memory":{
+            "Gen0Collections":2,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":1024,
+            "BytesAllocatedPerOperation":43128
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Update (append a version)': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"UpdateAsync",
+         "MethodTitle":"'Update (append a version)'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.UpdateAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               841332.1513671875,781966.6630859375,691682.8125
+            ],
+            "N":3,
+            "Min":691682.8125,
+            "LowerFence":624587.7336425781,
+            "Q1":736824.7377929688,
+            "Median":781966.6630859375,
+            "Mean":771660.5423177084,
+            "Q3":811649.4072265625,
+            "UpperFence":923886.4113769531,
+            "Max":841332.1513671875,
+            "InterquartileRange":74824.66943359375,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":43506.29552073881,
+            "Variance":5678393249.813572,
+            "StandardDeviation":75355.11429102588,
+            "Skewness":-0.13420909309972237,
+            "Kurtosis":0.666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":771660.5423177084,
+               "StandardError":43506.29552073881,
+               "Level":12,
+               "Margin":1374757.8010154772,
+               "Lower":-603097.2586977688,
+               "Upper":2146418.3433331857
+            },
+            "Percentiles":{
+               "P0":691682.8125,
+               "P25":736824.7377929688,
+               "P50":781966.6630859375,
+               "P67":802150.9291015625,
+               "P80":817585.9560546875,
+               "P85":823522.5048828125,
+               "P90":829459.0537109375,
+               "P95":835395.6025390625,
+               "P100":841332.1513671875
+            }
+         },
+         "Memory":{
+            "Gen0Collections":4,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":1024,
+            "BytesAllocatedPerOperation":71862
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.Activate: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"ActivateAsync",
+         "MethodTitle":"Activate",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.ActivateAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               375647.3786621094,423510.4558105469,370041.6667480469
+            ],
+            "N":3,
+            "Min":370041.6667480469,
+            "LowerFence":332742.9309082031,
+            "Q1":372844.5227050781,
+            "Median":375647.3786621094,
+            "Mean":389733.1670735677,
+            "Q3":399578.9172363281,
+            "UpperFence":439680.5090332031,
+            "Max":423510.4558105469,
+            "InterquartileRange":26734.39453125,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":16965.994688708062,
+            "Variance":863534927.3318104,
+            "StandardDeviation":29385.964801786078,
+            "Skewness":0.369202719626813,
+            "Kurtosis":0.6666666666666677,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":389733.1670735677,
+               "StandardError":16965.994688708062,
+               "Level":12,
+               "Margin":536109.3899426645,
+               "Lower":-146376.22286909685,
+               "Upper":925842.5570162323
+            },
+            "Percentiles":{
+               "P0":370041.6667480469,
+               "P25":372844.5227050781,
+               "P50":375647.3786621094,
+               "P67":391920.82489257806,
+               "P80":404365.2249511719,
+               "P85":409151.5326660157,
+               "P90":413937.8403808593,
+               "P95":418724.14809570316,
+               "P100":423510.4558105469
+            }
+         },
+         "Memory":{
+            "Gen0Collections":2,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":2048,
+            "BytesAllocatedPerOperation":19635
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get latest': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetLatestAsync",
+         "MethodTitle":"'Get latest'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetLatestAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               50458.47332763672,50581.49060058594,48479.559814453125
+            ],
+            "N":3,
+            "Min":48479.559814453125,
+            "LowerFence":47892.56848144531,
+            "Q1":49469.01657104492,
+            "Median":50458.47332763672,
+            "Mean":49839.841247558594,
+            "Q3":50519.98196411133,
+            "UpperFence":52096.43005371094,
+            "Max":50581.49060058594,
+            "InterquartileRange":1050.9653930664062,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":681.0671761531229,
+            "Variance":1391557.4952995665,
+            "StandardDeviation":1179.6429524646712,
+            "Skewness":-0.3801964849937965,
+            "Kurtosis":0.6666666666666667,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":49839.841247558594,
+               "StandardError":681.0671761531229,
+               "Level":12,
+               "Margin":21521.07878239751,
+               "Lower":28318.762465161082,
+               "Upper":71360.9200299561
+            },
+            "Percentiles":{
+               "P0":48479.559814453125,
+               "P25":49469.01657104492,
+               "P50":50458.47332763672,
+               "P67":50500.29920043946,
+               "P80":50532.28369140625,
+               "P85":50544.58541870117,
+               "P90":50556.887145996094,
+               "P95":50569.188873291016,
+               "P100":50581.49060058594
+            }
+         },
+         "Memory":{
+            "Gen0Collections":15,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":16384,
+            "BytesAllocatedPerOperation":16219
+         }
+      },{
+         "DisplayInfo":"ResourceBenchmarks.'Get active': ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [Versions=100000, Provider=Sqlite]",
+         "Namespace":"Aster.Benchmarks",
+         "Type":"ResourceBenchmarks",
+         "Method":"GetActiveAsync",
+         "MethodTitle":"'Get active'",
+         "Parameters":"Versions=100000&Provider=Sqlite",
+         "FullName":"Aster.Benchmarks.ResourceBenchmarks.GetActiveAsync(Versions: 100000, Provider: Sqlite)",
+         "HardwareIntrinsics":"AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               61902.673828125,62312.49499511719,61819.74768066406
+            ],
+            "N":3,
+            "Min":61819.74768066406,
+            "LowerFence":61491.65026855469,
+            "Q1":61861.21075439453,
+            "Median":61902.673828125,
+            "Mean":62011.638834635414,
+            "Q3":62107.584411621094,
+            "UpperFence":62477.14489746094,
+            "Max":62312.49499511719,
+            "InterquartileRange":246.3736572265625,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":152.32094237503162,
+            "Variance":69605.00845805308,
+            "StandardDeviation":263.8276112503259,
+            "Skewness":0.3425627817301212,
+            "Kurtosis":0.666666666666679,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":62011.638834635414,
+               "StandardError":152.32094237503162,
+               "Level":12,
+               "Margin":4813.197751766378,
+               "Lower":57198.44108286904,
+               "Upper":66824.8365864018
+            },
+            "Percentiles":{
+               "P0":61819.74768066406,
+               "P25":61861.21075439453,
+               "P50":61902.673828125,
+               "P67":62042.013024902335,
+               "P80":62148.56652832031,
+               "P85":62189.54864501953,
+               "P90":62230.53076171875,
+               "P95":62271.51287841797,
+               "P100":62312.49499511719
+            }
+         },
+         "Memory":{
+            "Gen0Collections":10,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":8192,
+            "BytesAllocatedPerOperation":21770
+         }
+      }
+   ]
+}
