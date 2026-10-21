@@ -105,8 +105,10 @@ public sealed class PortabilityImportTests : IDisposable
     [Fact]
     public async Task ImportAsync_StrictDivergentDefinitionCollision_FailsWithoutWritingResources()
     {
+        // Content differs from the snapshot's Product, which has no aspects; generated IDs alone would not (#221).
         await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
+            .WithAspect("Price")
             .Build());
         var snapshot = CreateSnapshot();
 
@@ -143,8 +145,10 @@ public sealed class PortabilityImportTests : IDisposable
     [Fact]
     public async Task ImportAsync_RemapDivergentDefinitionCollision_RewritesDefinitionLineage()
     {
+        // Content differs from the snapshot's Product, which has no aspects; generated IDs alone would not (#221).
         await definitionStore.RegisterDefinitionAsync(new ResourceDefinitionBuilder()
             .WithDefinitionId("Product")
+            .WithAspect("Price")
             .Build());
         var snapshot = CreateSnapshot();
 

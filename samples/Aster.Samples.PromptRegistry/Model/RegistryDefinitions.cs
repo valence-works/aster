@@ -1,7 +1,6 @@
 using Aster.Core.Abstractions;
 using Aster.Core.Definitions;
 using Aster.Core.Models.Definitions;
-using Aster.Core.Models.Portability;
 
 namespace Aster.Samples.PromptRegistry.Model;
 
@@ -21,58 +20,28 @@ public static class RegistryDefinitions
     public const string AgentId = nameof(Agent);
 
     /// <summary>A prompt; facets are derived from <see cref="Prompt"/>.</summary>
-    public static ResourceDefinition PromptDefinition() => WithStableIds(new ResourceDefinitionBuilder()
+    public static ResourceDefinition PromptDefinition() => new ResourceDefinitionBuilder()
         .WithDefinitionId(PromptId)
         .WithAspect<Prompt>()
         .WithFacetMetadata(nameof(Prompt.Template), new FacetMetadata { MinLength = 1, UiHint = UiHints.Multiline })
         .WithFacetMetadata(nameof(Prompt.Variables), new FacetMetadata { UniqueItems = true })
-        .Build());
+        .Build();
 
     /// <summary>A tool; facets are derived from <see cref="Tool"/>.</summary>
-    public static ResourceDefinition ToolDefinition() => WithStableIds(new ResourceDefinitionBuilder()
+    public static ResourceDefinition ToolDefinition() => new ResourceDefinitionBuilder()
         .WithDefinitionId(ToolId)
         .WithAspect<Tool>()
-        .Build());
+        .Build();
 
     /// <summary>
-    /// An agent. Facets are declared one by one, because Aster never infers references: a string
-    /// property derives a <c>string</c> facet, and a derived facet's type cannot be changed.
+    /// An agent; facets are derived from <see cref="Agent"/>, whose <c>[ReferenceFacet]</c> properties
+    /// become <c>reference</c> and <c>reference[]</c> facets with their target definitions.
     /// </summary>
-    public static ResourceDefinition AgentDefinition() => WithStableIds(new ResourceDefinitionBuilder()
+    public static ResourceDefinition AgentDefinition() => new ResourceDefinitionBuilder()
         .WithDefinitionId(AgentId)
-        .WithAspect(AgentId)
-        .WithFacet(nameof(Agent.Name), "string", isRequired: true)
-        .WithFacet(nameof(Agent.Prompt), "reference", isRequired: true)
-        .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = [PromptId] })
-        .WithFacet(nameof(Agent.Tools), "reference[]")
-        .WithFacetMetadata(new FacetMetadata { TargetDefinitionIds = [ToolId], UniqueItems = true })
-        .Build());
-
-    /// <summary>
-    /// Replaces the random IDs <see cref="ResourceDefinitionBuilder"/> gives the definition, its
-    /// aspects and its facets with IDs derived from their names.
-    /// </summary>
-    /// <remarks>
-    /// Workaround for an SDK gap. Each environment registers these definitions from this code at
-    /// startup, and import compares definitions including those generated IDs. Without stable IDs,
-    /// identical definitions in two environments look divergent, and a
-    /// <see cref="PortableImportCollisionMode.RemapDivergent"/> import moves the imported resources
-    /// to new definitions such as <c>Prompt__imported</c>. Raise the revision when a definition's
-    /// content changes.
-    /// </remarks>
-    private static ResourceDefinition WithStableIds(ResourceDefinition definition, int revision = 1) => definition with
-    {
-        Id = $"{definition.DefinitionId}@{revision}",
-        AspectDefinitions = definition.AspectDefinitions.ToDictionary(
-            static pair => pair.Key,
-            pair => pair.Value with
-            {
-                Id = $"{definition.DefinitionId}@{revision}/{pair.Key}",
-                FacetDefinitions = pair.Value.FacetDefinitions
-                    .Select(facet => facet with { Id = $"{definition.DefinitionId}@{revision}/{pair.Key}/{facet.FacetDefinitionId}" })
-                    .ToList(),
-            }),
-    };
+        .WithAspect<Agent>()
+        .WithFacetMetadata(nameof(Agent.Tools), new FacetMetadata { UniqueItems = true })
+        .Build();
 
     /// <summary>Registers the three definitions.</summary>
     public static async Task RegisterAsync(IResourceDefinitionStore definitions, CancellationToken cancellationToken = default)
