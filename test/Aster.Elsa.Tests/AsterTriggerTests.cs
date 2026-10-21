@@ -2,6 +2,8 @@ using Aster.Core.Abstractions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Lifecycle;
 using Aster.Elsa.Activities;
+using Elsa.Common.DistributedHosting;
+using Elsa.Extensions;
 using Elsa.Workflows;
 using Elsa.Workflows.Helpers;
 using Elsa.Workflows.Runtime;
@@ -16,6 +18,8 @@ namespace Aster.Elsa.Tests;
 /// <summary>
 /// The lifecycle triggers against Elsa 3.9 in process: committed Aster changes start trigger-bound workflows and resume
 /// bookmarks whose filters match, once per event; failed writes send nothing; a failing send never fails the write.
+/// The hook sends in the background, so each test waits for delivery (<see cref="TriggerTestHost.DeliveredAsync"/>)
+/// before it asserts.
 /// </summary>
 public sealed class AsterTriggerTests
 {
@@ -29,6 +33,7 @@ public sealed class AsterTriggerTests
         var created = await host.CreateProductAsync("gadget");
 
         await host.Manager.ActivateAsync("gadget", created.Version, "Published");
+        await host.DeliveredAsync();
 
         var published = Assert.Single(host.Runs.Of(OnProductPublished.Id));
         Assert.NotNull(published);
@@ -51,6 +56,7 @@ public sealed class AsterTriggerTests
 
         await host.CreateProductAsync("gadget");
         await host.Manager.UpdateAsync("gadget", new UpdateResourceRequest { BaseVersion = 1, AspectUpdates = new() { ["Price"] = new { Amount = 12 } } });
+        await host.DeliveredAsync();
 
         var runs = host.Runs.Of(OnProductSaved.Id);
         Assert.Equal(2, runs.Count);
@@ -70,6 +76,7 @@ public sealed class AsterTriggerTests
         var markers = host.Services.GetRequiredService<IResourceLifecycleMarkerService>();
         await markers.ApplyAsync(new ResourceLifecycleMarkerRequest { ResourceId = "gadget", State = ResourceLifecycleMarkerState.Archived, MarkedAt = DateTimeOffset.UtcNow });
         await markers.ApplyAsync(new ResourceLifecycleMarkerRequest { ResourceId = "widget", State = ResourceLifecycleMarkerState.SoftDeleted, MarkedAt = DateTimeOffset.UtcNow });
+        await host.DeliveredAsync();
 
         var unpublished = Assert.Single(host.Runs.Of(OnProductUnpublished.Id))!;
         Assert.Equal((ResourceLifecycleEventKind.Deactivated, "gadget", 1, "Published"), (unpublished.Kind, unpublished.ResourceId, unpublished.ResourceVersion, unpublished.Channel));
@@ -90,6 +97,7 @@ public sealed class AsterTriggerTests
             result.AssertCompleted();
         }
 
+        await host.DeliveredAsync();
         Assert.Equal("gadget", Assert.Single(host.Runs.Of(OnProductArchived.Id))!.ResourceId);
     }
 
@@ -103,12 +111,67 @@ public sealed class AsterTriggerTests
 
         await host.CreateProductAsync("gadget");
         await host.Manager.UpdateAsync("gadget", new UpdateResourceRequest { BaseVersion = 1, AspectUpdates = new() { ["Price"] = new { Amount = 12 } } });
+        await host.DeliveredAsync();
 
         var resumed = Assert.Single(host.Runs.Of(WaitForProductSaved.Id))!;
         Assert.Equal((ResourceLifecycleEventKind.Saved, "gadget", 1), (resumed.Kind, resumed.ResourceId, resumed.ResourceVersion));
         var instance = await host.Services.GetRequiredService<global::Elsa.Workflows.Management.IWorkflowInstanceStore>()
             .FindAsync(new global::Elsa.Workflows.Management.Filters.WorkflowInstanceFilter { Id = started.WorkflowInstanceId });
         Assert.Equal(WorkflowSubStatus.Finished, instance!.SubStatus);
+    }
+
+    [Fact]
+    public async Task A_resumed_workflow_that_saves_a_matching_resource_neither_waits_on_itself_nor_loses_the_event()
+    {
+        // Elsa holds a lock per stimulus while it resumes bookmarks. Sent inline, the workflow's own save would wait
+        // on that lock until it timed out; a short timeout keeps that failure quick.
+        await using var host = await TriggerTestHost.StartAsync(
+            services => services.Configure<DistributedLockingOptions>(options => options.LockAcquisitionTimeout = TimeSpan.FromSeconds(2)),
+            elsa => elsa.AddWorkflow<WaitThenCreateProduct>());
+        var started = await host.StartWorkflowAsync(WaitThenCreateProduct.Id);
+        Assert.Equal(WorkflowSubStatus.Suspended, started.SubStatus);
+
+        await host.CreateProductAsync("gadget");
+        await host.DeliveredAsync();
+
+        Assert.Equal("gadget", Assert.Single(host.Runs.Of(WaitThenCreateProduct.Id))!.ResourceId);
+        Assert.Equal(["gadget", "created-by-workflow"], host.Runs.Of(OnProductSaved.Id).Select(static e => e!.ResourceId));
+        Assert.DoesNotContain(host.Logs.Entries, static e => e.Level >= LogLevel.Warning && e.Category == "Aster.Elsa.AsterLifecycleTriggerHook");
+    }
+
+    [Fact]
+    public async Task A_workflow_started_by_an_event_resumes_on_the_next_matching_event_not_the_same_one()
+    {
+        await using var host = await TriggerTestHost.StartAsync(configureElsa: elsa =>
+        {
+            elsa.AddWorkflow<StartThenWaitForAnySave>();
+            elsa.AddWorkflow<StartThenWaitForProductSave>();
+        });
+
+        // Each instance waits on a bookmark that one of the event's own stimuli matches: the unfiltered one, or the
+        // filtered one that started it.
+        await host.CreateProductAsync("gadget");
+        await host.DeliveredAsync();
+
+        string[] workflows = [StartThenWaitForAnySave.Id, StartThenWaitForProductSave.Id];
+        foreach (var workflow in workflows)
+        {
+            Assert.Equal(1, Assert.Single(host.Runs.Of(workflow + ":first"))!.ResourceVersion);
+            Assert.Empty(host.Runs.Of(workflow + ":second"));
+        }
+
+        // The next save resumes the waiting instance once, and starts a new one, which waits in turn.
+        await host.Manager.UpdateAsync("gadget", new UpdateResourceRequest { BaseVersion = 1, AspectUpdates = new() { ["Price"] = new { Amount = 12 } } });
+        await host.DeliveredAsync();
+
+        foreach (var workflow in workflows)
+        {
+            var first = host.Runs.Of(workflow + ":first");
+            Assert.Equal([1, 2], first.Select(static e => e!.ResourceVersion));
+            var second = Assert.Single(host.Runs.Of(workflow + ":second"))!;
+            Assert.Equal(2, second.ResourceVersion);
+            Assert.Equal(first[1]!.OperationId, second.OperationId);
+        }
     }
 
     [Fact]
@@ -138,8 +201,9 @@ public sealed class AsterTriggerTests
         await host.CreateProductAsync("gadget");
 
         await host.Manager.ActivateAsync("gadget", 1, "Published");
+        await host.DeliveredAsync();
 
-        var sends = host.Sends.All.Where(static s => s.ActivityTypeName == Activated).ToList();
+        var sends =host.Sends.All.Where(static s => s.ActivityTypeName == Activated).ToList();
         Assert.Equal(
             [
                 new ResourceLifecycleStimulus("", "Product", "Published"),
@@ -164,6 +228,7 @@ public sealed class AsterTriggerTests
         writer!.Fail = true;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => host.Manager.ActivateAsync("gadget", 1, "Published").AsTask());
+        await host.DeliveredAsync();
 
         Assert.DoesNotContain(host.Sends.All, static s => s.ActivityTypeName == Activated);
         Assert.Empty(host.Runs.Of(OnProductPublished.Id));
@@ -178,8 +243,9 @@ public sealed class AsterTriggerTests
         await host.CreateProductAsync("gadget");
 
         await host.Manager.ActivateAsync("gadget", 1, "Published");
+        await host.DeliveredAsync();
 
-        Assert.Equal([1], (await host.Manager.GetActiveVersionsAsync("gadget", "Published")).Select(static r => r.Version));
+        Assert.Equal([1],(await host.Manager.GetActiveVersionsAsync("gadget", "Published")).Select(static r => r.Version));
         var warnings = host.Logs.Entries
             .Where(static e => e.Level == LogLevel.Warning && e.Category == "Aster.Elsa.AsterLifecycleTriggerHook" && e.Message.Contains(Activated))
             .ToList();
@@ -197,16 +263,18 @@ public sealed class AsterTriggerTests
     public async Task Events_are_sent_in_the_Elsa_tenant_of_the_Aster_write_and_match_only_that_tenants_workflows()
     {
         var tenantA = TenantScope.FromTenantId("tenant-a");
-        await using var host = await TriggerTestHost.StartAsync(configure: null, "", "tenant-a");
+        await using var host = await TriggerTestHost.StartAsync(elsaTenantIds: ["", "tenant-a"]);
         await host.CreateProductAsync("gadget", tenantA);
         await host.CreateProductAsync("gadget");
 
         await host.Manager.ActivateAsync("gadget", 1, "Published", tenantA, allowMultipleActive: false, CancellationToken.None);
+        await host.DeliveredAsync();
 
         var run = Assert.Single(host.Runs.Of(OnProductPublished.Id))!;
         Assert.Equal("tenant-a", run.TenantId);
 
         await host.Manager.ActivateAsync("gadget", 1, "Published");
+        await host.DeliveredAsync();
 
         Assert.Equal(["tenant-a", ""], host.Runs.Of(OnProductPublished.Id).Select(static e => e!.TenantId));
     }
@@ -220,6 +288,7 @@ public sealed class AsterTriggerTests
             .RegisterDefinitionAsync(ElsaTestHost.Product() with { TenantScope = tenantB }, tenantB, CancellationToken.None);
 
         await host.CreateProductAsync("gadget", tenantB);
+        await host.DeliveredAsync();
 
         Assert.Empty(host.Sends.All);
         Assert.Contains(host.Logs.Entries, static e => e.Level == LogLevel.Debug && e.Message.Contains("no tenant 'tenant-b'"));

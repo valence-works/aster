@@ -27,4 +27,8 @@
     <ProjectReference Include="..\..\core\Aster.Core\Aster.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aster.Elsa.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -2,6 +2,7 @@ using System.Dynamic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Aster.Core.Abstractions;
+using Aster.Core.Exceptions;
 using Aster.Core.Models.Instances;
 using Aster.Core.Models.Querying;
 using Aster.Elsa.Activities;
@@ -150,6 +151,22 @@ public sealed class AsterActivitiesTests
         var result = await host.RunAsync(new CreateResource { DefinitionId = new("Product"), ResourceId = new("gadget"), Aspects = new(Gadget) });
 
         Assert.Equal(AsterActivityFaultCodes.DuplicateResourceId, result.FaultCode());
+    }
+
+    [Fact]
+    public async Task Identifiers_that_start_or_end_with_whitespace_fault_with_identifier_whitespace_and_write_nothing()
+    {
+        await using var host = await ElsaTestHost.StartAsync();
+        await CreateGadgetAsync(host);
+
+        Assert.Equal(
+            InvalidIdentifierException.SurroundingWhitespaceCode,
+            (await host.RunAsync(new CreateResource { DefinitionId = new("Product"), ResourceId = new(" padded"), Aspects = new(Gadget) })).FaultCode());
+        Assert.Equal(
+            InvalidIdentifierException.SurroundingWhitespaceCode,
+            (await host.RunAsync(new ActivateResourceVersion { ResourceId = new("gadget"), ResourceVersion = new(1), Channel = new("Published ") })).FaultCode());
+        Assert.Null(await host.Manager.GetLatestVersionAsync(" padded"));
+        Assert.Empty(await host.Manager.GetActiveVersionsAsync("gadget", "Published "));
     }
 
     // Update Resource
