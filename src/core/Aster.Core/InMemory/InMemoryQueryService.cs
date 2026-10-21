@@ -256,15 +256,25 @@ public sealed partial class InMemoryQueryService : IResourceQueryService, IResou
         {
             QueryArrayElementKind.Text => element.ValueKind == JsonValueKind.String
                 && string.Equals(element.GetString(), QueryArrayValue.FormatText(candidate!), StringComparison.OrdinalIgnoreCase),
-            QueryArrayElementKind.Numeric => element.ValueKind == JsonValueKind.Number
-                && element.TryGetDouble(out var number)
-                && number == Convert.ToDouble(candidate, System.Globalization.CultureInfo.InvariantCulture),
+            QueryArrayElementKind.Numeric => element.ValueKind == JsonValueKind.Number && NumericElementMatches(element, candidate!),
             QueryArrayElementKind.Boolean => element.ValueKind == (candidate is true ? JsonValueKind.True : JsonValueKind.False),
             _ => element.ValueKind == JsonValueKind.String
                 && QueryDateTimeValue.TryNormalizeDateKey(element.GetString(), out var elementKey)
                 && QueryDateTimeValue.TryNormalizeDateKey(candidate, out var candidateKey)
                 && string.Equals(elementKey, candidateKey, StringComparison.Ordinal),
         };
+    }
+
+    // Whole-number candidates compare exactly (an int64 element, or e.g. 2.0 via decimal); others as double.
+    private static bool NumericElementMatches(JsonElement element, object candidate)
+    {
+        if (QueryArrayValue.TryGetIntegral(candidate, out var integral))
+            return element.TryGetInt64(out var elementInteger)
+                ? elementInteger == integral
+                : element.TryGetDecimal(out var elementDecimal) && elementDecimal == integral;
+
+        return element.TryGetDouble(out var number)
+            && number == Convert.ToDouble(candidate, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static string? ResolveFacetValue(object? aspectRaw, string facetDefinitionId)

@@ -52,6 +52,43 @@ public static class QueryArrayValue
         Guid guid => guid.ToString("D"),
         _ => (string)value,
     };
+
+    /// <summary>
+    /// Gets a <see cref="QueryArrayElementKind.Numeric"/> candidate as an exact 64-bit integer when it
+    /// denotes one. Providers compare such candidates exactly, so integers beyond 2^53 (where
+    /// <see cref="double"/> loses precision) don't match their neighbours.
+    /// </summary>
+    /// <param name="value">A numeric candidate.</param>
+    /// <param name="integral">The integer value when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> when the candidate is a whole number within the <see cref="long"/> range.</returns>
+    public static bool TryGetIntegral(object value, out long integral)
+    {
+        switch (value)
+        {
+            case byte or sbyte or short or ushort or int or uint or long:
+                integral = Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            case ulong unsigned when unsigned <= long.MaxValue:
+                integral = (long)unsigned;
+                return true;
+            case decimal number when number == decimal.Truncate(number) && number >= long.MinValue && number <= long.MaxValue:
+                integral = (long)number;
+                return true;
+            case double or float:
+                var real = Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+                // 2^63 is exactly representable as a double; anything at or above it overflows long.
+                if (Math.Floor(real) == real && real >= long.MinValue && real < 9223372036854775808d)
+                {
+                    integral = (long)real;
+                    return true;
+                }
+
+                break;
+        }
+
+        integral = 0;
+        return false;
+    }
 }
 
 /// <summary>
@@ -62,7 +99,10 @@ public enum QueryArrayElementKind
     /// <summary>Matches JSON string elements, compared ordinally ignoring case.</summary>
     Text,
 
-    /// <summary>Matches JSON number elements with an equal numeric value (compared as double).</summary>
+    /// <summary>
+    /// Matches JSON number elements with an equal numeric value: whole-number candidates compare exactly as
+    /// 64-bit integers, other candidates as <see cref="double"/>.
+    /// </summary>
     Numeric,
 
     /// <summary>Matches JSON <c>true</c> or <c>false</c> elements with the same value.</summary>

@@ -271,6 +271,10 @@ internal sealed class SqliteWhereTranslator(SqliteParameterBag parameters)
         {
             QueryArrayElementKind.Text =>
                 $"element.type = 'text' AND {SqliteTextBehavior.EqualsFunction}(element.value, CAST({parameters.Add(QueryArrayValue.FormatText(candidate!))} AS TEXT))",
+            // Whole numbers bind as INTEGER so integer elements compare exactly beyond 2^53; SQLite still
+            // compares an INTEGER parameter with a REAL element (e.g. 2.0) numerically.
+            QueryArrayElementKind.Numeric when QueryArrayValue.TryGetIntegral(candidate!, out var integral) =>
+                $"element.type IN ('integer', 'real') AND element.value = {parameters.Add(integral)}",
             QueryArrayElementKind.Numeric =>
                 $"element.type IN ('integer', 'real') AND CAST(element.value AS REAL) = {parameters.Add(Convert.ToDouble(candidate, CultureInfo.InvariantCulture))}",
             QueryArrayElementKind.Boolean =>

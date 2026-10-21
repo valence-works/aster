@@ -169,6 +169,22 @@ public sealed class ArrayQueryOperatorTests : IDisposable
     [Theory]
     [InlineData(InMemory)]
     [InlineData(Sqlite)]
+    public async Task NumericArrayOperators_CompareLargeIntegersExactly(string providerKind)
+    {
+        // 2^53 + 1 and 2^53 are equal as doubles; 64-bit IDs must still match exactly.
+        await using var provider = await CreateSeededProviderAsync(providerKind);
+        var writer = provider.GetRequiredService<IResourceVersionWriter>();
+        await SaveAsync(writer, "big-1", new Dictionary<string, object?> { ["Ids"] = new[] { 9007199254740993L } });
+        await SaveAsync(writer, "big-2", new Dictionary<string, object?> { ["Ids"] = new[] { 9007199254740992L } });
+
+        Assert.Equal(new[] { "big-1" }, await QueryIdsAsync(provider, Labels("Ids", 9007199254740993L, ComparisonOperator.ArrayContains)));
+        Assert.Equal(new[] { "big-2" }, await QueryIdsAsync(provider, Labels("Ids", 9007199254740992m, ComparisonOperator.ArrayContains)));
+        Assert.Equal(new[] { "big-1" }, await QueryIdsAsync(provider, Labels("Ids", new object[] { 9007199254740993UL, 1L }, ComparisonOperator.ArrayContainsAny)));
+    }
+
+    [Theory]
+    [InlineData(InMemory)]
+    [InlineData(Sqlite)]
     public async Task ArrayContains_WorksOnTypedAspectPayloads(string providerKind)
     {
         var services = new ServiceCollection().AddAsterCore();
