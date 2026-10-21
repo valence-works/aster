@@ -196,7 +196,7 @@ export function QueryBuilder() {
           </Card>
           {results ? (
             <Card>
-              <CardHeader><CardTitle>Results</CardTitle><CardDescription>{results.items.length} resources{results.hasMore ? `; more match beyond the first ${take}` : ""}.</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Results</CardTitle><CardDescription>{results.items.length} resources{results.hasMore ? `; more match beyond these` : ""}.</CardDescription></CardHeader>
               <CardContent>
                 {results.items.length === 0 ? <p className="text-sm text-muted-foreground">No resources match.</p> : (
                   <Table aria-label="Query results">
